@@ -27,11 +27,11 @@ export function useOpsServicePeriods(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.servicePeriods(restaurantId)
       : queryKeys.opsRestaurants.servicePeriods('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getServicePeriods(restaurantId);
+      return restaurantService.getServicePeriods(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.servicePeriods,

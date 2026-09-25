@@ -48,7 +48,9 @@ describe('useOpsRestaurantEmailTemplates', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual(snapshot);
-    expect(restaurantService.getEmailTemplates).toHaveBeenCalledWith(restaurantId);
+    expect(restaurantService.getEmailTemplates).toHaveBeenCalledWith(restaurantId, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('@contract surfaces fetch errors', async () => {
@@ -99,9 +101,7 @@ describe('useOpsResetRestaurantEmailTemplate', () => {
   it('@contract resets the template and invalidates the snapshot cache', async () => {
     restaurantService.resetEmailTemplate.mockResolvedValue({ key: 'booking_confirmed' });
 
-    const { result, invalidateSpy } = setup(() =>
-      useOpsResetRestaurantEmailTemplate(restaurantId),
-    );
+    const { result, invalidateSpy } = setup(() => useOpsResetRestaurantEmailTemplate(restaurantId));
 
     await result.current.mutateAsync({ templateKey: 'booking_confirmed' as never });
 

@@ -243,7 +243,7 @@ describe('OpsMenuManagementClient', () => {
     expect(screen.getAllByText('Burrata').length).toBeGreaterThan(0);
     expect(screen.queryByText('Legacy item panels (v1 compatibility)')).not.toBeInTheDocument();
     expect(screen.queryByText(/CSV imports/i)).not.toBeInTheDocument();
-    expect(listMenus).toHaveBeenCalledWith('rest-1');
+    expect(listMenus).toHaveBeenCalledWith('rest-1', { signal: expect.any(AbortSignal) });
   });
 
   it('keeps ?catalog=drinks and shows only drinks and mixed menus', async () => {

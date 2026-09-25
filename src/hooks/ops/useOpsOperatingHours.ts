@@ -27,11 +27,11 @@ export function useOpsOperatingHours(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.hours(restaurantId)
       : queryKeys.opsRestaurants.hours('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getOperatingHours(restaurantId);
+      return restaurantService.getOperatingHours(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.operatingHours,

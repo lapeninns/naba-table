@@ -46,11 +46,11 @@ export function useOpsMenuHierarchy(
 
   return useQuery<MenuHierarchyResponse, MutationError>({
     queryKey: hierarchyListKey(restaurantId),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return menuHierarchyService.listMenus(restaurantId);
+      return menuHierarchyService.listMenus(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.menuHierarchy,

@@ -60,7 +60,9 @@ describe('useOpsMenuHierarchy', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual({ menus });
-    expect(menuHierarchyService.listMenus).toHaveBeenCalledWith(restaurantId);
+    expect(menuHierarchyService.listMenus).toHaveBeenCalledWith(restaurantId, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it('@contract surfaces service errors', async () => {
@@ -111,9 +113,7 @@ describe('menu hierarchy mutations', () => {
     const item = { id: 'item-1', name: 'Soup' };
     menuHierarchyService.updateItem.mockResolvedValue(item);
 
-    const { result, invalidateSpy } = setup(() =>
-      useOpsPatchRestaurantMenuItem(restaurantId),
-    );
+    const { result, invalidateSpy } = setup(() => useOpsPatchRestaurantMenuItem(restaurantId));
 
     await result.current.mutateAsync({
       menuId: 'menu-1',

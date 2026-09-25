@@ -67,6 +67,7 @@ describe('Wave 3 GBP operator client boundaries', () => {
     expect(fetchJsonMock).toHaveBeenNthCalledWith(
       1,
       '/api/ops/restaurants/restaurant_1/google-business-profile',
+      undefined,
     );
     expect(fetchJsonMock).toHaveBeenNthCalledWith(
       2,

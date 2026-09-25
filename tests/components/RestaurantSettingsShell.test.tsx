@@ -24,7 +24,11 @@ const dynamicState = vi.hoisted(() => ({
 }));
 
 const prefetchState = vi.hoisted(() => ({
-  prefetchIfStale: vi.fn(({ queryFn }: { queryFn: () => unknown }) => queryFn()),
+  // Mirror TanStack's QueryFunctionContext: settings queryFns read `signal` from it.
+  prefetchIfStale: vi.fn(
+    ({ queryFn }: { queryFn: (context: { signal: AbortSignal }) => unknown }) =>
+      queryFn({ signal: new AbortController().signal }),
+  ),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -472,17 +476,22 @@ describe('RestaurantSettingsSubnav', () => {
     await user.hover(screen.getByRole('link', { name: 'Tables' }));
     await user.hover(screen.getByRole('link', { name: 'Team' }));
 
+    // Prefetches forward the query AbortSignal so a cancelled prefetch aborts its fetch.
+    const withSignal = { signal: expect.any(AbortSignal) };
     await waitFor(() => {
-      expect(serviceCalls.getProfile).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.getBusinessContext).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.getGoogleBusinessProfileConnection).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.getOperatingHours).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.getServicePeriods).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.listOccasions).toHaveBeenCalledWith();
-      expect(serviceCalls.getTurnBands).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.listMenus).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.listTables).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.listInvites).toHaveBeenCalledWith('rest-1', 'all');
+      expect(serviceCalls.getProfile).toHaveBeenCalledWith('rest-1', withSignal);
+      expect(serviceCalls.getBusinessContext).toHaveBeenCalledWith('rest-1', withSignal);
+      expect(serviceCalls.getGoogleBusinessProfileConnection).toHaveBeenCalledWith(
+        'rest-1',
+        withSignal,
+      );
+      expect(serviceCalls.getOperatingHours).toHaveBeenCalledWith('rest-1', withSignal);
+      expect(serviceCalls.getServicePeriods).toHaveBeenCalledWith('rest-1', withSignal);
+      expect(serviceCalls.listOccasions).toHaveBeenCalledWith(withSignal);
+      expect(serviceCalls.getTurnBands).toHaveBeenCalledWith('rest-1', withSignal);
+      expect(serviceCalls.listMenus).toHaveBeenCalledWith('rest-1', withSignal);
+      expect(serviceCalls.listTables).toHaveBeenCalledWith('rest-1', {}, withSignal);
+      expect(serviceCalls.listInvites).toHaveBeenCalledWith('rest-1', 'all', withSignal);
     });
   });
 });

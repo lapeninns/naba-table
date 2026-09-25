@@ -27,11 +27,11 @@ export function useOpsRestaurantBusinessContext(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.businessContext(restaurantId)
       : queryKeys.opsRestaurants.businessContext('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getBusinessContext(restaurantId);
+      return restaurantService.getBusinessContext(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.businessContext,

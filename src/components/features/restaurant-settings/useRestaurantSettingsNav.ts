@@ -181,7 +181,7 @@ export function useRestaurantSettingsNav() {
           queryClient,
           queryKey: queryKeys.opsRestaurants.detail(id),
           staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
-          queryFn: () => restaurantService.getProfile(id),
+          queryFn: ({ signal }) => restaurantService.getProfile(id, { signal }),
           enabled: true,
         }),
       // Same restaurant record as Profile.
@@ -190,7 +190,7 @@ export function useRestaurantSettingsNav() {
           queryClient,
           queryKey: queryKeys.opsRestaurants.detail(id),
           staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
-          queryFn: () => restaurantService.getProfile(id),
+          queryFn: ({ signal }) => restaurantService.getProfile(id, { signal }),
           enabled: true,
         }),
       '/app/settings/restaurant/discovery': () =>
@@ -198,7 +198,7 @@ export function useRestaurantSettingsNav() {
           queryClient,
           queryKey: queryKeys.opsRestaurants.businessContext(id),
           staleTime: OPS_SETTINGS_STALE_TIME.businessContext,
-          queryFn: () => restaurantService.getBusinessContext(id),
+          queryFn: ({ signal }) => restaurantService.getBusinessContext(id, { signal }),
           enabled: true,
         }),
       '/app/settings/restaurant/google-business-profile': () =>
@@ -206,7 +206,8 @@ export function useRestaurantSettingsNav() {
           queryClient,
           queryKey: queryKeys.opsRestaurants.googleBusinessProfile(id),
           staleTime: OPS_SETTINGS_STALE_TIME.googleBusinessProfile,
-          queryFn: () => restaurantService.getGoogleBusinessProfileConnection(id),
+          queryFn: ({ signal }) =>
+            restaurantService.getGoogleBusinessProfileConnection(id, { signal }),
           enabled: true,
         }),
       '/app/settings/restaurant/availability': () =>
@@ -215,28 +216,28 @@ export function useRestaurantSettingsNav() {
             queryClient,
             queryKey: queryKeys.opsRestaurants.hours(id),
             staleTime: OPS_SETTINGS_STALE_TIME.operatingHours,
-            queryFn: () => restaurantService.getOperatingHours(id),
+            queryFn: ({ signal }) => restaurantService.getOperatingHours(id, { signal }),
             enabled: true,
           }),
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsRestaurants.servicePeriods(id),
             staleTime: OPS_SETTINGS_STALE_TIME.servicePeriods,
-            queryFn: () => restaurantService.getServicePeriods(id),
+            queryFn: ({ signal }) => restaurantService.getServicePeriods(id, { signal }),
             enabled: true,
           }),
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsOccasions.list(),
             staleTime: OPS_SETTINGS_STALE_TIME.occasions,
-            queryFn: () => occasionService.listOccasions(),
+            queryFn: ({ signal }) => occasionService.listOccasions({ signal }),
             enabled: true,
           }),
           prefetchIfStale({
             queryClient,
             queryKey: queryKeys.opsRestaurants.turnBands(id),
             staleTime: OPS_SETTINGS_STALE_TIME.turnBands,
-            queryFn: () => restaurantService.getTurnBands(id),
+            queryFn: ({ signal }) => restaurantService.getTurnBands(id, { signal }),
             enabled: true,
           }),
         ]),
@@ -245,14 +246,14 @@ export function useRestaurantSettingsNav() {
           queryClient,
           queryKey: queryKeys.opsMenuHierarchy.list(id),
           staleTime: OPS_SETTINGS_STALE_TIME.menuHierarchy,
-          queryFn: () => menuHierarchyService.listMenus(id),
+          queryFn: ({ signal }) => menuHierarchyService.listMenus(id, { signal }),
           enabled: true,
         }),
       '/app/settings/restaurant/tables': () =>
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsTables.list(id, {}),
-          queryFn: () => tableInventoryService.list(id),
+          queryFn: ({ signal }) => tableInventoryService.list(id, {}, { signal }),
           enabled: true,
         }),
       '/app/settings/restaurant/team': () =>
@@ -260,7 +261,7 @@ export function useRestaurantSettingsNav() {
           queryClient,
           // The Team page loads every invitation once and filters on the device.
           queryKey: queryKeys.team.invitations(id, 'all'),
-          queryFn: () => teamService.listInvites(id, 'all'),
+          queryFn: ({ signal }) => teamService.listInvites(id, 'all', { signal }),
           enabled: true,
         }),
     };

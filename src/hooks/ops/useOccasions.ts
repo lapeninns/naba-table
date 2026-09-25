@@ -14,7 +14,7 @@ export function useOpsOccasions(): UseQueryResult<OpsOccasion[], HttpError | Err
 
   return useQuery<OpsOccasion[], HttpError | Error>({
     queryKey: queryKeys.opsOccasions.list(),
-    queryFn: () => occasionService.listOccasions(),
+    queryFn: ({ signal }) => occasionService.listOccasions({ signal }),
     staleTime: OPS_SETTINGS_STALE_TIME.occasions,
   });
 }

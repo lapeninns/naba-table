@@ -21,6 +21,7 @@ describe('browser restaurant service Google Business Profile details', () => {
 
     expect(fetchJsonMock).toHaveBeenCalledWith(
       '/api/ops/restaurants/restaurant-1/google-business-profile/details',
+      undefined,
     );
   });
 
@@ -33,6 +34,7 @@ describe('browser restaurant service Google Business Profile details', () => {
     expect(locations).toEqual([]);
     expect(fetchJsonMock).toHaveBeenCalledWith(
       '/api/ops/restaurants/restaurant-1/google-business-profile/locations',
+      undefined,
     );
   });
 });

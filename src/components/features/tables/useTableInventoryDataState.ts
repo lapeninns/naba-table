@@ -33,11 +33,11 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
     isFetching,
   } = useQuery({
     queryKey: tablesQueryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!activeRestaurantId) {
         throw new Error('Restaurant id is required to load tables');
       }
-      return tableService.list(activeRestaurantId);
+      return tableService.list(activeRestaurantId, {}, { signal });
     },
     enabled: Boolean(activeRestaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.tables,
@@ -48,11 +48,11 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
 
   const fallbackZonesQuery = useQuery({
     queryKey: zonesQueryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!activeRestaurantId) {
         throw new Error('Restaurant id is required to load zones');
       }
-      return zoneService.list(activeRestaurantId);
+      return zoneService.list(activeRestaurantId, { signal });
     },
     enabled: Boolean(activeRestaurantId) && !isLoading && !summary,
     staleTime: 60_000,

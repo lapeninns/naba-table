@@ -27,11 +27,11 @@ export function useOpsRestaurantDetails(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.detail(restaurantId)
       : queryKeys.opsRestaurants.detail('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getProfile(restaurantId);
+      return restaurantService.getProfile(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,

@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 
 import type { OccasionDefinition } from '@reserve/shared/occasions';
 
@@ -22,7 +22,7 @@ type OccasionResponse = {
 };
 
 export interface OccasionService {
-  listOccasions(): Promise<OpsOccasion[]>;
+  listOccasions(options?: RequestSignalOptions): Promise<OpsOccasion[]>;
   createOccasion(input: CreateOccasionInput): Promise<OpsOccasion>;
   updateOccasion(key: string, input: UpdateOccasionInput): Promise<OpsOccasion>;
   deleteOccasion(key: string): Promise<void>;
@@ -45,8 +45,8 @@ export type UpdateOccasionInput = Partial<Omit<CreateOccasionInput, 'key'>>;
 export type OccasionServiceFactory = () => OccasionService;
 
 class DefaultOccasionService implements OccasionService {
-  async listOccasions(): Promise<OpsOccasion[]> {
-    const response = await fetchJson<OccasionListResponse>(OPS_OCCASIONS_BASE);
+  async listOccasions(options?: RequestSignalOptions): Promise<OpsOccasion[]> {
+    const response = await fetchJson<OccasionListResponse>(OPS_OCCASIONS_BASE, options);
     return response.occasions;
   }
 
@@ -60,11 +60,14 @@ class DefaultOccasionService implements OccasionService {
   }
 
   async updateOccasion(key: string, input: UpdateOccasionInput): Promise<OpsOccasion> {
-    const response = await fetchJson<OccasionResponse>(`${OPS_OCCASIONS_BASE}/${encodeURIComponent(key)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
+    const response = await fetchJson<OccasionResponse>(
+      `${OPS_OCCASIONS_BASE}/${encodeURIComponent(key)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    );
     return response.occasion;
   }
 

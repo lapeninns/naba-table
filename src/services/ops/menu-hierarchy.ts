@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 
 import type {
   CanonicalRestaurantMenu,
@@ -69,7 +69,7 @@ type OptionResponse = {
 };
 
 export interface MenuHierarchyService {
-  listMenus(restaurantId: string): Promise<MenuHierarchyResponse>;
+  listMenus(restaurantId: string, options?: RequestSignalOptions): Promise<MenuHierarchyResponse>;
   createMenu(restaurantId: string, payload: RestaurantMenuInput): Promise<CanonicalRestaurantMenu>;
   updateMenu(
     restaurantId: string,
@@ -135,8 +135,8 @@ export interface MenuHierarchyService {
 export type MenuHierarchyServiceFactory = () => MenuHierarchyService;
 
 class DefaultMenuHierarchyService implements MenuHierarchyService {
-  listMenus(restaurantId: string): Promise<MenuHierarchyResponse> {
-    return fetchJson<MenuHierarchyResponse>(buildMenusBase(restaurantId));
+  listMenus(restaurantId: string, options?: RequestSignalOptions): Promise<MenuHierarchyResponse> {
+    return fetchJson<MenuHierarchyResponse>(buildMenusBase(restaurantId), options);
   }
 
   async createMenu(
@@ -285,11 +285,7 @@ class DefaultMenuHierarchyService implements MenuHierarchyService {
     await fetchJson<{ ok: true }>(buildMenuBase(restaurantId, menuId), { method: 'DELETE' });
   }
 
-  async deleteSection(
-    restaurantId: string,
-    menuId: string,
-    sectionId: string,
-  ): Promise<void> {
+  async deleteSection(restaurantId: string, menuId: string, sectionId: string): Promise<void> {
     await fetchJson<{ ok: true }>(buildSectionBase(restaurantId, menuId, sectionId), {
       method: 'DELETE',
     });
