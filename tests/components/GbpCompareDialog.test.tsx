@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -228,7 +228,8 @@ describe('GbpCompareDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Open compare' }));
 
-    const dialog = screen.getByRole('dialog', { name: 'Compare with Google' });
+    // The dialog module is lazy-loaded on first open.
+    const dialog = await screen.findByRole('dialog', { name: 'Compare with Google' });
     for (const label of [
       'Profile',
       'Operating hours',
@@ -252,7 +253,7 @@ describe('GbpCompareDialog', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Open compare' }));
-    await user.click(screen.getByRole('button', { name: /apply all google fields/i }));
+    await user.click(await screen.findByRole('button', { name: /apply all google fields/i }));
 
     expect(publishMutation.mutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -271,5 +272,28 @@ describe('GbpCompareDialog', () => {
       }),
     );
     expect(publishMutation.mutateAsync.mock.calls[0][0].decisions).toHaveLength(8);
+  });
+
+  it('moves focus into the lazily loaded dialog and closes on Escape', async () => {
+    const user = userEvent.setup();
+    render(
+      <GbpDriftProvider restaurantId="rest-1">
+        <OpenDialogButton />
+      </GbpDriftProvider>,
+    );
+
+    const opener = screen.getByRole('button', { name: 'Open compare' });
+    await user.click(opener);
+    const dialog = await screen.findByRole('dialog', { name: 'Compare with Google' });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Compare with Google' })).not.toBeInTheDocument(),
+    );
+
+    // Re-opening reuses the already-loaded dialog.
+    await user.click(opener);
+    expect(await screen.findByRole('dialog', { name: 'Compare with Google' })).toBeInTheDocument();
   });
 });

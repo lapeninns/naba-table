@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -7,7 +8,6 @@ import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 
 import { GbpDriftContext } from './context';
-import { GbpCompareDialog } from './GbpCompareDialog';
 import {
   buildGbpDriftPublishRequest,
   deriveGbpDriftFieldViews,
@@ -26,12 +26,24 @@ import type {
 } from './types';
 import type { DualSyncPublishRequest, DualSyncPublishResponse } from '@/services/ops/dual-sync';
 
+// The compare dialog (accordion, scroll area, toggle group, field rows) is only
+// needed once an operator asks to compare with Google, so keep it out of the
+// initial settings chunk. It opens from a client interaction, so there is
+// nothing to server-render.
+const GbpCompareDialog = dynamic(
+  () => import('./GbpCompareDialog').then((mod) => mod.GbpCompareDialog),
+  { ssr: false },
+);
+
 export function GbpDriftProvider({ restaurantId, children }: GbpDriftProviderProps) {
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const isLinked = connectionQuery.data?.status === 'linked';
   const dualSync = useOpsDualSync({ restaurantId: isLinked ? restaurantId : null });
   const [draftOverrides, setDraftOverrides] = useState<Record<string, unknown>>({});
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
+  // Mount on first open, then stay mounted so Radix can run its close
+  // transition and re-opening does not suspend on the lazy chunk again.
+  const [compareDialogMounted, setCompareDialogMounted] = useState(false);
   const [compareOptions, setCompareOptions] = useState<GbpDriftOpenOptions>({
     filter: 'drifted_only',
   });
@@ -86,6 +98,7 @@ export function GbpDriftProvider({ restaurantId, children }: GbpDriftProviderPro
 
   const openCompare = useCallback((options: GbpDriftOpenOptions = {}) => {
     setCompareOptions({ filter: 'drifted_only', ...options });
+    setCompareDialogMounted(true);
     setCompareDialogOpen(true);
   }, []);
 
@@ -178,7 +191,7 @@ export function GbpDriftProvider({ restaurantId, children }: GbpDriftProviderPro
   return (
     <GbpDriftContext.Provider value={value}>
       {children}
-      <GbpCompareDialog />
+      {compareDialogMounted ? <GbpCompareDialog /> : null}
     </GbpDriftContext.Provider>
   );
 }
