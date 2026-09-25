@@ -32,6 +32,9 @@ export function useOpsTeamInvitations(params: {
       return teamService.listInvites(restaurantId, status);
     },
     enabled: Boolean(restaurantId),
+    // Invitee emails are PII; keep them out of the localStorage query cache
+    // (see lib/query/persist.ts).
+    meta: { persist: false },
   });
 }
 

@@ -35,6 +35,9 @@ export function useOpsRestaurantDetails(
     },
     enabled: Boolean(restaurantId),
     staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
+    // Manager and contact names, phones and emails are PII; keep them out of the
+    // localStorage query cache (see lib/query/persist.ts).
+    meta: { persist: false },
   });
 }
 
