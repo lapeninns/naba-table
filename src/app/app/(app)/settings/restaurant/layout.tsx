@@ -6,12 +6,13 @@ import {
   OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
+import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { APP_REQUEST_PATH_HEADER, sanitizeAppRequestPath } from '@/lib/url/app-request-path';
 import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
+import { getRequestUser } from '@/server/auth/request-user';
 import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
-import { getServerComponentSupabaseClient } from '@/server/supabase';
-import { fetchUserMembershipsCached, requireAdminMembership } from '@/server/team/access';
+import { fetchUserMembershipsCached } from '@/server/team/access';
 
 import type { ReactNode } from 'react';
 
@@ -33,11 +34,8 @@ export default async function RestaurantSettingsLayout({ children }: { children:
     );
   }
 
-  const supabase = await getServerComponentSupabaseClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  // Shared with the parent `/app` layout via React cache(): one getUser per request.
+  const { user, error } = await getRequestUser();
 
   if (error) {
     console.error('[settings/restaurant] failed to resolve auth', error.message);
@@ -61,13 +59,19 @@ export default async function RestaurantSettingsLayout({ children }: { children:
     redirect('/app/bookings');
   }
 
-  try {
-    await requireAdminMembership({ userId: user.id, restaurantId: activeRestaurantId });
-  } catch (membershipError) {
+  // Authorize from the membership rows (roles included) already fetched for this
+  // user. `activeRestaurantId` is always one of the user's own memberships, so a
+  // forged active-restaurant cookie cannot select another tenant. Settings API
+  // routes keep their own uncached admin guards for every read and write.
+  const activeMembership = memberships.find(
+    (membership) => membership.restaurant_id === activeRestaurantId,
+  );
+
+  if (!activeMembership || !isRestaurantAdminRole(activeMembership.role)) {
     console.warn('[settings/restaurant] denied non-admin settings access', {
       userId: user.id,
       restaurantId: activeRestaurantId,
-      error: membershipError instanceof Error ? membershipError.message : String(membershipError),
+      role: activeMembership?.role ?? null,
     });
     redirect('/app/bookings');
   }
