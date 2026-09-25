@@ -63,11 +63,44 @@ export function isVolatileOpsIntegrationQueryKey(queryKey: QueryKey): boolean {
   return false;
 }
 
+/**
+ * Query families that carry staff, invitee or customer PII (or email templates) and must
+ * never be written to localStorage. Their hooks also set `meta.persist: false`, but route
+ * prefetchers (lib/prefetchers.ts, ops-shell/useOpsRoutePrefetch.ts) insert the same keys
+ * without meta, so the key itself has to be denied.
+ */
+export function isPiiQueryKey(queryKey: QueryKey): boolean {
+  const first = keyPart(queryKey[0]);
+
+  // ['team', 'invitations', restaurantId, status]: invitee emails.
+  if (first === 'team') {
+    return queryKey[1] === 'invitations';
+  }
+
+  if (first !== 'ops') {
+    return false;
+  }
+
+  // ['ops', 'customers', ...]: customer names, emails and phones.
+  if (queryKey[1] === 'customers') {
+    return true;
+  }
+
+  if (queryKey[1] === 'restaurants') {
+    // ['ops', 'restaurants', 'detail', id]: manager name/phone, contact email/phone.
+    if (queryKey[2] === 'detail') return true;
+    // ['ops', 'restaurants', id, 'email-templates'].
+    if (queryKey[3] === 'email-templates') return true;
+  }
+
+  return false;
+}
+
 export function shouldPersistQuery(query: Query): boolean {
   if (query.meta?.persist === false) {
     return false;
   }
-  return !isVolatileOpsIntegrationQueryKey(query.queryKey);
+  return !isVolatileOpsIntegrationQueryKey(query.queryKey) && !isPiiQueryKey(query.queryKey);
 }
 
 function getStorage(): Storage | null {

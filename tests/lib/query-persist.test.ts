@@ -6,6 +6,7 @@ import {
   buildQueryStorageKey,
   clearPersistedQueryCache,
   configureQueryPersistence,
+  isPiiQueryKey,
   isVolatileOpsIntegrationQueryKey,
   shouldPersistQuery,
 } from '@/lib/query/persist';
@@ -39,8 +40,25 @@ describe('query persistence filter', () => {
     expect(shouldPersistQuery(queryWithKey(queryKey))).toBe(false);
   });
 
+  it.each(
+    [
+      queryKeys.team.invitations('rest-1', 'pending'),
+      queryKeys.team.invitations('rest-1', 'all'),
+      queryKeys.opsRestaurants.detail('rest-1'),
+      queryKeys.opsRestaurants.emailTemplates('rest-1'),
+      queryKeys.opsCustomers.list({ restaurantId: 'rest-1' }),
+    ].map((queryKey) => [queryKey] as const),
+  )('excludes staff, invitee, template and customer query %# even without meta', (queryKey) => {
+    expect(isPiiQueryKey(queryKey)).toBe(true);
+    expect(isVolatileOpsIntegrationQueryKey(queryKey)).toBe(false);
+    expect(shouldPersistQuery(queryWithKey(queryKey))).toBe(false);
+  });
+
   it('allows stable unrelated query keys to persist', () => {
-    expect(shouldPersistQuery(queryWithKey(queryKeys.opsRestaurants.detail('rest-1')))).toBe(true);
+    // The restaurant detail record used to be the example here; it carries manager and
+    // contact phone numbers/emails, so it is now in the PII deny-list above.
+    expect(shouldPersistQuery(queryWithKey(queryKeys.opsRestaurants.hours('rest-1')))).toBe(true);
+    expect(shouldPersistQuery(queryWithKey(queryKeys.team.memberships()))).toBe(true);
     expect(shouldPersistQuery(queryWithKey(queryKeys.bookings.detail('booking-1')))).toBe(true);
   });
 

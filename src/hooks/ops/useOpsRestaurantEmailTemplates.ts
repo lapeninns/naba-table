@@ -1,12 +1,21 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
-import type { RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
+import type {
+  RestaurantBookingEmailTemplateKey,
+  RestaurantEmailTemplateVariant,
+} from '@/lib/restaurants/email-templates';
 import type {
   PreviewEmailTemplateInput,
   RestaurantEmailTemplate,
@@ -33,6 +42,8 @@ export function useOpsRestaurantEmailTemplates(
     },
     enabled: Boolean(restaurantId),
     staleTime: 60_000,
+    // Email templates stay out of the localStorage query cache (see lib/query/persist.ts).
+    meta: { persist: false },
   });
 }
 
@@ -55,7 +66,9 @@ export function useOpsUpdateRestaurantEmailTemplate(
     },
     onSuccess: async () => {
       if (!restaurantId) return;
-      await queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.emailTemplates(restaurantId) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.emailTemplates(restaurantId),
+      });
     },
   });
 }
@@ -79,7 +92,9 @@ export function useOpsResetRestaurantEmailTemplate(
     },
     onSuccess: async () => {
       if (!restaurantId) return;
-      await queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.emailTemplates(restaurantId) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.emailTemplates(restaurantId),
+      });
     },
   });
 }
