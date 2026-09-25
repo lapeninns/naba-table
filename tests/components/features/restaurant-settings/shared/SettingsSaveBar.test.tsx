@@ -231,6 +231,19 @@ describe('SettingsSaveBar', () => {
     expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
   });
 
+  it('@contract keeps a specific API code on a 409 instead of claiming a conflict', async () => {
+    const failure = await failHoursWith(
+      new HttpError({ message: RAW_SERVER_TEXT, status: 409, code: 'SLUG_TAKEN' }),
+    );
+    render(<DraftPage changeCount={1} failure={failure} />);
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(region).toHaveTextContent('Hours not saved. Your edits are still here.');
+    expect(region).toHaveTextContent('Reason code SLUG_TAKEN');
+    expect(region).not.toHaveTextContent(CONFLICT_COPY);
+    expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
+  });
+
   it('@contract keeps the generic failure copy for a server error', async () => {
     const failure = await failHoursWith(new HttpError({ message: RAW_SERVER_TEXT, status: 500 }));
     render(<DraftPage changeCount={1} failure={failure} />);

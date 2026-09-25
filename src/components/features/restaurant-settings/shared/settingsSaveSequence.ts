@@ -39,14 +39,15 @@ export const SETTINGS_SAVE_CONFLICT_CODE = 'CONFLICT';
 const CONFLICT_ERROR_CODES = new Set([SETTINGS_SAVE_CONFLICT_CODE, 'STALE_WRITE']);
 
 /**
- * The reason code for a failed save step. A 409, or a conflict code from the API, becomes the
+ * The reason code for a failed save step. A bare 409, or a conflict code from the API, becomes the
  * stable {@link SETTINGS_SAVE_CONFLICT_CODE} so the save bar can explain it; the settings routes
- * send `{ error }`, so a bare 409 otherwise arrives only as `HTTP_409`.
+ * send `{ error }`, so a bare 409 otherwise arrives only as `HTTP_409`. A 409 that carries its own
+ * API code (for example a taken slug) keeps that code.
  */
 export function getSettingsSaveFailureReasonCode(error: unknown): string {
   if (
     error instanceof HttpError &&
-    (error.status === 409 || CONFLICT_ERROR_CODES.has(error.code))
+    ((error.status === 409 && error.code === 'HTTP_409') || CONFLICT_ERROR_CODES.has(error.code))
   ) {
     return SETTINGS_SAVE_CONFLICT_CODE;
   }
