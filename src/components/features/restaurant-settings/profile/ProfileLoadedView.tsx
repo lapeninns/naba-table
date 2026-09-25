@@ -1,7 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 
 import {
   AdvancedIdentitySubform,
@@ -55,6 +63,8 @@ type ProfileLoadedViewProps = {
   googleHref: string;
   gbpDriftCount: number;
   onCompareWithGoogle?: () => void;
+  /** Non-blocking notice shown above the form, e.g. a failed background refresh. */
+  notice?: ReactNode;
 };
 
 const GROUP_ANCHOR_IDS = PROFILE_FIELD_GROUPS.map((group) => group.anchorId);
@@ -83,6 +93,7 @@ export function ProfileLoadedView({
   googleHref,
   gbpDriftCount,
   onCompareWithGoogle,
+  notice,
 }: ProfileLoadedViewProps) {
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null | undefined>(undefined);
   const previewLogoUrl = logoPreviewUrl === undefined ? profile.logoUrl : logoPreviewUrl;
@@ -222,6 +233,7 @@ export function ProfileLoadedView({
         />
       }
     >
+      {notice}
       <div className={PROFILE_LAYOUT_GRID_CLASS}>
         <div className="flex min-w-0 flex-col gap-4">
           <ProfileReadinessSummary
