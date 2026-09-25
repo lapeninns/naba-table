@@ -60,7 +60,8 @@ export function GbpDriftProvider({
 }: GbpDriftProviderProps) {
   const settingsContext = useRestaurantSettingsContext();
   const restaurantId = explicitRestaurantId ?? settingsContext.restaurantId;
-  // Only drift-showing routes fetch; the rest read cached Google state for the sidebar badges.
+  // Only drift-showing routes fetch; the rest read cached Google state for the sidebar badges
+  // and derive a neutral status when nothing is cached (see `fetchDeferred`).
   const driftEnabled = isGbpDriftRouteView(settingsContext.routeView);
   const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId, {
     enabled: driftEnabled,
@@ -85,8 +86,10 @@ export function GbpDriftProvider({
         dualSyncState: stateQuery.data,
         dualSyncLoading: stateQuery.isLoading,
         dualSyncError: stateQuery.error,
+        fetchDeferred: !driftEnabled,
       }),
     [
+      driftEnabled,
       connectionQuery.data,
       connectionQuery.error,
       connectionQuery.isLoading,

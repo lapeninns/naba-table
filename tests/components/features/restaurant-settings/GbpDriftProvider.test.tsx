@@ -34,6 +34,7 @@ import {
   GbpDriftReviewLink,
   GbpDriftStatusPill,
   getGbpDriftNavBadge,
+  useGbpDriftStatus,
   getGbpDriftSectionBadge,
 } from '@/components/features/restaurant-settings/GbpDriftProvider';
 import { deriveGbpDriftStatus } from '@/components/features/restaurant-settings/gbpDriftStatus';
@@ -155,6 +156,93 @@ describe('GbpDriftProvider', () => {
       }
     },
   );
+
+  function NavBadgeProbe() {
+    const { status } = useGbpDriftStatus();
+    return <p data-testid="nav-badge">{getGbpDriftNavBadge(status) ?? 'none'}</p>;
+  }
+
+  it.each(['tables', 'team', 'staff-communications', null])(
+    '@contract shows no Link pill or badge on a cold non-drift route (%s) for an uncached connection',
+    (routeView) => {
+      settingsRoute.routeView = routeView;
+      // A disabled, uncached query reports no data and isLoading=false.
+      connectionState.data = undefined;
+      dualSyncState.current = {
+        ...makeDualSyncHookState(),
+        stateQuery: { ...makeDualSyncHookState().stateQuery, data: undefined },
+      };
+
+      render(
+        <GbpDriftProvider>
+          <GbpDriftStatusPill />
+          <NavBadgeProbe />
+        </GbpDriftProvider>,
+      );
+
+      expect(screen.queryByRole('link')).not.toBeInTheDocument();
+      expect(screen.getByTestId('nav-badge')).toHaveTextContent('none');
+    },
+  );
+
+  it('@contract shows no stale Refresh/Check state on a non-drift route with only the connection cached', () => {
+    settingsRoute.routeView = 'team';
+    connectionState.data = linkedConnection;
+    dualSyncState.current = {
+      ...makeDualSyncHookState(),
+      stateQuery: { ...makeDualSyncHookState().stateQuery, data: undefined },
+    };
+
+    render(
+      <GbpDriftProvider>
+        <GbpDriftStatusPill />
+        <NavBadgeProbe />
+      </GbpDriftProvider>,
+    );
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByTestId('nav-badge')).toHaveTextContent('none');
+  });
+
+  it('@contract still shows cached Link state on a non-drift route', () => {
+    settingsRoute.routeView = 'team';
+    connectionState.data = { status: 'unlinked' };
+
+    render(
+      <GbpDriftProvider>
+        <GbpDriftStatusPill />
+        <NavBadgeProbe />
+      </GbpDriftProvider>,
+    );
+
+    expect(screen.getByRole('link', { name: /GBP/ })).toHaveTextContent('Link Google');
+    expect(screen.getByTestId('nav-badge')).toHaveTextContent('Link');
+  });
+
+  it('@contract derives unknown, not not_connected, when the fetch is deferred and nothing is cached', () => {
+    expect(
+      deriveGbpDriftStatus({
+        restaurantId: 'rest-1',
+        connection: undefined,
+        connectionLoading: false,
+        dualSyncState: undefined,
+        fetchDeferred: true,
+      }).kind,
+    ).toBe('unknown');
+    const linkedDeferred = deriveGbpDriftStatus({
+      restaurantId: 'rest-1',
+      connection: linkedConnection as never,
+      dualSyncState: undefined,
+      fetchDeferred: true,
+    });
+    expect(linkedDeferred.kind).toBe('unknown');
+    expect(linkedDeferred.isLinked).toBe(true);
+    // Without deferral, a missing connection still means "not linked".
+    expect(
+      deriveGbpDriftStatus({ restaurantId: 'rest-1', connection: undefined, dualSyncState: null })
+        .kind,
+    ).toBe('not_connected');
+  });
 
   it('@contract maps drift status kinds to nav badges', () => {
     expect(
