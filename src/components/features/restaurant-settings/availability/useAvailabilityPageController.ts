@@ -1,10 +1,8 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useOccasionService } from '@/contexts/ops-services';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
 import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
@@ -15,11 +13,9 @@ import {
 import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useOpsTurnBands, useOpsUpdateTurnBands } from '@/hooks/ops/useOpsTurnBands';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
-import { queryKeys } from '@/lib/query/keys';
 
 import { emitProfileAnalytics } from '../../../../../components/ops/restaurants/details/shared';
 import { buildAvailabilityDraftOverrides } from '../availabilityScheduleManagerDomain';
-import { persistAvailabilityOccasionDrafts } from '../availabilityScheduleManagerPersistence';
 import {
   buildOperatingHoursPayload,
   extractRequiredOccasionKeys,
@@ -45,6 +41,7 @@ import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
 import { useWorkspaceGbpDriftCheck } from '../gbpDriftBadges';
 import { RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
 import { planAvailabilitySave } from './availabilitySavePlan';
+import { useSaveAvailabilityOccasions } from './useSaveAvailabilityOccasions';
 import {
   formatSettingsSectionList,
   pluralise,
@@ -101,8 +98,6 @@ function mergeGroup(
 }
 
 export function useAvailabilityPageController(restaurantId: string | null) {
-  const queryClient = useQueryClient();
-  const occasionService = useOccasionService();
   const operatingHoursQuery = useOpsOperatingHours(restaurantId);
   const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const occasionsQuery = useOpsOccasions();
@@ -112,6 +107,7 @@ export function useAvailabilityPageController(restaurantId: string | null) {
   const updateServicePeriods = useOpsUpdateServicePeriods(restaurantId);
   const updateTurnBands = useOpsUpdateTurnBands(restaurantId);
   const updateRestaurantDetails = useOpsUpdateRestaurantDetails(restaurantId);
+  const saveOccasions = useSaveAvailabilityOccasions();
   const saveSequence = useSettingsSaveSequence();
 
   const [saved, setSaved] = useState<AvailabilityPageDraft | null>(null);
@@ -242,12 +238,10 @@ export function useAvailabilityPageController(restaurantId: string | null) {
               throw error;
             }
           }
-          await persistAvailabilityOccasionDrafts({
+          await saveOccasions({
             draftOccasions: sent.occasions,
-            occasionService,
             originalOccasions: base.occasions,
           });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.opsOccasions.list() });
           if (JSON.stringify(sent.turnBands) !== JSON.stringify(base.turnBands)) {
             await updateTurnBands.mutateAsync(
               buildAvailabilityTurnBandsPayload({
@@ -329,9 +323,8 @@ export function useAvailabilityPageController(restaurantId: string | null) {
       }));
     },
     [
-      occasionService,
-      queryClient,
       restaurantId,
+      saveOccasions,
       servicePeriodsQuery.data,
       updateOperatingHours,
       updateRestaurantDetails,
