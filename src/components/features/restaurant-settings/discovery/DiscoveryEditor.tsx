@@ -22,7 +22,7 @@ import { formatDiscoveryGoogleStatus } from './discoveryPanelChromeDomain';
 import { buildDiscoverySectionStates } from './discoveryPanelsFrameDomain';
 import { DiscoverySectionCard } from './DiscoverySectionCard';
 import { collectDiscoveryIssues, countDiscoveryIssuesByFamily } from './discoveryValidation';
-import { useDiscoveryGbpDraftOverrides } from './hooks';
+import { useDiscoveryGbpDraftOverrides, useDiscoveryPanelEditors } from './hooks';
 import {
   AttributesPanel,
   BusinessDetailsPanel,
@@ -124,6 +124,7 @@ function DiscoveryEditorPage({
 
   // Keeps the Google comparison in step with unsaved local values.
   useDiscoveryGbpDraftOverrides({ editor, gbpDriftFieldsByFamily });
+  const panelEditors = useDiscoveryPanelEditors(editor);
 
   const googleLinked = drift
     ? drift.isLinked
@@ -194,12 +195,12 @@ function DiscoveryEditorPage({
   );
 
   const panels: Record<FamilyKey, ReactNode> = {
-    businessDetails: <BusinessDetailsPanel editor={editor} />,
-    categories: <CategoriesPanel editor={editor} />,
-    links: <LinksPanel editor={editor} />,
-    attributes: <AttributesPanel editor={editor} />,
-    serviceItems: <ServiceItemsPanel editor={editor} />,
-    serviceAreas: <ServiceAreasPanel editor={editor} />,
+    businessDetails: <BusinessDetailsPanel editor={panelEditors.businessDetails} />,
+    categories: <CategoriesPanel editor={panelEditors.categories} />,
+    links: <LinksPanel editor={panelEditors.links} />,
+    attributes: <AttributesPanel editor={panelEditors.attributes} />,
+    serviceItems: <ServiceItemsPanel editor={panelEditors.serviceItems} />,
+    serviceAreas: <ServiceAreasPanel editor={panelEditors.serviceAreas} />,
   };
   const descriptions: Partial<Record<FamilyKey, ReactNode>> = {
     links: (

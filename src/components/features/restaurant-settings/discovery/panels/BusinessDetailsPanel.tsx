@@ -1,5 +1,7 @@
 'use client';
 
+import { memo } from 'react';
+
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -21,7 +23,7 @@ import { RestaurantSettingsDatePickerField } from '../../RestaurantSettingsDateP
 import type { BusinessDetailsEditor } from '../../businessContextModel';
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-type BusinessDetailsPanelEditor = Pick<
+export type BusinessDetailsPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   'businessDetails' | 'updateBusinessDetails'
 >;
@@ -31,7 +33,11 @@ function isBusinessStatus(value: string): value is BusinessDetailsEditor['busine
 }
 
 /** Section 1: business status and opening date. Serving off-site is set under Where you serve. */
-export function BusinessDetailsPanel({ editor }: { editor: BusinessDetailsPanelEditor }) {
+export const BusinessDetailsPanel = memo(function BusinessDetailsPanel({
+  editor,
+}: {
+  editor: BusinessDetailsPanelEditor;
+}) {
   const statusHelpId = `${BUSINESS_DETAILS_STATUS_FIELD.id}-help`;
 
   return (
@@ -81,4 +87,4 @@ export function BusinessDetailsPanel({ editor }: { editor: BusinessDetailsPanelE
       />
     </div>
   );
-}
+});

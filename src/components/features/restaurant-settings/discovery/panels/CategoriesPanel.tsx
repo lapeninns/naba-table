@@ -1,7 +1,7 @@
 'use client';
 
 import { Plus, X } from 'lucide-react';
-import { useState, type KeyboardEvent } from 'react';
+import { memo, useState, type KeyboardEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { CategoryRow } from './CategoryRow';
 import {
   DiscoveryDisclosure,
   DiscoveryFieldError,
+  useDiscoveryFieldIssue,
   useDiscoveryForm,
 } from '../DiscoveryFormContext';
 import { DISCOVERY_DISCLOSURE_IDS, DISCOVERY_FIELD_IDS } from '../discoveryValidation';
@@ -26,7 +27,7 @@ export const DISCOVERY_CHIP_CLASS =
 export const DISCOVERY_CHIP_BUTTON_CLASS =
   'size-7 shrink-0 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:size-10';
 
-type CategoriesPanelEditor = Pick<
+export type CategoriesPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   | 'categories'
   | 'addCategory'
@@ -39,15 +40,19 @@ type CategoriesPanelEditor = Pick<
 >;
 
 /** Section 2: category chips with one main category; codes and hours types under Advanced. */
-export function CategoriesPanel({ editor }: { editor: CategoriesPanelEditor }) {
-  const { getFieldIssue, requestFocus } = useDiscoveryForm();
+export const CategoriesPanel = memo(function CategoriesPanel({
+  editor,
+}: {
+  editor: CategoriesPanelEditor;
+}) {
+  const { requestFocus } = useDiscoveryForm();
   const [newCategory, setNewCategory] = useState('');
   const primaryCount = editor.categories.filter((row) => row.isPrimary).length;
   const firstPrimary = editor.categories.find((row) => row.isPrimary);
   const makeMainIssueId = firstPrimary
     ? DISCOVERY_FIELD_IDS.categoryMakeMain(firstPrimary.id)
     : null;
-  const makeMainIssue = makeMainIssueId ? getFieldIssue(makeMainIssueId) : null;
+  const makeMainIssue = useDiscoveryFieldIssue(makeMainIssueId);
 
   const addCategory = () => {
     if (editor.addCategory(newCategory)) {
@@ -153,4 +158,4 @@ export function CategoriesPanel({ editor }: { editor: CategoriesPanelEditor }) {
       ) : null}
     </>
   );
-}
+});

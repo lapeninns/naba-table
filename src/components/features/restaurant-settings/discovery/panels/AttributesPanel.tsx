@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronRight, Plus } from 'lucide-react';
+import { memo } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -22,12 +23,16 @@ import {
   type AmenityAttributeGroup,
   type AttributeEditor,
 } from '../../businessContextModel';
-import { DiscoveryDisclosure, useDiscoveryForm } from '../DiscoveryFormContext';
+import {
+  DiscoveryDisclosure,
+  useDiscoveryDisclosureOpen,
+  useDiscoveryForm,
+} from '../DiscoveryFormContext';
 import { DISCOVERY_DISCLOSURE_IDS, DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-type AttributesPanelEditor = Pick<
+export type AttributesPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   'attributes' | 'setAmenityValue' | 'addAttribute' | 'updateAttribute' | 'removeAttribute'
 >;
@@ -88,13 +93,14 @@ function AmenityGroup({
   index: number;
   editor: AttributesPanelEditor;
 }) {
-  const { isDisclosureOpen, setDisclosureOpen } = useDiscoveryForm();
+  const { setDisclosureOpen } = useDiscoveryForm();
   const id = DISCOVERY_DISCLOSURE_IDS.amenityGroup(index);
+  const open = useDiscoveryDisclosureOpen(id);
   const setCount = countSetAmenityAttributes(group, editor.attributes);
 
   return (
     <Collapsible
-      open={isDisclosureOpen(id)}
+      open={open}
       onOpenChange={(open) => setDisclosureOpen(id, open)}
       className="border-t border-border/60 first:border-t-0"
     >
@@ -135,7 +141,11 @@ function AmenityGroup({
 }
 
 /** Section 4: the full amenity catalogue as Yes / No / Not set, plus raw data for support. */
-export function AttributesPanel({ editor }: { editor: AttributesPanelEditor }) {
+export const AttributesPanel = memo(function AttributesPanel({
+  editor,
+}: {
+  editor: AttributesPanelEditor;
+}) {
   const { requestFocus } = useDiscoveryForm();
 
   return (
@@ -188,4 +198,4 @@ export function AttributesPanel({ editor }: { editor: AttributesPanelEditor }) {
       </DiscoveryDisclosure>
     </>
   );
-}
+});
