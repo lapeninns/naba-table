@@ -26,10 +26,17 @@ import type {
 } from './types';
 import type { DualSyncPublishRequest, DualSyncPublishResponse } from '@/services/ops/dual-sync';
 
-export function GbpDriftProvider({ restaurantId, children }: GbpDriftProviderProps) {
-  const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
+export function GbpDriftProvider({
+  restaurantId,
+  enabled = true,
+  children,
+}: GbpDriftProviderProps) {
+  const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId, { enabled });
   const isLinked = connectionQuery.data?.status === 'linked';
-  const dualSync = useOpsDualSync({ restaurantId: isLinked ? restaurantId : null });
+  const dualSync = useOpsDualSync({
+    restaurantId: isLinked ? restaurantId : null,
+    stateEnabled: enabled,
+  });
   const [draftOverrides, setDraftOverrides] = useState<Record<string, unknown>>({});
   const [compareDialogOpen, setCompareDialogOpen] = useState(false);
   const [compareOptions, setCompareOptions] = useState<GbpDriftOpenOptions>({

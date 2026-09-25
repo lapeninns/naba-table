@@ -8,9 +8,11 @@ const connectionState = vi.hoisted(() => ({
 }));
 const dualSyncState = { current: makeDualSyncHookState() };
 const useOpsDualSync = vi.hoisted(() => vi.fn(() => dualSyncState.current));
+const useOpsGoogleBusinessProfileConnection = vi.hoisted(() => vi.fn(() => connectionState));
+const settingsRoute = vi.hoisted(() => ({ routeView: 'profile' as string | null }));
 
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
-  useOpsGoogleBusinessProfileConnection: () => connectionState,
+  useOpsGoogleBusinessProfileConnection,
 }));
 
 vi.mock('@/hooks/ops/useOpsDualSync', () => ({
@@ -22,9 +24,11 @@ vi.mock('@/components/features/restaurant-settings/shell/useRestaurantSettingsCo
     restaurantId: 'rest-1',
     restaurantName: 'Old Crown Girton',
     headingContext: null,
+    routeView: settingsRoute.routeView,
   }),
 }));
 
+import { isGbpDriftRouteView } from '@/components/features/restaurant-settings/gbp-drift/gbpDriftRoutes';
 import {
   GbpDriftProvider,
   GbpDriftReviewLink,
@@ -52,7 +56,9 @@ describe('GbpDriftProvider', () => {
     connectionState.isLoading = false;
     connectionState.error = null;
     dualSyncState.current = makeDualSyncHookState();
+    settingsRoute.routeView = 'profile';
     useOpsDualSync.mockClear();
+    useOpsGoogleBusinessProfileConnection.mockClear();
   });
 
   it('@smoke renders children within the drift providers', () => {
@@ -104,7 +110,49 @@ describe('GbpDriftProvider', () => {
         </GbpDriftProvider>,
       );
 
-      expect(useOpsDualSync).toHaveBeenCalledWith({ restaurantId: null });
+      expect(useOpsDualSync).toHaveBeenCalledWith({ restaurantId: null, stateEnabled: true });
+    },
+  );
+
+  const linkedConnection = {
+    status: 'linked',
+    externalAccountId: 'account-1',
+    externalLocationId: 'location-1',
+  };
+
+  it.each([
+    { routeView: 'profile', enabled: true },
+    { routeView: 'availability', enabled: true },
+    { routeView: 'discovery', enabled: true },
+    { routeView: 'menu', enabled: true },
+    { routeView: 'google-business-profile', enabled: true },
+    { routeView: 'tables', enabled: false },
+    { routeView: 'team', enabled: false },
+    { routeView: 'staff-communications', enabled: false },
+    // Overview (and any unknown settings path) has no route view.
+    { routeView: null, enabled: false },
+  ])(
+    '@contract fetches Google drift only on routes that show it ($routeView -> $enabled)',
+    ({ routeView, enabled }) => {
+      settingsRoute.routeView = routeView;
+      connectionState.data = linkedConnection;
+
+      render(
+        <GbpDriftProvider>
+          <p>Drift-aware content</p>
+        </GbpDriftProvider>,
+      );
+
+      expect(isGbpDriftRouteView(routeView)).toBe(enabled);
+      expect(useOpsGoogleBusinessProfileConnection).toHaveBeenCalled();
+      for (const call of useOpsGoogleBusinessProfileConnection.mock.calls as unknown[][]) {
+        expect(call).toEqual(['rest-1', { enabled }]);
+      }
+      expect(useOpsDualSync).toHaveBeenCalled();
+      for (const call of useOpsDualSync.mock.calls as unknown[][]) {
+        // Cached state stays readable (restaurant id kept); only the fetch is gated.
+        expect(call).toEqual([{ restaurantId: 'rest-1', stateEnabled: enabled }]);
+      }
     },
   );
 

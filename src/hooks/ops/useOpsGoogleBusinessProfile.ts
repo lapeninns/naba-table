@@ -109,6 +109,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
 
 export function useOpsGoogleBusinessProfileConnection(
   restaurantId?: string | null,
+  { enabled = true }: { readonly enabled?: boolean } = {},
 ): UseQueryResult<GoogleBusinessProfileConnection, HttpError> {
   const restaurantService = useRestaurantService();
 
@@ -122,7 +123,8 @@ export function useOpsGoogleBusinessProfileConnection(
       }
       return restaurantService.getGoogleBusinessProfileConnection(restaurantId);
     },
-    enabled: Boolean(restaurantId),
+    // Disabled callers keep the real key so they still read a cached connection.
+    enabled: enabled && Boolean(restaurantId),
     staleTime: 30_000,
     meta: { persist: false },
   });
