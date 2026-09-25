@@ -1,12 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   businessContextDraftReducer,
   computeBusinessContextDirtyState,
   deriveSavedBusinessContextDrafts,
   INITIAL_BUSINESS_CONTEXT_DRAFT_STATE,
+  type BusinessContextDrafts,
   type BusinessContextDraftState,
 } from '@/components/features/restaurant-settings/businessContextDraftState';
+import {
+  DISCOVERY_SECTION_ORDER,
+  type DirtyState,
+} from '@/components/features/restaurant-settings/businessContextModel';
 
 import type {
   RestaurantBusinessContextFamily,
@@ -238,5 +243,103 @@ describe('businessContextDraftReducer', () => {
       }),
     });
     expect(dirtyOf(state).categories).toBe(false);
+  });
+});
+
+/** The dirty check as it was first written: serialise every section on both sides. */
+function referenceDirtyState(drafts: BusinessContextDrafts, saved: BusinessContextDrafts) {
+  const comparable = (
+    family: (typeof DISCOVERY_SECTION_ORDER)[number],
+    value: BusinessContextDrafts,
+  ) =>
+    family === 'categories'
+      ? value.categories.map(({ moreHoursTypeDraft: _draft, ...row }) => row)
+      : value[family];
+  return Object.fromEntries(
+    DISCOVERY_SECTION_ORDER.map((family) => [
+      family,
+      JSON.stringify(comparable(family, drafts)) !== JSON.stringify(comparable(family, saved)),
+    ]),
+  ) as DirtyState;
+}
+
+const GASTROPUB = {
+  id: '22222222-2222-4222-8222-222222222222',
+  displayName: 'Gastropub',
+  categoryCode: null,
+  isPrimary: true,
+  moreHoursTypes: [],
+  source: 'manual',
+  managedBy: 'ops',
+  updatedAt: null,
+};
+
+describe('computeBusinessContextDirtyState', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('matches the serialise-everything check for every kind of draft', () => {
+    const state = load(
+      snapshot(
+        { links: [WEBSITE_LINK], categories: [GASTROPUB] },
+        { serviceItems: [GOOGLE_SERVICE] },
+      ),
+    );
+    const saved = deriveSavedBusinessContextDrafts(state.baseline);
+    const variants: BusinessContextDrafts[] = [
+      state.drafts,
+      saved,
+      { ...saved },
+      structuredClone(saved),
+      { ...saved, links: saved.links.map((row) => ({ ...row, label: 'Our website' })) },
+      { ...saved, links: saved.links.map((row) => ({ ...row })) },
+      {
+        ...saved,
+        categories: saved.categories.map((row) => ({ ...row, moreHoursTypeDraft: 'kitch' })),
+      },
+      { ...saved, categories: saved.categories.map((row) => ({ ...row, displayName: 'Pub' })) },
+      { ...saved, businessDetails: { ...saved.businessDetails, businessStatus: 'open' } },
+      { ...state.drafts, serviceItems: saved.serviceItems },
+    ];
+
+    for (const drafts of variants) {
+      // Twice, so a cached saved value gives the same answer as a fresh one.
+      expect(computeBusinessContextDirtyState(drafts, saved)).toEqual(
+        referenceDirtyState(drafts, saved),
+      );
+      expect(computeBusinessContextDirtyState(drafts, saved)).toEqual(
+        referenceDirtyState(drafts, saved),
+      );
+    }
+  });
+
+  it('serialises the saved sections once per baseline and skips unchanged sections', () => {
+    const state = load(snapshot({ links: [WEBSITE_LINK], categories: [GASTROPUB] }));
+    const saved = deriveSavedBusinessContextDrafts(state.baseline);
+    const stringify = vi.spyOn(JSON, 'stringify');
+
+    // A section still holding the saved value itself needs no serialising at all.
+    expect(Object.values(computeBusinessContextDirtyState(saved, saved)).some(Boolean)).toBe(false);
+    expect(stringify).not.toHaveBeenCalled();
+
+    // First keystroke on a draft sharing no section with the saved values: every draft section
+    // plus every saved section, once.
+    const copy = structuredClone(saved);
+    const typed = { ...copy, links: copy.links.map((row) => ({ ...row, label: 'O' })) };
+    expect(computeBusinessContextDirtyState(typed, saved).links).toBe(true);
+    expect(stringify).toHaveBeenCalledTimes(DISCOVERY_SECTION_ORDER.length * 2);
+
+    // Later keystrokes against the same baseline reuse the saved serialisations.
+    stringify.mockClear();
+    const typedMore = { ...typed, links: typed.links.map((row) => ({ ...row, label: 'Ou' })) };
+    expect(computeBusinessContextDirtyState(typedMore, saved).links).toBe(true);
+    expect(stringify).toHaveBeenCalledTimes(DISCOVERY_SECTION_ORDER.length);
+
+    // A new baseline is serialised afresh.
+    stringify.mockClear();
+    const nextSaved = deriveSavedBusinessContextDrafts(snapshot({ links: [WEBSITE_LINK] }));
+    computeBusinessContextDirtyState(typedMore, nextSaved);
+    expect(stringify).toHaveBeenCalledTimes(DISCOVERY_SECTION_ORDER.length * 2);
   });
 });
