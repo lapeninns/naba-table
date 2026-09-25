@@ -116,7 +116,6 @@ export function RestaurantLogoUploader({
         elapsed_ms: Math.max(0, Date.now() - uploadStartedAt),
       });
     } catch (error) {
-      console.error('[restaurant-logo] upload failed', error);
       setErrorMessage(getSafeSettingsErrorMessage(error, 'The logo could not be uploaded.'));
       onPreviewChange?.(undefined);
       emitLogoAnalytics('restaurant_profile_logo_save_failed', {

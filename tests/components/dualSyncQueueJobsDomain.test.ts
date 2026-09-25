@@ -92,11 +92,11 @@ describe('dualSyncQueueJobsDomain', () => {
     });
     expect(getDualSyncQueueJobRetryErrorToastIntent(new Error('Retry broke'))).toEqual({
       kind: 'error',
-      message: 'Retry broke',
+      message: 'Queue job retry failed. Reason code: unknown_error.',
     });
     expect(getDualSyncQueueJobRetryErrorToastIntent('unknown')).toEqual({
       kind: 'error',
-      message: 'Queue job retry failed.',
+      message: 'Queue job retry failed. Reason code: unknown_error.',
     });
   });
 });

@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 
 import { buildDualSyncPublishPreviewReadiness } from '../dualSyncPublishRequestDomain';
+import { getDualSyncErrorMessage } from '../dualSyncShellActionDomain';
 
 import type { DualSyncToastIntent } from '../dualSyncShellActionDomain';
 import type { DualSyncDecisionEntry } from '../dualSyncWorkspaceDecisionDomain';
@@ -61,7 +62,7 @@ export function useDualSyncExactPublishActions({
       } catch (error) {
         showToast({
           kind: 'error',
-          message: error instanceof Error ? error.message : 'Exact Google preview failed.',
+          message: getDualSyncErrorMessage(error, 'Exact Google preview failed.'),
         });
       }
     },
@@ -130,7 +131,7 @@ export function useDualSyncExactPublishActions({
       } catch (error) {
         showToast({
           kind: 'error',
-          message: error instanceof Error ? error.message : 'Exact Google publish failed.',
+          message: getDualSyncErrorMessage(error, 'Exact Google publish failed.'),
         });
       }
     },
@@ -147,7 +148,7 @@ export function useDualSyncExactPublishActions({
     } catch (error) {
       showToast({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Unable to refresh expired preview.',
+        message: getDualSyncErrorMessage(error, 'Unable to refresh expired preview.'),
       });
     }
   }, [createPreview, showToast, workspace.refreshMutation, workspace.stateQuery]);

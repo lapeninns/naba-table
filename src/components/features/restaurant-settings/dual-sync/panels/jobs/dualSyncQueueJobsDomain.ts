@@ -1,4 +1,5 @@
 import { formatDualSyncTimestamp } from '../../dualSyncFormattingDomain';
+import { getDualSyncErrorToastIntent } from '../../dualSyncShellActionDomain';
 
 import type { DualSyncToastIntent } from '../../dualSyncShellActionDomain';
 import type { DualSyncJob, DualSyncJobKind, DualSyncJobStatus } from '@/server/dual-sync';
@@ -83,8 +84,5 @@ export function getDualSyncQueueJobRetrySuccessToastIntent(): DualSyncToastInten
 }
 
 export function getDualSyncQueueJobRetryErrorToastIntent(error: unknown): DualSyncToastIntent {
-  return {
-    kind: 'error',
-    message: error instanceof Error ? error.message : 'Queue job retry failed.',
-  };
+  return getDualSyncErrorToastIntent(error, 'Queue job retry failed.');
 }

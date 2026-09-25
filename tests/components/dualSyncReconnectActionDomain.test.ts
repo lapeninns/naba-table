@@ -25,11 +25,11 @@ describe('dualSyncReconnectActionDomain', () => {
   it('builds reconnect error toast intents', () => {
     expect(getDualSyncReconnectErrorToastIntent(new Error('Reconnect failed'))).toEqual({
       kind: 'error',
-      message: 'Reconnect failed',
+      message: 'Google reconnect failed. Reason code: unknown_error.',
     });
     expect(getDualSyncReconnectErrorToastIntent('unknown')).toEqual({
       kind: 'error',
-      message: 'Google reconnect failed.',
+      message: 'Google reconnect failed. Reason code: unknown_error.',
     });
   });
 });

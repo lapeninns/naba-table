@@ -15,18 +15,21 @@ describe('DualSyncShellStateViews', () => {
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('@contract surfaces the error message for Error instances', () => {
+  it('@contract shows fixed copy, never the raw error message', () => {
     render(<DualSyncShellErrorState error={new Error('State fetch failed')} />);
 
     expect(screen.getByText("Couldn't load the differences.")).toBeInTheDocument();
-    expect(screen.getByText(/State fetch failed/)).toBeInTheDocument();
+    expect(screen.queryByText(/State fetch failed/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/The differences could not be loaded\. Reason code: unknown_error\./),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Your saved settings are unchanged/)).toBeInTheDocument();
   });
 
-  it('@contract falls back to an unknown error label for non-errors', () => {
+  it('@contract falls back to fixed copy for non-errors', () => {
     render(<DualSyncShellErrorState error="boom" />);
 
-    expect(screen.getByText(/Unknown error\./)).toBeInTheDocument();
+    expect(screen.getByText(/The differences could not be loaded\./)).toBeInTheDocument();
   });
 
   it('@contract offers Try again when a retry handler is provided', () => {

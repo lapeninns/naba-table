@@ -151,7 +151,7 @@ describe('RestaurantLogoUploader', () => {
 
   it('shows fixed copy, never the server message, when the upload fails', async () => {
     const user = userEvent.setup();
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     uploadMutateAsyncMock.mockRejectedValueOnce(
       new HttpError({ status: 500, message: 'SECRET_DB_DETAIL relation "x" does not exist' }),
     );
@@ -174,6 +174,9 @@ describe('RestaurantLogoUploader', () => {
       await screen.findByText('The logo could not be uploaded. Reason code: HTTP_500.'),
     ).toBeInTheDocument();
     expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
+    const consoleArgs = consoleErrorSpy.mock.calls.flat();
+    expect(consoleArgs.some((arg) => arg instanceof Error)).toBe(false);
+    expect(JSON.stringify(consoleArgs.map(String))).not.toContain('SECRET_DB_DETAIL');
   });
 
   it('shows fixed copy, never the server message, when removing the logo fails', async () => {

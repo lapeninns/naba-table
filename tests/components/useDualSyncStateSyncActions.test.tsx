@@ -109,7 +109,7 @@ describe('useDualSyncStateSyncActions', () => {
 
     expect(showToast).toHaveBeenCalledWith({
       kind: 'error',
-      message: 'Refresh broke',
+      message: 'Refresh failed. Reason code: unknown_error.',
     });
   });
 
@@ -136,7 +136,7 @@ describe('useDualSyncStateSyncActions', () => {
 
     expect(showToast).toHaveBeenCalledWith({
       kind: 'error',
-      message: 'Auto-export broke',
+      message: 'Auto-export failed. Reason code: unknown_error.',
     });
   });
 });
