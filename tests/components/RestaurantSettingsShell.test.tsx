@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const navigationState = vi.hoisted(() => ({
@@ -485,21 +487,62 @@ describe('RestaurantSettingsSubnav', () => {
   });
 });
 
+function mockPrefersReducedMotion(matches: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: matches && query === '(prefers-reduced-motion: reduce)',
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }));
+}
+
+/**
+ * Reduced-motion guarantee for the CSS entrance fade: nothing ever sets an inline opacity (so the
+ * content can never be stranded at opacity 0, even before hydration), every animation utility is
+ * gated behind `motion-safe:` (reduced-motion users get no animation at all), and no fill mode
+ * holds the keyframe start, so the animation always ends on the element's own visible styles.
+ */
+function expectMotionSafeCssFade(element: HTMLElement) {
+  expect(element.getAttribute('style') ?? '').not.toMatch(/opacity|transform/);
+  const classes = Array.from(element.classList);
+  expect(classes).toEqual(
+    expect.arrayContaining(['motion-safe:animate-in', 'motion-safe:fade-in-0']),
+  );
+  const animationClasses = classes.filter((className) =>
+    /(^|:)(animate-|fade-|slide-in-|zoom-in-|duration-|ease-|delay-|fill-mode-)/.test(className),
+  );
+  expect(animationClasses.filter((className) => !className.startsWith('motion-safe:'))).toEqual([]);
+  expect(classes.filter((className) => className.includes('fill-mode-'))).toEqual([]);
+}
+
 describe('RestaurantSettingsPageShell with reduced motion', () => {
-  it('@a11y never leaves the page content invisible', async () => {
-    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: query === '(prefers-reduced-motion: reduce)',
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }));
+  it.each([
+    { label: 'reduced motion', reduce: true },
+    { label: 'default motion', reduce: false },
+  ])('@a11y never leaves the page content invisible ($label)', ({ reduce }) => {
+    mockPrefersReducedMotion(reduce);
     renderPageShell('/app/settings/restaurant/profile', undefined, <p>Settings body</p>);
 
     const wrapper = screen.getByText('Settings body').parentElement;
-    await waitFor(() => expect(wrapper).not.toHaveStyle({ opacity: '0' }));
+    expect(wrapper).not.toBeNull();
+    // Checked synchronously on first render: no JS-driven initial opacity to wait out.
+    expect(wrapper).not.toHaveStyle({ opacity: '0' });
+    expectMotionSafeCssFade(wrapper as HTMLElement);
+  });
+
+  it('@perf fades with CSS instead of loading the motion runtime', () => {
+    const source = readFileSync(
+      resolve(
+        process.cwd(),
+        'src/components/features/restaurant-settings/RestaurantSettingsPageShell.tsx',
+      ),
+      'utf8',
+    );
+
+    expect(source).not.toMatch(/from ['"]motion(\/[^'"]*)?['"]/);
   });
 });

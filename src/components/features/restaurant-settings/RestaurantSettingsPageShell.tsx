@@ -1,11 +1,11 @@
 'use client';
 
-import { motion } from 'motion/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
 import { GbpDriftProvider } from './GbpDriftProvider';
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
+import { SETTINGS_ENTER_FADE_CLASS } from './shared/compactSettingsClasses';
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 export type RestaurantSettingsPageShellProps = {
@@ -24,31 +24,6 @@ export type RestaurantSettingsPageShellProps = {
 
 const DEFAULT_DESCRIPTION =
   'Configure the restaurant profile, availability, dining durations, menu, tables, and team access.';
-
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (!mediaQuery) {
-      return;
-    }
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      setPrefersReducedMotion(event.matches);
-    };
-
-    mediaQuery.addEventListener?.('change', handleChange);
-    return () => mediaQuery.removeEventListener?.('change', handleChange);
-  }, []);
-
-  return prefersReducedMotion;
-}
 
 /**
  * Page purpose line. The settings chrome owns the page title (the only h1), so the page adds
@@ -79,7 +54,6 @@ export function RestaurantSettingsPageShell({
   children,
   envBanner,
 }: RestaurantSettingsPageShellProps) {
-  const reduceMotion = usePrefersReducedMotion();
   const { headingContext, routeView } = useRestaurantSettingsContext();
   const hidePageIntro =
     title == null && description == null ? (headingContext?.hidePageIntro ?? false) : false;
@@ -91,15 +65,7 @@ export function RestaurantSettingsPageShell({
       <RestaurantSettingsFocusedShell envBanner={envBanner} title={title}>
         <RestaurantSettingsPageIntro title={title} description={description} />
         {showGbpStrip ? <GbpDriftStatusStrip compact={hidePageIntro} /> : null}
-        <motion.div
-          // Always animate to visible; reduced motion only makes it instant. The preference is read
-          // after mount, so switching `animate` off would leave the content stuck at opacity 0.
-          initial={{ y: 8, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }}
-        >
-          {children}
-        </motion.div>
+        <div className={SETTINGS_ENTER_FADE_CLASS}>{children}</div>
       </RestaurantSettingsFocusedShell>
     </GbpDriftProvider>
   );
