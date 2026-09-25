@@ -15,6 +15,7 @@ import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import {
   deriveRestaurantSetupOverviewState,
@@ -123,22 +124,22 @@ export function RestaurantSetupOverview() {
   const hoursQuery = useOpsOperatingHours(restaurantId);
   const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
   const menuQuery = useOpsMenuHierarchy(restaurantId);
+  // Same cache entries as the Team and Tables pages and their prefetchers. The 'all' list is
+  // the 'pending' list plus other statuses, and the tables list includes the summary by default.
   const teamQuery = useOpsTeamInvitations({
     restaurantId: restaurantId ?? '',
-    status: 'pending',
+    status: 'all',
   });
   const tablesQuery = useQuery({
-    queryKey: restaurantId
-      ? queryKeys.opsTables.list(restaurantId, { includeSummary: true })
-      : ['ops', 'tables', 'setup-overview', 'none'],
+    queryKey: queryKeys.opsTables.list(restaurantId ?? 'none'),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required to load table setup');
       }
-      return tableService.list(restaurantId, { includeSummary: true });
+      return tableService.list(restaurantId);
     },
     enabled: Boolean(restaurantId),
-    staleTime: 30_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.tables,
   });
 
   const queries: Record<SetupCheckSource, SetupSourceQuery> = {
@@ -164,7 +165,7 @@ export function RestaurantSetupOverview() {
     servicePeriods: servicePeriodsQuery.data,
     tableSummary: tablesQuery.data?.summary,
     menuCount: menuQuery.data?.menus.length ?? 0,
-    pendingInvites: teamQuery.data?.length ?? 0,
+    pendingInvites: teamQuery.data?.filter((invite) => invite.status === 'pending').length ?? 0,
     failedSources,
   });
 

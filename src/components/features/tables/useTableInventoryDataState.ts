@@ -16,13 +16,8 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
   const tableService = useTableInventoryService();
   const zoneService = useZoneService();
 
-  const tablesQueryKey = activeRestaurantId
-    ? queryKeys.opsTables.list(activeRestaurantId)
-    : (['ops', 'tables', 'no-restaurant'] as const);
-
-  const zonesQueryKey = activeRestaurantId
-    ? queryKeys.opsTables.zones(activeRestaurantId)
-    : (['ops', 'tables', 'no-restaurant', 'zones'] as const);
+  const tablesQueryKey = queryKeys.opsTables.list(activeRestaurantId ?? 'none');
+  const zonesQueryKey = queryKeys.opsTables.zones(activeRestaurantId ?? 'none');
 
   const {
     data: tableQueryResult,

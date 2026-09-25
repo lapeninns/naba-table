@@ -176,9 +176,8 @@ describe('RestaurantSetupOverview', () => {
     renderOverview();
 
     await waitFor(() =>
-      expect(overviewState.tableService.list).toHaveBeenCalledWith('rest-1', {
-        includeSummary: true,
-      }),
+      // Same request and cache entry as the Tables page: the list includes the summary by default.
+      expect(overviewState.tableService.list).toHaveBeenCalledWith('rest-1'),
     );
     const summary = await screen.findByRole('region', { name: 'Ready to take bookings' });
     expect(
@@ -268,7 +267,11 @@ describe('RestaurantSetupOverview', () => {
 
   it('keeps the current optional rules and wording', async () => {
     overviewState.menuQuery.data = { menus: [{ id: 'menu-1' }] } as never;
-    overviewState.teamQuery.data = [{ id: 'invite-1' }] as never;
+    // The overview reads the Team page's 'all' list and counts only pending invitations.
+    overviewState.teamQuery.data = [
+      { id: 'invite-1', status: 'pending' },
+      { id: 'invite-2', status: 'accepted' },
+    ] as never;
 
     renderOverview();
 
