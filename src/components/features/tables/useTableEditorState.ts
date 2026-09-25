@@ -54,6 +54,8 @@ export function useTableEditorState({
   const [editor, setEditor] = useState<TableEditor | null>(null);
   const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard>(null);
   const sessionRef = useRef(0);
+  /** The draft the last validated save was built from, and the editor session it belongs to. */
+  const sentRef = useRef<{ session: number; draft: TableDraft } | null>(null);
 
   const isDirty = editor
     ? editor.table === null || isTableDraftDirty(editor.draft, editor.initial)
@@ -139,6 +141,7 @@ export function useTableEditorState({
       if (first) focusEditorField(first);
       return null;
     }
+    sentRef.current = { session: editor.session, draft: editor.draft };
     return result.payload;
   }, [editor, tables]);
 
@@ -149,17 +152,32 @@ export function useTableEditorState({
     focusEditorField('tableNumber');
   }, []);
 
-  /** After a save the editor shows the saved table, unchanged; focus stays where it was. */
+  /**
+   * After a save the editor shows the saved table; focus stays where it was. A field changed
+   * after the save was sent keeps the newer value and stays unsaved.
+   */
   const markSaved = useCallback(
     (table: TableInventory) => {
       const initial = buildTableDraft(table, zones);
-      setEditor((current) => ({
-        table,
-        initial,
-        draft: initial,
-        errors: {},
-        session: current?.session ?? sessionRef.current,
-      }));
+      const sent = sentRef.current;
+      sentRef.current = null;
+      setEditor((current) => {
+        const draft = { ...initial };
+        if (current && sent && sent.session === current.session) {
+          for (const key of Object.keys(draft) as Array<keyof TableDraft>) {
+            if (current.draft[key] !== sent.draft[key]) {
+              Object.assign(draft, { [key]: current.draft[key] });
+            }
+          }
+        }
+        return {
+          table,
+          initial,
+          draft: isTableDraftDirty(draft, initial) ? draft : initial,
+          errors: {},
+          session: current?.session ?? sessionRef.current,
+        };
+      });
     },
     [zones],
   );

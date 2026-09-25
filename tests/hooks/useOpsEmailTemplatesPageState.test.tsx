@@ -75,9 +75,7 @@ function makeVariant(
   };
 }
 
-function makeTemplate(
-  overrides: Partial<RestaurantEmailTemplate> = {},
-): RestaurantEmailTemplate {
+function makeTemplate(overrides: Partial<RestaurantEmailTemplate> = {}): RestaurantEmailTemplate {
   const variants = overrides.variants ?? [makeVariant()];
   return {
     key: 'confirmation',
@@ -300,9 +298,9 @@ describe('useOpsEmailTemplatesPageState', () => {
     expect(result.current.hasDirtyDrafts).toBe(true);
     expect(result.current.dirtyTemplateKeys.has('confirmation')).toBe(true);
     // The base snapshot is never mutated.
-    expect(
-      templateHooks.templatesQuery.data?.groups[0]?.templates[0]?.variants[0]?.subject,
-    ).toBe('Your booking is confirmed');
+    expect(templateHooks.templatesQuery.data?.groups[0]?.templates[0]?.variants[0]?.subject).toBe(
+      'Your booking is confirmed',
+    );
 
     // A draft normalizing back to the base counts as clean.
     act(() =>
@@ -434,6 +432,64 @@ describe('useOpsEmailTemplatesPageState', () => {
     expect(toast.error).toHaveBeenCalledWith('Save failed', { description: 'DB down' });
     expect(result.current.isCurrentDirty).toBe(true);
     expect(result.current.currentVariant?.subject).toBe('Unsaved subject');
+  });
+
+  it('keeps a field typed while the template was saving and takes the server values for the rest', async () => {
+    let resolveSave: (template: RestaurantEmailTemplate) => void = () => undefined;
+    templateHooks.updateMutation.mutateAsync.mockImplementation(
+      () =>
+        new Promise<RestaurantEmailTemplate>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+    const { result, rerender } = setup();
+
+    act(() =>
+      result.current.updateCurrentVariant('confirmation-a', (variant) => ({
+        ...variant,
+        subject: '  Sent subject ',
+      })),
+    );
+
+    let saving: Promise<void> = Promise.resolve();
+    act(() => {
+      saving = result.current.handleSave();
+    });
+    expect(templateHooks.updateMutation.mutateAsync).toHaveBeenCalledWith({
+      templateKey: 'confirmation',
+      variants: [expect.objectContaining({ subject: '  Sent subject ' })],
+    });
+
+    // Staff keep typing while the request is in flight.
+    act(() =>
+      result.current.updateCurrentVariant('confirmation-a', (variant) => ({
+        ...variant,
+        headline: 'Typed during save',
+      })),
+    );
+
+    // The server trims the subject; the refetched list and the response both carry it.
+    const serverVariants = [makeVariant({ subject: 'Sent subject' })];
+    const serverSnapshot = makeSnapshot();
+    serverSnapshot.groups[0]!.templates[0] = makeTemplate({
+      status: 'custom',
+      variants: serverVariants,
+    });
+    templateHooks.templatesQuery = { data: serverSnapshot };
+    rerender();
+    await act(async () => {
+      resolveSave(makeTemplate({ status: 'custom', variants: serverVariants }));
+      await saving;
+    });
+
+    expect(result.current.currentVariant).toEqual(
+      makeVariant({ subject: 'Sent subject', headline: 'Typed during save' }),
+    );
+    expect(result.current.isCurrentDirty).toBe(true);
+
+    act(() => result.current.handleDiscardCurrent());
+    expect(result.current.currentVariant).toEqual(makeVariant({ subject: 'Sent subject' }));
+    expect(result.current.isCurrentDirty).toBe(false);
   });
 
   it('@contract handleResetTemplate only resets custom templates after confirmation', async () => {

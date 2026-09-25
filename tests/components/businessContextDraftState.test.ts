@@ -125,6 +125,7 @@ describe('businessContextDraftReducer', () => {
       type: 'familySaved',
       family: 'businessDetails',
       snapshot: afterStep1,
+      sent: state.drafts,
     });
     // The same snapshot then reaches the query cache.
     state = businessContextDraftReducer(state, {
@@ -143,6 +144,155 @@ describe('businessContextDraftReducer', () => {
       links: true,
       serviceItems: true,
     });
+  });
+
+  it('keeps a business detail typed while its section was saving, and discards back to the server value', () => {
+    const savedDetails = {
+      id: 'bd-1',
+      openingDate: null,
+      businessStatus: 'open',
+      isServiceAreaBusiness: false,
+      source: 'manual',
+      managedBy: 'ops',
+      updatedAt: '2026-05-01T10:00:00.000Z',
+    };
+    let state = load(snapshot({ businessDetails: savedDetails }));
+    state = businessContextDraftReducer(state, {
+      type: 'edit',
+      apply: (drafts) => ({
+        ...drafts,
+        businessDetails: { ...drafts.businessDetails, businessStatus: 'closed_temporarily' },
+      }),
+    });
+    // Save is clicked: this is the payload snapshot.
+    const sent = state.drafts;
+
+    // Staff keep typing while the request is in flight.
+    state = businessContextDraftReducer(state, {
+      type: 'edit',
+      apply: (drafts) => ({
+        ...drafts,
+        businessDetails: { ...drafts.businessDetails, openingDate: '2019-04-01' },
+      }),
+    });
+
+    const serverSnapshot = snapshot({
+      businessDetails: {
+        ...savedDetails,
+        businessStatus: 'closed_temporarily',
+        updatedAt: '2026-09-25T10:00:00.000Z',
+      },
+    });
+    state = businessContextDraftReducer(state, {
+      type: 'familySaved',
+      family: 'businessDetails',
+      snapshot: serverSnapshot,
+      sent,
+    });
+
+    expect(state.baseline).toBe(serverSnapshot);
+    expect(state.drafts.businessDetails).toEqual({
+      openingDate: '2019-04-01',
+      businessStatus: 'closed_temporarily',
+      isServiceAreaBusiness: false,
+    });
+    expect(dirtyOf(state).businessDetails).toBe(true);
+
+    state = businessContextDraftReducer(state, {
+      type: 'resetFamilies',
+      families: ['businessDetails'],
+    });
+    expect(state.drafts.businessDetails).toEqual({
+      openingDate: '',
+      businessStatus: 'closed_temporarily',
+      isServiceAreaBusiness: false,
+    });
+    expect(dirtyOf(state).businessDetails).toBe(false);
+  });
+
+  it('takes the server value for business details the save sent unchanged', () => {
+    const savedDetails = {
+      id: 'bd-1',
+      openingDate: null,
+      businessStatus: 'open',
+      isServiceAreaBusiness: false,
+      source: 'manual',
+      managedBy: 'ops',
+      updatedAt: '2026-05-01T10:00:00.000Z',
+    };
+    let state = load(snapshot({ businessDetails: savedDetails }));
+    state = businessContextDraftReducer(state, {
+      type: 'edit',
+      apply: (drafts) => ({
+        ...drafts,
+        businessDetails: { ...drafts.businessDetails, isServiceAreaBusiness: true },
+      }),
+    });
+    const sent = state.drafts;
+    state = businessContextDraftReducer(state, {
+      type: 'edit',
+      apply: (drafts) => ({
+        ...drafts,
+        businessDetails: { ...drafts.businessDetails, openingDate: '2019-04-01' },
+      }),
+    });
+
+    // The server stores a different status than the page last knew (another staff member).
+    state = businessContextDraftReducer(state, {
+      type: 'familySaved',
+      family: 'businessDetails',
+      snapshot: snapshot({
+        businessDetails: {
+          ...savedDetails,
+          businessStatus: 'closed_permanently',
+          isServiceAreaBusiness: true,
+        },
+      }),
+      sent,
+    });
+
+    expect(state.drafts.businessDetails).toEqual({
+      openingDate: '2019-04-01',
+      businessStatus: 'closed_permanently',
+      isServiceAreaBusiness: true,
+    });
+  });
+
+  it('keeps a list section edited while it was saving as the newer, unsaved draft', () => {
+    let state = load(snapshot({ links: [WEBSITE_LINK] }));
+    state = businessContextDraftReducer(state, {
+      type: 'edit',
+      apply: (drafts) => ({
+        ...drafts,
+        links: drafts.links.map((row) => ({ ...row, label: 'Our website' })),
+      }),
+    });
+    const sent = state.drafts;
+    state = businessContextDraftReducer(state, {
+      type: 'edit',
+      apply: (drafts) => ({
+        ...drafts,
+        links: drafts.links.map((row) => ({ ...row, url: 'https://example.com/book' })),
+      }),
+    });
+
+    state = businessContextDraftReducer(state, {
+      type: 'familySaved',
+      family: 'links',
+      snapshot: snapshot({ links: [{ ...WEBSITE_LINK, label: 'Our website' }] }),
+      sent,
+    });
+
+    expect(state.drafts.links).toEqual([
+      expect.objectContaining({ label: 'Our website', url: 'https://example.com/book' }),
+    ]);
+    expect(dirtyOf(state).links).toBe(true);
+
+    state = businessContextDraftReducer(state, { type: 'resetFamilies', families: ['links'] });
+    expect(state.drafts.links).toEqual([
+      expect.objectContaining({ label: 'Our website', url: 'https://example.com' }),
+    ]);
+    expect(dirtyOf(state).links).toBe(false);
   });
 
   it('takes new saved values for clean sections when a newer snapshot arrives', () => {
