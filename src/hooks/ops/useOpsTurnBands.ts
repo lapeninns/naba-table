@@ -12,6 +12,11 @@ import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
+import {
+  availabilityMutationScope,
+  invalidateAvailabilityDependents,
+} from './availabilityQueryDependencies';
+
 import type { HttpError } from '@/lib/http/errors';
 import type { TurnBandsPayload, TurnBandsSnapshot } from '@/services/ops/restaurants';
 
@@ -52,6 +57,7 @@ export function useOpsUpdateTurnBands(
     TurnBandsPayload,
     { previous?: TurnBandsSnapshot }
   >({
+    scope: availabilityMutationScope('turn-bands', restaurantId),
     mutationFn: (payload) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -75,18 +81,22 @@ export function useOpsUpdateTurnBands(
       return { previous };
     },
     onError: (_error, _payload, context) => {
-      if (!restaurantId || !context?.previous) return;
-      queryClient.setQueryData(queryKeys.opsRestaurants.turnBands(restaurantId), context.previous);
+      if (!restaurantId) return;
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.opsRestaurants.turnBands(restaurantId),
+          context.previous,
+        );
+      }
+      // Re-sync after a rollback; on success the PUT response is already authoritative.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.turnBands(restaurantId),
+      });
     },
     onSuccess: (snapshot) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.turnBands(restaurantId), snapshot);
-    },
-    onSettled: () => {
-      if (!restaurantId) return;
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.opsRestaurants.turnBands(restaurantId),
-      });
+      void invalidateAvailabilityDependents(queryClient, 'turn-bands', restaurantId);
     },
   });
 }
