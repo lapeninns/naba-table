@@ -197,6 +197,7 @@ export const NIGHTLY_SPECS = [
   'tests/e2e/ops-settings-team.spec.ts',
   'tests/e2e/ops-sidebar-active-state.spec.ts',
   'tests/e2e/posthog-cookie-privacy.spec.ts',
+  'tests/e2e/settings-data-hooks.spec.ts',
   'tests/e2e/settings-perf.spec.ts',
 ] as const;
 
