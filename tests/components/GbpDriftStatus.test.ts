@@ -6,9 +6,12 @@ import {
   buildGbpDriftSettingsSectionReviewCounts,
   mergeGbpDriftSectionStatuses,
 } from '@/components/features/restaurant-settings/gbpDriftStatusSections';
+import { HttpError } from '@/lib/http/errors';
 
 import type { DualSyncFieldSummary, GetDualSyncStateResponse } from '@/services/ops/dual-sync';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
+
+const RAW_ERROR_SENTINEL = 'SECRET_DB_DETAIL relation "x" does not exist';
 
 function connection(
   status: GoogleBusinessProfileConnection['status'] = 'linked',
@@ -226,5 +229,28 @@ describe('deriveGbpDriftStatus', () => {
 
     expect(status.kind).toBe('connected_outdated');
     expect(status.shortLabel).toBe('Refresh');
+  });
+  it('shows fixed copy, not raw server text, when the dual-sync state request fails', () => {
+    const status = deriveGbpDriftStatus({
+      restaurantId: 'rest-1',
+      connection: connection(),
+      dualSyncState: undefined,
+      dualSyncError: new HttpError({ message: RAW_ERROR_SENTINEL, status: 500 }),
+    });
+
+    expect(status.kind).toBe('connected_outdated');
+    expect(status.detail).not.toContain('SECRET_DB_DETAIL');
+    expect(status.detail).toBe('Google status could not be checked. Reason code: HTTP_500.');
+  });
+
+  it('shows fixed copy, not raw server text, when the Google connection request fails', () => {
+    const status = deriveGbpDriftStatus({
+      restaurantId: 'rest-1',
+      connectionError: new HttpError({ message: RAW_ERROR_SENTINEL, status: 500 }),
+    });
+
+    expect(status.isError).toBe(true);
+    expect(status.detail).not.toContain('SECRET_DB_DETAIL');
+    expect(status.detail).toBe('Google status could not be loaded. Reason code: HTTP_500.');
   });
 });
