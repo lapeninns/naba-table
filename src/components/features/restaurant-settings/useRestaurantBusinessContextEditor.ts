@@ -92,7 +92,8 @@ export function useRestaurantBusinessContextEditor({
   const saveAll = useCallback(async () => {
     const saveFamily = async (family: FamilyKey) => {
       const saved = await mutateAsync(buildBusinessContextFamilyPayload(family, drafts));
-      applySavedSnapshot(family, saved);
+      // Anything typed while this request was in flight stays as the newer draft.
+      applySavedSnapshot(family, saved, drafts);
     };
     const serviceLocationOnly =
       dirtyFamilies.includes('businessDetails') &&

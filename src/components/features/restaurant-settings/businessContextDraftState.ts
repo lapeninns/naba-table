@@ -7,6 +7,7 @@ import {
   EMPTY_BUSINESS_DETAILS,
   EMPTY_SEED_SOURCE,
   type BusinessContextFamilyPayloadState,
+  type BusinessDetailsEditor,
   type DirtyState,
   type FamilyKey,
   type SeedSource,
@@ -36,7 +37,13 @@ export type BusinessContextDraftAction =
       restaurantKey: string;
       snapshot: RestaurantBusinessContextSnapshot;
     }
-  | { type: 'familySaved'; family: FamilyKey; snapshot: RestaurantBusinessContextSnapshot }
+  | {
+      type: 'familySaved';
+      family: FamilyKey;
+      snapshot: RestaurantBusinessContextSnapshot;
+      /** The drafts the save request was built from. */
+      sent: BusinessContextDrafts;
+    }
   | { type: 'resetFamilies'; families: readonly FamilyKey[] }
   | { type: 'edit'; apply: (drafts: BusinessContextDrafts) => BusinessContextDrafts };
 
@@ -150,15 +157,46 @@ function withFamilyFromSnapshot(
 }
 
 /**
+ * Keeps what staff typed in a just-saved section while its request was in flight. Business
+ * details merge field by field: a field still holding the value that was sent takes the server's
+ * value. A list section is replaced as a whole on save, so any change to it keeps the whole draft.
+ */
+function keepEditsSinceSend(
+  next: Pick<BusinessContextDraftState, 'drafts' | 'seedSource'>,
+  current: BusinessContextDrafts,
+  sent: BusinessContextDrafts,
+  family: FamilyKey,
+): Pick<BusinessContextDraftState, 'drafts' | 'seedSource'> {
+  if (isBusinessContextFamilyEqual(family, current, sent)) {
+    return next;
+  }
+  if (family !== 'businessDetails') {
+    return { ...next, drafts: { ...next.drafts, [family]: current[family] } };
+  }
+  const server = next.drafts.businessDetails;
+  const pick = <Field extends keyof BusinessDetailsEditor>(field: Field) =>
+    current.businessDetails[field] !== sent.businessDetails[field]
+      ? current.businessDetails[field]
+      : server[field];
+  const businessDetails: BusinessDetailsEditor = {
+    openingDate: pick('openingDate'),
+    businessStatus: pick('businessStatus'),
+    isServiceAreaBusiness: pick('isServiceAreaBusiness'),
+  };
+  return { ...next, drafts: { ...next.drafts, businessDetails } };
+}
+
+/**
  * Applies a newer server snapshot without losing work: sections that were clean (draft equal to
- * the previous saved values) and the `forced` sections take the new saved values; every other
+ * the previous saved values) and the `saved` section take the new saved values; every other
  * section keeps its unsaved draft. This is what lets a page save send several sections one after
- * another, each returning a fresh snapshot, without wiping the sections still waiting.
+ * another, each returning a fresh snapshot, without wiping the sections still waiting. Edits made
+ * to the saved section after its request was sent stay as the newer, unsaved draft.
  */
 function reseedFromSnapshot(
   state: BusinessContextDraftState,
   snapshot: RestaurantBusinessContextSnapshot,
-  forced: ReadonlySet<FamilyKey>,
+  saved: { family: FamilyKey; sent: BusinessContextDrafts } | null,
 ): BusinessContextDraftState {
   const previousSaved = deriveSavedBusinessContextDrafts(state.baseline);
   let next: Pick<BusinessContextDraftState, 'drafts' | 'seedSource'> = {
@@ -166,8 +204,14 @@ function reseedFromSnapshot(
     seedSource: state.seedSource,
   };
   for (const family of DISCOVERY_SECTION_ORDER) {
-    const clean = isBusinessContextFamilyEqual(family, state.drafts, previousSaved);
-    if (forced.has(family) || clean) {
+    if (saved?.family === family) {
+      next = keepEditsSinceSend(
+        withFamilyFromSnapshot(next, snapshot, family),
+        state.drafts,
+        saved.sent,
+        family,
+      );
+    } else if (isBusinessContextFamilyEqual(family, state.drafts, previousSaved)) {
       next = withFamilyFromSnapshot(next, snapshot, family);
     }
   }
@@ -196,12 +240,15 @@ export function businessContextDraftReducer(
         return state;
       }
       return {
-        ...reseedFromSnapshot(state, action.snapshot, new Set()),
+        ...reseedFromSnapshot(state, action.snapshot, null),
         seenSnapshot: action.snapshot,
       };
     }
     case 'familySaved':
-      return reseedFromSnapshot(state, action.snapshot, new Set([action.family]));
+      return reseedFromSnapshot(state, action.snapshot, {
+        family: action.family,
+        sent: action.sent,
+      });
     case 'resetFamilies': {
       const baseline = state.baseline;
       if (!baseline) {

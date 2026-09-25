@@ -102,8 +102,8 @@ export function useBusinessContextEditorDraftState({
     [],
   );
   const applySavedSnapshot = useCallback(
-    (family: FamilyKey, saved: RestaurantBusinessContextSnapshot) =>
-      dispatch({ type: 'familySaved', family, snapshot: saved }),
+    (family: FamilyKey, saved: RestaurantBusinessContextSnapshot, sent: BusinessContextDrafts) =>
+      dispatch({ type: 'familySaved', family, snapshot: saved, sent }),
     [],
   );
 

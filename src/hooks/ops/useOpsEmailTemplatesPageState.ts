@@ -51,6 +51,40 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
   );
 }
 
+/**
+ * The draft to keep once a save returns: null when nothing changed after the request was sent.
+ * Otherwise the server's variants with every field edited since the send kept as the newer value;
+ * variants added after the send are kept as typed, and removed ones stay removed.
+ */
+function rebaseVariantsOnSaved(
+  current: RestaurantEmailTemplateVariant[] | undefined,
+  sent: RestaurantEmailTemplateVariant[],
+  saved: RestaurantEmailTemplateVariant[],
+): RestaurantEmailTemplateVariant[] | null {
+  if (!current || current === sent) {
+    return null;
+  }
+  const sentById = new Map(sent.map((variant) => [variant.id, variant]));
+  const savedById = new Map(saved.map((variant) => [variant.id, variant]));
+  const rebased = current.map((variant) => {
+    const sentVariant = sentById.get(variant.id);
+    const savedVariant = savedById.get(variant.id);
+    if (!sentVariant || !savedVariant) {
+      return variant;
+    }
+    const next = { ...savedVariant };
+    for (const field of Object.keys(next) as Array<keyof RestaurantEmailTemplateVariant>) {
+      if (variant[field] !== sentVariant[field]) {
+        Object.assign(next, { [field]: variant[field] });
+      }
+    }
+    return next;
+  });
+  return normalizeVariantsForCompare(rebased) === normalizeVariantsForCompare(saved)
+    ? null
+    : rebased;
+}
+
 function buildTemplateMap(snapshot: RestaurantEmailTemplatesSnapshot | undefined) {
   return new Map(
     snapshot?.groups.flatMap((group) => group.templates).map((template) => [template.key, template]) ?? [],
@@ -310,15 +344,22 @@ export function useOpsEmailTemplatesPageState() {
   const handleSave = async () => {
     if (!selectedTemplateKey) return;
 
+    const sent = currentVariants;
     try {
-      await updateMutation.mutateAsync({
+      const saved = await updateMutation.mutateAsync({
         templateKey: selectedTemplateKey,
-        variants: currentVariants,
+        variants: sent,
       });
 
+      // Anything typed while the request was in flight stays as the newer draft.
       setDrafts((current) => {
         const next = { ...current };
-        delete next[selectedTemplateKey];
+        const rebased = rebaseVariantsOnSaved(current[selectedTemplateKey], sent, saved.variants);
+        if (rebased) {
+          next[selectedTemplateKey] = rebased;
+        } else {
+          delete next[selectedTemplateKey];
+        }
         return next;
       });
 
