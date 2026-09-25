@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   PasswordConfirmationError,
@@ -91,8 +92,12 @@ async function ensureAuthorized(
   };
 }
 
-function handleUnexpectedError(error: unknown, context: string) {
-  console.error(context, error);
+function handleUnexpectedError(error: unknown, context: string, restaurantId: string) {
+  logger.error(`${context} failed`, {
+    route: 'ops.restaurants.service-periods',
+    restaurantId,
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+  });
 
   if (!(error instanceof PasswordConfirmationError)) {
     captureServerException(error, {
@@ -107,8 +112,13 @@ function handleUnexpectedError(error: unknown, context: string) {
     );
   }
 
+  // Domain validation and database failures both arrive as plain Errors, so the 400 status is
+  // kept, but the message is never echoed: it can carry database internals.
   if (error instanceof Error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Unable to process these settings.', code: 'SETTINGS_REQUEST_FAILED' },
+      { status: 400 },
+    );
   }
 
   return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
@@ -129,7 +139,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     const periods = await getServicePeriods(restaurantId);
     return NextResponse.json({ restaurantId, periods });
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][service-periods][GET]');
+    return handleUnexpectedError(error, '[ops][restaurants][service-periods][GET]', restaurantId);
   }
 }
 
@@ -190,7 +200,7 @@ async function putServicePeriods(req: NextRequest, restaurantId: string) {
     const periods = await updateServicePeriods(restaurantId, sanitizedPayload);
     return NextResponse.json({ restaurantId, periods });
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][service-periods][PUT]');
+    return handleUnexpectedError(error, '[ops][restaurants][service-periods][PUT]', restaurantId);
   }
 }
 
@@ -245,6 +255,6 @@ async function postServicePeriods(req: NextRequest, restaurantId: string) {
     });
     return NextResponse.json({ restaurantId, periods });
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][service-periods][POST]');
+    return handleUnexpectedError(error, '[ops][restaurants][service-periods][POST]', restaurantId);
   }
 }

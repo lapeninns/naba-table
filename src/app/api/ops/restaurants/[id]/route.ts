@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/logger';
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
@@ -301,7 +302,11 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops/restaurants/[id]][PATCH] update failed', error);
+    logger.error('ops.restaurants.profile.patch failed', {
+      route: 'ops.restaurants.profile',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     captureRestaurantServerEvent('restaurant_profile_section_save_failed', {
       restaurantId,
       distinctId: user.id,
@@ -312,8 +317,10 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
       groups: { restaurant: restaurantId },
       properties: { section: 'restaurant', source: 'ops', path: '/api/ops/restaurants/[id]' },
     });
-    const message = error instanceof Error ? error.message : 'Unable to update restaurant';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Something went wrong saving these settings.', code: 'INTERNAL_ERROR' },
+      { status: 500 },
+    );
   }
 }
 
@@ -372,13 +379,19 @@ async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops/restaurants/[id]][DELETE] deletion failed', error);
+    logger.error('ops.restaurants.profile.delete failed', {
+      route: 'ops.restaurants.profile',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
+    });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: restaurantId },
       properties: { source: 'ops', path: '/api/ops/restaurants/[id]' },
     });
-    const message = error instanceof Error ? error.message : 'Unable to delete restaurant';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Unable to delete restaurant.', code: 'INTERNAL_ERROR' },
+      { status: 500 },
+    );
   }
 }

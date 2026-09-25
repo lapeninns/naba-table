@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { inferMealTypeFromTime } from '@/server/bookings';
@@ -89,12 +90,21 @@ async function ensureAuthorized(restaurantId: string): Promise<NextResponse | nu
   return null;
 }
 
-function handleUnexpectedError(error: unknown, context: string) {
-  console.error(context, error);
+function handleUnexpectedError(error: unknown, context: string, restaurantId: string) {
+  logger.error(`${context} failed`, {
+    route: 'ops.restaurants.turn-bands',
+    restaurantId,
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+  });
   captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-turn-bands' } });
 
+  // Domain validation and database failures both arrive as plain Errors, so the 400 status is
+  // kept, but the message is never echoed: it can carry database internals.
   if (error instanceof Error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Unable to process these settings.', code: 'SETTINGS_REQUEST_FAILED' },
+      { status: 400 },
+    );
   }
 
   return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
@@ -156,7 +166,7 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ restaurantId, bands, defaults });
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][turn-bands][GET]');
+    return handleUnexpectedError(error, '[ops][restaurants][turn-bands][GET]', restaurantId);
   }
 }
 
@@ -214,6 +224,6 @@ async function putTurnBands(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ restaurantId, bands, defaults });
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][turn-bands][PUT]');
+    return handleUnexpectedError(error, '[ops][restaurants][turn-bands][PUT]', restaurantId);
   }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { getSafeGbpCallbackFailureMessage } from '@/app/api/ops/google-business-profile/_callback-errors';
 import {
   getRequestOrigin,
   sanitizeGoogleBusinessProfileReturnPath,
@@ -90,14 +91,16 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     redirectUrl.searchParams.set('gbp', 'connected');
     return redirectWithClearedState(redirectUrl);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Google Business Profile authorization failed.';
     logger.error('gbp.business-details.callback authorization failed', {
+      route: 'ops.restaurants.google-business.callback',
+      restaurantId: routeRestaurantId,
       requestOrigin: req.nextUrl.origin,
       hasState: Boolean(state),
       hasCode: Boolean(code),
-      error,
+      errorName: error instanceof Error ? error.name : 'UnknownError',
     });
-    return redirectWithClearedState(buildRedirect(req, 'error', message));
+    return redirectWithClearedState(
+      buildRedirect(req, 'error', getSafeGbpCallbackFailureMessage(error)),
+    );
   }
 }
