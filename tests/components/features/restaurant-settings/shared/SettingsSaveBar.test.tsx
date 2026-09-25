@@ -51,8 +51,29 @@ import {
   SettingsSaveBar,
   type SettingsSaveBarProps,
 } from '@/components/features/restaurant-settings/shared/SettingsSaveBar';
+import {
+  runSettingsSaveSequence,
+  type SettingsSaveFailure,
+} from '@/components/features/restaurant-settings/shared/settingsSaveSequence';
+import { HttpError } from '@/lib/http/errors';
 
 import { stubMatchMedia } from '../testUtils';
+
+const CONFLICT_COPY =
+  'Someone else changed these settings. Reload to see the latest, then reapply your edits.';
+// Stands in for server text that may echo guest data; it must never reach the DOM.
+const RAW_SERVER_TEXT = 'Row changed by jane@example.com';
+
+async function failHoursWith(error: unknown): Promise<SettingsSaveFailure> {
+  const outcome = await runSettingsSaveSequence([
+    { id: 'profile', name: 'Profile', run: () => Promise.resolve() },
+    { id: 'hours', name: 'Hours', run: () => Promise.reject(error) },
+  ]);
+  if (outcome.ok) {
+    throw new Error('expected the save sequence to fail');
+  }
+  return outcome.failure;
+}
 
 type DraftPageProps = Partial<SettingsSaveBarProps> & { onDiscard?: () => void };
 
@@ -190,5 +211,34 @@ describe('SettingsSaveBar', () => {
 
     const bar = screen.getByRole('region', { name: 'Unsaved changes' });
     expect(bar.parentElement).toHaveClass('sticky', 'bottom-0');
+  });
+
+  it.each([
+    ['a 409 status', new HttpError({ message: RAW_SERVER_TEXT, status: 409 })],
+    [
+      'a STALE_WRITE code',
+      new HttpError({ message: RAW_SERVER_TEXT, status: 412, code: 'STALE_WRITE' }),
+    ],
+  ])('@contract shows the conflict copy when a save step fails with %s', async (_label, error) => {
+    const failure = await failHoursWith(error);
+    render(<DraftPage changeCount={1} failure={failure} />);
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(region).toHaveTextContent('Hours not saved.');
+    expect(region).toHaveTextContent(CONFLICT_COPY);
+    expect(region).toHaveTextContent('Saved: Profile.');
+    expect(region).toHaveTextContent('Reason code CONFLICT');
+    expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
+  });
+
+  it('@contract keeps the generic failure copy for a server error', async () => {
+    const failure = await failHoursWith(new HttpError({ message: RAW_SERVER_TEXT, status: 500 }));
+    render(<DraftPage changeCount={1} failure={failure} />);
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(region).toHaveTextContent('Hours not saved. Your edits are still here.');
+    expect(region).toHaveTextContent('Reason code HTTP_500');
+    expect(region).not.toHaveTextContent(CONFLICT_COPY);
+    expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
   });
 });
