@@ -5,7 +5,11 @@ import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { SessionActivityReporter } from '@/components/features/account-sessions/SessionActivityReporter';
-import { SupabaseSessionProvider, useSupabaseSession } from '@/hooks/useSupabaseSession';
+import {
+  SupabaseSessionProvider,
+  useSupabaseSession,
+  useSupabaseSessionResolved,
+} from '@/hooks/useSupabaseSession';
 import { useClientErrorReporter } from '@/lib/monitoring/clientReporter';
 import { PostHogProvider } from '@/lib/posthog/provider';
 import { createAppQueryClient } from '@/lib/query/client';
@@ -30,15 +34,19 @@ type AppProvidersProps = {
 
 function QueryLayer({ children }: { children: ReactNode }) {
   const { user, status } = useSupabaseSession();
+  const sessionResolved = useSupabaseSessionResolved();
   useClientErrorReporter();
   const [queryClient] = useState(createAppQueryClient);
   const [showDevtools, setShowDevtools] = useState(false);
   const persistenceCleanupRef = useRef<(() => void) | null>(null);
   const storageKeyRef = useRef<string>(buildQueryStorageKey(user?.id ?? null));
 
-  // Configure per-user query persistence and clear cache on auth changes
+  // Configure per-user query persistence and clear cache on auth changes.
+  // Wait for the browser client to confirm the session: the root layout bootstraps as
+  // "unauthenticated", and persisting under the anonymous key before confirmation would
+  // store (then wipe) data fetched by signed-in ops pages.
   useEffect(() => {
-    if (status === 'loading') {
+    if (status === 'loading' || !sessionResolved) {
       return;
     }
 
@@ -72,7 +80,7 @@ function QueryLayer({ children }: { children: ReactNode }) {
     return () => {
       // cleanup happens on unmount via outer effect below
     };
-  }, [queryClient, status, user?.id]);
+  }, [queryClient, sessionResolved, status, user?.id]);
 
   useEffect(
     () => () => {

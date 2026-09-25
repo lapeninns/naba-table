@@ -1,7 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { AppProviders } from '@/app/providers';
 import { OpsShell } from '@/components/features/ops-shell/OpsShell';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
@@ -134,11 +133,11 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
       initialRestaurantId={initialRestaurantId}
     >
       <OpsServicesProvider>
-        <AppProviders>
-          <OpsShell defaultSidebarOpen={defaultOpen} envBanner={opsEnvBanner}>
-            {children}
-          </OpsShell>
-        </AppProviders>
+        {/* Query, session and analytics providers come from the root layout; mounting
+            AppProviders here again created a second QueryClient, persister and PostHog. */}
+        <OpsShell defaultSidebarOpen={defaultOpen} envBanner={opsEnvBanner}>
+          {children}
+        </OpsShell>
       </OpsServicesProvider>
     </OpsSessionProvider>
   );
