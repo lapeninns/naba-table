@@ -13,7 +13,7 @@ describe('businessDetailsPanelDomain', () => {
       id: 'business-details-opening-date',
       label: 'Opening date',
       field: 'openingDate',
-      helperText: 'Optional public opening date for the venue.',
+      helperText: 'Optional.',
       type: 'date',
     });
   });
@@ -22,10 +22,10 @@ describe('businessDetailsPanelDomain', () => {
     expect(BUSINESS_DETAILS_STATUS_FIELD).toEqual({
       id: 'business-details-status',
       label: 'Business status',
-      helperText: 'Optional public status for profile checks and listings.',
+      helperText: 'Shown on public listings.',
     });
     expect(BUSINESS_DETAILS_STATUS_OPTIONS).toEqual([
-      { value: 'unset', label: 'Unset' },
+      { value: 'unset', label: 'Not set' },
       { value: 'open', label: 'Open' },
       { value: 'closed_temporarily', label: 'Closed temporarily' },
       { value: 'closed_permanently', label: 'Closed permanently' },
@@ -35,9 +35,9 @@ describe('businessDetailsPanelDomain', () => {
   it('keeps service-area business switch metadata stable', () => {
     expect(BUSINESS_DETAILS_SERVICE_AREA_FIELD).toEqual({
       id: 'business-details-service-area-business',
-      label: 'Service-area business',
+      label: 'We serve customers at their location',
       field: 'isServiceAreaBusiness',
-      helperText: 'Mark this when the restaurant serves guests beyond the venue.',
+      helperText: 'For delivery or catering. Add the towns or areas you serve below.',
     });
   });
 });

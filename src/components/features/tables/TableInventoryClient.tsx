@@ -1,37 +1,44 @@
 /**
- * Table Inventory Client Component
- * Story 4: Ops Dashboard - Tables Management
- *
- * REVISED: This component has been updated to address several potential issues,
- * including controlled form components, safer delete operations, and improved UI clarity.
+ * Tables settings: one screen with the capacity summary, zones and the tables list.
  */
 
 'use client';
 
-import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from '@/components/features/restaurant-settings/shared';
+import { Plus } from 'lucide-react';
+
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
+import {
+  getSettingsSaveReasonCode,
+  RestaurantSettingsCommandCenter,
+  SETTINGS_COMPACT_ROUTE_STACK_CLASS,
+} from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
-import { TableInventoryCommandCenter } from './TableInventoryCommandCenter';
 import { TableInventoryDialogs } from './TableInventoryDialogs';
+import { TableInventoryMetrics } from './TableInventoryMetrics';
+import { TABLE_TOUCH_TARGET_CLASS } from './TableInventoryParts';
 import { TableInventorySection } from './TableInventorySection';
-import { TableInventorySummarySection } from './TableInventorySummarySection';
 import { TableZonesSection } from './TableZonesSection';
-import { useTableInventoryController } from './useTableInventoryController';
+import {
+  TABLE_INVENTORY_ADD_BUTTON_ID,
+  useTableInventoryController,
+} from './useTableInventoryController';
+
+const TABLES_ROUTE = RESTAURANT_SETTINGS_ROUTE_MAP.tables;
 
 export default function TableInventoryClient() {
   const controller = useTableInventoryController();
 
   if (controller.memberships.length === 0) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>No restaurant access</AlertTitle>
-        <AlertDescription>
-          Your account is not linked to any restaurants yet. Ask an owner or manager to invite you
-          before managing tables.
-        </AlertDescription>
-      </Alert>
+      <OpsEmptyState
+        title="No restaurant access"
+        description="Your account is not linked to any restaurants yet. Ask an owner or manager to invite you before managing tables."
+      />
     );
   }
 
@@ -40,110 +47,120 @@ export default function TableInventoryClient() {
   }
 
   if (controller.isError) {
-    const message =
-      controller.error instanceof Error
-        ? controller.error.message
-        : 'Unable to load tables right now.';
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Unable to load tables</AlertTitle>
-        <AlertDescription className="flex items-start justify-between gap-4">
-          <span>{message}</span>
+      <Alert variant="destructive" role="alert">
+        <AlertTitle>Tables couldn’t be loaded</AlertTitle>
+        <AlertDescription className="flex flex-col items-start gap-2">
+          <span>
+            Saved settings are unchanged. Reason code{' '}
+            <span className="font-mono">{getSettingsSaveReasonCode(controller.error)}</span>
+          </span>
           <Button type="button" variant="outline" size="sm" onClick={() => controller.refetch()}>
-            Retry
+            Try again
           </Button>
         </AlertDescription>
       </Alert>
     );
   }
 
+  const openZoneDialog = () => controller.openZoneDialog(null);
+
   return (
-    <TableInventoryCommandCenter
-      activeWorkspace={controller.activeWorkspace}
-      summary={controller.summary}
-      tables={controller.tables}
-      onSelectWorkspace={controller.selectWorkspace}
-    >
-      <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
-        <TableInventorySummarySection
-          isActive={controller.activeWorkspace === 'summary'}
-          summaryCards={controller.summaryCards}
-        />
+    <TooltipProvider>
+      <RestaurantSettingsCommandCenter
+        title={TABLES_ROUTE.title}
+        description={TABLES_ROUTE.description}
+        primaryAction={
+          <Button
+            id={TABLE_INVENTORY_ADD_BUTTON_ID}
+            type="button"
+            onClick={controller.openAddTable}
+            aria-busy={controller.isLoading || undefined}
+            className={TABLE_TOUCH_TARGET_CLASS}
+          >
+            <Plus data-icon="inline-start" aria-hidden />
+            Add table
+          </Button>
+        }
+      >
+        <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
+          <TableInventoryMetrics
+            isLoading={controller.isLoading}
+            overview={controller.overview}
+            serviceCapacityLines={controller.serviceCapacityLines}
+            hasSummary={controller.summary !== null}
+          />
 
-        <TableZonesSection
-          isActive={controller.activeWorkspace === 'zones'}
-          zoneDeleteBlockedMessage={controller.zoneDeleteBlockedMessage}
-          isLoadingZones={controller.isLoadingZones}
-          isZonesError={controller.isZonesError}
-          zonesError={controller.zonesError}
-          zones={controller.zones}
-          filteredZones={controller.filteredZones}
-          selectedZoneId={controller.filterZone}
-          zoneStatusFilter={controller.zoneStatusFilter}
-          isZoneUpdatePending={controller.zoneUpdateMutation.isPending}
-          isZoneDeletePending={controller.isZoneDeletePending}
-          onZoneStatusFilterChange={controller.setZoneStatusFilter}
-          onSelectZone={controller.setFilterZone}
-          onAddZone={() => {
-            controller.setEditingZone(null);
-            controller.setIsZoneDialogOpen(true);
-          }}
-          onEditZone={(zone) => {
-            controller.setEditingZone(zone);
-            controller.setIsZoneDialogOpen(true);
-          }}
-          onDeleteZone={controller.handleZoneDelete}
-          onToggleZoneActive={(zoneId, active) => {
-            controller.zoneUpdateMutation.mutate({ zoneId, active });
-          }}
-        />
+          <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:items-start">
+            <TableZonesSection
+              isLoadingZones={controller.isLoadingZones}
+              isZonesError={controller.isZonesError}
+              onRetryZones={() => {
+                void controller.refetchZones();
+              }}
+              zones={controller.zones}
+              tables={controller.tables}
+              selectedZoneId={controller.filters.zoneId}
+              isZoneDeletePending={controller.isZoneDeletePending}
+              onSelectZone={controller.toggleZoneFilter}
+              onAddZone={openZoneDialog}
+              onEditZone={(zone) => controller.openZoneDialog(zone)}
+              onDeleteZone={controller.handleZoneDelete}
+              onToggleZoneActive={controller.toggleZoneActive}
+            />
 
-        <TableInventorySection
-          isActive={controller.activeWorkspace === 'inventory'}
-          isLoading={controller.isLoading}
-          isFetching={controller.isFetching}
-          isAddTableDisabled={controller.isZoneSelectDisabled && !controller.isLoadingZones}
-          isDeletePending={controller.isTableDeletePending}
-          canDeleteTables={controller.canDeleteTables}
-          selectedZoneId={controller.filterZone}
-          tableStatusFilter={controller.tableStatusFilter}
-          zoneOptions={controller.zoneOptions}
-          tables={controller.tables}
-          filteredTables={controller.filteredTables}
-          onAddTable={controller.openNewTableDialog}
-          onEditTable={(table) => {
-            controller.setEditingTable(table);
-            controller.setIsDialogOpen(true);
-          }}
-          onDeleteTable={controller.setTableDeleteTarget}
-          onZoneFilterChange={controller.setFilterZone}
-          onTableStatusFilterChange={controller.setTableStatusFilter}
-        />
+            <TableInventorySection
+              isLoading={controller.isLoading}
+              isDeletePending={controller.isTableDeletePending}
+              canDeleteTables={controller.canDeleteTables}
+              filters={controller.filters}
+              zoneOptions={controller.zoneOptions}
+              zoneLookup={controller.zoneLookup}
+              totalTables={controller.tables.length}
+              shownTables={controller.filteredTables.length}
+              groups={controller.tableGroups}
+              onAddTable={controller.openAddTable}
+              onClearFilters={controller.clearFilters}
+              onEditTable={(table) => controller.openTableDialog(table)}
+              onDeleteTable={controller.setTableDeleteTarget}
+              onSearchChange={controller.setSearchQuery}
+              onZoneFilterChange={controller.setZoneFilter}
+              onBookableFilterChange={controller.setBookableFilter}
+            />
+          </div>
 
-        <TableInventoryDialogs
-          editingTable={controller.editingTable}
-          editingZone={controller.editingZone}
-          isDialogOpen={controller.isDialogOpen}
-          isFirstTable={!controller.editingTable && controller.tables.length === 0}
-          isSavingTable={controller.isSavingTable}
-          isSavingZone={controller.isSavingZone}
-          isTableDeletePending={controller.isTableDeletePending}
-          isZoneDeletePending={controller.isZoneDeletePending}
-          isZoneDialogOpen={controller.isZoneDialogOpen}
-          isZonesLoading={controller.isLoadingZones}
-          onConfirmTableDelete={controller.handleConfirmTableDelete}
-          onConfirmZoneDelete={controller.handleConfirmZoneDelete}
-          onTableDeleteOpenChange={controller.handleTableDeleteOpenChange}
-          onTableDialogOpenChange={controller.handleTableDialogOpenChange}
-          onTableSubmit={controller.handleTableSubmit}
-          onZoneDeleteOpenChange={controller.handleZoneDeleteOpenChange}
-          onZoneDialogOpenChange={controller.handleZoneDialogOpenChange}
-          onZoneSubmit={controller.handleZoneSubmit}
-          tableDeleteTarget={controller.tableDeleteTarget}
-          zoneDeleteTarget={controller.zoneDeleteTarget}
-          zoneOptions={controller.zoneOptions}
-        />
-      </div>
-    </TableInventoryCommandCenter>
+          <TableInventoryDialogs
+            editingTable={controller.editingTable}
+            editingZone={controller.editingZone}
+            isDialogOpen={controller.isDialogOpen}
+            isSavingTable={controller.isSavingTable}
+            isSavingZone={controller.isSavingZone}
+            isTableDeletePending={controller.isTableDeletePending}
+            isZoneDeletePending={controller.isZoneDeletePending}
+            isZoneDialogOpen={controller.isZoneDialogOpen}
+            isZonesLoading={controller.isLoadingZones}
+            nextZoneSortOrder={controller.zones.length}
+            onConfirmTableDelete={controller.handleConfirmTableDelete}
+            onConfirmZoneDelete={controller.handleConfirmZoneDelete}
+            onShowZoneTables={controller.showZoneTables}
+            onTableDeleteOpenChange={controller.handleTableDeleteOpenChange}
+            onTableDialogOpenChange={controller.handleTableDialogOpenChange}
+            onTableSubmit={controller.handleTableSubmit}
+            onZoneDeleteOpenChange={controller.handleZoneDeleteOpenChange}
+            onZoneDialogOpenChange={controller.handleZoneDialogOpenChange}
+            onZoneSubmit={controller.handleZoneSubmit}
+            onZoneWithTablesOpenChange={controller.handleZoneWithTablesOpenChange}
+            preferredZoneId={controller.preferredZoneId}
+            tableDeleteTarget={controller.tableDeleteTarget}
+            tableDialogSession={controller.tableDialogSession}
+            tableNumberConflict={controller.tableNumberConflict}
+            zoneDeleteTarget={controller.zoneDeleteTarget}
+            zoneDialogContinuesToTable={controller.zoneDialogContinuesToTable}
+            zoneOptions={controller.zoneOptions}
+            zoneWithTables={controller.zoneWithTables}
+          />
+        </div>
+      </RestaurantSettingsCommandCenter>
+    </TooltipProvider>
   );
 }

@@ -1,52 +1,49 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ServiceItemRow } from '@/components/features/restaurant-settings/discovery/panels/ServiceItemRow';
 
 import { makeBusinessContextEditor, makeServiceItemRow } from '../../testUtils';
+import { renderWithDiscoveryForm } from '../renderWithDiscoveryForm';
 
 import type { ServiceItemEditor } from '@/components/features/restaurant-settings/businessContextModel';
 import type { RestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 
 function renderRow(rowOver: Record<string, unknown> = {}) {
   const editor = makeBusinessContextEditor();
+  const onRemove = vi.fn();
   const row = makeServiceItemRow(rowOver) as ServiceItemEditor;
-  render(
-    <ServiceItemRow row={row} editor={editor as unknown as RestaurantBusinessContextEditor} />,
+  renderWithDiscoveryForm(
+    <ServiceItemRow
+      row={row}
+      editor={editor as unknown as RestaurantBusinessContextEditor}
+      onRemove={onRemove}
+    />,
   );
-  return { editor, row };
+  return { editor, row, onRemove };
 }
 
 describe('ServiceItemRow', () => {
-  it('@smoke renders the item title with its main fields', () => {
+  it('@smoke shows name and description, with the code under Advanced', async () => {
+    const user = userEvent.setup();
     renderRow();
 
-    expect(screen.getByText('Sunday roast')).toBeInTheDocument();
+    expect(screen.getByLabelText('Service')).toHaveValue('Sunday roast');
+    expect(screen.getByLabelText(/Description/)).toHaveValue('Weekly roast service');
+    expect(screen.queryByLabelText('Service code')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Service code and details/ }));
     expect(screen.getByLabelText('Service code')).toHaveValue('sunday-roast');
-    expect(screen.getByLabelText('Display name')).toHaveValue('Sunday roast');
   });
 
-  it('@contract edits a main field and removes the row', async () => {
+  it('@contract routes edits and removal', async () => {
     const user = userEvent.setup();
-    const { editor, row } = renderRow({ description: '' });
+    const { editor, row, onRemove } = renderRow({ description: '' });
 
-    await user.type(screen.getByLabelText('Description'), 'X');
-    expect(editor.updateServiceItem).toHaveBeenCalledWith(row.id, 'description', 'X');
-
-    await user.click(screen.getByRole('button', { name: /Remove/ }));
-    expect(editor.removeServiceItem).toHaveBeenCalledWith(row.id);
-  });
-
-  it('@contract reveals the advanced payload editor on demand', async () => {
-    const user = userEvent.setup();
-    const { editor, row } = renderRow();
-
-    expect(screen.queryByLabelText('Service details')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /Advanced service data/ }));
-
-    const payload = await screen.findByLabelText('Service details');
-    await user.type(payload, '{{');
-    expect(editor.updateServiceItem).toHaveBeenCalledWith(row.id, 'payloadJson', '{');
+    await user.type(screen.getByLabelText(/Description/), 'R');
+    expect(editor.updateServiceItem).toHaveBeenCalledWith(row.id, 'description', 'R');
+    await user.click(screen.getByRole('button', { name: 'Remove Sunday roast' }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 });

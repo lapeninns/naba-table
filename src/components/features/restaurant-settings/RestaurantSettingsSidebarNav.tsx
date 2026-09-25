@@ -2,15 +2,19 @@
 
 import {
   CalendarClock,
+  ClipboardCheck,
   Compass,
+  BellRing,
   LayoutGrid,
   MapPinned,
   Store,
   Users,
+  UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { Badge } from '@/components/ui/badge';
 import {
   SidebarContent,
   SidebarGroup,
@@ -22,8 +26,10 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
+import { cn } from '@/lib/utils';
 
 import {
+  getRestaurantSettingsNavUnsavedEntryId,
   GROUPED_RESTAURANT_SETTINGS_NAV_ITEMS,
   isRestaurantSettingsNavItemActive,
   type SettingsHref,
@@ -32,13 +38,15 @@ import {
 import type { MouseEvent } from 'react';
 
 const NAV_ICONS: Record<SettingsHref, LucideIcon> = {
+  '/app/settings/restaurant': ClipboardCheck,
   '/app/settings/restaurant/profile': Store,
   '/app/settings/restaurant/discovery': Compass,
   '/app/settings/restaurant/google-business-profile': MapPinned,
   '/app/settings/restaurant/availability': CalendarClock,
-  '/app/settings/restaurant/menu': LayoutGrid,
+  '/app/settings/restaurant/menu': UtensilsCrossed,
   '/app/settings/restaurant/tables': LayoutGrid,
   '/app/settings/restaurant/team': Users,
+  '/app/settings/restaurant/staff-communications': BellRing,
 };
 
 export type RestaurantSettingsSidebarNavProps = {
@@ -59,53 +67,43 @@ export function RestaurantSettingsSidebarNav({
   return (
     <SidebarContent role="navigation" aria-label="Restaurant settings" className="gap-0">
       {GROUPED_RESTAURANT_SETTINGS_NAV_ITEMS.map((group) => (
-        <SidebarGroup key={group.label}>
-          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+        <SidebarGroup key={group.label ?? 'overview'}>
+          {group.label ? <SidebarGroupLabel>{group.label}</SidebarGroupLabel> : null}
           <SidebarGroupContent>
             <SidebarMenu>
               {group.items.map((item) => {
+                const href = item.href as SettingsHref;
                 const active =
                   normalizedPathname != null
                     ? isRestaurantSettingsNavItemActive(normalizedPathname, item)
                     : false;
-                const Icon = NAV_ICONS[item.href] ?? LayoutGrid;
-                const badge = getNavBadge(item.href);
-
+                const Icon = NAV_ICONS[href] ?? LayoutGrid;
+                const badge = getNavBadge(href);
+                const unsavedEntryId = getRestaurantSettingsNavUnsavedEntryId(href);
                 const hasUnsaved =
-                  (item.href === '/app/settings/restaurant/profile' &&
-                    entries.some((e) => e.id === 'restaurant-profile')) ||
-                  (item.href === '/app/settings/restaurant/discovery' &&
-                    entries.some((e) => e.id === 'restaurant-discovery')) ||
-                  (item.href === '/app/settings/restaurant/availability' &&
-                    entries.some(
-                      (e) =>
-                        e.id === 'restaurant-booking-rules' ||
-                        e.id === 'availability-command-center' ||
-                        e.id === 'weekly-operating-hours' ||
-                        e.id === 'service-windows' ||
-                        e.id === 'date-overrides' ||
-                        e.id === 'booking-occasions-turnbands',
-                    ));
+                  unsavedEntryId != null && entries.some((entry) => entry.id === unsavedEntryId);
 
                 return (
-                  <SidebarMenuItem key={item.href}>
+                  <SidebarMenuItem key={href}>
                     <SidebarMenuButton asChild isActive={active} tooltip={item.title}>
                       <Link
-                        href={item.href}
+                        href={href}
                         aria-current={active ? 'page' : undefined}
-                        onMouseEnter={() => prefetchSettingsView(item.href)}
-                        onFocus={() => prefetchSettingsView(item.href)}
+                        onMouseEnter={() => prefetchSettingsView(href)}
+                        onFocus={() => prefetchSettingsView(href)}
                         onClick={onLinkClick}
+                        className={cn(badge && 'pr-20')}
                       >
                         <Icon aria-hidden />
-                        <span className="truncate">{item.title}</span>
-                        {hasUnsaved && (
-                          <span
-                            className="ml-1.5 size-1.5 shrink-0 animate-pulse rounded-full bg-primary"
-                            aria-label="Unsaved changes alert"
-                            title="Unsaved changes in this tab"
-                          />
-                        )}
+                        <span className="min-w-0 truncate">{item.title}</span>
+                        {hasUnsaved ? (
+                          <Badge
+                            variant="status-pending"
+                            className="ml-auto shrink-0 px-1.5 py-0 leading-4 group-data-[collapsible=icon]:hidden"
+                          >
+                            Unsaved
+                          </Badge>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                     {badge ? <SidebarMenuBadge>{badge}</SidebarMenuBadge> : null}

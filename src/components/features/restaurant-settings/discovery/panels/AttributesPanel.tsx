@@ -1,126 +1,191 @@
 'use client';
 
-import { ChevronDown, Plus } from 'lucide-react';
+import { ChevronRight, Plus } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/typography';
 
-import { AMENITY_ATTRIBUTE_GROUPS, makeFieldId, type FamilyKey } from '../../businessContextModel';
-import { FamilyActions, FamilyError, FamilyStatus } from '../DiscoveryPanelChrome';
 import { AttributeAdvancedRow } from './AttributeAdvancedRow';
 import {
-  countSelectedAmenityAttributes,
+  AMENITY_VALUE_OPTIONS,
+  countSetAmenityAttributes,
   findAmenityAttributeRow,
-  getAmenityAttributeDisplayState,
+  getAmenityAttributeValue,
 } from './attributesPanelDomain';
-import { DiscoveryFamilyPanel } from './DiscoveryFamilyPanel';
+import {
+  AMENITY_ATTRIBUTE_GROUPS,
+  makeFieldId,
+  type AmenityAttributeDefinition,
+  type AmenityAttributeGroup,
+  type AttributeEditor,
+} from '../../businessContextModel';
+import { DiscoveryDisclosure, useDiscoveryForm } from '../DiscoveryFormContext';
+import { DISCOVERY_DISCLOSURE_IDS, DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-export function AttributesPanel({
+type AttributesPanelEditor = Pick<
+  RestaurantBusinessContextEditor,
+  'attributes' | 'setAmenityValue' | 'addAttribute' | 'updateAttribute' | 'removeAttribute'
+>;
+
+/** One amenity: a native Yes / No / Not set radio group. */
+function AmenityValueRadios({
+  definition,
+  groupTitle,
+  row,
   editor,
 }: {
-  embedded: boolean;
-  editor: RestaurantBusinessContextEditor;
-  family?: FamilyKey;
+  definition: AmenityAttributeDefinition;
+  groupTitle: string;
+  row: AttributeEditor | undefined;
+  editor: AttributesPanelEditor;
 }) {
+  const name = makeFieldId('attributes', definition.key, 'amenity');
+  const labelId = `${name}-label`;
+  const value = getAmenityAttributeValue(row);
+
   return (
-    <DiscoveryFamilyPanel>
-      <FamilyStatus family="attributes" editor={editor} />
+    <li className="flex min-h-11 items-center justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0">
+      <span id={labelId} className="min-w-0 text-sm text-foreground">
+        {definition.label}
+      </span>
+      <div
+        role="radiogroup"
+        aria-labelledby={labelId}
+        className="inline-flex shrink-0 gap-0.5 rounded-md border border-border p-0.5"
+      >
+        {AMENITY_VALUE_OPTIONS.map((option) => (
+          <Label key={option.value} className="relative gap-0">
+            {/* A native radio: arrow keys move between Yes, No and Not set. */}
+            <Input
+              type="radio"
+              name={name}
+              value={option.value}
+              checked={value === option.value}
+              onChange={() => editor.setAmenityValue(definition, groupTitle, option.value)}
+              className="peer absolute inset-0 m-0 size-full cursor-pointer appearance-none border-0 p-0 opacity-0 shadow-none"
+            />
+            <span className="grid min-h-7 min-w-11 cursor-pointer place-items-center rounded-sm px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-1 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-9">
+              {option.label}
+            </span>
+          </Label>
+        ))}
+      </div>
+    </li>
+  );
+}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {AMENITY_ATTRIBUTE_GROUPS.map((group) => {
-          const selectedCount = countSelectedAmenityAttributes(group, editor.attributes);
+function AmenityGroup({
+  group,
+  index,
+  editor,
+}: {
+  group: AmenityAttributeGroup;
+  index: number;
+  editor: AttributesPanelEditor;
+}) {
+  const { isDisclosureOpen, setDisclosureOpen } = useDiscoveryForm();
+  const id = DISCOVERY_DISCLOSURE_IDS.amenityGroup(index);
+  const setCount = countSetAmenityAttributes(group, editor.attributes);
 
-          return (
-            <div
-              key={group.title}
-              className="flex flex-col gap-4 rounded-lg border border-border/60 p-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <Text variant="label">{group.title}</Text>
-                  <Text variant="caption">{group.description}</Text>
-                </div>
-                <Badge variant="outline">
-                  {selectedCount}/{group.keys.length}
-                </Badge>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {group.keys.map((definition) => {
-                  const row = findAmenityAttributeRow(editor.attributes, definition);
-                  const displayState = getAmenityAttributeDisplayState(row);
+  return (
+    <Collapsible
+      open={isDisclosureOpen(id)}
+      onOpenChange={(open) => setDisclosureOpen(id, open)}
+      className="border-t border-border/60 first:border-t-0"
+    >
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          className="group h-auto min-h-12 w-full justify-between gap-2 rounded-none px-0 py-2 text-left hover:bg-transparent"
+        >
+          <span className="flex min-w-0 flex-col">
+            <span className="text-sm font-semibold text-foreground">{group.title}</span>
+            <span className="text-xs font-normal text-muted-foreground">{group.description}</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 text-xs font-normal text-muted-foreground tabular-nums">
+            {setCount} of {group.keys.length} set
+            <ChevronRight
+              className="size-4 transition-transform group-data-[state=open]:rotate-90 motion-reduce:transition-none"
+              aria-hidden
+            />
+          </span>
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="grid pb-3 md:grid-cols-2 md:gap-x-6">
+          {group.keys.map((definition) => (
+            <AmenityValueRadios
+              key={definition.key}
+              definition={definition}
+              groupTitle={group.title}
+              row={findAmenityAttributeRow(editor.attributes, definition)}
+              editor={editor}
+            />
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
-                  return (
-                    <Label
-                      key={definition.key}
-                      htmlFor={makeFieldId('attributes', definition.key, 'amenity')}
-                      className="flex cursor-pointer items-start gap-3 rounded-md border border-border/50 bg-background p-3 transition-colors hover:bg-muted/30"
-                    >
-                      <Checkbox
-                        id={makeFieldId('attributes', definition.key, 'amenity')}
-                        checked={displayState.checked}
-                        onCheckedChange={(value) =>
-                          editor.toggleAmenityAttribute(definition, group.title, value === true)
-                        }
-                      />
-                      <span className="flex min-w-0 flex-col gap-1">
-                        <span className="text-sm leading-5 text-foreground">
-                          {definition.label}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {displayState.helperText}
-                        </span>
-                      </span>
-                    </Label>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+/** Section 4: the full amenity catalogue as Yes / No / Not set, plus raw data for support. */
+export function AttributesPanel({ editor }: { editor: AttributesPanelEditor }) {
+  const { requestFocus } = useDiscoveryForm();
+
+  return (
+    <>
+      <div className="flex flex-col">
+        {AMENITY_ATTRIBUTE_GROUPS.map((group, index) => (
+          <AmenityGroup key={group.title} group={group} index={index} editor={editor} />
+        ))}
       </div>
 
-      <Collapsible className="rounded-lg border border-border/60 bg-muted/20 p-3">
-        <CollapsibleTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
-          >
-            <span className="flex min-w-0 flex-col gap-1">
-              <span className="text-sm font-medium text-foreground">Advanced attribute rows</span>
-              <span className="text-xs font-normal text-muted-foreground">
-                Review provider keys, text values, enum values, and raw payloads.
-              </span>
-            </span>
-            <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">
+      <DiscoveryDisclosure
+        id={DISCOVERY_DISCLOSURE_IDS.amenitiesRaw}
+        title="Raw attribute data"
+        hint="Advanced, for support"
+        className="border-t border-border/60 pt-2"
+      >
+        <div className="flex flex-col gap-3">
+          <Text variant="caption">
+            Only change this if support asks you to. The choices above update it for you.
+          </Text>
           {editor.attributes.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {editor.attributes.map((row) => (
-                <AttributeAdvancedRow key={row.id} row={row} editor={editor} />
-              ))}
-            </div>
+            editor.attributes.map((row) => (
+              <AttributeAdvancedRow
+                key={row.id}
+                row={row}
+                editor={editor}
+                onRemove={() => {
+                  editor.removeAttribute(row.id);
+                  requestFocus(DISCOVERY_FIELD_IDS.addAttribute);
+                }}
+              />
+            ))
           ) : (
-            <Text variant="caption">No attribute rows yet.</Text>
+            <Text variant="caption">No attribute data yet.</Text>
           )}
-        </CollapsibleContent>
-      </Collapsible>
-
-      <FamilyActions family="attributes" editor={editor} saveLabel="Save attributes">
-        <Button type="button" variant="outline" onClick={editor.addAttribute}>
-          <Plus className="size-4" />
-          Add attribute
-        </Button>
-      </FamilyActions>
-      <FamilyError family="attributes" editor={editor} />
-    </DiscoveryFamilyPanel>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              id={DISCOVERY_FIELD_IDS.addAttribute}
+              onClick={() =>
+                requestFocus(makeFieldId('attributes', editor.addAttribute(), 'attributeGroup'))
+              }
+            >
+              <Plus data-icon="inline-start" aria-hidden />
+              Add attribute
+            </Button>
+          </div>
+        </div>
+      </DiscoveryDisclosure>
+    </>
   );
 }

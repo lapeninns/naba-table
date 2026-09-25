@@ -1,6 +1,10 @@
 import { normalizeOpsPathname, opsHref } from '@/lib/url/opsHref';
 
-import { AVAILABILITY_ANCHORS, availabilityHash } from './availabilityAnchors';
+import {
+  AVAILABILITY_ANCHORS,
+  availabilityHash,
+  type AvailabilityAnchor,
+} from './availabilityAnchors';
 
 import type { RestaurantSettingsView } from './types';
 
@@ -18,54 +22,65 @@ export type RestaurantSettingsOverviewRoute = {
   description: string;
 };
 
-export type AvailabilitySettingsWorkspace = 'rules' | 'schedule' | 'booking-types';
-
+/**
+ * Former standalone availability routes. Each still has its own page, which renders the single
+ * Availability page and opens it on the section that replaced the old route.
+ */
 export type RestaurantSettingsAliasRoute = {
+  /** Route segment after `/settings/restaurant/`, shown in the alias notice. */
+  slug: string;
   href: string;
   title: string;
   description: string;
-  availabilityWorkspace: AvailabilitySettingsWorkspace;
+  availabilityAnchor: AvailabilityAnchor;
 };
 
+function availabilityAlias(
+  slug: string,
+  anchor: AvailabilityAnchor,
+  title: string,
+  description: string,
+): RestaurantSettingsAliasRoute {
+  return {
+    slug,
+    href: opsHref(`/settings/restaurant/${slug}${availabilityHash(anchor)}`),
+    title,
+    description,
+    availabilityAnchor: anchor,
+  };
+}
+
 export const RESTAURANT_SETTINGS_AVAILABILITY_ALIASES: RestaurantSettingsAliasRoute[] = [
-  {
-    href: opsHref(
-      `/settings/restaurant/service-periods${availabilityHash(AVAILABILITY_ANCHORS.serviceWindows)}`,
-    ),
-    title: 'Service periods',
-    description: 'Define lunch, dinner, and other booking windows inside operating hours.',
-    availabilityWorkspace: 'schedule',
-  },
-  {
-    href: opsHref(
-      `/settings/restaurant/operating-hours${availabilityHash(AVAILABILITY_ANCHORS.weeklyHours)}`,
-    ),
-    title: 'Operating hours',
-    description: 'Configure weekly open and close times plus date-specific overrides.',
-    availabilityWorkspace: 'schedule',
-  },
-  {
-    href: opsHref(
-      `/settings/restaurant/turn-durations${availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions)}`,
-    ),
-    title: 'Reservation durations',
-    description: 'Configure table-time bands by booking type and party size.',
-    availabilityWorkspace: 'booking-types',
-  },
-  {
-    href: opsHref(
-      `/settings/restaurant/occasions${availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions)}`,
-    ),
-    title: 'Booking types',
-    description: 'Control the lunch, dinner, and occasion types staff and guests can use.',
-    availabilityWorkspace: 'booking-types',
-  },
+  availabilityAlias(
+    'service-periods',
+    AVAILABILITY_ANCHORS.serviceWindows,
+    'Service periods',
+    'Define lunch, dinner, and other booking windows inside operating hours.',
+  ),
+  availabilityAlias(
+    'operating-hours',
+    AVAILABILITY_ANCHORS.weeklyHours,
+    'Operating hours',
+    'Configure weekly open and close times plus date-specific overrides.',
+  ),
+  availabilityAlias(
+    'turn-durations',
+    AVAILABILITY_ANCHORS.bookingOccasions,
+    'Dining durations',
+    'Configure table-time bands by booking type and party size.',
+  ),
+  availabilityAlias(
+    'occasions',
+    AVAILABILITY_ANCHORS.bookingOccasions,
+    'Booking types',
+    'Control the lunch, dinner, and occasion types staff and guests can use.',
+  ),
 ];
 
 export const RESTAURANT_SETTINGS_OVERVIEW_ROUTE: RestaurantSettingsOverviewRoute = {
   href: opsHref('/settings/restaurant'),
   title: 'Restaurant setup',
-  description: 'Track the required setup steps for profile, booking availability, and seating.',
+  description: 'What has to be in place before guests can book, and what you can add later.',
 };
 
 export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
@@ -73,19 +88,22 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     view: 'profile',
     href: opsHref('/settings/restaurant/profile'),
     title: 'Restaurant profile',
-    description: 'Public details, booking page URL, and manager alerts.',
+    description:
+      'What guests see when they book: your name, booking page link, contact details and location.',
   },
   {
     view: 'discovery',
     href: opsHref('/settings/restaurant/discovery'),
     title: 'Discovery details',
-    description: 'Categories, links, and attributes that help guests find your restaurant.',
+    description:
+      'Details that help guests find and choose you, such as categories, links and amenities. Google is optional. If it’s linked, it can suggest values here.',
   },
   {
     view: 'google-business-profile',
     href: opsHref('/settings/restaurant/google-business-profile'),
     title: 'Google Business Profile',
-    description: 'Optional: connect Google to import and compare public details.',
+    description:
+      'Optional. Link your Google listing to compare your public details and publish changes. Bookings work without it.',
   },
   {
     view: 'availability',
@@ -93,26 +111,34 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     aliases: [...RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.map((item) => item.href)],
     title: 'Availability & Booking types',
     description:
-      'Booking rules, weekly hours, overrides, meal windows, booking types, and dining-duration bands.',
+      'Opening hours, meal times and booking rules decide which times guests can request. Tables and existing bookings are checked separately when a guest books.',
   },
   {
     view: 'menu',
     href: opsHref('/settings/restaurant/menu'),
     title: 'Menu',
     description:
-      'Manage menus, sections, items, options, and details that can be published to Google.',
+      'Food and drinks guests can see. Each change saves when you confirm it. Publishing to Google happens separately.',
   },
   {
     view: 'tables',
     href: opsHref('/settings/restaurant/tables'),
     title: 'Tables',
-    description: 'Manage table inventory, zones, and capacity.',
+    description:
+      'Tables and zones decide who can be seated. Only active tables in zones that are in service can be given to bookings.',
   },
   {
     view: 'team',
     href: opsHref('/settings/restaurant/team'),
     title: 'Team',
-    description: 'Invite and manage restaurant staff access.',
+    description: 'Invite people to help run this restaurant and keep track of their invitations.',
+  },
+  {
+    view: 'staff-communications',
+    href: opsHref('/settings/restaurant/staff-communications'),
+    title: 'Staff communications',
+    description:
+      'Who we tell about bookings: the manager alert number, the daily booking summary and WhatsApp. Guests never see the alert number.',
   },
 ];
 
@@ -140,6 +166,7 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('menu'),
   getRoute('tables'),
   getRoute('team'),
+  getRoute('staff-communications'),
 ];
 
 export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<
@@ -153,28 +180,71 @@ export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<
   {} as Record<RestaurantSettingsView, RestaurantSettingsRoute>,
 );
 
+/** The former availability route the pathname points at, or null for every other route. */
+export function getRestaurantSettingsAvailabilityAlias(
+  pathname: string | null | undefined,
+): RestaurantSettingsAliasRoute | null {
+  if (!pathname) {
+    return null;
+  }
+  const normalizedPathname = normalizeOpsPathname(pathname);
+  return (
+    RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.find(
+      (item) => normalizeOpsPathname(item.href) === normalizedPathname,
+    ) ?? null
+  );
+}
+
+/**
+ * Route copy for a pathname. Former availability routes resolve to the Availability page, which
+ * is what they render.
+ */
 export function getRestaurantSettingsRouteCopy(pathname: string) {
   const normalizedPathname = normalizeOpsPathname(pathname);
   if (normalizedPathname === normalizeOpsPathname(RESTAURANT_SETTINGS_OVERVIEW_ROUTE.href)) {
     return RESTAURANT_SETTINGS_OVERVIEW_ROUTE;
   }
 
-  const alias = RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.find(
-    (item) => normalizeOpsPathname(item.href) === normalizedPathname,
-  );
-  if (alias) {
-    return alias;
+  if (getRestaurantSettingsAvailabilityAlias(pathname)) {
+    return RESTAURANT_SETTINGS_ROUTE_MAP.availability;
   }
 
   return (
     RESTAURANT_SETTINGS_ROUTES.find((route) => {
       const normalizedHref = normalizeOpsPathname(route.href);
-      if (normalizedHref === '/settings/restaurant') {
-        return normalizedPathname === normalizedHref;
-      }
       return (
         normalizedPathname === normalizedHref || normalizedPathname.startsWith(`${normalizedHref}/`)
       );
     }) ?? null
   );
 }
+
+/** Browser-tab suffix for ops pages (legacy product spelling kept until the owner decides). */
+export const RESTAURANT_SETTINGS_METADATA_SUFFIX = ' · Nab a Table Ops';
+
+/**
+ * Page metadata derived from the same route copy the settings chrome shows, so the tab title,
+ * breadcrumb, and page intro never drift apart.
+ */
+export function getRestaurantSettingsMetadata(settingsPath: string) {
+  const route = getRestaurantSettingsRouteCopy(opsHref(settingsPath));
+  if (!route) {
+    throw new Error(`Missing restaurant settings route copy for ${settingsPath}`);
+  }
+  return {
+    title: `${route.title}${RESTAURANT_SETTINGS_METADATA_SUFFIX}`,
+    description: route.description,
+  };
+}
+
+/**
+ * Unsaved-changes registry id per settings page. The page registers its draft under this id and
+ * the settings sidebar marks the matching item "Unsaved".
+ */
+export const RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS = {
+  profile: 'restaurant-profile',
+  discovery: 'restaurant-discovery',
+  availability: 'restaurant-availability',
+  team: 'team-invite-draft',
+  'staff-communications': 'restaurant-staff-communications',
+} as const satisfies Partial<Record<RestaurantSettingsView, string>>;

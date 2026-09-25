@@ -1,239 +1,290 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { AlertCircle, Ban, CheckCircle2, Clock, RefreshCw, type LucideIcon } from 'lucide-react';
+import { useMemo, useRef, useState, type ComponentProps } from 'react';
+import { toast } from 'sonner';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
+import { getSettingsSaveReasonCode } from '@/components/features/restaurant-settings/shared/settingsSaveSequence';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Text } from '@/components/ui/typography';
-import { useOpsRevokeTeamInvite, useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
+import { useOpsRevokeTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
 
 import {
-  TEAM_INVITE_STATUS_OPTIONS,
-  buildTeamInviteRows,
+  TEAM_INVITE_FILTERS,
+  TEAM_INVITE_STATUS_LABELS,
+  countTeamInvites,
+  filterTeamInvites,
+  formatTeamInviteDate,
   formatTeamRole,
-  getTeamInviteStatusBadgeVariant,
-  getTeamInviteStatusLabel,
+  type TeamInviteDisplayStatus,
+  type TeamInviteFilter,
+  type TeamInviteRow,
 } from './teamInviteModel';
 
-import type { TeamInvite, TeamInviteStatus } from '@/services/ops/team';
+import type { TeamInvite } from '@/services/ops/team';
 
-function StatusBadge({ invite }: { invite: TeamInvite }) {
+const COARSE_TARGET_CLASS = '[@media(pointer:coarse)]:min-h-11';
+
+const STATUS_BADGES: Record<
+  TeamInviteDisplayStatus,
+  { variant: ComponentProps<typeof Badge>['variant']; Icon: LucideIcon }
+> = {
+  pending: { variant: 'status-pending', Icon: Clock },
+  expired: { variant: 'status-cancelled', Icon: AlertCircle },
+  accepted: { variant: 'status-confirmed', Icon: CheckCircle2 },
+  revoked: { variant: 'secondary', Icon: Ban },
+};
+
+function StatusBadge({ status }: { status: TeamInviteDisplayStatus }) {
+  const { variant, Icon } = STATUS_BADGES[status];
   return (
-    <Badge variant={getTeamInviteStatusBadgeVariant(invite.status)}>
-      {getTeamInviteStatusLabel(invite.status)}
+    <Badge variant={variant} className="gap-1 whitespace-nowrap">
+      <Icon className="size-3" aria-hidden />
+      {TEAM_INVITE_STATUS_LABELS[status]}
     </Badge>
+  );
+}
+
+function InviteDate({ value }: { value: string | null }) {
+  if (!value) return null;
+  return (
+    <time dateTime={value} className="tabular-nums">
+      {formatTeamInviteDate(value)}
+    </time>
+  );
+}
+
+function InviteDates({ row }: { row: TeamInviteRow }) {
+  const { invite, status } = row;
+  return (
+    <span className="text-xs leading-5 text-muted-foreground">
+      Sent <InviteDate value={invite.createdAt} />
+      {status === 'pending' ? (
+        <>
+          {' · '}Expires <InviteDate value={invite.expiresAt} />
+        </>
+      ) : null}
+      {status === 'expired' ? (
+        <>
+          {' · '}Expired <InviteDate value={invite.expiresAt} />
+        </>
+      ) : null}
+      {status === 'accepted' && invite.acceptedAt ? (
+        <>
+          {' · '}Accepted <InviteDate value={invite.acceptedAt} />
+        </>
+      ) : null}
+      {status === 'revoked' && invite.revokedAt ? (
+        <>
+          {' · '}Revoked <InviteDate value={invite.revokedAt} />
+        </>
+      ) : null}
+    </span>
+  );
+}
+
+function EmptyInvites({ filter, canManage }: { filter: TeamInviteFilter; canManage: boolean }) {
+  const waiting = filter === 'pending';
+  return (
+    <div className="flex flex-col items-center gap-1 py-6 text-center">
+      <p className="text-sm font-medium text-foreground">
+        {waiting ? 'No invitations waiting' : 'Nothing here'}
+      </p>
+      <Text variant="caption" className="max-w-[44ch]">
+        {waiting
+          ? canManage
+            ? 'Invite managers and hosts so you aren’t the only person with access.'
+            : 'No one is waiting to accept an invitation.'
+          : 'No invitations match this filter.'}
+      </Text>
+    </div>
   );
 }
 
 type TeamInvitesTableProps = {
   restaurantId: string;
   canManage: boolean;
+  invites: TeamInvite[] | undefined;
+  isLoading: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  onRetry: () => void;
 };
 
-export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTableProps) {
-  const [status, setStatus] = useState<TeamInviteStatus>('pending');
+export function TeamInvitesTable({
+  restaurantId,
+  canManage,
+  invites,
+  isLoading,
+  isFetching,
+  error,
+  onRetry,
+}: TeamInvitesTableProps) {
+  const [filter, setFilter] = useState<TeamInviteFilter>('pending');
   const [revokeTarget, setRevokeTarget] = useState<TeamInvite | null>(null);
-  const {
-    data: invites,
-    error,
-    isError,
-    isLoading,
-    isFetching,
-  } = useOpsTeamInvitations({ restaurantId, status });
+  const filterRefs = useRef<Partial<Record<TeamInviteFilter, HTMLButtonElement | null>>>({});
   const revokeInvite = useOpsRevokeTeamInvite();
 
-  const hasInvites = useMemo(() => (invites?.length ?? 0) > 0, [invites]);
-  // Cache formatted invite row state so filter/loading updates do not reparse dates for every row.
-  const inviteRows = useMemo(() => {
-    return buildTeamInviteRows(invites ?? []);
-  }, [invites]);
+  // Filtering happens here, over one 'all' list, so every filter can show its count.
+  const counts = useMemo(() => countTeamInvites(invites ?? []), [invites]);
+  const rows = useMemo(() => filterTeamInvites(invites ?? [], filter), [invites, filter]);
 
   const handleRevoke = () => {
-    if (!revokeTarget || revokeInvite.isPending) {
+    const target = revokeTarget;
+    if (!target || revokeInvite.isPending) {
       return;
     }
     revokeInvite.mutate(
-      { restaurantId, inviteId: revokeTarget.id },
+      { restaurantId, inviteId: target.id },
       {
-        onSuccess: () => setRevokeTarget(null),
+        onSuccess: () => {
+          setRevokeTarget(null);
+          toast.success(`Invitation for ${target.email} revoked.`);
+          // The revoked row leaves the Waiting list: return focus to the active filter.
+          window.requestAnimationFrame(() => filterRefs.current[filter]?.focus());
+        },
+        onError: (revokeError) => {
+          setRevokeTarget(null);
+          toast.error('Invitation wasn’t revoked', {
+            description: `Reason code ${getSettingsSaveReasonCode(revokeError)}`,
+          });
+        },
       },
     );
   };
 
+  // The invitation list is only available to owners and managers. For other roles a failed
+  // load is expected, so it gets a calm explanation instead of an error.
+  const viewOnlyUnavailable = !canManage && error !== null;
+
   return (
     <SettingsCard
-      title="Team invitations"
-      description="Track outstanding invites and revoke access when an invitation is no longer needed."
-      headerAction={
-        <Select value={status} onValueChange={(value) => setStatus(value as TeamInviteStatus)}>
-          <SelectTrigger className="w-full md:w-[160px]" aria-label="Filter invitations by status">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {TEAM_INVITE_STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {getTeamInviteStatusLabel(option)}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      }
+      title="Invitations"
+      description="Invitations expire after 7 days."
+      contentClassName="flex flex-col gap-4 pt-4"
       footer={
-        isFetching ? (
+        isFetching && !isLoading ? (
           <Text variant="caption" role="status">
             Refreshing…
           </Text>
         ) : undefined
       }
     >
-      {isError ? (
-        <div className="pb-4">
-          <Alert variant="destructive">
-            <AlertTitle>Invitations could not be loaded</AlertTitle>
-            <AlertDescription>{error.message}</AlertDescription>
-          </Alert>
+      {viewOnlyUnavailable ? (
+        <div className="py-2">
+          <Text variant="caption">
+            Only owners and managers can see the invitations for this restaurant.
+          </Text>
         </div>
-      ) : null}
-
-      <div className="grid gap-3 md:hidden">
-        {isLoading ? (
-          Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-28 w-full rounded-lg" />
-          ))
-        ) : hasInvites ? (
-          inviteRows.map(({ invite, expiresLabel, createdLabel, isExpiredPending }) => (
-            <article key={invite.id} className="rounded-lg border bg-card p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <Text variant="subheading" as="h3" className="break-all">
-                    {invite.email}
-                  </Text>
-                  <Text variant="caption" className="mt-1">
-                    {formatTeamRole(invite.role)}
-                  </Text>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  <StatusBadge invite={invite} />
-                  {isExpiredPending ? <Badge variant="outline">Expired by date</Badge> : null}
-                </div>
-              </div>
-              <Text variant="caption" className="mt-3">
-                Sent {createdLabel} · Expires {expiresLabel}
-              </Text>
-              {invite.status === 'pending' && canManage ? (
+      ) : (
+        <>
+          <div role="group" aria-label="Filter invitations" className="flex flex-wrap gap-2">
+            {TEAM_INVITE_FILTERS.map((option) => {
+              const isActive = filter === option.value;
+              return (
                 <Button
+                  key={option.value}
+                  ref={(node) => {
+                    filterRefs.current[option.value] = node;
+                  }}
                   type="button"
-                  variant="outline"
                   size="sm"
-                  className="mt-4 w-full"
-                  onClick={() => setRevokeTarget(invite)}
-                  disabled={revokeInvite.isPending}
+                  variant={isActive ? 'default' : 'outline'}
+                  aria-pressed={isActive}
+                  className={COARSE_TARGET_CLASS}
+                  onClick={() => setFilter(option.value)}
                 >
-                  Revoke invite
+                  {option.label}{' '}
+                  {isLoading ? null : (
+                    <span className="tabular-nums opacity-80">{counts[option.value]}</span>
+                  )}
                 </Button>
-              ) : null}
-            </article>
-          ))
-        ) : (
-          <div className="rounded-lg border p-4 text-sm text-muted-foreground">
-            {status === 'pending'
-              ? 'No pending invitations. Invite teammates to collaborate on reservations.'
-              : 'No invitations match this filter.'}
+              );
+            })}
           </div>
-        )}
-      </div>
 
-      <div className="hidden md:block">
-        <Table>
-          <TableCaption className="sr-only">Restaurant team invitations</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Sent date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 3 }).map((_, index) => (
-                <TableRow key={index}>
-                  <TableCell colSpan={5}>
-                    <Skeleton className="h-10 w-full" />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : hasInvites ? (
-              inviteRows.map(({ invite, createdLabel, isExpiredPending }) => (
-                <TableRow key={invite.id}>
-                  <TableCell className="min-w-[220px] break-all font-medium">
-                    {invite.email}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatTeamRole(invite.role)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge invite={invite} />
-                      {isExpiredPending ? <Badge variant="outline">Expired by date</Badge> : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="min-w-[160px] text-muted-foreground">
-                    {createdLabel}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {invite.status === 'pending' && canManage ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setRevokeTarget(invite)}
-                        disabled={revokeInvite.isPending}
-                      >
-                        Revoke
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  {status === 'pending'
-                    ? 'No pending invitations. Invite teammates to collaborate on reservations.'
-                    : 'No invitations match this filter.'}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+          {error ? (
+            <div>
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" aria-hidden />
+                <AlertTitle>Invitations couldn’t be loaded</AlertTitle>
+                <AlertDescription className="flex flex-col items-start gap-2 text-foreground">
+                  <span>
+                    Nothing has changed. <span className="text-muted-foreground">Reason code</span>{' '}
+                    <span className="font-mono text-xs">{getSettingsSaveReasonCode(error)}</span>
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={COARSE_TARGET_CLASS}
+                    onClick={onRetry}
+                  >
+                    <RefreshCw data-icon="inline-start" aria-hidden />
+                    Try again
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          {isLoading ? (
+            <ul aria-label="Loading invitations" className="flex flex-col gap-2">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <li key={index}>
+                  <Skeleton className="h-14 w-full" />
+                </li>
+              ))}
+            </ul>
+          ) : error ? null : rows.length === 0 ? (
+            <EmptyInvites filter={filter} canManage={canManage} />
+          ) : (
+            <ul aria-label="Invitations" className="flex flex-col">
+              {rows.map((row) => {
+                const { invite, status } = row;
+                return (
+                  <li
+                    key={invite.id}
+                    data-testid={`team-invite-${invite.id}`}
+                    className="flex flex-col items-start gap-1.5 border-t border-border/60 py-3 md:grid md:grid-cols-[minmax(0,1.4fr)_5rem_auto_minmax(0,1fr)_auto] md:items-center md:gap-3"
+                  >
+                    <span className="min-w-0 max-w-full break-all text-sm font-medium text-foreground">
+                      {invite.email}
+                    </span>
+                    <span className="text-xs text-muted-foreground md:text-sm">
+                      {formatTeamRole(invite.role)}
+                    </span>
+                    <span>
+                      <StatusBadge status={status} />
+                    </span>
+                    <InviteDates row={row} />
+                    <span className="flex empty:hidden md:justify-end">
+                      {canManage && status === 'pending' ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={COARSE_TARGET_CLASS}
+                          onClick={() => setRevokeTarget(invite)}
+                          disabled={revokeInvite.isPending}
+                        >
+                          Revoke <span className="sr-only">invitation for {invite.email}</span>
+                        </Button>
+                      ) : null}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
+
       <ConfirmDialog
         open={revokeTarget !== null}
         onOpenChange={(open) => {
@@ -243,12 +294,15 @@ export function TeamInvitesTable({ restaurantId, canManage }: TeamInvitesTablePr
         }}
         title="Revoke invitation?"
         description={
-          revokeTarget
-            ? `${revokeTarget.email} will no longer be able to use this invitation to access the restaurant.`
-            : undefined
+          revokeTarget ? (
+            <>
+              The link sent to <strong className="break-all">{revokeTarget.email}</strong> stops
+              working straight away. You can invite them again later.
+            </>
+          ) : undefined
         }
-        confirmLabel={revokeInvite.isPending ? 'Revoking…' : 'Revoke invite'}
-        cancelLabel="Keep invite"
+        confirmLabel={revokeInvite.isPending ? 'Revoking…' : 'Revoke invitation'}
+        cancelLabel="Keep invitation"
         tone="destructive"
         onConfirm={handleRevoke}
       />

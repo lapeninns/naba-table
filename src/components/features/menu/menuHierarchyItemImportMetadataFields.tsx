@@ -16,9 +16,11 @@ export function ImportMetadataFields({
   readonly state: ItemFormState;
 }) {
   return (
-    <div className="rounded-md border p-4">
-      <Text variant="subheading" as="h3">Import metadata</Text>
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+    <section className="flex flex-col gap-4">
+      <Text variant="subheading" as="h3">
+        Import metadata
+      </Text>
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Source system">
           <Input
             value={state.sourceSystem}
@@ -39,12 +41,12 @@ export function ImportMetadataFields({
           />
         </Field>
       </div>
-      <Field label="Source note" className="mt-4">
+      <Field label="Source note">
         <Textarea
           value={state.sourceNote}
           onChange={(event) => patchItemState(setState, { sourceNote: event.target.value })}
         />
       </Field>
-    </div>
+    </section>
   );
 }

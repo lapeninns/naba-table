@@ -1,6 +1,5 @@
-import { Edit, Loader2, Trash2 } from 'lucide-react';
+import { MinusCircle, Pencil, Trash2 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -12,156 +11,148 @@ import {
 } from '@/components/ui/table';
 
 import {
+  formatTableDetails,
   formatTablePartySize,
-  formatTableSeatingType,
-  formatTableStatus,
-  getTableAvailabilityLabel,
+  getTableBookingStatus,
+  type TableZoneGroup,
+  type TableZoneLookup,
 } from './tableInventoryDisplayDomain';
+import {
+  TABLE_TOUCH_TARGET_CLASS,
+  TableBookingStatusLabel,
+  TableIconButton,
+} from './TableInventoryParts';
 
 import type { TableInventory } from '@/services/ops/tables';
 
-export type TableInventoryDesktopTableProps = {
-  isLoading: boolean;
+export type TableInventoryRowActions = {
   canDeleteTables: boolean;
   isDeletePending: boolean;
-  emptyMessage: string;
-  filteredTables: TableInventory[];
   onEditTable: (table: TableInventory) => void;
   onDeleteTable: (table: TableInventory) => void;
 };
 
+export type TableInventoryDesktopTableProps = TableInventoryRowActions & {
+  groups: TableZoneGroup<TableInventory>[];
+  zoneLookup: TableZoneLookup;
+};
+
+const COLUMN_COUNT = 6;
+
 export function TableInventoryDesktopTable({
-  isLoading,
-  canDeleteTables,
-  isDeletePending,
-  emptyMessage,
-  filteredTables,
-  onEditTable,
-  onDeleteTable,
+  groups,
+  zoneLookup,
+  ...actions
 }: TableInventoryDesktopTableProps) {
   return (
-    <div className="hidden rounded-lg border md:block">
+    <div className="hidden min-w-0 overflow-x-auto rounded-lg border md:block">
       <Table>
+        <caption className="sr-only">Tables grouped by zone</caption>
         <TableHeader>
           <TableRow>
-            <TableHead>Table</TableHead>
-            <TableHead>Zone</TableHead>
-            <TableHead>Capacity</TableHead>
-            <TableHead>Party size</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Seating</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Active</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead scope="col">Table</TableHead>
+            <TableHead scope="col" className="text-right">
+              Seats
+            </TableHead>
+            <TableHead scope="col">Party size</TableHead>
+            <TableHead scope="col">Details</TableHead>
+            <TableHead scope="col">Bookings</TableHead>
+            <TableHead scope="col">
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading ? (
-            <TableInventoryLoadingRow />
-          ) : filteredTables.length === 0 ? (
-            <TableInventoryEmptyRow message={emptyMessage} />
-          ) : (
-            filteredTables.map((table) => (
-              <TableInventoryDesktopRow
-                key={table.id}
-                canDeleteTables={canDeleteTables}
-                isDeletePending={isDeletePending}
-                onDeleteTable={onDeleteTable}
-                onEditTable={onEditTable}
-                table={table}
-              />
-            ))
-          )}
+          {groups.map((group) => (
+            <TableZoneGroupRows
+              key={group.zoneId}
+              group={group}
+              zoneLookup={zoneLookup}
+              actions={actions}
+            />
+          ))}
         </TableBody>
       </Table>
     </div>
   );
 }
 
-function TableInventoryLoadingRow() {
-  return (
-    <TableRow>
-      <TableCell colSpan={9} className="py-6 text-center text-muted-foreground">
-        <div className="flex items-center justify-center gap-2">
-          <Loader2 className="size-4 animate-spin" />
-          <span>Loading tables…</span>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function TableInventoryEmptyRow({ message }: { message: string }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-        {message}
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function TableInventoryDesktopRow({
-  canDeleteTables,
-  isDeletePending,
-  onDeleteTable,
-  onEditTable,
-  table,
+function TableZoneGroupRows({
+  group,
+  zoneLookup,
+  actions,
 }: {
-  canDeleteTables: boolean;
-  isDeletePending: boolean;
-  onEditTable: (table: TableInventory) => void;
-  onDeleteTable: (table: TableInventory) => void;
-  table: TableInventory;
+  group: TableZoneGroup<TableInventory>;
+  zoneLookup: TableZoneLookup;
+  actions: TableInventoryRowActions;
 }) {
-  const availabilityLabel = getTableAvailabilityLabel(table);
-
   return (
-    <TableRow key={table.id} className={table.zoneActive ? undefined : 'bg-muted/60'}>
-      <TableCell className="font-medium">
-        <span>{table.tableNumber}</span>
-      </TableCell>
-      <TableCell className="flex items-center gap-2">
-        <span>{table.zoneName ?? '—'}</span>
-        {table.zoneActive === false && <Badge variant="secondary">Zone off</Badge>}
-      </TableCell>
-      <TableCell>{table.capacity}</TableCell>
-      <TableCell>{formatTablePartySize(table)}</TableCell>
-      <TableCell className="capitalize">{table.category}</TableCell>
-      <TableCell className="capitalize">
-        {formatTableSeatingType(table.seatingType)}
-        <span className="text-muted-foreground"> · {table.mobility}</span>
-      </TableCell>
-      <TableCell>
-        <Badge variant={table.status === 'available' ? 'default' : 'secondary'}>
-          {formatTableStatus(table.status)}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        {availabilityLabel === 'Active' ? (
-          <Badge variant="outline">Active</Badge>
-        ) : (
-          <Badge variant="secondary">{availabilityLabel}</Badge>
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" onClick={() => onEditTable(table)}>
-            <Edit data-icon="inline-start" aria-hidden />
-            <span className="sr-only">Edit table</span>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={!canDeleteTables || isDeletePending}
-            onClick={() => onDeleteTable(table)}
-          >
-            <Trash2 data-icon="inline-start" className="text-destructive" aria-hidden />
-            <span className="sr-only">Delete table</span>
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
+    <>
+      <TableRow className="bg-muted/40 hover:bg-muted/40">
+        <TableCell colSpan={COLUMN_COUNT} className="py-2 text-xs font-semibold">
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {group.zoneName}
+            {group.zoneActive ? null : (
+              <span className="inline-flex items-center gap-1 font-medium text-muted-foreground">
+                <MinusCircle className="size-3" aria-hidden />
+                Out of service
+              </span>
+            )}
+          </span>
+        </TableCell>
+      </TableRow>
+      {group.tables.map((table) => (
+        <TableRow key={table.id} data-testid={`table-row-${table.id}`}>
+          <TableHead scope="row" className="text-sm font-medium text-foreground">
+            {table.tableNumber}
+          </TableHead>
+          <TableCell className="text-right tabular-nums">{table.capacity}</TableCell>
+          <TableCell className="tabular-nums">{formatTablePartySize(table)}</TableCell>
+          <TableCell className="max-w-64 whitespace-normal text-xs text-muted-foreground">
+            {formatTableDetails(table) || '—'}
+          </TableCell>
+          <TableCell className="whitespace-normal">
+            <TableBookingStatusLabel status={getTableBookingStatus(table, zoneLookup)} />
+          </TableCell>
+          <TableCell>
+            <TableRowActions table={table} actions={actions} />
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+}
+
+export function TableRowActions({
+  table,
+  actions,
+}: {
+  table: TableInventory;
+  actions: TableInventoryRowActions;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => actions.onEditTable(table)}
+        aria-label={`Edit table ${table.tableNumber}`}
+        className={TABLE_TOUCH_TARGET_CLASS}
+      >
+        <Pencil data-icon="inline-start" aria-hidden />
+        Edit
+      </Button>
+      {actions.canDeleteTables ? (
+        <TableIconButton
+          label={`Delete table ${table.tableNumber}`}
+          tooltip="Delete table"
+          Icon={Trash2}
+          destructive
+          disabled={actions.isDeletePending}
+          onClick={() => actions.onDeleteTable(table)}
+        />
+      ) : null}
+    </div>
   );
 }

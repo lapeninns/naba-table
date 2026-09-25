@@ -2,7 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { AvailabilityOccasionsEditor } from '@/components/features/restaurant-settings/AvailabilityOccasionsEditor';
+import {
+  AvailabilityOccasionsEditor,
+  describeTableTimes,
+} from '@/components/features/restaurant-settings/AvailabilityOccasionsEditor';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 
@@ -15,6 +18,7 @@ function makeOccasion(over: Partial<OpsOccasion> = {}): OpsOccasion {
     defaultDurationMinutes: 90,
     displayOrder: 10,
     isActive: true,
+    isBuiltin: false,
     availability: [{ kind: 'anytime' }],
     ...over,
   } as OpsOccasion;
@@ -22,67 +26,114 @@ function makeOccasion(over: Partial<OpsOccasion> = {}): OpsOccasion {
 
 function renderEditor(occasions: OpsOccasion[] = [makeOccasion()]) {
   const onChange = vi.fn();
-  render(<AvailabilityOccasionsEditor occasions={occasions} onChange={onChange} />);
-  return { onChange };
+  const onTurnBandsChange = vi.fn();
+  render(
+    <AvailabilityOccasionsEditor
+      occasions={occasions}
+      savedOccasions={occasions}
+      savedTurnBands={{}}
+      turnBands={{}}
+      onChange={onChange}
+      onTurnBandsChange={onTurnBandsChange}
+    />,
+  );
+  return { onChange, onTurnBandsChange };
 }
 
 describe('AvailabilityOccasionsEditor', () => {
-  it('@smoke renders the booking types section with its create action', () => {
-    renderEditor();
+  it('@smoke lists each booking type with its table time and availability', () => {
+    renderEditor([makeOccasion(), makeOccasion({ key: 'lunch', label: 'Lunch', isBuiltin: true })]);
 
-    expect(screen.getByText('Booking types')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New booking type' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add booking type' })).toBeInTheDocument();
+    expect(screen.getByText('Required for meal times')).toBeInTheDocument();
+    expect(screen.getAllByText('all party sizes 90 min')).toHaveLength(2);
+    expect(screen.getAllByText('Always available')).toHaveLength(2);
+    // Built-in booking types cannot be removed.
+    expect(screen.queryByRole('button', { name: 'Remove Lunch' })).not.toBeInTheDocument();
   });
 
-  it('@contract blocks create submission with validation errors for empty key and label', async () => {
+  it('@contract blocks adding a booking type without a name', async () => {
     const user = userEvent.setup();
     const { onChange } = renderEditor();
 
-    await user.click(screen.getByRole('button', { name: 'New booking type' }));
-    const dialog = await screen.findByRole('dialog', { name: 'New booking type' });
-    await user.click(within(dialog).getByRole('button', { name: 'Add occasion' }));
+    await user.click(screen.getByRole('button', { name: 'Add booking type' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add booking type' });
+    await user.click(within(dialog).getByRole('button', { name: 'Add booking type' }));
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(within(dialog).getByLabelText('Key')).toHaveAttribute('aria-invalid', 'true');
+    expect(within(dialog).getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('@contract creates a booking type and emits the extended list', async () => {
+  it('@contract suggests the key from the name and adds the booking type to the draft', async () => {
     const user = userEvent.setup();
-    const { onChange } = renderEditor();
+    const { onChange, onTurnBandsChange } = renderEditor();
 
-    await user.click(screen.getByRole('button', { name: 'New booking type' }));
-    const dialog = await screen.findByRole('dialog', { name: 'New booking type' });
-    await user.type(within(dialog).getByLabelText('Key'), 'anniversary');
-    await user.type(within(dialog).getByLabelText('Label'), 'Anniversary');
-    await user.click(within(dialog).getByRole('button', { name: 'Add occasion' }));
+    await user.click(screen.getByRole('button', { name: 'Add booking type' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add booking type' });
+    await user.type(within(dialog).getByLabelText('Name'), 'Afternoon tea');
+    await user.click(within(dialog).getByRole('button', { name: 'Add booking type' }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
-    const next = onChange.mock.calls[0][0] as OpsOccasion[];
-    expect(next).toHaveLength(2);
-    expect(next[1]).toMatchObject({ key: 'anniversary', label: 'Anniversary' });
+    const next = onChange.mock.calls[0]![0] as OpsOccasion[];
+    expect(next[1]).toMatchObject({ key: 'afternoon_tea', label: 'Afternoon tea' });
+    expect(onTurnBandsChange).toHaveBeenCalledWith('afternoon_tea', []);
   });
 
-  it('@contract toggles an occasion active state in place', async () => {
+  it('@contract rejects a key that is already used', async () => {
     const user = userEvent.setup();
     const { onChange } = renderEditor();
 
-    const table = screen.getByRole('table');
-    await user.click(within(table).getByRole('switch', { name: 'Toggle Birthday' }));
+    await user.click(screen.getByRole('button', { name: 'Add booking type' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add booking type' });
+    await user.type(within(dialog).getByLabelText('Name'), 'Birthday');
+    await user.click(within(dialog).getByRole('button', { name: 'Add booking type' }));
 
-    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ key: 'birthday', isActive: false })]);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(within(dialog).getByText('This key is already used')).toBeInTheDocument();
   });
 
-  it('@contract deletes a custom occasion only after confirmation', async () => {
+  it('@contract switches a booking type on or off in place', async () => {
     const user = userEvent.setup();
     const { onChange } = renderEditor();
 
-    const table = screen.getByRole('table');
-    await user.click(within(table).getByRole('button', { name: 'Delete' }));
+    await user.click(screen.getByRole('switch', { name: 'Birthday available to book' }));
 
-    const confirm = await screen.findByRole('alertdialog', { name: 'Delete occasion?' });
+    expect(onChange).toHaveBeenCalledWith([
+      expect.objectContaining({ key: 'birthday', isActive: false }),
+    ]);
+  });
+
+  it('@contract removes a custom booking type only after confirmation', async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderEditor();
+
+    await user.click(screen.getByRole('button', { name: 'Remove Birthday' }));
+    const confirm = await screen.findByRole('alertdialog', { name: 'Remove Birthday?' });
+    expect(confirm).toHaveTextContent('Existing bookings keep their type.');
     expect(onChange).not.toHaveBeenCalled();
 
-    await user.click(within(confirm).getByRole('button', { name: 'Delete occasion' }));
+    await user.click(within(confirm).getByRole('button', { name: 'Remove booking type' }));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+});
+
+describe('describeTableTimes', () => {
+  it('describes bands, with larger groups taking the last band as the server does', () => {
+    expect(
+      describeTableTimes(
+        [
+          { maxPartySize: 2, durationMinutes: 75 },
+          { maxPartySize: 4, durationMinutes: 90 },
+        ],
+        undefined,
+        120,
+      ),
+    ).toBe('1–2 guests 75 min · 3–4 guests 90 min · larger groups 90 min');
+  });
+
+  it('marks Nabatable’s built-in bands when a type has none of its own', () => {
+    expect(describeTableTimes([], [{ maxPartySize: 1, durationMinutes: 60 }], 90)).toBe(
+      '1 guests 60 min · larger groups 60 min (Nabatable default)',
+    );
   });
 });

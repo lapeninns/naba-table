@@ -102,8 +102,11 @@ describe('OptionDialog', () => {
     });
     renderDialog();
 
-    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
-    expect(screen.getByText('Option save failed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Not saved. Your edits are still in this dialog.',
+    );
+    expect(screen.queryByText(/Option save failed/)).not.toBeInTheDocument();
   });
 
   it('@contract cancel closes without mutating', async () => {

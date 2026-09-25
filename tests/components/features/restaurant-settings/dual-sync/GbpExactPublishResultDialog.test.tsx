@@ -24,7 +24,13 @@ describe('GbpExactPublishResultDialog', () => {
       />,
     );
 
-    expect(screen.getByText(/create a new preview/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/refresh google state, verify the listing, and create a new preview/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Outcome unknown')).toBeInTheDocument();
+    expect(screen.queryByText('Confirmed by Google')).not.toBeInTheDocument();
+    expect(screen.getByText('provider_outcome_unknown')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to review' })).toBeInTheDocument();
     expect(screen.getByText(/verify the operational notification channel/i)).toBeInTheDocument();
     expect(screen.getByText(/queued is not complete/i).parentElement).toHaveClass(
       'pr-12',

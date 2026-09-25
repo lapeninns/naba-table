@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import {
   createServiceItemEditor,
@@ -7,40 +7,26 @@ import {
 } from './businessContextEditorActions';
 
 import type { ServiceItemEditor } from './businessContextModel';
+import type { BusinessContextFamilyUpdate } from './useBusinessContextLinkDraft';
 
-type UseBusinessContextServiceItemDraftOptions = {
-  onDirty: () => void;
-};
-
-export function useBusinessContextServiceItemDraft({
-  onDirty,
-}: UseBusinessContextServiceItemDraftOptions) {
-  const [serviceItems, setServiceItems] = useState<ServiceItemEditor[]>([]);
-
-  const addServiceItem = () => {
-    setServiceItems((current) => [...current, createServiceItemEditor()]);
-    onDirty();
-  };
-
-  const updateServiceItem = <Key extends keyof ServiceItemEditor>(
-    rowId: string,
-    field: Key,
-    value: ServiceItemEditor[Key],
-  ) => {
-    setServiceItems((current) => updateEditorRow(current, rowId, field, value));
-    onDirty();
-  };
-
-  const removeServiceItem = (rowId: string) => {
-    setServiceItems((current) => removeEditorRow(current, rowId));
-    onDirty();
-  };
-
-  return {
-    serviceItems,
-    setServiceItems,
-    addServiceItem,
-    updateServiceItem,
-    removeServiceItem,
-  };
+export function useBusinessContextServiceItemDraft(
+  update: BusinessContextFamilyUpdate<ServiceItemEditor[]>,
+) {
+  return useMemo(
+    () => ({
+      /** Adds an empty service and returns its row id, so focus can move to it. */
+      addServiceItem: () => {
+        const row = createServiceItemEditor();
+        update((current) => [...current, row]);
+        return row.id;
+      },
+      updateServiceItem: <Key extends keyof ServiceItemEditor>(
+        rowId: string,
+        field: Key,
+        value: ServiceItemEditor[Key],
+      ) => update((current) => updateEditorRow(current, rowId, field, value)),
+      removeServiceItem: (rowId: string) => update((current) => removeEditorRow(current, rowId)),
+    }),
+    [update],
+  );
 }

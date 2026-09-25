@@ -1,76 +1,75 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildDiscoverySaveBoundaryState,
-  DISCOVERY_SAVE_BOUNDARIES,
-  formatDiscoveryStatus,
-  getDiscoverySyncPosture,
+  formatDiscoveryGoogleStatus,
+  GOOGLE_COMPARED_FAMILIES,
 } from '@/components/features/restaurant-settings/discovery/discoveryPanelChromeDomain';
 
-describe('formatDiscoveryStatus', () => {
-  it('hides suggested zero when GBP is disconnected', () => {
-    expect(
-      formatDiscoveryStatus({
-        coreCount: 2,
-        providerCount: 0,
-        seedSource: 'empty',
-        gbpLinked: false,
-      }),
-    ).toBe('Saved 2 · Connect Google Business Profile to import suggestions');
-  });
+const base = {
+  family: 'attributes' as const,
+  prefilled: false,
+  googleLinked: true,
+  driftLoading: false,
+  differingLabels: [] as string[],
+};
 
-  it('describes linked sections with no Google suggestions', () => {
+describe('formatDiscoveryGoogleStatus', () => {
+  it('marks sections pre-filled from Google as not saved yet, ahead of any comparison', () => {
     expect(
-      formatDiscoveryStatus({
-        coreCount: 1,
-        providerCount: 0,
-        seedSource: 'core',
-        gbpLinked: true,
-      }),
-    ).toBe('Saved 1 · No Google suggestions for this section');
-  });
-
-  it('keeps suggested count when linked provider values exist', () => {
-    expect(
-      formatDiscoveryStatus({
-        coreCount: 0,
-        providerCount: 3,
-        seedSource: 'provider',
-        gbpLinked: true,
-      }),
-    ).toBe('Saved 0 · Suggested 3 · Pre-filled from Google until you save');
-  });
-
-  it('keeps save boundary copy stable by family', () => {
-    expect(DISCOVERY_SAVE_BOUNDARIES).toMatchObject({
-      businessDetails: 'This saves profile basics only.',
-      links: 'This saves discovery links only.',
-      categories: 'This saves dining categories only.',
-      serviceAreas: 'This saves service areas only.',
-      attributes: 'This saves amenities only.',
-      serviceItems: 'This saves services only.',
-    });
-  });
-
-  it('builds save boundary badge state for chrome rendering', () => {
-    expect(
-      buildDiscoverySaveBoundaryState({
-        family: 'links',
-        dirty: true,
-        saved: false,
-        hasError: true,
-      }),
+      formatDiscoveryGoogleStatus({ ...base, prefilled: true, differingLabels: ['Wi-Fi'] }),
     ).toEqual({
-      boundaryText: 'This saves discovery links only.',
-      dirty: true,
-      saved: false,
-      hasError: true,
+      kind: 'prefilled',
+      text: 'Pre-filled from Google. Not saved yet.',
+      detail: 'Save to keep these values, or edit them first.',
+    });
+    expect(
+      formatDiscoveryGoogleStatus({ ...base, family: 'businessDetails', prefilled: true }).kind,
+    ).toBe('prefilled');
+  });
+
+  it('never compares business status or links with Google', () => {
+    expect(GOOGLE_COMPARED_FAMILIES.has('businessDetails')).toBe(false);
+    expect(GOOGLE_COMPARED_FAMILIES.has('links')).toBe(false);
+    expect(formatDiscoveryGoogleStatus({ ...base, family: 'links' })).toEqual({
+      kind: 'not-compared',
+      text: 'Not compared with Google.',
+      canLink: false,
     });
   });
 
-  it('looks up sync posture by family', () => {
-    expect(getDiscoverySyncPosture('serviceItems')).toBe(
-      'Use services to describe optional offers beyond the standard reservation flow.',
+  it('offers to link Google when the profile is not linked', () => {
+    expect(formatDiscoveryGoogleStatus({ ...base, googleLinked: false })).toEqual({
+      kind: 'not-compared',
+      text: 'Not compared with Google. Google Business Profile isn’t linked.',
+      canLink: true,
+    });
+  });
+
+  it('says it is comparing while Google drift loads', () => {
+    expect(formatDiscoveryGoogleStatus({ ...base, driftLoading: true }).text).toBe(
+      'Comparing with Google…',
     );
+  });
+
+  it('names what Google differs on, with the right noun per section', () => {
+    expect(formatDiscoveryGoogleStatus({ ...base, differingLabels: ['Live music'] })).toEqual({
+      kind: 'differs',
+      text: 'Google differs on 1 amenity (Live music).',
+      count: 1,
+    });
+    expect(
+      formatDiscoveryGoogleStatus({
+        ...base,
+        family: 'categories',
+        differingLabels: ['Pub', 'Bar', 'Bistro', 'Inn', 'Hotel'],
+      }).text,
+    ).toBe('Google differs on 5 categories (Pub, Bar, Bistro and 2 more).');
+  });
+
+  it('matches Google when a linked, compared section has no differences', () => {
+    expect(formatDiscoveryGoogleStatus({ ...base, family: 'serviceAreas' })).toEqual({
+      kind: 'matches',
+      text: 'Matches Google',
+    });
   });
 });

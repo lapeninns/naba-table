@@ -35,7 +35,15 @@ export const SETTINGS_COMPACT_FILTER_BAR_CLASS =
   'grid gap-3 rounded-md border border-border/60 bg-muted/30 p-3';
 
 export const SETTINGS_COMPACT_STICKY_ACTION_ROW_CLASS =
-  'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between';
+  'sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between sm:px-4';
+
+/** Canonical labels for settings save controls. One vocabulary across every settings route. */
+export const SETTINGS_SAVE_COPY = {
+  dirty: 'Unsaved changes',
+  discard: 'Discard changes',
+  saving: 'Saving…',
+  discardConfirm: 'Discard your unsaved changes? This cannot be undone.',
+} as const;
 
 export const SETTINGS_COMPACT_STATUS_ROW_CLASS =
   'flex flex-wrap items-center gap-2 text-xs text-muted-foreground';
@@ -46,6 +54,10 @@ const SAVE_SCOPE_MESSAGES = {
   'availability-rules': 'Saves booking slot spacing and policy only.',
   'availability-schedule':
     'Saves weekly hours, service windows, date overrides, and booking types in this workspace.',
+  'weekly-hours': 'Saves weekly opening hours only.',
+  'service-windows': 'Saves lunch, dinner, and other service windows only.',
+  'date-overrides': 'Saves date-specific overrides only.',
+  'booking-occasions': 'Saves booking types and dining-duration bands only.',
   discovery: 'Saves this discovery panel only.',
   menu: 'Saves only the selected menu, section, item, or option.',
   tables: 'Saves only this table, zone, or inventory action.',
@@ -58,6 +70,7 @@ const SAVE_SCOPE_MESSAGES = {
 
 export type SettingsSaveScope = keyof typeof SAVE_SCOPE_MESSAGES;
 
+/** @deprecated Per-section save scopes are replaced by the page-level `SettingsSaveBar`. */
 export function formatSaveScopeMessage(scope: SettingsSaveScope | string) {
   return SAVE_SCOPE_MESSAGES[scope as SettingsSaveScope] ?? `Saves ${scope} only.`;
 }
@@ -72,8 +85,9 @@ export const SETTINGS_COMMAND_CENTER_DOCKED_NAV_CLASS =
 export const SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS =
   'sticky top-0 z-10 mb-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90';
 
+/** Shares the shell gutter token so tabs align with the chrome title and page content. */
 export const SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS =
-  'flex min-w-0 items-center gap-0.5 overflow-x-auto px-4 pb-px sm:px-6';
+  'flex min-w-0 items-center gap-2 overflow-x-auto overscroll-x-contain px-[var(--ops-shell-gutter)] py-1 [scrollbar-width:thin]';
 
 /** @deprecated Card rail wrapper replaced by SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS. */
 export const SETTINGS_COMMAND_CENTER_RAIL_CARD_CLASS =
@@ -82,11 +96,17 @@ export const SETTINGS_COMMAND_CENTER_RAIL_CARD_CLASS =
 /** @deprecated Use SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS. */
 export const SETTINGS_COMMAND_CENTER_RAIL_GRID_CLASS = SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS;
 
+/** 44px tall on every viewport: the rail is the primary in-page navigation on phones. */
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS =
-  'inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-none border-b-2 border-transparent px-3 text-sm font-medium transition-[color,border-color] duration-200 motion-reduce:transition-none';
+  'inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-none border-b-2 border-transparent px-3 text-sm transition-[color,border-color,font-weight] duration-200 motion-reduce:transition-none';
 
+/** Weight plus underline, so the current section is not indicated by colour alone. */
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS =
-  'border-primary text-foreground shadow-none hover:bg-transparent';
+  'border-primary font-semibold text-foreground shadow-none hover:bg-transparent';
 
 export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS =
-  'text-muted-foreground hover:border-border/80 hover:bg-transparent hover:text-foreground';
+  'font-medium text-muted-foreground hover:border-border hover:bg-transparent hover:text-foreground';
+
+/** Edge veil shown only while the section list can scroll in that direction. */
+export const SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS =
+  'pointer-events-none absolute inset-y-0 z-10 w-6 bg-background/85';

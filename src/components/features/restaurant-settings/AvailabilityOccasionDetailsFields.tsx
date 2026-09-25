@@ -2,63 +2,65 @@ import { type Dispatch, type SetStateAction } from 'react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Text } from '@/components/ui/typography';
+
+import { FieldErrorText } from './availability/AvailabilityFields';
 
 import type { OccasionFormErrors, OccasionFormState } from './availabilityOccasionsModel';
 
 type AvailabilityOccasionDetailsFieldsProps = {
+  /** `essentials`: name and short name. `advanced`: description, key and display order. */
+  part: 'essentials' | 'advanced';
   editingKey: string | null;
   form: OccasionFormState;
   formErrors: OccasionFormErrors;
   onFormChange: Dispatch<SetStateAction<OccasionFormState>>;
 };
 
+/** Machine name suggested from the name, in the characters the key allows. */
+export function suggestOccasionKey(label: string): string {
+  return label
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 export function AvailabilityOccasionDetailsFields({
+  part,
   editingKey,
   form,
   formErrors,
   onFormChange,
 }: AvailabilityOccasionDetailsFieldsProps) {
-  return (
-    <>
-      {!editingKey ? (
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="availability-occasion-key">Key</Label>
-          <Input
-            id="availability-occasion-key"
-            value={form.key}
-            onChange={(event) => onFormChange((prev) => ({ ...prev, key: event.target.value }))}
-            placeholder="e.g., birthday"
-            aria-invalid={Boolean(formErrors.key)}
-          />
-          {formErrors.key ? (
-            <Text variant="caption" className="text-destructive">
-              {formErrors.key}
-            </Text>
-          ) : null}
-        </div>
-      ) : null}
-
+  if (part === 'essentials') {
+    return (
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="availability-occasion-label">Label</Label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="availability-occasion-label">Name</Label>
           <Input
             id="availability-occasion-label"
             value={form.label}
-            onChange={(event) => onFormChange((prev) => ({ ...prev, label: event.target.value }))}
-            aria-invalid={Boolean(formErrors.label)}
+            onChange={(event) => {
+              const label = event.target.value;
+              onFormChange((prev) => ({
+                ...prev,
+                label,
+                // Until someone types a key, suggest one from the name.
+                key:
+                  !editingKey && (prev.key === '' || prev.key === suggestOccasionKey(prev.label))
+                    ? suggestOccasionKey(label)
+                    : prev.key,
+              }));
+            }}
+            aria-invalid={Boolean(formErrors.label) || undefined}
+            aria-describedby="availability-occasion-label-error"
           />
-          {formErrors.label ? (
-            <Text variant="caption" className="text-destructive">
-              {formErrors.label}
-            </Text>
-          ) : null}
+          <FieldErrorText id="availability-occasion-label-error" message={formErrors.label} />
         </div>
-
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="availability-occasion-short">Short label</Label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="availability-occasion-short">
+            Short name <span className="font-normal text-muted-foreground">Optional</span>
+          </Label>
           <Input
             id="availability-occasion-short"
             value={form.shortLabel}
@@ -68,57 +70,53 @@ export function AvailabilityOccasionDetailsFields({
           />
         </div>
       </div>
+    );
+  }
 
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="availability-occasion-description">Description</Label>
-        <Textarea
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="availability-occasion-description">
+          Description <span className="font-normal text-muted-foreground">Optional</span>
+        </Label>
+        <Input
           id="availability-occasion-description"
           value={form.description}
           onChange={(event) =>
             onFormChange((prev) => ({ ...prev, description: event.target.value }))
           }
-          rows={3}
         />
       </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="availability-occasion-duration">Default table time (minutes)</Label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="availability-occasion-key">Key</Label>
           <Input
-            id="availability-occasion-duration"
-            type="number"
-            min={1}
-            value={form.defaultDurationMinutes}
-            onChange={(event) =>
-              onFormChange((prev) => ({
-                ...prev,
-                defaultDurationMinutes: Number(event.target.value),
-              }))
-            }
+            id="availability-occasion-key"
+            value={editingKey ?? form.key}
+            readOnly={Boolean(editingKey)}
+            onChange={(event) => onFormChange((prev) => ({ ...prev, key: event.target.value }))}
+            aria-invalid={Boolean(formErrors.key) || undefined}
+            aria-describedby="availability-occasion-key-hint availability-occasion-key-error"
+            className="font-mono"
           />
+          <p id="availability-occasion-key-hint" className="text-xs text-muted-foreground">
+            {editingKey ? 'Can’t be changed.' : 'Machine name. Can’t be changed later.'}
+          </p>
+          <FieldErrorText id="availability-occasion-key-error" message={formErrors.key} />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="availability-occasion-order">Display order</Label>
           <Input
             id="availability-occasion-order"
             type="number"
+            inputMode="numeric"
             value={form.displayOrder}
             onChange={(event) =>
               onFormChange((prev) => ({ ...prev, displayOrder: Number(event.target.value) }))
             }
+            className="tabular-nums"
           />
         </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Switch
-          id="availability-occasion-active"
-          checked={form.isActive}
-          onCheckedChange={(checked) => onFormChange((prev) => ({ ...prev, isActive: checked }))}
-        />
-        <Label htmlFor="availability-occasion-active" className="text-sm">
-          Active
-        </Label>
       </div>
     </>
   );

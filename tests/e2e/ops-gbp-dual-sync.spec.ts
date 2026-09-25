@@ -584,27 +584,27 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await expect(page).toHaveURL(
       /app\.localhost:\d+\/settings\/restaurant\/google-business-profile/,
     );
-    await expect(page.locator('main').getByText('Google command center')).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Google workflow' })).toHaveCount(0);
     await expect(
-      page.getByTestId('gbp-overview-card').getByText('Linked', { exact: true }),
+      page.getByTestId('gbp-connection-card').getByText('Linked', { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      page.getByTestId('gbp-overview-card').getByText('Location mapped', { exact: true }),
+      page.getByTestId('gbp-location-card').getByText('Location chosen', { exact: true }),
     ).toBeVisible();
-    await expect(page.locator('main').getByText('Review changes below')).toBeVisible();
-    await expect(page.locator('main').getByText('Google workflow')).toBeVisible();
+    const reviewStep = page.locator('#gbp-sync-review');
+    await expect(reviewStep.getByRole('heading', { name: /Review differences/ })).toBeVisible();
+    await expect(reviewStep.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
+    await expect(reviewStep.getByRole('heading', { name: 'Phone number' })).toBeVisible();
     await expect(
-      page.locator('#gbp-sync-review').getByText('Google Business Profile sync'),
+      reviewStep.getByText('0 to send · 0 to use from Google · 0 ignored'),
     ).toBeVisible();
-    await expect(
-      page.locator('#gbp-sync-review').getByRole('button', { name: /^Profile\b/ }),
-    ).toBeVisible();
-    await expect(page.locator('#gbp-sync-review').getByText('Phone number')).toBeVisible();
+    await expect(page.getByTestId('gbp-operator-controls')).toHaveCount(0);
+    await page.getByRole('button', { name: /write controls and evidence/i }).click();
     await expect(page.getByTestId('gbp-operator-controls')).toBeVisible();
-    await expect(page.getByTestId('gbp-operator-controls').getByText('Generation 3')).toBeVisible();
-    await expect(
-      page.getByTestId('gbp-operator-controls').getByText('Consent epoch 4'),
-    ).toBeVisible();
+    await expect(page.getByTestId('gbp-operator-controls')).toContainText(
+      /Connection generation\s*3/,
+    );
+    await expect(page.getByTestId('gbp-operator-controls')).toContainText(/Consent epoch\s*4/);
     await expect(page.getByTestId('gbp-operator-controls').getByText('phoneNumbers')).toBeVisible();
     await expect(
       page.getByTestId('gbp-operator-controls').getByText('attributes/wheelchair_accessible'),
@@ -628,23 +628,19 @@ test.describe('ops GBP dual-sync shipped route', () => {
       name: 'Google Business Profile',
       level: 1,
     });
-    const reviewStatus = settingsHeader.locator('a[href$="#gbp-sync-review"]');
     await expect(mobileTitle).toBeVisible();
-    await expect(reviewStatus).toBeVisible();
     await expect(settingsHeader.getByText('QA App Host Restaurant')).toBeHidden();
     const mobileTitleBox = await mobileTitle.boundingBox();
-    const reviewStatusBox = await reviewStatus.boundingBox();
     expect(mobileTitleBox?.width).toBeGreaterThan(96);
-    expect(reviewStatusBox?.width).toBeLessThanOrEqual(112);
-    expect((mobileTitleBox?.x ?? 0) + (mobileTitleBox?.width ?? 0)).toBeLessThanOrEqual(
-      reviewStatusBox?.x ?? 0,
-    );
-    const workflowNav = page.getByRole('navigation', { name: 'Google workflow' });
-    const reviewWorkflowStep = workflowNav.getByRole('button', { name: /Review changes/ });
-    await expect(reviewWorkflowStep).toBeVisible();
-    const reviewWorkflowBox = await reviewWorkflowStep.boundingBox();
-    expect(reviewWorkflowBox?.x).toBeGreaterThanOrEqual(0);
-    expect((reviewWorkflowBox?.x ?? 0) + (reviewWorkflowBox?.width ?? 0)).toBeLessThanOrEqual(375);
+    // The steps stack on phones and the page never scrolls sideways.
+    const reviewHeading = reviewStep.getByRole('heading', { name: /Review differences/ });
+    await reviewHeading.scrollIntoViewIfNeeded();
+    const reviewHeadingBox = await reviewHeading.boundingBox();
+    expect(reviewHeadingBox?.x).toBeGreaterThanOrEqual(0);
+    expect((reviewHeadingBox?.x ?? 0) + (reviewHeadingBox?.width ?? 0)).toBeLessThanOrEqual(375);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
 
     const operatorControls = page.getByTestId('gbp-operator-controls');
     for (const width of captureWidths) {
@@ -678,7 +674,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
       page.getByRole('dialog').getByText('Before Google · foodMenus.menu'),
     ).toBeVisible();
     await expect(
-      page.getByRole('dialog').getByText(/fully replace google foodmenus/i),
+      page.getByRole('dialog').getByText(/full replacement of your food menus/i),
     ).toBeVisible();
     expect(requests.getPreviewRequests()).toBe(1);
     expect(requests.getPublishRequests()).toBe(0);
@@ -724,7 +720,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
       previewDialog.getByLabel(/changes public google business profile data/i),
     ).toBeFocused();
     await previewDialog.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
-    await expect(previewDialog.getByLabel(/fully replace google foodmenus/i)).toBeInViewport();
+    await expect(previewDialog.getByLabel(/full replacement of your food menus/i)).toBeInViewport();
     await expect(
       previewDialog.getByRole('button', { name: 'Publish exact plan' }),
     ).toBeInViewport();
@@ -744,7 +740,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
       page.getByRole('dialog').getByText('valid for at most 15 minutes'),
     ).toBeInViewport();
     await expect(
-      page.getByRole('dialog').getByLabel(/fully replace google foodmenus/i),
+      page.getByRole('dialog').getByLabel(/full replacement of your food menus/i),
     ).toBeInViewport();
     await expect(
       page.getByRole('dialog').getByRole('button', { name: 'Publish exact plan' }),
@@ -756,7 +752,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
       1280: 1200,
     });
     await previewDialog.getByLabel(/changes public google business profile data/i).click();
-    await previewDialog.getByLabel(/fully replace google foodmenus/i).click();
+    await previewDialog.getByLabel(/full replacement of your food menus/i).click();
     await previewDialog.getByRole('button', { name: 'Publish exact plan' }).click();
 
     const resultDialog = page.getByRole('dialog');
@@ -783,6 +779,8 @@ test.describe('ops GBP dual-sync shipped route', () => {
       return { right: rectangle.right };
     });
     expect(resultDescriptionTextBox.right).toBeLessThanOrEqual(resultCloseBox?.x ?? 0);
+    await expect(resultDialog.getByText('Outcome unknown', { exact: true })).toBeVisible();
+    await expect(resultDialog.getByText('Confirmed by Google')).toHaveCount(0);
 
     await captureState(page, 'outcome-unknown', {
       375: 900,
@@ -814,16 +812,16 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page.getByTestId('gbp-overview-card').getByText('Not connected', { exact: true }),
+      page.getByTestId('gbp-connection-card').getByText('Not connected', { exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByTestId('gbp-overview-card').getByText('No location mapped', { exact: true }),
+      page.getByTestId('gbp-location-card').getByText('Locked until step 1 is done.'),
     ).toBeVisible();
     await expect(
       page.locator('main').getByText('Google Business Profile credentials are not configured'),
     ).toBeVisible();
     await expect(
-      page.locator('main').getByRole('button', { name: 'Connect Google Business Profile' }),
+      page.locator('main').getByRole('button', { name: 'Connect Google', exact: true }),
     ).toBeDisabled();
   });
 
@@ -849,10 +847,10 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page.getByTestId('gbp-overview-card').getByText('Not connected', { exact: true }),
+      page.getByTestId('gbp-connection-card').getByText('Not connected', { exact: true }),
     ).toBeVisible();
     await expect(
-      page.locator('main').getByRole('button', { name: 'Connect Google Business Profile' }),
+      page.locator('main').getByRole('button', { name: 'Connect Google', exact: true }),
     ).toBeEnabled();
   });
 
@@ -877,14 +875,19 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page.getByTestId('gbp-overview-card').getByText('Choose location', { exact: true }).first(),
+      page
+        .getByTestId('gbp-connection-card')
+        .getByText('Choose a location', { exact: true })
+        .first(),
     ).toBeVisible();
-    await expect(page.locator('main').getByText('Available locations')).toBeVisible();
+    await page.locator('main').getByRole('button', { name: 'Choose location' }).click();
+    const chooser = page.getByRole('dialog', { name: 'Choose a Business Profile location' });
+    await expect(chooser.getByText('Available locations')).toBeVisible();
     await expect(
-      page.locator('main').getByText('QA GBP Restaurant - Cambridge').first(),
-    ).toBeVisible();
-    await expect(page.locator('main').getByText('2 QA Street, Cambridge')).toBeVisible();
-    await expect(page.locator('main').getByRole('button', { name: 'Link location' })).toBeVisible();
+      chooser.getByRole('radio', { name: /QA GBP Restaurant - Cambridge/ }),
+    ).toBeChecked();
+    await expect(chooser.getByText('2 QA Street, Cambridge')).toBeVisible();
+    await expect(chooser.getByRole('button', { name: 'Link location' })).toBeVisible();
   });
 
   test('google business profile disconnect requires password on the shipped route @p1 @browser @contract @external-mock @local-only', async ({

@@ -1,86 +1,110 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { ProfileStatusBar } from '@/components/features/restaurant-settings/profile/ProfileStatusBar';
+import {
+  ProfileGoogleCard,
+  ProfileReadinessPanel,
+  ProfileReadinessSummary,
+} from '@/components/features/restaurant-settings/profile/ProfileStatusBar';
 
-describe('ProfileStatusBar', () => {
-  it('renders the readiness ring with aggregate progress', () => {
-    render(
-      <ProfileStatusBar
-        bookingSlug="old-crown-girton"
-        readinessScore={78}
-        readinessStageLabel="Almost ready"
-        completedCount={7}
-        totalCount={9}
-        requiredRemainingCount={0}
-        nextActionLabel={null}
-        nextActionDescription="Required profile fields are complete. You can now polish discovery details."
-        googleHint={null}
-        googleHref="/app/settings/restaurant/google-business-profile#gbp-connection"
-        onJumpToBooking={vi.fn()}
-        onJumpToNextAction={null}
-      />,
+import type { ReadinessChecklistItem } from '@/components/features/restaurant-settings/restaurantProfileModel';
+
+const GOOGLE_HREF = '/app/settings/restaurant/google-business-profile#gbp-connection';
+
+function items(
+  missing: ReadonlyArray<ReadinessChecklistItem['key']> = [],
+): ReadinessChecklistItem[] {
+  const all: Array<Omit<ReadinessChecklistItem, 'complete'>> = [
+    { key: 'name', label: 'Restaurant name', required: true },
+    { key: 'bookingUrl', label: 'Booking page link', required: true },
+    { key: 'contactPhone', label: 'Public phone', required: true },
+    { key: 'timezone', label: 'Timezone', required: true },
+    { key: 'logo', label: 'Logo', required: false },
+    { key: 'description', label: 'Business description', required: false },
+    { key: 'contactEmail', label: 'Contact email', required: false },
+    { key: 'address', label: 'Address', required: false },
+    { key: 'mapUrl', label: 'Google Maps link', required: false },
+  ];
+  return all.map((item) => ({ ...item, complete: !missing.includes(item.key) }));
+}
+
+describe('ProfileReadinessPanel', () => {
+  it('counts filled-in details and lists required ones first, optional ones marked', () => {
+    render(<ProfileReadinessPanel items={items(['logo', 'address'])} onFocusItem={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: 'Profile readiness' })).toBeInTheDocument();
+    expect(screen.getByText('7 of 9 details filled in.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '7 of 9 details filled in' })).toBeInTheDocument();
+    expect(screen.getByText('Everything guests need is filled in')).toBeInTheDocument();
+
+    const rows = within(screen.getByRole('list', { name: 'Profile details' })).getAllByRole(
+      'listitem',
     );
-
-    expect(
-      screen.getByRole('img', {
-        name: /profile readiness 78%, 7 of 9 fields complete/i,
-      }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('/old-crown-girton')).toBeInTheDocument();
+    expect(rows).toHaveLength(9);
+    expect(rows[0]).toHaveTextContent(/^Restaurant name, filled in$/);
+    expect(rows[4]).toHaveTextContent(/Logo, missingOptional/);
+    expect(within(rows[0]).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('renders one primary CTA for the next required item', async () => {
+  it('offers "Add" for each missing detail and passes its key', async () => {
     const user = userEvent.setup();
-    const onJumpToNextAction = vi.fn();
-
+    const onFocusItem = vi.fn();
     render(
-      <ProfileStatusBar
-        bookingSlug={null}
-        readinessScore={44}
-        readinessStageLabel="In progress"
-        completedCount={4}
-        totalCount={9}
-        requiredRemainingCount={1}
-        nextActionLabel="Fix Public booking page URL"
-        nextActionDescription="Complete the next required item to make the booking link reliable for guests."
-        googleHint="Link Google only when you need import or side-by-side comparison."
-        googleHref="/app/settings/restaurant/google-business-profile#gbp-connection"
-        onJumpToBooking={vi.fn()}
-        onJumpToNextAction={onJumpToNextAction}
-      />,
+      <ProfileReadinessPanel items={items(['bookingUrl', 'logo'])} onFocusItem={onFocusItem} />,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Fix Public booking page URL' }));
-
-    expect(onJumpToNextAction).toHaveBeenCalledTimes(1);
-    expect(screen.getAllByRole('button')).toHaveLength(1);
-    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
-      'href',
-      '/app/settings/restaurant/google-business-profile#gbp-connection',
-    );
+    expect(screen.getByText('1 detail needed before guests can book')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add Booking page link' }));
+    await user.click(screen.getByRole('button', { name: 'Add Logo' }));
+    expect(onFocusItem.mock.calls).toEqual([['bookingUrl'], ['logo']]);
   });
+});
 
-  it('does not render a Google compare button when compare is handled elsewhere', () => {
+describe('ProfileReadinessSummary', () => {
+  it('shows the count and "Add" links for missing required details only', async () => {
+    const user = userEvent.setup();
+    const onFocusItem = vi.fn();
     render(
-      <ProfileStatusBar
-        bookingSlug="old-crown-girton"
-        readinessScore={100}
-        readinessStageLabel="Launch-ready"
-        completedCount={9}
-        totalCount={9}
-        requiredRemainingCount={0}
-        nextActionLabel={null}
-        nextActionDescription="Required profile fields are complete. You can now polish discovery details."
-        googleHint={null}
-        googleHref="/app/settings/restaurant/google-business-profile#gbp-connection"
-        onJumpToBooking={vi.fn()}
-        onJumpToNextAction={null}
+      <ProfileReadinessSummary
+        items={items(['bookingUrl', 'contactPhone', 'logo'])}
+        onFocusItem={onFocusItem}
       />,
     );
 
-    expect(screen.queryByRole('button', { name: 'Compare with Google' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
+    expect(screen.getByText('2 details needed before guests can book')).toBeInTheDocument();
+    expect(screen.getByText('6 of 9 filled in')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /logo/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add public phone' }));
+    expect(onFocusItem).toHaveBeenCalledWith('contactPhone');
+  });
+});
+
+describe('ProfileGoogleCard', () => {
+  it('links Google when not linked and offers compare only when linked with differences', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <ProfileGoogleCard googleLinked={false} googleDetail="Optional." googleHref={GOOGLE_HREF} />,
+    );
+
+    expect(screen.getByText('Not linked')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Link Google Business Profile' })).toHaveAttribute(
+      'href',
+      GOOGLE_HREF,
+    );
+    unmount();
+
+    const onCompareWithGoogle = vi.fn();
+    render(
+      <ProfileGoogleCard
+        googleLinked
+        googleDetail="Linked."
+        googleHref={GOOGLE_HREF}
+        gbpDriftCount={2}
+        onCompareWithGoogle={onCompareWithGoogle}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: 'Compare with Google (2)' }));
+    expect(onCompareWithGoogle).toHaveBeenCalledTimes(1);
   });
 });

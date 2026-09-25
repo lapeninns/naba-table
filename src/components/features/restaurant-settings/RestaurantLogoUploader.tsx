@@ -1,18 +1,19 @@
 'use client';
 
-import { Loader2, Upload, Trash2 } from 'lucide-react';
+import { CircleAlert, Loader2, Trash2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/typography';
 import { useOpsRestaurantLogoUpload } from '@/hooks/ops/useOpsRestaurantLogoUpload';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { cn } from '@/lib/utils';
 
+import { ConfirmDialog } from './ConfirmDialog';
 import {
   extractLogoInitials,
   LOGO_ALLOWED_MIME_TYPES,
@@ -54,6 +55,7 @@ export function RestaurantLogoUploader({
   const uploadMutation = useOpsRestaurantLogoUpload(restaurantId);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const displayUrl = localPreview ?? logoUrl ?? null;
 
   useEffect(() => {
@@ -106,6 +108,7 @@ export function RestaurantLogoUploader({
       const uploaded = await uploadMutation.mutateAsync(file);
       await updateMutation.mutateAsync({ logoUrl: uploaded.url });
       onPreviewChange?.(uploaded.url);
+      toast.success('Logo uploaded and saved.');
       emitLogoAnalytics('restaurant_profile_logo_saved', {
         restaurant_id: restaurantId,
         action: 'upload',
@@ -136,6 +139,7 @@ export function RestaurantLogoUploader({
     const removeStartedAt = Date.now();
     try {
       await updateMutation.mutateAsync({ logoUrl: null });
+      toast.success('Logo removed.');
       emitLogoAnalytics('restaurant_profile_logo_saved', {
         restaurant_id: restaurantId,
         action: 'remove',
@@ -153,70 +157,92 @@ export function RestaurantLogoUploader({
     }
   };
 
+  const statusMessage =
+    errorMessage ??
+    (busy
+      ? 'Saving logo…'
+      : restaurantId
+        ? 'Saves as soon as you upload it.'
+        : 'Select a restaurant to upload a logo.');
+
   return (
     <div
       id="restaurant-logo-uploader"
       tabIndex={-1}
-      className="rounded-lg border border-border/70 bg-muted/20 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      role="group"
+      aria-labelledby="restaurant-logo-title"
+      className="flex flex-col gap-4 rounded-lg border border-border/70 p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 @md:flex-row @md:items-start"
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="relative size-20 overflow-hidden rounded-md border border-border bg-background">
-            {displayUrl ? (
-              <Image
-                src={displayUrl}
-                alt={`${restaurantName} logo`}
-                fill
-                sizes="80px"
-                className="object-cover"
-                priority={false}
-                unoptimized
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+        {displayUrl ? (
+          <Image
+            src={displayUrl}
+            alt={`${restaurantName} logo`}
+            fill
+            sizes="64px"
+            className="object-cover"
+            priority={false}
+            unoptimized
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-muted-foreground">
+            <span aria-hidden="true">{initials}</span>
+          </div>
+        )}
+        {busy || isLoading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/70">
+            <Loader2
+              className="size-5 animate-spin text-foreground motion-reduce:animate-none"
+              aria-hidden
+            />
+          </div>
+        ) : null}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <p id="restaurant-logo-title" className="text-sm font-medium text-foreground">
+          Logo
+        </p>
+        <Text variant="caption">Square, 320×320px, PNG, JPG, WEBP or SVG, under 2 MB.</Text>
+        <Text
+          variant="caption"
+          role="status"
+          aria-live={errorMessage ? 'assertive' : 'polite'}
+          className={cn('flex items-start gap-1.5', errorMessage && 'text-destructive')}
+        >
+          {errorMessage ? <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden /> : null}
+          <span>{statusMessage}</span>
+        </Text>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button
+            id="restaurant-logo-upload"
+            type="button"
+            variant="outline"
+            disabled={controlsDisabled}
+            aria-busy={uploadMutation.isPending || undefined}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {uploadMutation.isPending ? (
+              <Loader2
+                data-icon="inline-start"
+                className="animate-spin motion-reduce:animate-none"
+                aria-hidden
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-muted text-xl font-semibold text-muted-foreground">
-                <span aria-hidden="true">{initials}</span>
-              </div>
+              <Upload data-icon="inline-start" aria-hidden />
             )}
-            {(busy || isLoading) && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-                <Loader2 className="size-6 animate-spin text-primary" />
-              </div>
-            )}
-          </div>
-          <div>
-            <Label className="text-sm font-medium text-foreground">Restaurant logo</Label>
-            <Text variant="caption">
-              Shown on the guest booking page and in booking emails.
-            </Text>
-            <Text variant="caption">
-              Recommended: 320×320px PNG, JPG, WEBP or SVG under 2 MB.
-            </Text>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 sm:items-end">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={controlsDisabled}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {busy ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : (
-                <Upload className="mr-2 size-4" />
-              )}
-              {logoUrl ? 'Replace logo' : 'Upload logo'}
-            </Button>
+            {logoUrl ? 'Replace logo' : 'Upload logo'}
+          </Button>
+          {logoUrl ? (
             <Button
               type="button"
               variant="ghost"
-              disabled={controlsDisabled || !logoUrl}
-              onClick={handleRemoveLogo}
+              disabled={controlsDisabled}
+              onClick={() => setConfirmRemoveOpen(true)}
             >
-              <Trash2 className="mr-2 size-4" /> Remove
+              <Trash2 data-icon="inline-start" aria-hidden />
+              Remove logo
             </Button>
-          </div>
+          ) : null}
           <Input
             ref={fileInputRef}
             type="file"
@@ -226,19 +252,20 @@ export function RestaurantLogoUploader({
             aria-label="Upload restaurant logo"
             disabled={controlsDisabled}
           />
-          <Text
-            variant="caption"
-            role="status"
-            aria-live={errorMessage ? 'assertive' : 'polite'}
-            className={cn(errorMessage && 'text-destructive')}
-          >
-            {errorMessage ??
-              (restaurantId
-                ? 'Images are cropped to square automatically.'
-                : 'Select a restaurant to upload a logo.')}
-          </Text>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmRemoveOpen}
+        onOpenChange={setConfirmRemoveOpen}
+        title="Remove logo?"
+        description="Your logo is removed straight away and guests see your initials instead."
+        confirmLabel="Remove logo"
+        tone="destructive"
+        onConfirm={() => {
+          setConfirmRemoveOpen(false);
+          void handleRemoveLogo();
+        }}
+      />
     </div>
   );
 }

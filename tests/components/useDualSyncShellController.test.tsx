@@ -43,13 +43,20 @@ function makeState({
 }
 
 function makeWorkspace({
-  decisionCount = 0,
+  decisions = {} as Record<
+    string,
+    { action: 'export_to_google' | 'import_from_google' | 'ignore' }
+  >,
   previewPublishPending = false,
   publishPending = false,
+  exactPublishPending = false,
   stateData = makeState(),
 } = {}) {
   return {
-    decisionCount,
+    decisions,
+    exactPublishMutation: {
+      isPending: exactPublishPending,
+    },
     previewPublishMutation: {
       isPending: previewPublishPending,
     },
@@ -75,7 +82,7 @@ beforeEach(() => {
 describe('useDualSyncShellController', () => {
   it('passes workspace args through and wires shell actions from derived view state', () => {
     const workspace = makeWorkspace({
-      decisionCount: 1,
+      decisions: { 'profile.name': { action: 'export_to_google' } },
       stateData: makeState({ syncPaused: true, pauseReason: 'Maintenance.' }),
     });
     mocks.useDualSyncWorkspace.mockReturnValue(workspace);
@@ -84,43 +91,66 @@ describe('useDualSyncShellController', () => {
       useDualSyncShellController({
         restaurantId: 'restaurant-1',
         sections: ['profile'],
-        singleOpenSections: true,
       }),
     );
 
     expect(mocks.useDualSyncWorkspace).toHaveBeenCalledWith({
       restaurantId: 'restaurant-1',
       sections: ['profile'],
-      singleOpenSections: true,
     });
     expect(mocks.useDualSyncShellActions).toHaveBeenCalledWith({
       restaurantId: 'restaurant-1',
       workspace,
       syncPaused: true,
       pauseReason: 'Maintenance.',
-      canSubmit: false,
+      canPublish: false,
+      canImport: false,
     });
     expect(result.current.workspace).toBe(workspace);
     expect(result.current.shellViewState.syncPaused).toBe(true);
-    expect(result.current.shellViewState.canSubmit).toBe(false);
+    expect(result.current.shellViewState.canPublish).toBe(false);
   });
 
-  it('derives active submit state and toggles drift-only visibility', () => {
-    const workspace = makeWorkspace({ decisionCount: 2 });
+  it('derives publish and import readiness separately and switches the field filter', () => {
+    const workspace = makeWorkspace({
+      decisions: {
+        'profile.name': { action: 'export_to_google' },
+        'profile.phone': { action: 'import_from_google' },
+      },
+    });
     mocks.useDualSyncWorkspace.mockReturnValue(workspace);
 
     const { result } = renderHook(() =>
-      useDualSyncShellController({
-        restaurantId: 'restaurant-1',
-        singleOpenSections: false,
+      useDualSyncShellController({ restaurantId: 'restaurant-1' }),
+    );
+
+    expect(result.current.shellViewState.canPublish).toBe(true);
+    expect(result.current.shellViewState.canImport).toBe(true);
+    expect(result.current.shellViewState.decisionSummary).toEqual({
+      toSend: 1,
+      toImport: 1,
+      ignored: 0,
+    });
+    expect(result.current.showDriftOnly).toBe(true);
+
+    act(() => result.current.setShowDriftOnly(false));
+
+    expect(result.current.showDriftOnly).toBe(false);
+  });
+
+  it('blocks both actions while any publish is running', () => {
+    mocks.useDualSyncWorkspace.mockReturnValue(
+      makeWorkspace({
+        decisions: { 'profile.name': { action: 'export_to_google' } },
+        exactPublishPending: true,
       }),
     );
 
-    expect(result.current.shellViewState.canSubmit).toBe(true);
-    expect(result.current.showDriftOnly).toBe(true);
+    const { result } = renderHook(() =>
+      useDualSyncShellController({ restaurantId: 'restaurant-1' }),
+    );
 
-    act(() => result.current.onToggleDriftOnly());
-
-    expect(result.current.showDriftOnly).toBe(false);
+    expect(result.current.shellViewState.writeBlocked).toBe(true);
+    expect(result.current.shellViewState.canPublish).toBe(false);
   });
 });

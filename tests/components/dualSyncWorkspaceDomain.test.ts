@@ -7,12 +7,10 @@ import {
   setDualSyncSectionDecisions,
 } from '@/components/features/restaurant-settings/dual-sync/dualSyncWorkspaceDecisionDomain';
 import {
-  getDualSyncAccordionValues,
   getOrderedDualSyncSectionKeys,
   getVisibleDualSyncFields,
   groupDualSyncFieldsBySection,
   isDualSyncSectionKey,
-  resolveDualSyncOpenAccordionValue,
 } from '@/components/features/restaurant-settings/dual-sync/dualSyncWorkspaceDomain';
 
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
@@ -91,27 +89,6 @@ describe('dualSyncWorkspaceDomain', () => {
       'profile.later',
     ]);
     expect(getOrderedDualSyncSectionKeys(grouped)).toEqual(['profile', 'operatingHours']);
-  });
-
-  it('appends lazy panel values after ordered section keys', () => {
-    expect(getDualSyncAccordionValues(['profile', 'foodMenus'])).toEqual([
-      'profile',
-      'foodMenus',
-      '__metrics',
-      '__pendingCandidates',
-      '__queueJobs',
-      '__publishes',
-      '__operations',
-    ]);
-  });
-
-  it('resolves the single-open accordion value from current state and ordered values', () => {
-    expect(resolveDualSyncOpenAccordionValue('foodMenus', ['profile', 'foodMenus'])).toBe(
-      'foodMenus',
-    );
-    expect(resolveDualSyncOpenAccordionValue('removed', ['profile', 'foodMenus'])).toBe('profile');
-    expect(resolveDualSyncOpenAccordionValue(undefined, ['profile', 'foodMenus'])).toBe('profile');
-    expect(resolveDualSyncOpenAccordionValue('removed', [])).toBeUndefined();
   });
 
   it('summarizes actionable section capabilities and selected decisions', () => {

@@ -1,5 +1,6 @@
 import {
   CalendarClock,
+  Compass,
   MapPinned,
   Menu,
   Table2,
@@ -11,177 +12,238 @@ import {
 import { opsHref } from '@/lib/url/opsHref';
 
 import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
+import { pluralise } from '../shared/settingsSaveSequence';
 
-export type SetupStatus = 'complete' | 'attention' | 'optional';
+/** `unknown` means the check's data did not load, so the status cannot be trusted. */
+export type SetupStatus = 'complete' | 'attention' | 'optional' | 'unknown';
+
+type SetupGroup = 'required' | 'optional';
+
+export type SetupCardKey =
+  | 'profile'
+  | 'availability'
+  | 'tables'
+  | 'discovery'
+  | 'google'
+  | 'menu'
+  | 'team';
+
+/** One input the completion rule looked at, shown as ✓ (ok) or – (missing). */
+type SetupCheck = { label: string; ok: boolean };
 
 export type SetupCard = {
-  key: string;
+  key: SetupCardKey;
+  group: SetupGroup;
   title: string;
-  description: string;
+  /** One-line reason shown under the title. */
+  reason: string;
   href: string;
   cta: string;
   status: SetupStatus;
-  detail: string;
+  /** What the completion rule checked. Empty for rows without a per-input rule. */
+  checks: SetupCheck[];
   Icon: LucideIcon;
 };
 
-type BuildSetupCardsInput = {
-  profileComplete: boolean;
-  profileDetail: string;
-  availabilityComplete: boolean;
-  tablesComplete: boolean;
+export type ProfileSetupChecks = {
+  name: boolean;
+  slug: boolean;
+  timezone: boolean;
+  contactPhone: boolean;
+};
+
+export type BuildSetupCardsInput = {
+  profileChecks: ProfileSetupChecks;
+  openDays: number;
+  servicePeriodCount: number;
+  totalTables: number;
   availableTables: number;
   menuCount: number;
   pendingInvites: number;
+  /** Rows whose checks failed to load. They show "Couldn't check" instead of a status. */
+  failedKeys?: ReadonlySet<SetupCardKey>;
 };
 
-const REQUIRED_SETUP_CARD_KEYS = new Set(['profile', 'availability', 'tables']);
-const OPTIONAL_SETUP_CARD_KEYS = new Set(['google', 'menu', 'team']);
+/** How each row names its check in the "didn't respond" copy. */
+const CHECK_NAMES: Record<SetupCardKey, string> = {
+  profile: 'profile',
+  availability: 'availability',
+  tables: 'tables',
+  discovery: 'discovery',
+  google: 'Google',
+  menu: 'menu',
+  team: 'team',
+};
 
 export function statusLabel(status: SetupStatus) {
   if (status === 'complete') return 'Complete';
   if (status === 'attention') return 'Needs attention';
+  if (status === 'unknown') return 'Couldn’t check';
   return 'Optional';
 }
 
-export function statusVariant(status: SetupStatus): 'default' | 'secondary' | 'outline' {
-  if (status === 'complete') return 'default';
-  if (status === 'attention') return 'secondary';
-  return 'outline';
+function failedCheckReason(key: SetupCardKey) {
+  return `The ${CHECK_NAMES[key]} check didn’t respond, so this status may be out of date. Saved settings are unchanged.`;
 }
 
-export function summarizeOptionalSetup(cards: SetupCard[]) {
-  const optional = cards.filter((card) => OPTIONAL_SETUP_CARD_KEYS.has(card.key));
-  const started = optional.filter((card) => card.status === 'complete').length;
-  const next = optional.find((card) => card.status !== 'complete');
-  const ready = optional
-    .filter((card) => card.status === 'complete')
-    .map((card) => `${card.title} ready`);
-  const pending = optional
-    .filter((card) => card.status !== 'complete')
-    .map((card) => `${card.title} pending`);
-
-  return {
-    total: optional.length,
-    started,
-    value:
-      ready.length > 0
-        ? [...ready, ...pending].slice(0, 2).join(' · ')
-        : `${started}/${optional.length} started`,
-    description: next?.detail ?? 'Optional tools are ready when needed.',
-  };
-}
-
-export function summarizeRequiredSetup(cards: SetupCard[]) {
-  const required = cards.filter((card) => REQUIRED_SETUP_CARD_KEYS.has(card.key));
+export function summarizeReadiness(cards: SetupCard[]) {
+  const required = cards.filter((card) => card.group === 'required');
   const complete = required.filter((card) => card.status === 'complete').length;
-  const next = required.find((card) => card.status !== 'complete') ?? null;
   const total = required.length;
-  const percent = total > 0 ? Math.round((complete / total) * 100) : 0;
+  const hasFailedCheck = required.some((card) => card.status === 'unknown');
+  const next = required.find((card) => card.status === 'attention') ?? null;
+  const ready = complete === total && !hasFailedCheck;
+
+  let title = 'Not ready for bookings yet';
+  let description = `${complete} of ${total} required steps complete.`;
+  if (hasFailedCheck) {
+    title = 'Some checks couldn’t run';
+    description = 'Showing the last known status. Try the check again.';
+  } else if (ready) {
+    title = 'Ready to take bookings';
+    description = `${description} Guests can request times on your booking page.`;
+  } else if (next) {
+    description = `${description} Next: ${next.title.toLowerCase()}.`;
+  }
 
   return {
     complete,
     total,
-    percent,
-    next,
-    title:
-      complete === total
-        ? 'Your restaurant is ready to take bookings.'
-        : `Next up: ${next?.title ?? 'required setup'}`,
-    description:
-      complete === total
-        ? 'Profile, availability, and seating capacity are all ready for guests.'
-        : (next?.detail ?? 'Complete the next required setup step before go-live.'),
-    footer:
-      complete === total
-        ? 'All required setup is complete'
-        : `${next?.title ?? 'Required setup'} needs attention`,
+    ready,
+    hasFailedCheck,
+    /** The only required step that gets the primary button. */
+    nextKey: hasFailedCheck ? null : (next?.key ?? null),
+    segments: required.map((card) => card.status === 'complete'),
+    title,
+    description,
+    progressLabel: `${complete} of ${total} required steps complete`,
   };
 }
 
-export type RequiredSetupSummary = ReturnType<typeof summarizeRequiredSetup>;
+export type ReadinessSummary = ReturnType<typeof summarizeReadiness>;
+
+function withFailure(
+  card: SetupCard,
+  failedKeys: ReadonlySet<SetupCardKey> | undefined,
+): SetupCard {
+  if (!failedKeys?.has(card.key)) return card;
+  return { ...card, status: 'unknown', reason: failedCheckReason(card.key), checks: [] };
+}
 
 export function buildSetupCards({
-  profileComplete,
-  profileDetail,
-  availabilityComplete,
-  tablesComplete,
+  profileChecks,
+  openDays,
+  servicePeriodCount,
+  totalTables,
   availableTables,
   menuCount,
   pendingInvites,
+  failedKeys,
 }: BuildSetupCardsInput): SetupCard[] {
-  return [
+  const profile: SetupCheck[] = [
+    { label: 'Restaurant name', ok: profileChecks.name },
+    { label: 'Booking page link', ok: profileChecks.slug },
+    { label: 'Timezone', ok: profileChecks.timezone },
+    { label: 'Public phone', ok: profileChecks.contactPhone },
+  ];
+  const availability: SetupCheck[] = [
+    { label: `${pluralise(openDays, 'day')} open each week`, ok: openDays > 0 },
+    { label: `${pluralise(servicePeriodCount, 'meal time')} set`, ok: servicePeriodCount > 0 },
+  ];
+  const tables: SetupCheck[] = [
+    { label: `${pluralise(totalTables, 'table')} added`, ok: totalTables > 0 },
+    { label: `${availableTables} bookable now`, ok: availableTables > 0 },
+  ];
+  const requiredStatus = (checks: SetupCheck[]): SetupStatus =>
+    checks.every((check) => check.ok) ? 'complete' : 'attention';
+
+  const cards: SetupCard[] = [
     {
       key: 'profile',
+      group: 'required',
       title: 'Public profile',
-      description: 'Controls the guest-facing name, contact details, address, and booking page.',
+      reason: 'Guests see this on the booking page and in confirmations.',
       href: opsHref('/settings/restaurant/profile'),
       cta: 'Open profile',
-      status: profileComplete ? 'complete' : 'attention',
-      detail: profileDetail,
+      status: requiredStatus(profile),
+      checks: profile,
       Icon: UserRound,
     },
     {
       key: 'availability',
+      group: 'required',
       title: 'Booking availability',
-      description: 'Controls booking rules, weekly hours, meal windows, and booking types.',
+      reason: 'Opening hours and meal times decide which times guests can request.',
       href: opsHref(
-        `/settings/restaurant/availability${availabilityHash(AVAILABILITY_ANCHORS.bookingRules)}`,
+        `/settings/restaurant/availability${availabilityHash(AVAILABILITY_ANCHORS.weeklyHours)}`,
       ),
       cta: 'Open availability',
-      status: availabilityComplete ? 'complete' : 'attention',
-      detail: availabilityComplete
-        ? 'Open hours and service windows are configured.'
-        : 'Set weekly hours and at least one service window.',
+      status: requiredStatus(availability),
+      checks: availability,
       Icon: CalendarClock,
     },
     {
       key: 'tables',
+      group: 'required',
       title: 'Seating capacity',
-      description: 'Controls table inventory, active zones, and covers available for bookings.',
-      href: opsHref('/settings/restaurant/tables#table-capacity-summary'),
+      reason: 'Only active tables in active zones can be given to bookings.',
+      href: opsHref('/settings/restaurant/tables'),
       cta: 'Open tables',
-      status: tablesComplete ? 'complete' : 'attention',
-      detail: tablesComplete
-        ? `${availableTables} service-ready tables are available.`
-        : 'Add table numbers and capacity first; zones can come later.',
+      status: requiredStatus(tables),
+      checks: tables,
       Icon: Table2,
     },
     {
+      key: 'discovery',
+      group: 'optional',
+      title: 'Discovery details',
+      reason: 'Categories, links and amenities that help guests find and choose you.',
+      href: opsHref('/settings/restaurant/discovery'),
+      cta: 'Open discovery',
+      status: 'optional',
+      checks: [],
+      Icon: Compass,
+    },
+    {
       key: 'google',
+      group: 'optional',
       title: 'Google Business Profile',
-      description: 'Optional import and comparison workflow for public listing details.',
-      href: opsHref('/settings/restaurant/google-business-profile#gbp-connection'),
+      reason: 'Useful after the profile and availability basics are ready.',
+      href: opsHref('/settings/restaurant/google-business-profile'),
       cta: 'Manage Google',
       status: 'optional',
-      detail: 'Useful after the profile and availability basics are ready.',
+      checks: [],
       Icon: MapPinned,
     },
     {
       key: 'menu',
+      group: 'optional',
       title: 'Menu',
-      description: 'Optional menu catalogue and Google publishing fields.',
+      reason:
+        menuCount > 0
+          ? `${pluralise(menuCount, 'menu catalogue entry', 'menu catalogue entries')} found.`
+          : 'Add later when menus are ready.',
       href: opsHref('/settings/restaurant/menu'),
       cta: 'Open menu',
       status: menuCount > 0 ? 'complete' : 'optional',
-      detail:
-        menuCount > 0
-          ? `${menuCount} menu catalogue entries found.`
-          : 'Add later when menus are ready.',
+      checks: [],
       Icon: Menu,
     },
     {
       key: 'team',
+      group: 'optional',
       title: 'Team',
-      description: 'Optional staff invitations for reservation and settings access.',
+      reason:
+        pendingInvites > 0
+          ? `${pluralise(pendingInvites, 'pending invite')}.`
+          : 'Invite trusted staff when operations are ready.',
       href: opsHref('/settings/restaurant/team'),
       cta: 'Open team',
       status: pendingInvites > 0 ? 'complete' : 'optional',
-      detail:
-        pendingInvites > 0
-          ? `${pendingInvites} pending invite${pendingInvites === 1 ? '' : 's'}.`
-          : 'Invite trusted staff when operations are ready.',
+      checks: [],
       Icon: Users,
     },
   ];
+
+  return cards.map((card) => withFailure(card, failedKeys));
 }

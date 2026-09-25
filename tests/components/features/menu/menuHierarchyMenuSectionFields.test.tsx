@@ -11,24 +11,42 @@ import {
   SectionDialogFields,
 } from '@/components/features/menu/menuHierarchyMenuSectionFields';
 
-import { applySetterCalls, makeMenu, makeSection, switchByLabel } from './__fixtures__/menuHierarchy';
+import {
+  applySetterCalls,
+  makeMenu,
+  makeSection,
+  switchByLabel,
+} from './__fixtures__/menuHierarchy';
 
 describe('MenuDialogFields', () => {
-  it('@smoke renders menu fields with kind selector and active switch', () => {
+  it('@smoke keeps essentials visible and advanced fields collapsed', async () => {
+    const user = userEvent.setup();
     render(<MenuDialogFields state={menuInitialState()} setState={vi.fn()} />);
 
     expect(screen.getByText('Menu name')).toBeInTheDocument();
-    expect(screen.getByText('Kind')).toBeInTheDocument();
+    expect(screen.getByText('Type')).toBeInTheDocument();
     expect(screen.getByRole('combobox')).toHaveTextContent('Food');
+    expect(switchByLabel('Shown to guests')).toBeChecked();
+    expect(screen.queryByText('Google cuisines')).not.toBeInTheDocument();
+    expect(screen.queryByText('Source URL')).not.toBeInTheDocument();
+
+    const advanced = screen.getByRole('button', { name: /Advanced/ });
+    expect(advanced).toHaveAttribute('aria-expanded', 'false');
+    await user.click(advanced);
+    expect(advanced).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Google cuisines')).toBeInTheDocument();
-    expect(switchByLabel('Menu active')).toBeChecked();
+    expect(screen.getByText('Source URL')).toBeInTheDocument();
+    expect(screen.getByText('Default language')).toBeInTheDocument();
+    expect(screen.getByText('Additional Google labels')).toBeInTheDocument();
   });
 
-  it('@smoke prefills from an existing menu', () => {
+  it('@smoke prefills from an existing menu', async () => {
+    const user = userEvent.setup();
     render(<MenuDialogFields state={menuInitialState(makeMenu())} setState={vi.fn()} />);
 
     expect(screen.getByDisplayValue('Dinner Menu')).toBeInTheDocument();
     expect(screen.getByDisplayValue('Seasonal food menu')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Advanced/ }));
     expect(screen.getByDisplayValue('en-GB')).toBeInTheDocument();
   });
 
@@ -54,6 +72,7 @@ describe('MenuDialogFields', () => {
     const initial = menuInitialState();
     render(<MenuDialogFields state={initial} setState={setState} />);
 
+    await user.click(screen.getByRole('button', { name: /Advanced/ }));
     const [firstCuisine] = screen.getAllByRole('checkbox');
     await user.click(firstCuisine);
 
@@ -62,19 +81,23 @@ describe('MenuDialogFields', () => {
 });
 
 describe('SectionDialogFields', () => {
-  it('@smoke renders section fields with the active switch on', () => {
+  it('@smoke renders section essentials with legacy categories under Advanced', async () => {
+    const user = userEvent.setup();
     render(<SectionDialogFields state={sectionInitialState()} setState={vi.fn()} />);
 
     expect(screen.getByText('Section name')).toBeInTheDocument();
+    expect(switchByLabel('Shown on the menu')).toBeChecked();
+    expect(screen.queryByText('Legacy category')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /Advanced/ }));
     expect(screen.getByText('Legacy category')).toBeInTheDocument();
     expect(screen.getByText('Legacy subcategory')).toBeInTheDocument();
-    expect(switchByLabel('Section active')).toBeChecked();
+    expect(screen.getByText('Primary label language')).toBeInTheDocument();
+    expect(screen.getByText('Additional Google labels')).toBeInTheDocument();
   });
 
   it('@smoke prefills from an existing section', () => {
-    render(
-      <SectionDialogFields state={sectionInitialState(makeSection())} setState={vi.fn()} />,
-    );
+    render(<SectionDialogFields state={sectionInitialState(makeSection())} setState={vi.fn()} />);
 
     expect(screen.getByDisplayValue('Starters')).toBeInTheDocument();
   });
@@ -97,7 +120,7 @@ describe('SectionDialogFields', () => {
     const initial = sectionInitialState();
     render(<SectionDialogFields state={initial} setState={setState} />);
 
-    await user.click(switchByLabel('Section active'));
+    await user.click(switchByLabel('Shown on the menu'));
 
     expect(applySetterCalls(setState, initial).active).toBe(false);
   });

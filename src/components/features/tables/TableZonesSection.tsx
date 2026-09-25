@@ -1,197 +1,227 @@
 'use client';
 
-import { Edit, Plus, Trash2 } from 'lucide-react';
+import { CheckCircle2, MinusCircle, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import {
-  SettingsCard,
-  SettingsSecondaryActions,
+  SETTINGS_COMPACT_CARD_CLASS,
+  SETTINGS_COMPACT_CARD_CONTENT_CLASS,
+  SETTINGS_COMPACT_CARD_HEADER_CLASS,
 } from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
-import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
-import { ALL_ZONES_VALUE, type TableZone, type ZoneStatusFilter } from './tableInventoryModel';
+import { formatZoneTableStats, getZoneTableStats } from './tableInventoryDisplayDomain';
+import { TABLE_TOUCH_TARGET_CLASS, TableIconButton } from './TableInventoryParts';
+
+import type { TableZone } from './tableInventoryModel';
+import type { TableInventory } from '@/services/ops/tables';
+
+const TABLE_ZONES_HEADING_ID = 'table-zones-heading';
 
 export function TableZonesSection({
-  isActive,
-  zoneDeleteBlockedMessage,
   isLoadingZones,
   isZonesError,
-  zonesError,
+  onRetryZones,
   zones,
-  filteredZones,
+  tables,
   selectedZoneId,
-  zoneStatusFilter,
-  isZoneUpdatePending,
   isZoneDeletePending,
-  onZoneStatusFilterChange,
   onSelectZone,
   onAddZone,
   onEditZone,
   onDeleteZone,
   onToggleZoneActive,
 }: {
-  isActive: boolean;
-  zoneDeleteBlockedMessage: string | null;
   isLoadingZones: boolean;
   isZonesError: boolean;
-  zonesError: unknown;
+  onRetryZones: () => void;
   zones: TableZone[];
-  filteredZones: TableZone[];
+  tables: TableInventory[];
   selectedZoneId: string;
-  zoneStatusFilter: ZoneStatusFilter;
-  isZoneUpdatePending: boolean;
   isZoneDeletePending: boolean;
-  onZoneStatusFilterChange: (filter: ZoneStatusFilter) => void;
   onSelectZone: (zoneId: string) => void;
   onAddZone: () => void;
   onEditZone: (zone: TableZone) => void;
   onDeleteZone: (zone: TableZone) => void;
-  onToggleZoneActive: (zoneId: string, active: boolean) => void;
+  onToggleZoneActive: (zone: TableZone, active: boolean) => void;
 }) {
   return (
-    <div id="table-zones" hidden={!isActive} className={cn('scroll-mt-28', !isActive && 'hidden')}>
-      <SettingsCard
-        title="Zones"
-        description="Group tables by areas of your floor plan. Add or rename zones as your layout changes."
-        headerAction={
-          <SettingsSecondaryActions label="Zone options" contentClassName="sm:min-w-80">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="zone-status-filter" className="text-sm text-muted-foreground">
-                Show
-              </Label>
-              <Select
-                value={zoneStatusFilter}
-                onValueChange={(value) => onZoneStatusFilterChange(value as ZoneStatusFilter)}
-              >
-                <SelectTrigger id="zone-status-filter">
-                  <SelectValue placeholder="All zones" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active zones</SelectItem>
-                  <SelectItem value="inactive">Inactive zones</SelectItem>
-                  <SelectItem value="all">All zones</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button variant="outline" size="sm" onClick={onAddZone}>
+    <section
+      id="table-zones"
+      aria-labelledby={TABLE_ZONES_HEADING_ID}
+      className="min-w-0 scroll-mt-28"
+    >
+      <Card className={cn('w-full overflow-hidden', SETTINGS_COMPACT_CARD_CLASS)}>
+        <CardHeader
+          className={cn(
+            SETTINGS_COMPACT_CARD_HEADER_CLASS,
+            'flex flex-row flex-wrap items-start justify-between gap-3 space-y-0 border-b border-border/60 bg-muted/30',
+          )}
+        >
+          <div className="flex min-w-0 flex-col gap-1">
+            <h2 id={TABLE_ZONES_HEADING_ID} className="text-base font-semibold leading-6">
+              Zones
+            </h2>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Groups of tables. Turn a zone off for the season without deleting its tables.
+            </p>
+          </div>
+          {zones.length > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddZone}
+              className={TABLE_TOUCH_TARGET_CLASS}
+            >
               <Plus data-icon="inline-start" aria-hidden />
               Add zone
             </Button>
-          </SettingsSecondaryActions>
-        }
-      >
-        {zoneDeleteBlockedMessage ? (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTitle>Zone cannot be deleted yet</AlertTitle>
-            <AlertDescription>{zoneDeleteBlockedMessage}</AlertDescription>
-          </Alert>
-        ) : null}
-        {isLoadingZones ? (
-          <div className="flex flex-wrap gap-2">
-            <Skeleton className="h-9 w-32" />
-            <Skeleton className="h-9 w-28" />
-            <Skeleton className="h-9 w-24" />
-          </div>
-        ) : isZonesError ? (
-          <Alert variant="destructive">
-            <AlertTitle>Zones unavailable</AlertTitle>
-            <AlertDescription>
-              {zonesError instanceof Error ? zonesError.message : 'Unable to load zones right now.'}
-            </AlertDescription>
-          </Alert>
-        ) : filteredZones.length === 0 ? (
-          <Text variant="caption">
-            {zones.length === 0
-              ? 'No zones configured yet. Create your first zone to start organizing tables.'
-              : 'No zones match this filter. Show all to view inactive zones.'}
-          </Text>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {filteredZones.map((zone) => {
-              const isActiveFilter = selectedZoneId === zone.id;
-              return (
-                <li key={zone.id}>
-                  <div
-                    className={cn(
-                      'flex flex-col gap-2 rounded-md border px-3 py-2',
-                      zone.active ? 'bg-background' : 'bg-muted/60',
-                    )}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isActiveFilter ? 'default' : 'ghost'}
-                          onClick={() => onSelectZone(isActiveFilter ? ALL_ZONES_VALUE : zone.id)}
-                        >
-                          {zone.name}
-                        </Button>
-                        <Badge variant={zone.active ? 'outline' : 'secondary'}>
-                          {zone.active ? 'Active' : 'Inactive'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          #{zone.sortOrder ?? 0}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Switch
-                          checked={zone.active}
-                          onCheckedChange={(checked) => onToggleZoneActive(zone.id, checked)}
-                          aria-label={`Toggle ${zone.name} zone availability`}
-                          disabled={isZoneUpdatePending}
-                        />
-                        <span className="hidden text-xs text-muted-foreground md:inline">
-                          Seasonal toggle
-                        </span>
-                      </div>
-                    </div>
-                    <Text variant="caption">
-                      {zone.active
-                        ? 'Included in capacity and assignments.'
-                        : 'Tables stay visible but are excluded from service until re-enabled.'}
-                    </Text>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onEditZone(zone)}
-                        aria-label={`Edit zone ${zone.name}`}
-                      >
-                        <Edit aria-hidden />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={isZoneDeletePending}
-                        onClick={() => onDeleteZone(zone)}
-                        aria-label={`Delete zone ${zone.name}`}
-                      >
-                        <Trash2 className="text-destructive" aria-hidden />
-                      </Button>
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </SettingsCard>
-    </div>
+          ) : null}
+        </CardHeader>
+        <CardContent
+          className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, 'flex min-w-0 flex-col pt-4')}
+        >
+          {isLoadingZones ? (
+            <div className="flex flex-col gap-3" aria-busy="true">
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-16 w-full" />
+              <span className="sr-only">Loading zones</span>
+            </div>
+          ) : isZonesError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertTitle>Zones couldn’t be loaded</AlertTitle>
+              <AlertDescription className="flex flex-col items-start gap-2">
+                <span>Saved settings are unchanged.</span>
+                <Button type="button" variant="outline" size="sm" onClick={onRetryZones}>
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : zones.length === 0 ? (
+            <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed p-4">
+              <p className="text-sm font-semibold">No zones yet</p>
+              <p className="text-sm text-muted-foreground">
+                Every table belongs to a zone, such as Main dining room or Terrace. Add one to
+                start.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                onClick={onAddZone}
+                className={TABLE_TOUCH_TARGET_CLASS}
+              >
+                <Plus data-icon="inline-start" aria-hidden />
+                Add your first zone
+              </Button>
+            </div>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border/60" aria-label="Zones">
+              {zones.map((zone) => (
+                <TableZoneRow
+                  key={zone.id}
+                  zone={zone}
+                  stats={formatZoneTableStats(getZoneTableStats(tables, zone.id))}
+                  isFiltered={selectedZoneId === zone.id}
+                  isZoneDeletePending={isZoneDeletePending}
+                  onSelectZone={onSelectZone}
+                  onEditZone={onEditZone}
+                  onDeleteZone={onDeleteZone}
+                  onToggleZoneActive={onToggleZoneActive}
+                />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function TableZoneRow({
+  zone,
+  stats,
+  isFiltered,
+  isZoneDeletePending,
+  onSelectZone,
+  onEditZone,
+  onDeleteZone,
+  onToggleZoneActive,
+}: {
+  zone: TableZone;
+  stats: string;
+  isFiltered: boolean;
+  isZoneDeletePending: boolean;
+  onSelectZone: (zoneId: string) => void;
+  onEditZone: (zone: TableZone) => void;
+  onDeleteZone: (zone: TableZone) => void;
+  onToggleZoneActive: (zone: TableZone, active: boolean) => void;
+}) {
+  const switchId = `zone-active-${zone.id}`;
+  return (
+    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0" data-testid={`zone-${zone.id}`}>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-pressed={isFiltered}
+            onClick={() => onSelectZone(zone.id)}
+            className={cn(
+              '-ml-2 h-auto min-h-8 max-w-full justify-start whitespace-normal px-2 py-1 text-left font-semibold',
+              isFiltered && 'bg-primary/10 text-primary hover:bg-primary/15',
+              TABLE_TOUCH_TARGET_CLASS,
+            )}
+          >
+            {zone.name}
+          </Button>
+          <p className="text-xs leading-5 text-muted-foreground tabular-nums">{stats}</p>
+        </div>
+        <Badge variant={zone.active ? 'status-confirmed' : 'secondary'} className="shrink-0 gap-1">
+          {zone.active ? (
+            <CheckCircle2 className="size-3" aria-hidden />
+          ) : (
+            <MinusCircle className="size-3" aria-hidden />
+          )}
+          {zone.active ? 'In service' : 'Out of service'}
+        </Badge>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className={cn('flex items-center gap-2', TABLE_TOUCH_TARGET_CLASS)}>
+          <Switch
+            id={switchId}
+            checked={zone.active}
+            onCheckedChange={(checked) => onToggleZoneActive(zone, checked)}
+            aria-label={`${zone.name} in service`}
+            aria-describedby={`${switchId}-state`}
+          />
+          <span id={`${switchId}-state`} className="text-sm text-muted-foreground">
+            {zone.active ? 'Tables can be booked' : 'Tables kept, not bookable'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <TableIconButton
+            label={`Edit ${zone.name}`}
+            tooltip="Edit zone"
+            Icon={Pencil}
+            onClick={() => onEditZone(zone)}
+          />
+          <TableIconButton
+            label={`Delete ${zone.name}`}
+            tooltip="Delete zone"
+            Icon={Trash2}
+            destructive
+            disabled={isZoneDeletePending}
+            onClick={() => onDeleteZone(zone)}
+          />
+        </div>
+      </div>
+    </li>
   );
 }

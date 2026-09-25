@@ -1,56 +1,40 @@
 'use client';
 
-import { useCallback, useEffect } from 'react';
+import { useEffect } from 'react';
 
-import { isGbpAnchorId, type GbpAnchorId } from './googleBusinessProfileWorkflow';
+import { isGbpAnchorId } from './googleBusinessProfileWorkflow';
 
 type UseGoogleBusinessProfileSectionNavigationOptions = {
-  hasSyncWorkspace: boolean;
+  /** Step 3 only exists once a location is mapped, so its hash is ignored until then. */
+  canReview: boolean;
+  /** The steps render only once connection data has loaded. */
+  ready: boolean;
 };
 
-function scrollToGbpAnchor(anchorId: GbpAnchorId) {
-  requestAnimationFrame(() => {
-    document.getElementById(anchorId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  });
-}
-
+/** Scrolls to a step when the page is opened with `#gbp-connection`, `#gbp-location` or `#gbp-sync-review`. */
 export function useGoogleBusinessProfileSectionNavigation({
-  hasSyncWorkspace,
+  canReview,
+  ready,
 }: UseGoogleBusinessProfileSectionNavigationOptions) {
   useEffect(() => {
+    if (!ready) {
+      return;
+    }
     const applyHash = () => {
       const raw = window.location.hash.slice(1);
       if (!raw || !isGbpAnchorId(raw)) {
         return;
       }
-      if (raw === 'gbp-sync-review' && !hasSyncWorkspace) {
+      if (raw === 'gbp-sync-review' && !canReview) {
         return;
       }
-      scrollToGbpAnchor(raw);
+      requestAnimationFrame(() => {
+        document.getElementById(raw)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
     };
 
     applyHash();
     window.addEventListener('hashchange', applyHash);
     return () => window.removeEventListener('hashchange', applyHash);
-  }, [hasSyncWorkspace]);
-
-  const selectAnchor = useCallback(
-    (anchorId: GbpAnchorId) => {
-      if (anchorId === 'gbp-sync-review' && !hasSyncWorkspace) {
-        return;
-      }
-      window.history.replaceState(null, '', `#${anchorId}`);
-      scrollToGbpAnchor(anchorId);
-    },
-    [hasSyncWorkspace],
-  );
-
-  const chooseLocationAnchor = useCallback(() => {
-    selectAnchor('gbp-location');
-  }, [selectAnchor]);
-
-  return {
-    chooseLocationAnchor,
-    selectAnchor,
-  };
+  }, [canReview, ready]);
 }

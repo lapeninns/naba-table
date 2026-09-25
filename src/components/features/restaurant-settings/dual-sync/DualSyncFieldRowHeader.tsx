@@ -1,5 +1,4 @@
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/typography';
 
 import { DualSyncFieldFreshnessIndicator } from './DualSyncFieldFreshnessIndicator';
@@ -9,28 +8,24 @@ import type { DualSyncFieldRowModel } from './dualSyncFieldRowDomain';
 
 export function DualSyncFieldRowHeader({ model }: { readonly model: DualSyncFieldRowModel }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-2">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <Label className="text-sm font-semibold">{model.label}</Label>
-          <DualSyncStateBadge state={model.state} />
-          {model.hasOpenCandidate ? (
-            <Badge variant="outline" className="text-xs">
-              Pending export queued
-            </Badge>
-          ) : null}
-        </div>
-        <div className="flex flex-wrap gap-1">
-          {model.policyLabels.map((label) => (
-            <Badge key={label} variant="secondary" className="text-[11px] font-medium">
-              {label}
-            </Badge>
-          ))}
-        </div>
-        {model.helpText ? (
-          <Text variant="caption">{model.helpText}</Text>
+    <div className="flex min-w-0 flex-col gap-1">
+      <Text as="h4" variant="subheading" className="text-sm leading-5">
+        {model.label}
+      </Text>
+      <div className="flex flex-wrap items-center gap-1">
+        <DualSyncStateBadge state={model.state} />
+        {model.hasOpenCandidate ? (
+          <Badge variant="outline" className="text-xs">
+            Pending export queued
+          </Badge>
         ) : null}
+        {model.policyLabels.map((label) => (
+          <Badge key={label} variant="secondary" className="text-[11px] font-medium">
+            {label}
+          </Badge>
+        ))}
       </div>
+      {model.helpText ? <Text variant="caption">{model.helpText}</Text> : null}
       <DualSyncFieldFreshnessIndicator freshness={model.freshness} />
     </div>
   );

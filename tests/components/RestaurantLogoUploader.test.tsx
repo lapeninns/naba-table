@@ -1,10 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const uploadMutateAsyncMock = vi.hoisted(() => vi.fn());
 const analyticsTrackMock = vi.hoisted(() => vi.fn());
 const analyticsEmitMock = vi.hoisted(() => vi.fn());
+const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
+
+vi.mock('next/image', () => ({
+  default: () => null,
+}));
+vi.mock('sonner', () => ({ toast: toastMock }));
 
 vi.mock('@/hooks/ops/useOpsRestaurantLogoUpload', () => ({
   useOpsRestaurantLogoUpload: () => ({
@@ -32,6 +38,7 @@ describe('RestaurantLogoUploader', () => {
     uploadMutateAsyncMock.mockReturnValue(new Promise(() => undefined));
     analyticsTrackMock.mockReset();
     analyticsEmitMock.mockReset();
+    toastMock.success.mockReset();
 
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
@@ -57,10 +64,8 @@ describe('RestaurantLogoUploader', () => {
       />,
     );
 
-    expect(screen.getByText('Restaurant logo')).toBeInTheDocument();
-    expect(
-      screen.getByText('Shown on the guest booking page and in booking emails.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Logo')).toBeInTheDocument();
+    expect(screen.getByText('Saves as soon as you upload it.')).toBeInTheDocument();
 
     await user.upload(
       screen.getByLabelText(/upload restaurant logo/i),
@@ -108,6 +113,38 @@ describe('RestaurantLogoUploader', () => {
         action: 'upload',
       }),
     );
+    expect(toastMock.success).toHaveBeenCalledWith('Logo uploaded and saved.');
+  });
+
+  it('asks before removing the logo and removes it only when confirmed', async () => {
+    const user = userEvent.setup();
+    const updateMutateAsync = vi.fn().mockResolvedValue({});
+
+    render(
+      <RestaurantLogoUploader
+        restaurantId="rest-1"
+        restaurantName="Demo Restaurant"
+        logoUrl="https://cdn.example/logo.svg"
+        updateMutation={{ mutateAsync: updateMutateAsync, isPending: false } as never}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }));
+    let dialog = await screen.findByRole('alertdialog', { name: 'Remove logo?' });
+    expect(
+      within(dialog).getByText(
+        'Your logo is removed straight away and guests see your initials instead.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(updateMutateAsync).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }));
+    dialog = await screen.findByRole('alertdialog', { name: 'Remove logo?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove logo' }));
+
+    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ logoUrl: null }));
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Logo removed.'));
   });
 
   it('validates logo file constraints and derives preview initials', () => {

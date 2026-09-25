@@ -27,7 +27,7 @@ describe('GoogleItemPublishingFields', () => {
   it('@smoke shows the empty media-keys hint when none are selected', () => {
     renderFields();
 
-    expect(screen.getByText('Google publishing')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Google photo keys' })).toBeInTheDocument();
     expect(screen.getByText('No GBP media keys selected.')).toBeInTheDocument();
   });
 
@@ -51,10 +51,14 @@ describe('GoogleItemPublishingFields', () => {
     expect(props.onRemoveMediaKey).toHaveBeenCalledWith('media/two');
   });
 
-  it('@contract surfaces a media error message', () => {
+  it('@contract @a11y surfaces a media error linked to the field', () => {
     renderFields({ mediaError: 'Google media keys cannot be image URLs.' });
 
-    expect(screen.getByText('Google media keys cannot be image URLs.')).toBeInTheDocument();
+    const field = screen.getByRole('textbox', { name: 'Google photo keys' });
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(field).toHaveAccessibleDescription(
+      expect.stringContaining('Google media keys cannot be image URLs.'),
+    );
   });
 
   it('@contract patches the manual paste fallback and local image URL', async () => {

@@ -9,6 +9,7 @@ import {
   MenuLoadingState,
   SelectRestaurantMenuState,
 } from '@/components/features/menu/menuHierarchyManagementStates';
+import { HttpError } from '@/lib/http/errors';
 
 describe('menuHierarchyManagementStates', () => {
   it('@smoke SelectRestaurantMenuState prompts for a restaurant', () => {
@@ -20,22 +21,34 @@ describe('menuHierarchyManagementStates', () => {
     ).toBeInTheDocument();
   });
 
-  it('@contract MenuLoadErrorState shows the error message and retries on click', async () => {
+  it('@contract MenuLoadErrorState says saved menus are unchanged and offers Try again', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
-    render(<MenuLoadErrorState errorMessage="Network exploded" onRetry={onRetry} />);
+    const { rerender } = render(
+      <MenuLoadErrorState
+        error={new HttpError({ message: 'Guest data here', status: 503, code: 'HTTP_503' })}
+        onRetry={onRetry}
+      />,
+    );
 
-    expect(screen.getByText('Unable to load menus')).toBeInTheDocument();
-    expect(screen.getByText('Network exploded')).toBeInTheDocument();
+    expect(screen.getByText('Menus could not be loaded')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your saved menus are unchanged. Reason code HTTP_503.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Guest data here/)).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
+
+    rerender(<MenuLoadErrorState error={new Error('Network exploded')} onRetry={onRetry} />);
+    expect(screen.queryByText(/Network exploded/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Your saved menus are unchanged/)).toBeInTheDocument();
   });
 
   it('@smoke MenuLoadingState renders the loading copy', () => {
     render(<MenuLoadingState />);
 
-    expect(screen.getByText('Loading menus...')).toBeInTheDocument();
+    expect(screen.getByText('Loading menus…')).toBeInTheDocument();
   });
 
   it('@contract EmptyMenuState invites creating the first menu', async () => {
@@ -56,12 +69,12 @@ describe('menuHierarchyManagementStates', () => {
       <EmptyPreferredMenuState preferredMenuKind="drinks" onCreateMenu={onCreateMenu} />,
     );
 
-    expect(screen.getByText('No drinks menu')).toBeInTheDocument();
+    expect(screen.getByText('No drinks menu yet')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Create drinks menu' }));
     expect(onCreateMenu).toHaveBeenCalledTimes(1);
 
     rerender(<EmptyPreferredMenuState preferredMenuKind="food" onCreateMenu={onCreateMenu} />);
-    expect(screen.getByText('No food menu')).toBeInTheDocument();
+    expect(screen.getByText('No food menu yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create food menu' })).toBeInTheDocument();
   });
 });

@@ -5,10 +5,13 @@ import { useDualSyncConfirmPublishAction } from './useDualSyncConfirmPublishActi
 import { useDualSyncPublishDialogState } from './useDualSyncPublishDialogState';
 import { useDualSyncPublishPreviewAction } from './useDualSyncPublishPreviewAction';
 
+import type { DualSyncDecisionEntry } from '../dualSyncWorkspaceDecisionDomain';
 import type { DualSyncWorkspace } from './useDualSyncWorkspace';
 
 interface UseDualSyncPublishActionsArgs {
   readonly workspace: DualSyncWorkspace;
+  /** The draft decisions to preview and publish; defaults to every draft decision. */
+  readonly decisions?: Readonly<Record<string, DualSyncDecisionEntry>>;
   readonly syncPaused: boolean;
   readonly pauseReason: string;
   readonly canSubmit: boolean;
@@ -17,6 +20,7 @@ interface UseDualSyncPublishActionsArgs {
 
 export function useDualSyncPublishActions({
   workspace,
+  decisions,
   syncPaused,
   pauseReason,
   canSubmit,
@@ -37,6 +41,7 @@ export function useDualSyncPublishActions({
 
   const onClickPublish = useDualSyncPublishPreviewAction({
     workspace,
+    decisions,
     syncPaused,
     pauseReason,
     canSubmit,

@@ -2,69 +2,93 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { SettingsDialog } from '@/components/features/restaurant-settings/shared';
 import { Button } from '@/components/ui/button';
-import { DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { FormRoot } from '@/components/ui/form';
 
 import { TableInventoryCapacityFields } from './TableInventoryCapacityFields';
 import { TableInventoryClassificationFields } from './TableInventoryClassificationFields';
 import {
   buildTableFormDraft,
-  getSelectedTableZone,
+  getFirstInvalidTableField,
   parseTableFormPayload,
+  type TableFormErrors,
+  type TableFormField,
 } from './tableInventoryFormDomain';
 import { type TableFormState, type TableZone } from './tableInventoryModel';
 import { TableInventoryPlacementFields } from './TableInventoryPlacementFields';
 
 import type { TableInventory } from '@/services/ops/tables';
 
-export function TableInventoryForm({
-  table,
-  onClose,
-  onSubmit,
-  isSaving,
-  zones,
-  isZonesLoading,
-  isFirstTable,
-}: {
+const TABLE_FORM_ID = 'table-inventory-form';
+const DETAIL_FIELDS: ReadonlyArray<TableFormField> = ['section', 'notes'];
+
+function focusField(field: TableFormField) {
+  window.setTimeout(() => {
+    document.getElementById(field)?.focus();
+  }, 0);
+}
+
+export type TableInventoryFormProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   table: TableInventory | null;
-  onClose: () => void;
   onSubmit: (payload: TableFormState) => void;
   isSaving: boolean;
   zones: Pick<TableZone, 'id' | 'name' | 'active'>[];
   isZonesLoading: boolean;
-  isFirstTable: boolean;
-}) {
-  const [zoneId, setZoneId] = useState<string | undefined>(table?.zoneId);
-  const [category, setCategory] = useState<TableInventory['category']>(table?.category ?? 'dining');
-  const [seatingType, setSeatingType] = useState<TableInventory['seatingType']>(
-    table?.seatingType ?? 'standard',
-  );
-  const [mobility, setMobility] = useState<TableInventory['mobility']>(
-    table?.mobility ?? 'movable',
-  );
-  const [status, setStatus] = useState<TableInventory['status']>(table?.status ?? 'available');
-  const [active, setActive] = useState<boolean>(table?.active ?? true);
-  const [formError, setFormError] = useState<string | null>(null);
+  /** Zone to preselect for a new table. */
+  preferredZoneId?: string | null;
+  /** Server-side table number error, e.g. a duplicate number (HTTP 409). */
+  tableNumberError?: string | null;
+};
 
-  const isZoneSelectDisabled = zones.length === 0;
+/**
+ * Add or edit one table. Saves on "Save table"; a failed save keeps the dialog open with the
+ * details still filled in. Mount it with a fresh `key` per opening so it starts from the table.
+ */
+export function TableInventoryForm({
+  open,
+  onOpenChange,
+  table,
+  onSubmit,
+  isSaving,
+  zones,
+  isZonesLoading,
+  preferredZoneId = null,
+  tableNumberError = null,
+}: TableInventoryFormProps) {
+  const [draft] = useState(() => buildTableFormDraft(table, zones, preferredZoneId));
+  const [zoneId, setZoneId] = useState<string | undefined>(draft.zoneId);
+  const [category, setCategory] = useState(draft.category);
+  const [seatingType, setSeatingType] = useState(draft.seatingType);
+  const [mobility, setMobility] = useState(draft.mobility);
+  const [status, setStatus] = useState(draft.status);
+  const [active, setActive] = useState(draft.active);
+  const [detailsOpen, setDetailsOpen] = useState(
+    () => table?.status === 'out_of_service' || Boolean(table?.notes || table?.section),
+  );
+  const [errors, setErrors] = useState<TableFormErrors>({});
+
+  // Zones can arrive after the dialog opens (first load, or a zone just added).
+  useEffect(() => {
+    if (zoneId || zones.length === 0) return;
+    setZoneId(buildTableFormDraft(null, zones, preferredZoneId).zoneId);
+  }, [preferredZoneId, zoneId, zones]);
 
   useEffect(() => {
-    const draft = buildTableFormDraft(table, zones);
-    setZoneId(draft.zoneId);
-    setCategory(draft.category);
-    setSeatingType(draft.seatingType);
-    setMobility(draft.mobility);
-    setStatus(draft.status);
-    setActive(draft.active);
-    setFormError(null);
-  }, [table, zones]);
+    if (tableNumberError) {
+      focusField('tableNumber');
+    }
+  }, [tableNumberError]);
 
-  const selectedZone = getSelectedTableZone(zones, zoneId);
+  const shownErrors: TableFormErrors = tableNumberError
+    ? { ...errors, tableNumber: errors.tableNumber ?? tableNumberError }
+    : errors;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSaving) return;
     const result = parseTableFormPayload(new FormData(event.currentTarget), {
       zoneId,
       category,
@@ -75,39 +99,53 @@ export function TableInventoryForm({
     });
 
     if (!result.ok) {
-      setFormError(result.error);
+      setErrors(result.errors);
+      const first = getFirstInvalidTableField(result.errors);
+      if (first) {
+        if (DETAIL_FIELDS.includes(first)) setDetailsOpen(true);
+        focusField(first);
+      }
       return;
     }
 
+    setErrors({});
     onSubmit(result.payload);
   };
 
   return (
-    <FormRoot onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <DialogHeader>
-        <DialogTitle>{table ? 'Edit table' : 'Add new table'}</DialogTitle>
-        <DialogDescription>
-          {isFirstTable
-            ? 'Start with table number and capacity. You can add more zones and advanced details later.'
-            : 'Configure seating capacity and availability for this table.'}
-        </DialogDescription>
-      </DialogHeader>
-
-      <div className="grid gap-4 max-h-[70vh] overflow-y-auto pr-4">
-        <TableInventoryCapacityFields table={table} />
+    <SettingsDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={table ? `Edit table ${table.tableNumber}` : 'Add table'}
+      description="Saves as soon as you select Save table."
+      size="lg"
+      testId="table-inventory-dialog"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form={TABLE_FORM_ID} disabled={isSaving}>
+            {isSaving ? 'Saving…' : 'Save table'}
+          </Button>
+        </>
+      }
+    >
+      <FormRoot id={TABLE_FORM_ID} onSubmit={handleSubmit} noValidate className="grid gap-4">
+        <TableInventoryCapacityFields table={table} errors={shownErrors} />
         <TableInventoryPlacementFields
           active={active}
-          isZoneSelectDisabled={isZoneSelectDisabled}
           isZonesLoading={isZonesLoading}
-          selectedZone={selectedZone}
           setActive={setActive}
           setZoneId={setZoneId}
           zoneId={zoneId}
           zones={zones}
+          zoneError={shownErrors.zoneId}
         />
         <TableInventoryClassificationFields
+          open={detailsOpen}
+          onOpenChange={setDetailsOpen}
           category={category}
-          isFirstTable={isFirstTable}
           mobility={mobility}
           seatingType={seatingType}
           setCategory={setCategory}
@@ -116,24 +154,9 @@ export function TableInventoryForm({
           setStatus={setStatus}
           status={status}
           table={table}
+          errors={shownErrors}
         />
-      </div>
-
-      {formError ? (
-        <Alert variant="destructive">
-          <AlertTitle>Table was not saved</AlertTitle>
-          <AlertDescription>{formError}</AlertDescription>
-        </Alert>
-      ) : null}
-
-      <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-        <Button type="button" variant="outline" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={isSaving || isZoneSelectDisabled}>
-          {isSaving ? 'Saving...' : 'Save table'}
-        </Button>
-      </DialogFooter>
-    </FormRoot>
+      </FormRoot>
+    </SettingsDialog>
   );
 }

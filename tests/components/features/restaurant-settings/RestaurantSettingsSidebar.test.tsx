@@ -9,18 +9,25 @@ vi.mock('@/contexts/ops-unsaved-changes', () => ({
   }),
 }));
 
-vi.mock('@/components/features/restaurant-settings/useRestaurantSettingsNav', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    useRestaurantSettingsNav: () => ({
-      normalizedPathname: '/app/settings/restaurant/profile',
-      getNavBadge: () => undefined,
-      prefetchSettingsView: vi.fn(),
-      handleLinkClick: vi.fn(),
-    }),
-  };
-});
+vi.mock(
+  '@/components/features/restaurant-settings/useRestaurantSettingsNav',
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>();
+    return {
+      ...actual,
+      useRestaurantSettingsNav: () => ({
+        normalizedPathname: '/app/settings/restaurant/profile',
+        getNavBadge: () => undefined,
+        prefetchSettingsView: vi.fn(),
+        handleLinkClick: vi.fn(),
+      }),
+    };
+  },
+);
+
+vi.mock('@/components/features/restaurant-settings/shell/useRestaurantSettingsContext', () => ({
+  useRestaurantSettingsContext: () => ({ restaurantName: 'Old Crown Girton' }),
+}));
 
 import { RestaurantSettingsSidebar } from '@/components/features/restaurant-settings/RestaurantSettingsSidebar';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -39,8 +46,9 @@ describe('RestaurantSettingsSidebar', () => {
       </SidebarProvider>,
     );
 
-    expect(screen.getByText('Restaurant')).toBeInTheDocument();
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('Old Crown Girton', { exact: false })).toHaveTextContent(
+      'Settings for Old Crown Girton',
+    );
     expect(screen.getByRole('navigation', { name: 'Restaurant settings' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close settings menu' })).toBeInTheDocument();
   });

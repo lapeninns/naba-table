@@ -1,99 +1,67 @@
 import { describe, expect, it } from 'vitest';
 
+import { EMPTY_DIRTY_STATE } from '@/components/features/restaurant-settings/businessContextModel';
 import {
-  buildDiscoverySectionFrameState,
-  formatDiscoveryTriggerLabel,
-  resolveDiscoveryFamily,
+  buildDiscoverySectionStates,
+  getDiscoverySectionBadge,
 } from '@/components/features/restaurant-settings/discovery/discoveryPanelsFrameDomain';
 
-import type {
-  DirtyState,
-  ErrorState,
-  FamilyKey,
-} from '@/components/features/restaurant-settings/businessContextModel';
-import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
-
-const families: FamilyKey[] = [
-  'businessDetails',
-  'links',
-  'categories',
-  'serviceAreas',
-  'attributes',
-  'serviceItems',
-];
-
-const emptyDirty = Object.fromEntries(families.map((family) => [family, false])) as DirtyState;
-const emptyErrors = {} as ErrorState;
-
-function driftField(fieldKey: string): DualSyncFieldSummary {
-  return {
-    sectionKey: 'businessDetails',
-    fieldKey,
-    label: fieldKey,
-    state: 'matching',
-    policy: {} as DualSyncFieldSummary['policy'],
-  } as DualSyncFieldSummary;
-}
+const NO_ISSUES = {
+  businessDetails: 0,
+  categories: 0,
+  links: 0,
+  attributes: 0,
+  serviceItems: 0,
+  serviceAreas: 0,
+};
 
 describe('discoveryPanelsFrameDomain', () => {
-  it('resolves valid discovery families and rejects invalid accordion values', () => {
-    expect(resolveDiscoveryFamily('links')).toBe('links');
-    expect(resolveDiscoveryFamily('')).toBeNull();
-    expect(resolveDiscoveryFamily('unknown')).toBeNull();
-  });
-
-  it('formats trigger labels with dirty and error state', () => {
-    expect(
-      formatDiscoveryTriggerLabel({
-        title: 'Online links',
-        dirty: false,
-        hasError: false,
-      }),
-    ).toBe('Online links');
-    expect(
-      formatDiscoveryTriggerLabel({
-        title: 'Online links',
-        dirty: true,
-        hasError: true,
-      }),
-    ).toBe('Online links, unsaved changes, needs attention');
-  });
-
-  it('builds section frame state from editor and drift summaries', () => {
-    const fields = [driftField('openingDate')];
-    const state = buildDiscoverySectionFrameState({
-      family: 'businessDetails',
-      editor: {
-        dirty: { ...emptyDirty, businessDetails: true },
-        errors: { ...emptyErrors, businessDetails: 'Required' },
-      },
-      gbpDriftFieldsByFamily: {
-        businessDetails: fields,
-        links: [],
-        categories: [],
-        serviceAreas: [],
-        attributes: [],
-        serviceItems: [],
-      },
+  it('lists the six sections in page order with stable deep-link anchors', () => {
+    const sections = buildDiscoverySectionStates({
+      dirty: EMPTY_DIRTY_STATE,
+      issueCounts: NO_ISSUES,
     });
 
-    expect(state).toMatchObject({
-      family: 'businessDetails',
-      title: 'Profile basics',
-      description: 'Opening status and whether this restaurant also serves guests off-site.',
-      dirty: true,
-      hasError: true,
-      triggerLabel: 'Profile basics, unsaved changes, needs attention',
-    });
-    expect(state.driftFields).toBe(fields);
+    expect(sections.map((section) => section.title)).toEqual([
+      'Business status',
+      'Categories',
+      'Links',
+      'Amenities',
+      'Services',
+      'Where you serve',
+    ]);
+    // gbp-drift/sectionRoutes.ts links to these ids.
+    expect(sections.map((section) => section.anchorId)).toEqual([
+      'profile-discovery-businessDetails',
+      'profile-discovery-categories',
+      'profile-discovery-links',
+      'profile-discovery-attributes',
+      'profile-discovery-serviceItems',
+      'profile-discovery-serviceAreas',
+    ]);
+    expect(sections.every((section) => section.badge === null)).toBe(true);
   });
 
-  it('defaults missing drift summaries to an empty list', () => {
-    expect(
-      buildDiscoverySectionFrameState({
-        family: 'links',
-        editor: { dirty: emptyDirty, errors: emptyErrors },
-      }).driftFields,
-    ).toEqual([]);
+  it('marks edited sections and lets issues take priority in the jump bar', () => {
+    const sections = buildDiscoverySectionStates({
+      dirty: { ...EMPTY_DIRTY_STATE, links: true, serviceItems: true },
+      issueCounts: { ...NO_ISSUES, serviceItems: 2 },
+    });
+    const byFamily = Object.fromEntries(sections.map((section) => [section.family, section]));
+
+    expect(byFamily.links?.badge).toEqual({
+      label: 'Edited',
+      tone: 'edited',
+      srLabel: 'Unsaved changes',
+    });
+    expect(byFamily.serviceItems?.badge).toEqual({ label: '2 issues', tone: 'issue' });
+    expect(byFamily.categories?.badge).toBeNull();
+  });
+
+  it('uses a singular issue label', () => {
+    expect(getDiscoverySectionBadge({ dirty: true, issueCount: 1 })).toEqual({
+      label: '1 issue',
+      tone: 'issue',
+    });
   });
 });

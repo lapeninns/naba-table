@@ -1,123 +1,111 @@
 'use client';
 
-import { ChevronDown, Trash2 } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Text } from '@/components/ui/typography';
 
 import {
   getServiceAreaAdvancedSubtitle,
   getServiceAreaChipLabel,
   SERVICE_AREA_MAIN_FIELDS,
   SERVICE_AREA_PROVIDER_FIELDS,
+  type ServiceAreaFieldSpec,
 } from './serviceAreasPanelDomain';
 import { makeFieldId, type ServiceAreaEditor } from '../../businessContextModel';
+import {
+  DiscoveryDisclosure,
+  DiscoveryFieldError,
+  useDiscoveryField,
+} from '../DiscoveryFormContext';
+import { DISCOVERY_DISCLOSURE_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
+type ServiceAreaRowEditor = Pick<RestaurantBusinessContextEditor, 'updateServiceArea'>;
+
+const MONO_FIELDS = new Set<keyof ServiceAreaEditor>([
+  'areaType',
+  'regionCode',
+  'googlePlaceId',
+  'googlePlaceResourceName',
+]);
+
+function ServiceAreaField({
+  row,
+  editor,
+  spec,
+}: {
+  row: ServiceAreaEditor;
+  editor: ServiceAreaRowEditor;
+  spec: ServiceAreaFieldSpec;
+}) {
+  const fieldId = makeFieldId('serviceAreas', row.id, spec.field);
+  const { issue, fieldProps } = useDiscoveryField(fieldId);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <Label htmlFor={fieldId}>{spec.label}</Label>
+      <Input
+        {...fieldProps}
+        value={row[spec.field]}
+        className={MONO_FIELDS.has(spec.field) ? 'font-mono' : undefined}
+        onChange={(event) => editor.updateServiceArea(row.id, spec.field, event.target.value)}
+      />
+      <DiscoveryFieldError fieldId={fieldId} issue={issue} />
+    </div>
+  );
+}
+
+/** Advanced details of one area: type, region, Google place and raw place data. */
 export function ServiceAreaAdvancedRow({
   row,
   editor,
 }: {
   row: ServiceAreaEditor;
-  editor: RestaurantBusinessContextEditor;
+  editor: ServiceAreaRowEditor;
 }) {
-  const label = getServiceAreaChipLabel(row);
+  const placeDataId = makeFieldId('serviceAreas', row.id, 'placeDataJson');
+  const placeData = useDiscoveryField(placeDataId);
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Text variant="label" className="truncate">{label}</Text>
-          <p className="text-xs text-muted-foreground">{getServiceAreaAdvancedSubtitle(row)}</p>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Remove ${label}`}
-          title="Remove service area"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={() => editor.removeServiceArea(row.id)}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {SERVICE_AREA_MAIN_FIELDS.map(({ label: fieldLabel, field }) => (
-          <div key={field} className="space-y-2">
-            <Label htmlFor={makeFieldId('serviceAreas', row.id, field)}>{fieldLabel}</Label>
-            <Input
-              id={makeFieldId('serviceAreas', row.id, field)}
-              value={row[field] as string}
-              onChange={(event) => editor.updateServiceArea(row.id, field, event.target.value)}
-            />
-          </div>
+    <fieldset className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 p-3">
+      <legend className="px-1 text-sm font-semibold text-foreground">
+        {getServiceAreaChipLabel(row)}
+        <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">
+          {getServiceAreaAdvancedSubtitle(row)}
+        </span>
+      </legend>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {SERVICE_AREA_MAIN_FIELDS.map((spec) => (
+          <ServiceAreaField key={spec.field} row={row} editor={editor} spec={spec} />
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {SERVICE_AREA_PROVIDER_FIELDS.slice(0, 1).map(({ label: fieldLabel, field }) => (
-          <div key={field} className="space-y-2">
-            <Label htmlFor={makeFieldId('serviceAreas', row.id, field)}>{fieldLabel}</Label>
-            <Input
-              id={makeFieldId('serviceAreas', row.id, field)}
-              value={row[field] as string}
-              onChange={(event) => editor.updateServiceArea(row.id, field, event.target.value)}
-            />
-          </div>
-        ))}
-      </div>
-      <Collapsible
-        defaultOpen={false}
-        className="rounded-lg border border-border/60 bg-muted/20 p-3"
+      <DiscoveryDisclosure
+        id={DISCOVERY_DISCLOSURE_IDS.serviceAreaPayload(row.id)}
+        title="Google place fields"
+        hint="For support"
       >
-        <CollapsibleTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
-          >
-            <span className="flex min-w-0 flex-col gap-1">
-              <span className="text-sm font-medium text-foreground">
-                Show provider payload fields
-              </span>
-              <span className="text-xs font-normal text-muted-foreground">
-                Edit raw place resource and structured place data from providers.
-              </span>
-            </span>
-            <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {SERVICE_AREA_PROVIDER_FIELDS.slice(1).map(({ label: fieldLabel, field }) => (
-              <div key={field} className="space-y-2">
-                <Label htmlFor={makeFieldId('serviceAreas', row.id, field)}>{fieldLabel}</Label>
-                <Input
-                  id={makeFieldId('serviceAreas', row.id, field)}
-                  value={row[field] as string}
-                  onChange={(event) => editor.updateServiceArea(row.id, field, event.target.value)}
-                />
-              </div>
+        <div className="flex flex-col gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {SERVICE_AREA_PROVIDER_FIELDS.map((spec) => (
+              <ServiceAreaField key={spec.field} row={row} editor={editor} spec={spec} />
             ))}
           </div>
-          <div className="space-y-2">
-            <Label htmlFor={makeFieldId('serviceAreas', row.id, 'placeDataJson')}>Place data</Label>
+          <div className="flex min-w-0 flex-col gap-2">
+            <Label htmlFor={placeDataId}>Place data (JSON object)</Label>
             <Textarea
-              id={makeFieldId('serviceAreas', row.id, 'placeDataJson')}
+              {...placeData.fieldProps}
               value={row.placeDataJson}
               rows={4}
+              className="font-mono text-xs"
               onChange={(event) =>
                 editor.updateServiceArea(row.id, 'placeDataJson', event.target.value)
               }
             />
+            <DiscoveryFieldError fieldId={placeDataId} issue={placeData.issue} />
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+        </div>
+      </DiscoveryDisclosure>
+    </fieldset>
   );
 }

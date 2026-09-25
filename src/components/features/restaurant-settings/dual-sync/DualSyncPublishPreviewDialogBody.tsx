@@ -15,6 +15,7 @@ interface DualSyncPublishPreviewDialogBodyProps {
   readonly needsAcknowledgement: boolean;
   readonly onAcknowledgedChange: (checked: boolean) => void;
   readonly plan: DualSyncPublishPlan | null;
+  readonly purpose?: 'publish' | 'import';
 }
 
 export function DualSyncPublishPreviewDialogBody({
@@ -22,11 +23,12 @@ export function DualSyncPublishPreviewDialogBody({
   needsAcknowledgement,
   onAcknowledgedChange,
   plan,
+  purpose = 'publish',
 }: DualSyncPublishPreviewDialogBodyProps) {
   if (!plan) {
     return (
       <Alert>
-        <AlertTriangle className="size-4" />
+        <AlertTriangle className="size-4" aria-hidden />
         <AlertTitle>No publish plan loaded.</AlertTitle>
         <AlertDescription>Close this dialog and generate a new preview.</AlertDescription>
       </Alert>
@@ -44,6 +46,7 @@ export function DualSyncPublishPreviewDialogBody({
         <DualSyncPublishAcknowledgement
           acknowledged={acknowledged}
           onAcknowledgedChange={onAcknowledgedChange}
+          purpose={purpose}
         />
       ) : null}
     </div>

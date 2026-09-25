@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const redirectMock = vi.hoisted(() => vi.fn());
+
+vi.mock('next/navigation', () => ({ redirect: redirectMock }));
 
 import AvailabilitySettingsPage, {
   metadata as availabilityMetadata,
@@ -6,6 +10,7 @@ import AvailabilitySettingsPage, {
 import RestaurantDiscoverySettingsPage, {
   metadata as discoveryMetadata,
 } from '@/app/app/(app)/settings/restaurant/discovery/page';
+import RestaurantEmailTemplatesSettingsPage from '@/app/app/(app)/settings/restaurant/email-templates/page';
 import GoogleBusinessProfileSettingsPage, {
   metadata as googleBusinessProfileMetadata,
 } from '@/app/app/(app)/settings/restaurant/google-business-profile/page';
@@ -27,6 +32,9 @@ import RestaurantProfileSettingsPage, {
 import ServicePeriodsSettingsPage, {
   metadata as servicePeriodsMetadata,
 } from '@/app/app/(app)/settings/restaurant/service-periods/page';
+import StaffCommunicationsSettingsPage, {
+  metadata as staffCommunicationsMetadata,
+} from '@/app/app/(app)/settings/restaurant/staff-communications/page';
 import RestaurantTablesSettingsPage, {
   metadata as tablesMetadata,
 } from '@/app/app/(app)/settings/restaurant/tables/page';
@@ -38,6 +46,7 @@ import TurnDurationsSettingsPage, {
 } from '@/app/app/(app)/settings/restaurant/turn-durations/page';
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
 import { RestaurantSetupOverview } from '@/components/features/restaurant-settings/RestaurantSetupOverview';
+import { getRestaurantSettingsAvailabilityAlias } from '@/components/features/restaurant-settings/routes';
 
 import type { RestaurantSettingsView } from '@/components/features/restaurant-settings/types';
 import type { Metadata } from 'next';
@@ -51,7 +60,7 @@ type RoutePageContract = {
 type AvailabilityAliasPageContract = {
   metadata: Metadata;
   page: () => React.ReactNode;
-  availabilityWorkspace: 'schedule' | 'booking-types';
+  slug: string;
 };
 
 const routePageContracts: RoutePageContract[] = [
@@ -90,28 +99,33 @@ const routePageContracts: RoutePageContract[] = [
     page: RestaurantTeamSettingsPage,
     view: 'team',
   },
+  {
+    metadata: staffCommunicationsMetadata,
+    page: StaffCommunicationsSettingsPage,
+    view: 'staff-communications',
+  },
 ];
 
 const availabilityAliasPageContracts: AvailabilityAliasPageContract[] = [
   {
     metadata: operatingHoursMetadata,
     page: OperatingHoursSettingsPage,
-    availabilityWorkspace: 'schedule',
+    slug: 'operating-hours',
   },
   {
     metadata: servicePeriodsMetadata,
     page: ServicePeriodsSettingsPage,
-    availabilityWorkspace: 'schedule',
+    slug: 'service-periods',
   },
   {
     metadata: turnDurationsMetadata,
     page: TurnDurationsSettingsPage,
-    availabilityWorkspace: 'booking-types',
+    slug: 'turn-durations',
   },
   {
     metadata: occasionsMetadata,
     page: BookingOccasionsSettingsPage,
-    availabilityWorkspace: 'booking-types',
+    slug: 'occasions',
   },
 ];
 
@@ -139,21 +153,30 @@ describe('restaurant settings route pages', () => {
   });
 
   it.each(availabilityAliasPageContracts)(
-    'keeps availability alias pages wired to the requested workspace',
+    'renders the Availability page for the former $slug route',
     (contract) => {
       const element = contract.page();
 
+      // The page finds the section from the pathname (routes.ts), not from a prop.
       expect(element).toEqual(
         expect.objectContaining({
-          props: {
-            availabilityWorkspace: contract.availabilityWorkspace,
-            view: 'availability',
-          },
+          props: { view: 'availability' },
           type: OpsRestaurantSettingsClient,
         }),
       );
-      expect(contract.metadata.title).toEqual(expect.any(String));
-      expect(contract.metadata.description).toEqual(expect.any(String));
+      expect(contract.metadata.title).toBe('Availability & Booking types · Nab a Table Ops');
+      expect(
+        getRestaurantSettingsAvailabilityAlias(`/app/settings/restaurant/${contract.slug}`),
+      ).not.toBeNull();
     },
   );
+
+  it('titles the Staff communications page from the shared route copy', () => {
+    expect(staffCommunicationsMetadata.title).toBe('Staff communications · Nab a Table Ops');
+  });
+
+  it('keeps the legacy Email Templates settings route redirecting to the command center', () => {
+    RestaurantEmailTemplatesSettingsPage();
+    expect(redirectMock).toHaveBeenCalledWith('/app/email-templates');
+  });
 });

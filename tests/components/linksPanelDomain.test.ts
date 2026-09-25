@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getLinkRemoveLabel,
-  getLinkRowTitle,
   getLinkTypeLabel,
   LINK_TEXT_FIELDS,
 } from '@/components/features/restaurant-settings/discovery/panels/linksPanelDomain';
@@ -22,7 +21,8 @@ describe('linksPanelDomain', () => {
   it('keeps link text field specs stable', () => {
     expect(LINK_TEXT_FIELDS.map((field) => field.field)).toEqual(['label', 'url']);
     expect(LINK_TEXT_FIELDS.find((field) => field.field === 'url')).toMatchObject({
-      placeholder: 'https://example.com',
+      label: 'Web address',
+      placeholder: 'https://',
       inputMode: 'url',
       type: 'url',
     });
@@ -33,15 +33,11 @@ describe('linksPanelDomain', () => {
     expect(getLinkTypeLabel('unknown-type')).toBeNull();
   });
 
-  it('derives row titles from label, option label, then fallback', () => {
-    expect(getLinkRowTitle(buildLink())).toBe('Website');
-    expect(getLinkRowTitle(buildLink({ label: '' }))).toBe('Website');
-    expect(getLinkRowTitle(buildLink({ label: '', linkType: 'unknown-type' }))).toBe('New link');
-  });
-
-  it('derives remove labels from label, raw link type, then fallback', () => {
-    expect(getLinkRemoveLabel(buildLink())).toBe('Website');
-    expect(getLinkRemoveLabel(buildLink({ label: '' }))).toBe('website');
-    expect(getLinkRemoveLabel(buildLink({ label: '', linkType: '' }))).toBe('link');
+  it('names links for remove buttons from label, then type label, then fallback', () => {
+    expect(getLinkRemoveLabel(buildLink({ label: 'Our site' }))).toBe('Our site link');
+    expect(getLinkRemoveLabel(buildLink({ label: '' }))).toBe('Website link');
+    expect(getLinkRemoveLabel(buildLink({ label: '  ', linkType: 'unknown-type' }))).toBe(
+      'new link',
+    );
   });
 });

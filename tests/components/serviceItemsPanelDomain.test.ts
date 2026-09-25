@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getServiceItemRowTitle,
+  SERVICE_ITEM_ADVANCED_FIELDS,
   SERVICE_ITEM_MAIN_FIELDS,
 } from '@/components/features/restaurant-settings/discovery/panels/serviceItemsPanelDomain';
 
@@ -19,11 +20,14 @@ const buildServiceItem = (overrides: Partial<ServiceItemEditor> = {}): ServiceIt
 
 describe('serviceItemsPanelDomain', () => {
   it('keeps service-item field specs stable', () => {
+    // Name and description are the everyday fields; the code and type sit under Advanced.
     expect(SERVICE_ITEM_MAIN_FIELDS.map((field) => field.field)).toEqual([
-      'itemKey',
-      'itemType',
       'displayName',
       'description',
+    ]);
+    expect(SERVICE_ITEM_ADVANCED_FIELDS.map((field) => field.field)).toEqual([
+      'itemKey',
+      'itemType',
     ]);
   });
 
@@ -31,7 +35,7 @@ describe('serviceItemsPanelDomain', () => {
     expect(getServiceItemRowTitle(buildServiceItem())).toBe('Delivery');
     expect(getServiceItemRowTitle(buildServiceItem({ displayName: '' }))).toBe('delivery');
     expect(getServiceItemRowTitle(buildServiceItem({ displayName: '', itemKey: '' }))).toBe(
-      'New service item',
+      'New service',
     );
   });
 });

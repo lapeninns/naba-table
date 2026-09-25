@@ -21,41 +21,38 @@ export function GbpDriftStatusStrip({ compact = false }: GbpDriftStatusStripProp
   }
 
   if (compact) {
+    // Compact routes open with their own command centre; interrupt them only when there is
+    // drift to act on. The in-sync state stays visible in the settings chrome status pill.
+    if (isLoading || totalDriftCount === 0) {
+      return null;
+    }
+
     return (
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2 sm:px-4">
         <Text variant="caption" className="min-w-0">
-          {isLoading
-            ? 'Checking Google comparison…'
-            : totalDriftCount > 0
-              ? `${totalDriftCount} field${totalDriftCount === 1 ? '' : 's'} differ from Google.`
-              : 'In sync with Google for comparable fields.'}
+          {`${totalDriftCount} field${totalDriftCount === 1 ? '' : 's'} differ from Google.`}
         </Text>
         <Button
           type="button"
-          variant={totalDriftCount > 0 ? 'default' : 'outline'}
+          variant="outline"
           size="sm"
           className="h-8 shrink-0"
           onClick={() =>
             openSettingsCompare(openCompare, {
               preset: 'globalDrifted',
-              filter: totalDriftCount > 0 ? 'drifted_only' : 'all',
+              filter: 'drifted_only',
             })
           }
         >
           <GitCompareArrows data-icon="inline-start" className="size-3.5" aria-hidden />
           Compare
-          {totalDriftCount > 0 ? (
-            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-              {totalDriftCount}
-            </Badge>
-          ) : null}
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/30 px-4 py-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border/70 bg-muted/30 px-4 py-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">Google comparison</p>
         <Text variant="caption">

@@ -1,40 +1,39 @@
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { ServiceItemsPanel } from '@/components/features/restaurant-settings/discovery/panels/ServiceItemsPanel';
 
 import { makeBusinessContextEditor, makeServiceItemRow } from '../../testUtils';
+import { renderWithDiscoveryForm } from '../renderWithDiscoveryForm';
 
 import type { RestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 
-describe('ServiceItemsPanel', () => {
-  it('@smoke renders a row per service item with the add action', () => {
-    const editor = makeBusinessContextEditor({ serviceItems: [makeServiceItemRow()] });
-    render(
-      <ServiceItemsPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
-    );
+function renderPanel(over: Record<string, unknown> = {}) {
+  const editor = makeBusinessContextEditor(over);
+  renderWithDiscoveryForm(
+    <ServiceItemsPanel editor={editor as unknown as RestaurantBusinessContextEditor} />,
+  );
+  return editor;
+}
 
-    expect(screen.getByText('Sunday roast')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Add service item/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save service items' })).toBeDisabled();
+describe('ServiceItemsPanel', () => {
+  it('@smoke shows the empty state and adds a service', async () => {
+    const user = userEvent.setup();
+    const editor = renderPanel();
+
+    expect(screen.getByText('No services')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add service' }));
+    expect(editor.addServiceItem).toHaveBeenCalledTimes(1);
   });
 
-  it('@contract adds a service item through the panel action', async () => {
+  it('@a11y returns focus to Add service after removing one', async () => {
     const user = userEvent.setup();
-    const editor = makeBusinessContextEditor();
-    render(
-      <ServiceItemsPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
-    );
+    const editor = renderPanel({ serviceItems: [makeServiceItemRow()] });
 
-    await user.click(screen.getByRole('button', { name: /Add service item/ }));
+    await user.click(screen.getByRole('button', { name: 'Remove Sunday roast' }));
 
-    expect(editor.addServiceItem).toHaveBeenCalledTimes(1);
+    expect(editor.removeServiceItem).toHaveBeenCalledWith('service-item-1');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add service' })).toHaveFocus());
   });
 });

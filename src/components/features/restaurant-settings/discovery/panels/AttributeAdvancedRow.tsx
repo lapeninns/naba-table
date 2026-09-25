@@ -19,20 +19,25 @@ import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusines
 export function AttributeAdvancedRow({
   row,
   editor,
+  onRemove,
 }: {
   row: AttributeEditor;
-  editor: RestaurantBusinessContextEditor;
+  editor: Pick<RestaurantBusinessContextEditor, 'updateAttribute'>;
+  onRemove: () => void;
 }) {
   const display = getAttributeAdvancedRowDisplayState(row);
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background p-4">
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 bg-background p-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <Text variant="label" className="truncate">
             {display.title}
           </Text>
-          <Text variant="caption" className="truncate">
+          <Text
+            variant="caption"
+            className={display.subtitleIsKey ? 'truncate font-mono' : 'truncate'}
+          >
             {display.subtitle}
           </Text>
         </div>
@@ -40,9 +45,10 @@ export function AttributeAdvancedRow({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.removeAttribute(row.id)}
+          aria-label={`Remove ${display.title}`}
+          onClick={onRemove}
         >
-          <Trash2 className="size-4" />
+          <Trash2 data-icon="inline-start" aria-hidden />
           Remove
         </Button>
       </div>

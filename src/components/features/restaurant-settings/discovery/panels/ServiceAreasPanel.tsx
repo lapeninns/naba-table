@@ -1,121 +1,151 @@
 'use client';
 
-import { ChevronDown, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { useState, type KeyboardEvent } from 'react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/typography';
 
-import { type FamilyKey } from '../../businessContextModel';
-import { FamilyActions, FamilyError, FamilyStatus } from '../DiscoveryPanelChrome';
-import { DiscoveryFamilyPanel } from './DiscoveryFamilyPanel';
+import { BUSINESS_DETAILS_SERVICE_AREA_FIELD } from './businessDetailsPanelDomain';
+import { DISCOVERY_CHIP_BUTTON_CLASS, DISCOVERY_CHIP_CLASS } from './CategoriesPanel';
 import { ServiceAreaAdvancedRow } from './ServiceAreaAdvancedRow';
 import { getServiceAreaChipLabel } from './serviceAreasPanelDomain';
+import { DiscoveryDisclosure, useDiscoveryForm } from '../DiscoveryFormContext';
+import { DISCOVERY_DISCLOSURE_IDS, DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
-import type { KeyboardEvent } from 'react';
 
-export function ServiceAreasPanel({
-  editor,
-}: {
-  embedded: boolean;
-  editor: RestaurantBusinessContextEditor;
-  family?: FamilyKey;
-}) {
+type ServiceAreasPanelEditor = Pick<
+  RestaurantBusinessContextEditor,
+  | 'serviceAreas'
+  | 'addServiceArea'
+  | 'updateServiceArea'
+  | 'removeServiceArea'
+  | 'businessDetails'
+  | 'updateBusinessDetails'
+>;
+
+/**
+ * Section 6: whether the restaurant serves customers away from the venue, and the towns or
+ * areas it serves. Turning the switch off never removes saved areas; staff remove them here.
+ */
+export function ServiceAreasPanel({ editor }: { editor: ServiceAreasPanelEditor }) {
+  const { requestFocus } = useDiscoveryForm();
+  const [newArea, setNewArea] = useState('');
+  const servesAway = editor.businessDetails.isServiceAreaBusiness;
+  const hasAreas = editor.serviceAreas.length > 0;
+  const switchHelpId = `${BUSINESS_DETAILS_SERVICE_AREA_FIELD.id}-help`;
+
+  const addArea = () => {
+    if (editor.addServiceArea(newArea)) {
+      setNewArea('');
+    }
+    requestFocus(DISCOVERY_FIELD_IDS.newServiceArea);
+  };
+
   return (
-    <DiscoveryFamilyPanel>
-      <FamilyStatus family="serviceAreas" editor={editor} />
-
-      <div className="flex flex-col gap-4 rounded-lg border border-border/60 p-4">
-        <div className="flex flex-col gap-2">
-          <Text variant="label">Service areas</Text>
-          <Text variant="caption" className="leading-5">
-            Add the places or regions guests can reasonably associate with this restaurant.
+    <>
+      <div className="flex items-start gap-3">
+        <Switch
+          id={BUSINESS_DETAILS_SERVICE_AREA_FIELD.id}
+          aria-describedby={switchHelpId}
+          checked={servesAway}
+          onCheckedChange={(checked) =>
+            editor.updateBusinessDetails(BUSINESS_DETAILS_SERVICE_AREA_FIELD.field, checked)
+          }
+        />
+        <div className="flex min-w-0 flex-col gap-1">
+          <Label htmlFor={BUSINESS_DETAILS_SERVICE_AREA_FIELD.id}>
+            {BUSINESS_DETAILS_SERVICE_AREA_FIELD.label}
+          </Label>
+          <Text variant="caption" id={switchHelpId}>
+            {BUSINESS_DETAILS_SERVICE_AREA_FIELD.helperText}
           </Text>
-        </div>
-
-        {editor.serviceAreas.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {editor.serviceAreas.map((row) => {
-              const label = getServiceAreaChipLabel(row);
-              return (
-                <Badge
-                  key={row.id}
-                  variant="secondary"
-                  className="gap-1.5 rounded-md py-1 pl-2 pr-1"
-                >
-                  <span>{label}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${label}`}
-                    className="size-5 rounded-sm text-muted-foreground hover:bg-background hover:text-foreground"
-                    onClick={() => editor.removeServiceArea(row.id)}
-                  >
-                    <X className="size-3" />
-                  </Button>
-                </Badge>
-              );
-            })}
-          </div>
-        ) : (
-          <Text variant="caption">No service areas have been added.</Text>
-        )}
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            value={editor.serviceAreaDraft}
-            placeholder="Add an area, e.g. Cambridge, UK"
-            aria-label="New service area"
-            onChange={(event) => editor.setServiceAreaDraft(event.target.value)}
-            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                editor.addServiceAreaFromDraft();
-              }
-            }}
-          />
-          <Button type="button" variant="outline" onClick={editor.addServiceAreaFromDraft}>
-            <Plus className="size-4" />
-            Add area
-          </Button>
         </div>
       </div>
 
-      {editor.serviceAreas.length > 0 ? (
-        <Collapsible className="rounded-lg border border-border/60 bg-muted/20 p-3">
-          <CollapsibleTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
-            >
-              <span className="flex min-w-0 flex-col gap-1">
-                <span className="text-sm font-medium text-foreground">
-                  Advanced service-area details
-                </span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  Edit provider IDs and structured place data only when needed.
-                </span>
-              </span>
-              <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-4">
-            <div className="flex flex-col gap-4">
-              {editor.serviceAreas.map((row) => (
-                <ServiceAreaAdvancedRow key={row.id} row={row} editor={editor} />
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+      {!servesAway && hasAreas ? (
+        <Text variant="caption" role="note">
+          These areas are kept while this is off. Remove any you no longer serve.
+        </Text>
       ) : null}
 
-      <FamilyActions family="serviceAreas" editor={editor} saveLabel="Save service areas" />
-      <FamilyError family="serviceAreas" editor={editor} />
-    </DiscoveryFamilyPanel>
+      {hasAreas ? (
+        <ul className="flex flex-wrap gap-2" aria-label="Areas you serve">
+          {editor.serviceAreas.map((row) => {
+            const label = getServiceAreaChipLabel(row);
+            return (
+              <li key={row.id} className={DISCOVERY_CHIP_CLASS}>
+                <span className="min-w-0 truncate">{label}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className={DISCOVERY_CHIP_BUTTON_CLASS}
+                  aria-label={`Remove ${label}`}
+                  onClick={() => {
+                    editor.removeServiceArea(row.id);
+                    // With the switch off, the add field goes away with the last area.
+                    requestFocus(
+                      servesAway || editor.serviceAreas.length > 1
+                        ? DISCOVERY_FIELD_IDS.newServiceArea
+                        : BUSINESS_DETAILS_SERVICE_AREA_FIELD.id,
+                    );
+                  }}
+                >
+                  <X className="size-3.5" aria-hidden />
+                </Button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : servesAway ? (
+        <Text variant="caption">No areas yet. Add the towns or areas you serve.</Text>
+      ) : (
+        <Text variant="caption">No areas. Guests come to you.</Text>
+      )}
+
+      {servesAway || hasAreas ? (
+        <div className="flex flex-wrap gap-2">
+          <Label htmlFor={DISCOVERY_FIELD_IDS.newServiceArea} className="sr-only">
+            New area
+          </Label>
+          <Input
+            id={DISCOVERY_FIELD_IDS.newServiceArea}
+            value={newArea}
+            placeholder="Add an area, e.g. Cambridge, UK"
+            className="min-w-0 flex-[1_1_12rem] [@media(pointer:coarse)]:min-h-11"
+            onChange={(event) => setNewArea(event.target.value)}
+            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                addArea();
+              }
+            }}
+          />
+          <Button type="button" variant="outline" onClick={addArea}>
+            <Plus data-icon="inline-start" aria-hidden />
+            Add
+          </Button>
+        </div>
+      ) : null}
+
+      {editor.serviceAreas.length > 0 ? (
+        <DiscoveryDisclosure
+          id={DISCOVERY_DISCLOSURE_IDS.serviceAreasAdvanced}
+          title="Area details"
+          hint="Advanced"
+        >
+          <div className="flex flex-col gap-3">
+            {editor.serviceAreas.map((row) => (
+              <ServiceAreaAdvancedRow key={row.id} row={row} editor={editor} />
+            ))}
+          </div>
+        </DiscoveryDisclosure>
+      ) : null}
+    </>
   );
 }

@@ -1,17 +1,10 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 
 import { useOptionalGbpDrift } from '@/components/features/restaurant-settings/gbp-drift/useGbpDrift';
+import { SettingsDialog } from '@/components/features/restaurant-settings/shared/SettingsDialog';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,8 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { NONE_VALUE } from './menuHierarchyDomain';
-import { Field, SwitchField } from './menuHierarchyFormControls';
+import { NONE_VALUE, primaryLabel } from './menuHierarchyDomain';
+import { DialogFooterActions, Field, SwitchField } from './menuHierarchyFormControls';
 
 import type {
   CanonicalRestaurantMenuItem,
@@ -46,6 +39,7 @@ export function QuickEditItemDialog({
   onOpenChange: (open: boolean) => void;
   onSubmit: (item: CanonicalRestaurantMenuItem, payload: RestaurantMenuItemPatch) => Promise<void>;
 }) {
+  const formId = useId();
   const gbpDrift = useOptionalGbpDrift();
   const registerDraftOverride = gbpDrift?.registerDraftOverride;
   const [price, setPrice] = useState('');
@@ -115,60 +109,60 @@ export function QuickEditItemDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Quick edit item</DialogTitle>
-          <DialogDescription>
-            Save price, active state, and guest-visible availability without opening the full item
-            sheet.
-          </DialogDescription>
-        </DialogHeader>
-        <FormRoot className="flex flex-col gap-4" onSubmit={submit}>
-          <div className="grid gap-4 sm:grid-cols-[6rem_1fr]">
-            <Field label="Currency">
-              <Input
-                value={currencyCode}
-                onChange={(event) => setCurrencyCode(event.target.value)}
-              />
-            </Field>
-            <Field label="Price">
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={price}
-                onChange={(event) => setPrice(event.target.value)}
-              />
-            </Field>
-          </div>
-          <Field label="Availability flag">
-            <Select value={availabilityStatus} onValueChange={setAvailabilityStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE_VALUE}>Not set</SelectItem>
-                <SelectItem value="available">Available</SelectItem>
-                <SelectItem value="unavailable">Unavailable</SelectItem>
-                <SelectItem value="seasonal">Seasonal</SelectItem>
-              </SelectContent>
-            </Select>
+    <SettingsDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      testId="menu-quick-edit-dialog"
+      title="Quick edit item"
+      description={
+        item
+          ? `Price, visibility and availability for ${primaryLabel(item, 'this item')}. Saves when you select Save quick edit.`
+          : 'Price, visibility and availability. Saves when you select Save quick edit.'
+      }
+      footer={
+        <DialogFooterActions>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} disabled={pending || !item}>
+            {pending ? 'Saving…' : 'Save quick edit'}
+          </Button>
+        </DialogFooterActions>
+      }
+    >
+      <FormRoot id={formId} className="flex flex-col gap-4" onSubmit={submit}>
+        <div className="grid gap-4 sm:grid-cols-[6rem_1fr]">
+          <Field label="Currency">
+            <Input value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value)} />
           </Field>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <SwitchField label="Active" checked={active} onCheckedChange={setActive} />
-            <SwitchField label="Sold out" checked={soldOut} onCheckedChange={setSoldOut} />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || !item}>
-              {pending ? 'Saving...' : 'Save quick edit'}
-            </Button>
-          </DialogFooter>
-        </FormRoot>
-      </DialogContent>
-    </Dialog>
+          <Field label="Price">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+            />
+          </Field>
+        </div>
+        <Field label="Availability flag">
+          <Select value={availabilityStatus} onValueChange={setAvailabilityStatus}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE_VALUE}>Not set</SelectItem>
+              <SelectItem value="available">Available</SelectItem>
+              <SelectItem value="unavailable">Unavailable</SelectItem>
+              <SelectItem value="seasonal">Seasonal</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SwitchField label="Shown on the menu" checked={active} onCheckedChange={setActive} />
+          <SwitchField label="Sold out" checked={soldOut} onCheckedChange={setSoldOut} />
+        </div>
+      </FormRoot>
+    </SettingsDialog>
   );
 }

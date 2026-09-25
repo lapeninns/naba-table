@@ -3,36 +3,54 @@
 import { Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/typography';
 
-import { type FamilyKey } from '../../businessContextModel';
-import { FamilyActions, FamilyError, FamilyStatus } from '../DiscoveryPanelChrome';
-import { DiscoveryFamilyPanel } from './DiscoveryFamilyPanel';
 import { LinkRow } from './LinkRow';
+import { makeFieldId } from '../../businessContextModel';
+import { useDiscoveryForm } from '../DiscoveryFormContext';
+import { DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-export function LinksPanel({
-  editor,
-}: {
-  embedded: boolean;
-  editor: RestaurantBusinessContextEditor;
-  family?: FamilyKey;
-}) {
+type LinksPanelEditor = Pick<
+  RestaurantBusinessContextEditor,
+  'links' | 'addLink' | 'updateLink' | 'removeLink'
+>;
+
+/** Section 3: website and social links. */
+export function LinksPanel({ editor }: { editor: LinksPanelEditor }) {
+  const { requestFocus } = useDiscoveryForm();
+
   return (
-    <DiscoveryFamilyPanel>
-      <FamilyStatus family="links" editor={editor} />
-
-      {editor.links.map((row) => (
-        <LinkRow key={row.id} row={row} editor={editor} />
-      ))}
-
-      <FamilyActions family="links" editor={editor} saveLabel="Save links">
-        <Button type="button" variant="outline" onClick={editor.addLink}>
-          <Plus className="size-4" />
+    <>
+      {editor.links.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          {editor.links.map((row) => (
+            <LinkRow
+              key={row.id}
+              row={row}
+              editor={editor}
+              onRemove={() => {
+                editor.removeLink(row.id);
+                requestFocus(DISCOVERY_FIELD_IDS.addLink);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <Text variant="caption">No links yet.</Text>
+      )}
+      <div>
+        <Button
+          type="button"
+          variant="outline"
+          id={DISCOVERY_FIELD_IDS.addLink}
+          onClick={() => requestFocus(makeFieldId('links', editor.addLink(), 'linkType'))}
+        >
+          <Plus data-icon="inline-start" aria-hidden />
           Add link
         </Button>
-      </FamilyActions>
-      <FamilyError family="links" editor={editor} />
-    </DiscoveryFamilyPanel>
+      </div>
+    </>
   );
 }

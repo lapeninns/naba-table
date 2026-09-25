@@ -41,7 +41,7 @@ describe('GbpCompareFieldRow', () => {
     render(<GbpCompareFieldRow view={makeView()} />);
 
     expect(screen.getByText('Business name')).toBeInTheDocument();
-    expect(screen.getByText('Drifted')).toBeInTheDocument();
+    expect(screen.getByText('Differs from Google')).toBeInTheDocument();
     expect(screen.getByText('Old Crown Girton')).toBeInTheDocument();
     expect(screen.getByText('Old Crown')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Edit locally/ })).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('GbpCompareFieldRow', () => {
   it('@contract disables the import action for synced fields', () => {
     render(<GbpCompareFieldRow view={makeView({ effectiveStatus: 'in_sync' })} />);
 
-    expect(screen.getByText('Synced')).toBeInTheDocument();
+    expect(screen.getByText('Matches Google')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Use Google Info/ })).toBeDisabled();
   });
 

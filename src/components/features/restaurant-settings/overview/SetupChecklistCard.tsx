@@ -1,106 +1,109 @@
-import { motion } from 'motion/react';
+import { AlertTriangle, Check, CheckCircle2, Circle, Minus, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { statusLabel, type SetupCard } from './buildSetupCards';
+import { statusLabel, type SetupCard, type SetupStatus } from './buildSetupCards';
 
 type SetupChecklistCardProps = {
   card: SetupCard;
-  index: number;
+  /** The single next required step gets the page's primary action; every other row is secondary. */
+  isNextStep?: boolean;
+  /** Refetches only this row's failed checks. Shown when the row status is `unknown`. */
+  onCheckAgain?: () => void;
+  isChecking?: boolean;
 };
 
-export function SetupChecklistCard({ card, index }: SetupChecklistCardProps) {
-  const Icon = card.Icon;
-  const statusStyles = (
-    {
-      complete: {
-        card: 'border-success/30 hover:border-success/50',
-        icon: 'border-success/20 bg-success/10 text-success',
-        badgeVariant: 'status-confirmed',
-      },
-      attention: {
-        card: 'border-warning/30 hover:border-warning/50',
-        icon: 'border-warning/20 bg-warning/10 text-warning',
-        badgeVariant: 'status-pending',
-      },
-      optional: {
-        card: 'border-border/70 hover:border-primary/45',
-        icon: 'border-primary/20 bg-primary/10 text-primary',
-        badgeVariant: 'secondary',
-      },
-    } satisfies Record<
-      SetupCard['status'],
-      {
-        card: string;
-        icon: string;
-        badgeVariant: BadgeProps['variant'];
-      }
-    >
-  )[card.status];
+const STATUS_STYLES = {
+  complete: { Icon: CheckCircle2, icon: 'text-success', badge: 'status-confirmed' },
+  attention: { Icon: Circle, icon: 'text-muted-foreground', badge: 'status-pending' },
+  optional: { Icon: Circle, icon: 'text-muted-foreground', badge: 'secondary' },
+  unknown: { Icon: AlertTriangle, icon: 'text-destructive', badge: 'status-cancelled' },
+} satisfies Record<
+  SetupStatus,
+  { Icon: typeof Circle; icon: string; badge: BadgeProps['variant'] }
+>;
+
+const ACTION_CLASS = 'w-fit shrink-0 [@media(pointer:coarse)]:min-h-11';
+
+/** One setup step: status icon and badge, reason, what was checked and its action. */
+export function SetupChecklistCard({
+  card,
+  isNextStep = false,
+  onCheckAgain,
+  isChecking = false,
+}: SetupChecklistCardProps) {
+  const styles = STATUS_STYLES[card.status];
+  const StatusIcon = styles.Icon;
+  const titleId = `setup-step-${card.key}-title`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.08 }}
-      whileHover={{ y: -4, scale: 1.01 }}
-      className="group h-full"
+    <li
+      aria-labelledby={titleId}
+      data-testid={`setup-step-${card.key}`}
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5"
     >
-      <Card
-        variant="interactive"
-        className={cn('flex h-full flex-col bg-card/60 shadow-sm', statusStyles.card)}
-      >
-        <CardHeader className="gap-4 p-5 pb-0">
-          <div className="flex items-center justify-between gap-3">
-            <div
-              className={cn(
-                'inline-flex size-10 items-center justify-center rounded-lg border transition-colors duration-300',
-                statusStyles.icon,
-              )}
-            >
-              <Icon
-                className="size-5 transition-transform duration-300 group-hover:scale-110"
-                aria-hidden
-              />
-            </div>
-            <Badge variant={statusStyles.badgeVariant}>{statusLabel(card.status)}</Badge>
-          </div>
+      <StatusIcon className={cn('mt-0.5 size-4 shrink-0', styles.icon)} aria-hidden />
 
-          <div className="flex flex-col gap-1.5">
-            <CardTitle className="text-base leading-6 transition-colors duration-300 group-hover:text-primary">
-              {card.title}
-            </CardTitle>
-            <CardDescription className="min-h-9 text-xs leading-relaxed">
-              {card.description}
-            </CardDescription>
-          </div>
-        </CardHeader>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 id={titleId} className="text-sm font-medium leading-6 text-foreground">
+            {card.title}
+          </h3>
+          <Badge variant={styles.badge}>{statusLabel(card.status)}</Badge>
+        </div>
+        <p className="text-xs leading-5 text-muted-foreground">{card.reason}</p>
+        {card.checks.length > 0 ? (
+          <ul aria-label="What was checked" className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+            {card.checks.map((check) => (
+              <li
+                key={check.label}
+                className={cn(
+                  'flex items-center gap-1.5 text-xs leading-5',
+                  check.ok ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {check.ok ? (
+                  <Check className="size-3.5 shrink-0 text-success" aria-hidden />
+                ) : (
+                  <Minus className="size-3.5 shrink-0" aria-hidden />
+                )}
+                <span className="tabular-nums">
+                  {check.ok ? null : <span className="sr-only">Missing: </span>}
+                  {check.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
 
-        <CardContent className="flex-1 p-5 pb-0">
-          <p className="text-xs font-medium leading-relaxed text-muted-foreground">{card.detail}</p>
-        </CardContent>
-
-        <CardFooter className="border-t border-border/40 p-5">
+      <div className="col-start-2 sm:col-start-3 sm:row-start-1 sm:self-start">
+        {card.status === 'unknown' && onCheckAgain ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className={ACTION_CLASS}
+            onClick={onCheckAgain}
+            disabled={isChecking}
+          >
+            <RefreshCw data-icon="inline-start" aria-hidden />
+            {isChecking ? 'Checking…' : 'Check again'}
+          </Button>
+        ) : (
           <Button
             asChild
             size="sm"
-            className="ml-auto shrink-0 font-medium transition-transform duration-200 group-hover:translate-x-0.5"
+            variant={isNextStep ? 'default' : 'outline'}
+            className={ACTION_CLASS}
           >
             <Link href={card.href}>{card.cta}</Link>
           </Button>
-        </CardFooter>
-      </Card>
-    </motion.div>
+        )}
+      </div>
+    </li>
   );
 }

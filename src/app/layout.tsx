@@ -79,7 +79,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         process.env.NEXT_PUBLIC_DISABLE_REACT_DEVTOOLS !== '1' ? (
           <>
             <Script
-              src="//unpkg.com/react-grab/dist/index.global.js"
+              src="//unpkg.com/react-grab@0.2.0/dist/index.global.js"
               crossOrigin="anonymous"
               strategy="beforeInteractive"
             />

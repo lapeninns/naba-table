@@ -1,23 +1,16 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 import { useEffect, type ReactNode } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
-import { opsHref } from '@/lib/url/opsHref';
 
-import { AVAILABILITY_ANCHORS, availabilityHash } from './availabilityAnchors';
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
-import type { AvailabilitySettingsWorkspace } from './routes';
 import type { RestaurantSettingsView } from './types';
-import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 const SettingsSectionSkeleton = ({ title }: { title: string }) => (
   <Card className="border-border/60 bg-muted/30" aria-busy="true" role="status">
@@ -96,11 +89,8 @@ const GoogleBusinessProfileSection = dynamic(
   },
 );
 
-const AvailabilityOccasionsCommandCenter = dynamic(
-  () =>
-    import('./AvailabilityOccasionsCommandCenter').then(
-      (m) => m.AvailabilityOccasionsCommandCenter,
-    ),
+const AvailabilitySettingsPage = dynamic(
+  () => import('./availability/AvailabilitySettingsPage').then((m) => m.AvailabilitySettingsPage),
   {
     loading: () => <AvailabilitySkeleton />,
   },
@@ -127,39 +117,24 @@ const OpsTeamManagementClient = dynamic(
   },
 );
 
-const DualSyncShell = dynamic(
-  () => import('./dual-sync/DualSyncShell').then((m) => m.DualSyncShell),
+const StaffCommunicationsSection = dynamic(
+  () =>
+    import('./staff-communications/StaffCommunicationsSection').then(
+      (m) => m.StaffCommunicationsSection,
+    ),
   {
-    loading: () => <SettingsSectionSkeleton title="Loading sync state" />,
-    ssr: false,
+    loading: () => <SettingsSectionSkeleton title="Loading staff communications" />,
   },
 );
-
-const DUAL_SYNC_SECTIONS_BY_VIEW: Partial<
-  Record<RestaurantSettingsView, ReadonlyArray<DualSyncSectionKey>>
-> = {
-  'google-business-profile': [
-    'profile',
-    'operatingHours',
-    'servicePeriods',
-    'businessContext.categories',
-    'businessContext.serviceAreas',
-    'businessContext.attributes',
-    'businessContext.serviceItems',
-    'foodMenus',
-  ],
-};
 
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
   view: RestaurantSettingsView;
-  availabilityWorkspace?: AvailabilitySettingsWorkspace;
 };
 
 export function OpsRestaurantSettingsClient({
   defaultRestaurantId,
   view,
-  availabilityWorkspace,
 }: OpsRestaurantSettingsClientProps) {
   const {
     memberships,
@@ -167,9 +142,6 @@ export function OpsRestaurantSettingsClient({
     restaurantId: selectedRestaurantId,
     setActiveRestaurantId,
   } = useRestaurantSettingsContext();
-  const googleBusinessProfileConnectionQuery = useOpsGoogleBusinessProfileConnection(
-    view === 'google-business-profile' ? selectedRestaurantId : null,
-  );
 
   useEffect(() => {
     if (activeRestaurantId) {
@@ -195,78 +167,29 @@ export function OpsRestaurantSettingsClient({
     );
   }
 
-  const dualSyncSections = DUAL_SYNC_SECTIONS_BY_VIEW[view];
-  const hasSyncWorkspace = Boolean(dualSyncSections && selectedRestaurantId);
-  const hasMappedGoogleLocation = Boolean(
-    googleBusinessProfileConnectionQuery.data?.status === 'linked' &&
-    googleBusinessProfileConnectionQuery.data.externalAccountId &&
-    googleBusinessProfileConnectionQuery.data.externalLocationId,
-  );
-  const shouldRenderSyncWorkspace =
-    hasSyncWorkspace && (view !== 'google-business-profile' || hasMappedGoogleLocation);
-
   const renderByView: Record<
     RestaurantSettingsView,
     (context: { restaurantId: string | null }) => ReactNode
   > = {
     profile: ({ restaurantId }) => <RestaurantProfileSection restaurantId={restaurantId} />,
     discovery: ({ restaurantId }) => (
-      <RestaurantBusinessContextSection restaurantId={restaurantId} embedded={false} />
+      <RestaurantBusinessContextSection restaurantId={restaurantId} />
     ),
     'google-business-profile': ({ restaurantId }) => (
-      <GoogleBusinessProfileSection
-        restaurantId={restaurantId}
-        hasSyncWorkspace={shouldRenderSyncWorkspace}
-      />
+      <GoogleBusinessProfileSection restaurantId={restaurantId} />
     ),
-    availability: ({ restaurantId }) => (
-      <AvailabilityOccasionsCommandCenter
-        restaurantId={restaurantId}
-        initialWorkspace={availabilityWorkspace}
-      />
-    ),
+    availability: ({ restaurantId }) => <AvailabilitySettingsPage restaurantId={restaurantId} />,
     menu: () => <OpsMenuManagementClient />,
     tables: () => <TableInventoryClient />,
     team: () => <OpsTeamManagementClient />,
+    'staff-communications': ({ restaurantId }) => (
+      <StaffCommunicationsSection restaurantId={restaurantId} />
+    ),
   };
 
   return (
     <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
-      {dualSyncSections && selectedRestaurantId && shouldRenderSyncWorkspace ? (
-        <div id="gbp-sync-review" className="scroll-mt-24">
-          {view === 'google-business-profile' ? (
-            <Alert className="mb-3 border-border/70 bg-muted/30">
-              <AlertDescription className="leading-6 text-muted-foreground">
-                Compare Google vs saved Nabatable fields. Edits to values still happen on{' '}
-                <Link
-                  href={opsHref('/settings/restaurant/profile#profile-contact')}
-                  className="font-medium text-foreground underline"
-                >
-                  Profile
-                </Link>{' '}
-                or{' '}
-                <Link
-                  href={opsHref(
-                    `/settings/restaurant/availability${availabilityHash(
-                      AVAILABILITY_ANCHORS.availabilitySchedule,
-                    )}`,
-                  )}
-                  className="font-medium text-foreground underline"
-                >
-                  Availability
-                </Link>
-                .
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <DualSyncShell
-            restaurantId={selectedRestaurantId}
-            sections={dualSyncSections}
-            singleOpenSections={view === 'google-business-profile'}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }

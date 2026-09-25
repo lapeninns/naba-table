@@ -7,7 +7,8 @@ export type RestaurantSettingsView =
   | 'availability'
   | 'menu'
   | 'tables'
-  | 'team';
+  | 'team'
+  | 'staff-communications';
 
 export type WeeklyRow = {
   dayOfWeek: number;

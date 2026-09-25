@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,21 +16,13 @@ const dynamicState = vi.hoisted(() => ({
     'menu',
     'tables',
     'team',
-    'dual-sync',
+    'staff-communications',
   ],
   index: 0,
 }));
 
 const prefetchState = vi.hoisted(() => ({
   prefetchIfStale: vi.fn(({ queryFn }: { queryFn: () => unknown }) => queryFn()),
-}));
-
-const googleBusinessProfileConnectionState = vi.hoisted(() => ({
-  data: {
-    status: 'linked',
-    externalAccountId: 'account-1',
-    externalLocationId: 'location-1',
-  },
 }));
 
 vi.mock('next/navigation', () => ({
@@ -44,16 +36,9 @@ vi.mock('next/dynamic', () => ({
   default: () => {
     const name = dynamicState.names[dynamicState.index++] ?? 'unknown';
 
-    return function MockDynamicSettingsSection(props: {
-      restaurantId?: string | null;
-      hasSyncWorkspace?: boolean;
-    }) {
+    return function MockDynamicSettingsSection(props: { restaurantId?: string | null }) {
       return (
-        <div
-          data-testid={`settings-view-${name}`}
-          data-has-sync-workspace={String(props.hasSyncWorkspace)}
-          data-restaurant-id={props.restaurantId ?? ''}
-        />
+        <div data-testid={`settings-view-${name}`} data-restaurant-id={props.restaurantId ?? ''} />
       );
     };
   },
@@ -63,10 +48,6 @@ vi.mock('@/lib/prefetchers', () => ({
   prefetchIfStale: prefetchState.prefetchIfStale,
 }));
 
-vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
-  useOpsGoogleBusinessProfileConnection: () => googleBusinessProfileConnectionState,
-}));
-
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
 import { RestaurantSettingsPageShell } from '@/components/features/restaurant-settings/RestaurantSettingsPageShell';
 import { RestaurantSettingsSubnav } from '@/components/features/restaurant-settings/RestaurantSettingsSubnav';
@@ -74,7 +55,10 @@ import {
   RESTAURANT_SETTINGS_NAV_ITEMS,
   RESTAURANT_SETTINGS_ROUTES,
 } from '@/components/features/restaurant-settings/routes';
-import { SettingsSectionNav } from '@/components/features/restaurant-settings/shared';
+import {
+  sectionNavOverflowEdges,
+  SettingsSectionNav,
+} from '@/components/features/restaurant-settings/shared';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import {
@@ -107,6 +91,7 @@ const expectedViews: RestaurantSettingsView[] = [
   'menu',
   'tables',
   'team',
+  'staff-communications',
 ];
 
 function renderWithOpsSession(ui: ReactElement, memberships: OpsMembership[] = [membership]) {
@@ -229,11 +214,6 @@ function renderPageShell(
 beforeEach(() => {
   navigationState.pathname = '/app/settings/restaurant/profile';
   prefetchState.prefetchIfStale.mockClear();
-  googleBusinessProfileConnectionState.data = {
-    status: 'linked',
-    externalAccountId: 'account-1',
-    externalLocationId: 'location-1',
-  };
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: vi.fn().mockImplementation((query: string) => ({
@@ -260,6 +240,7 @@ describe('restaurant settings route contract', () => {
       '/app/settings/restaurant/menu',
       '/app/settings/restaurant/tables',
       '/app/settings/restaurant/team',
+      '/app/settings/restaurant/staff-communications',
     ]);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS).toHaveLength(RESTAURANT_SETTINGS_ROUTES.length);
     expect(
@@ -308,42 +289,18 @@ describe('OpsRestaurantSettingsClient', () => {
     );
   });
 
-  it('passes sync workspace availability and anchors the real dual-sync boundary', () => {
+  it('leaves the Google review step to the Google Business Profile section', () => {
     renderWithOpsSession(<OpsRestaurantSettingsClient view="google-business-profile" />);
 
+    // Step 3 (review) now renders inside GoogleBusinessProfileSection, which gates it on a
+    // mapped location (see GoogleBusinessProfileSection.test.tsx).
     expect(screen.getByTestId('settings-view-google-business-profile')).toHaveAttribute(
-      'data-has-sync-workspace',
-      'true',
+      'data-restaurant-id',
+      'rest-1',
     );
-    expect(screen.getByTestId('settings-view-dual-sync').parentElement).toHaveAttribute(
-      'id',
-      'gbp-sync-review',
-    );
+    expect(screen.queryByTestId('settings-view-dual-sync')).not.toBeInTheDocument();
+    expect(document.getElementById('gbp-sync-review')).toBeNull();
   });
-
-  it.each([
-    { status: 'authorized', externalAccountId: null, externalLocationId: null },
-    { status: 'linked', externalAccountId: 'account-1', externalLocationId: null },
-    { status: 'linked', externalAccountId: null, externalLocationId: 'location-1' },
-    { status: 'unlinked', externalAccountId: 'account-1', externalLocationId: 'location-1' },
-  ])(
-    'does not render the dual-sync workspace before a Google location is mapped ($status/$externalAccountId/$externalLocationId)',
-    (connection) => {
-      googleBusinessProfileConnectionState.data = connection;
-
-      renderWithOpsSession(<OpsRestaurantSettingsClient view="google-business-profile" />);
-
-      expect(screen.getByTestId('settings-view-google-business-profile')).toBeInTheDocument();
-      expect(screen.getByTestId('settings-view-google-business-profile')).toHaveAttribute(
-        'data-has-sync-workspace',
-        'false',
-      );
-      expect(screen.queryByTestId('settings-view-dual-sync')).not.toBeInTheDocument();
-      expect(
-        screen.queryByText('Compare Google vs saved Nabatable fields.'),
-      ).not.toBeInTheDocument();
-    },
-  );
 });
 
 describe('RestaurantSettingsSubnav', () => {
@@ -381,10 +338,12 @@ describe('RestaurantSettingsSubnav', () => {
     );
   });
 
-  it('maps availability aliases to the focused alias page heading and active nav item', () => {
+  it('titles former availability routes as the Availability page and marks it active', () => {
     renderPageShell('/app/settings/restaurant/service-periods');
 
-    expect(screen.getByRole('heading', { level: 1, name: /Service periods/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
+    ).toBeInTheDocument();
     const availabilityLinks = screen.getAllByRole('link', { name: 'Availability & Booking types' });
     expect(
       availabilityLinks.some(
@@ -400,7 +359,7 @@ describe('RestaurantSettingsSubnav', () => {
     );
   });
 
-  it('guards breadcrumb parent and close navigation when settings are dirty', async () => {
+  it('guards the Settings crumb, sidebar links and close navigation when settings are dirty', async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderPageShell(
@@ -409,10 +368,12 @@ describe('RestaurantSettingsSubnav', () => {
       <DirtyRouteContent />,
     );
 
-    await user.click(screen.getAllByRole('link', { name: 'Availability & Booking types' })[1]);
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    await user.click(within(breadcrumb).getByRole('link', { name: 'Settings' }));
+    await user.click(screen.getByRole('link', { name: 'Tables' }));
     await user.click(screen.getByRole('link', { name: 'Close restaurant settings' }));
 
-    expect(confirmSpy).toHaveBeenCalledTimes(2);
+    expect(confirmSpy).toHaveBeenCalledTimes(3);
     confirmSpy.mockRestore();
   });
 
@@ -445,6 +406,9 @@ describe('RestaurantSettingsSubnav', () => {
     const second = screen.getByRole('button', { name: /second/i });
     const third = screen.getByRole('button', { name: /third/i });
 
+    expect(first).toHaveClass('font-medium');
+    expect(first).not.toHaveClass('font-semibold');
+
     first.focus();
     await user.keyboard('{ArrowRight}');
     expect(second).toHaveFocus();
@@ -457,6 +421,40 @@ describe('RestaurantSettingsSubnav', () => {
 
     await user.keyboard('{ArrowLeft}');
     expect(third).toHaveFocus();
+  });
+
+  it('marks the current section with weight as well as the underline', () => {
+    render(
+      <SettingsSectionNav
+        title="Profile sections"
+        showHeader={false}
+        items={[
+          { label: '1 · Brand', isActive: true, onSelect: vi.fn() },
+          { label: '2 · Booking link', onSelect: vi.fn() },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '1 · Brand' })).toHaveClass('font-semibold');
+    expect(screen.getByRole('button', { name: '2 · Booking link' })).toHaveClass('font-medium');
+    expect(screen.getByRole('list')).toBeInTheDocument();
+  });
+
+  it('reports scroll fades only while the section list overflows', () => {
+    expect(sectionNavOverflowEdges({ scrollLeft: 0, clientWidth: 200, scrollWidth: 200 })).toEqual({
+      start: false,
+      end: false,
+    });
+    expect(sectionNavOverflowEdges({ scrollLeft: 0, clientWidth: 120, scrollWidth: 320 })).toEqual({
+      start: false,
+      end: true,
+    });
+    expect(sectionNavOverflowEdges({ scrollLeft: 40, clientWidth: 120, scrollWidth: 320 })).toEqual(
+      { start: true, end: true },
+    );
+    expect(
+      sectionNavOverflowEdges({ scrollLeft: 200, clientWidth: 120, scrollWidth: 320 }),
+    ).toEqual({ start: true, end: false });
   });
 
   it('prefetches each settings route with the active restaurant service contract', async () => {
@@ -482,7 +480,26 @@ describe('RestaurantSettingsSubnav', () => {
       expect(serviceCalls.getTurnBands).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.listMenus).toHaveBeenCalledWith('rest-1');
       expect(serviceCalls.listTables).toHaveBeenCalledWith('rest-1');
-      expect(serviceCalls.listInvites).toHaveBeenCalledWith('rest-1', 'pending');
+      expect(serviceCalls.listInvites).toHaveBeenCalledWith('rest-1', 'all');
     });
+  });
+});
+
+describe('RestaurantSettingsPageShell with reduced motion', () => {
+  it('@a11y never leaves the page content invisible', async () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(prefers-reduced-motion: reduce)',
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
+    renderPageShell('/app/settings/restaurant/profile', undefined, <p>Settings body</p>);
+
+    const wrapper = screen.getByText('Settings body').parentElement;
+    await waitFor(() => expect(wrapper).not.toHaveStyle({ opacity: '0' }));
   });
 });

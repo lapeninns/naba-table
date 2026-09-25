@@ -40,6 +40,15 @@ export {
   toServiceItemEditors,
 } from './businessContextEditorTransforms';
 
+const FAMILY_KEYS: FamilyKey[] = [
+  'businessDetails',
+  'links',
+  'categories',
+  'serviceAreas',
+  'attributes',
+  'serviceItems',
+];
+
 function seedSourceForFamily(family: FamilyKey, source: SeedSource[FamilyKey]): SeedSource {
   return { ...EMPTY_SEED_SOURCE, [family]: source };
 }
@@ -68,70 +77,66 @@ export function deriveFamilyCounts(family: RestaurantBusinessContextFamily | nul
   } satisfies FamilyCounts;
 }
 
+export type BusinessContextSeedOptions = {
+  /**
+   * Fall back to Google's rows when a family has nothing saved. Only the first seed of a page
+   * pre-fills; re-seeding after a save or discard uses saved values only, so a list saved empty
+   * (or a discarded pre-fill) is not filled from Google again.
+   */
+  includeProvider?: boolean;
+};
+
+const NO_PROVIDER: RestaurantBusinessContextFamily = {
+  businessDetails: null,
+  links: [],
+  categories: [],
+  serviceAreas: [],
+  attributes: [],
+  serviceItems: [],
+};
+
+function providerFamily(
+  snapshot: RestaurantBusinessContextSnapshot,
+  options: BusinessContextSeedOptions,
+): RestaurantBusinessContextFamily {
+  return options.includeProvider === false ? NO_PROVIDER : snapshot.providerSnapshot;
+}
+
 export function deriveBusinessContextEditorState(
   snapshot: RestaurantBusinessContextSnapshot,
+  options: BusinessContextSeedOptions = {},
 ): BusinessContextEditorState {
-  const nextCategories = cloneFamily(
-    snapshot.core.categories,
-    snapshot.providerSnapshot.categories,
-  );
-  const nextBusinessDetailsSource = snapshot.core.businessDetails
-    ? 'core'
-    : snapshot.providerSnapshot.businessDetails
-      ? 'provider'
-      : 'empty';
-  const nextLinks = cloneFamily(
-    filterEditableLinks(snapshot.core.links),
-    filterEditableLinks(snapshot.providerSnapshot.links),
-  );
-  const nextServiceAreas = cloneFamily(
-    snapshot.core.serviceAreas,
-    snapshot.providerSnapshot.serviceAreas,
-  );
-  const nextAttributes = cloneFamily(
-    snapshot.core.attributes,
-    snapshot.providerSnapshot.attributes,
-  );
-  const nextServiceItems = cloneFamily(
-    snapshot.core.serviceItems,
-    snapshot.providerSnapshot.serviceItems,
-  );
-
-  return {
-    businessDetails: toBusinessDetailsEditor(
-      snapshot.core.businessDetails ?? snapshot.providerSnapshot.businessDetails,
-    ),
-    links: toLinkEditors(nextLinks.rows),
-    categories: toCategoryEditors(nextCategories.rows),
-    serviceAreas: toServiceAreaEditors(nextServiceAreas.rows),
-    serviceAreaDraft: '',
-    attributes: toAttributeEditors(nextAttributes.rows),
-    serviceItems: toServiceItemEditors(nextServiceItems.rows),
-    seedSource: {
-      businessDetails: nextBusinessDetailsSource,
-      links: nextLinks.source,
-      categories: nextCategories.source,
-      serviceAreas: nextServiceAreas.source,
-      attributes: nextAttributes.source,
-      serviceItems: nextServiceItems.source,
-    },
-  };
+  const state: Partial<BusinessContextEditorState> = {};
+  const seedSource = { ...EMPTY_SEED_SOURCE };
+  for (const family of FAMILY_KEYS) {
+    const { seedSource: familySeed, ...rows } = deriveBusinessContextFamilyState(
+      snapshot,
+      family,
+      options,
+    );
+    Object.assign(state, rows);
+    seedSource[family] = familySeed?.[family] ?? 'empty';
+  }
+  return { ...state, seedSource } as BusinessContextEditorState;
 }
 
 export function deriveBusinessContextFamilyState(
   snapshot: RestaurantBusinessContextSnapshot,
   family: FamilyKey,
+  options: BusinessContextSeedOptions = {},
 ): Partial<BusinessContextEditorState> {
+  const provider = providerFamily(snapshot, options);
+
   if (family === 'businessDetails') {
     const source = snapshot.core.businessDetails
       ? 'core'
-      : snapshot.providerSnapshot.businessDetails
+      : provider.businessDetails
         ? 'provider'
         : 'empty';
 
     return {
       businessDetails: toBusinessDetailsEditor(
-        snapshot.core.businessDetails ?? snapshot.providerSnapshot.businessDetails,
+        snapshot.core.businessDetails ?? provider.businessDetails,
       ),
       seedSource: seedSourceForFamily(family, source),
     };
@@ -140,7 +145,7 @@ export function deriveBusinessContextFamilyState(
   if (family === 'links') {
     const next = cloneFamily(
       filterEditableLinks(snapshot.core.links),
-      filterEditableLinks(snapshot.providerSnapshot.links),
+      filterEditableLinks(provider.links),
     );
 
     return {
@@ -150,7 +155,7 @@ export function deriveBusinessContextFamilyState(
   }
 
   if (family === 'categories') {
-    const next = cloneFamily(snapshot.core.categories, snapshot.providerSnapshot.categories);
+    const next = cloneFamily(snapshot.core.categories, provider.categories);
 
     return {
       categories: toCategoryEditors(next.rows),
@@ -159,17 +164,16 @@ export function deriveBusinessContextFamilyState(
   }
 
   if (family === 'serviceAreas') {
-    const next = cloneFamily(snapshot.core.serviceAreas, snapshot.providerSnapshot.serviceAreas);
+    const next = cloneFamily(snapshot.core.serviceAreas, provider.serviceAreas);
 
     return {
       serviceAreas: toServiceAreaEditors(next.rows),
-      serviceAreaDraft: '',
       seedSource: seedSourceForFamily(family, next.source),
     };
   }
 
   if (family === 'attributes') {
-    const next = cloneFamily(snapshot.core.attributes, snapshot.providerSnapshot.attributes);
+    const next = cloneFamily(snapshot.core.attributes, provider.attributes);
 
     return {
       attributes: toAttributeEditors(next.rows),
@@ -177,7 +181,7 @@ export function deriveBusinessContextFamilyState(
     };
   }
 
-  const next = cloneFamily(snapshot.core.serviceItems, snapshot.providerSnapshot.serviceItems);
+  const next = cloneFamily(snapshot.core.serviceItems, provider.serviceItems);
 
   return {
     serviceItems: toServiceItemEditors(next.rows),

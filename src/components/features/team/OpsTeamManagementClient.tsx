@@ -1,41 +1,58 @@
 'use client';
 
-import { ShieldCheck, UserPlus, Users } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
 import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/typography';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
-import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
+import { useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
+import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
 
 import { TeamInviteForm } from './TeamInviteForm';
+import { formatTeamRoleWithArticle } from './teamInviteModel';
 import { TeamInvitesTable } from './TeamInvitesTable';
 
-type TeamWorkspace = 'invite' | 'invitations';
+import type { TeamInvite } from '@/services/ops/team';
+
+const TEAM_ROUTE = RESTAURANT_SETTINGS_ROUTE_MAP.team;
+const NO_INVITES: TeamInvite[] = [];
+
+function getTeamAccessLine(role: RestaurantRole, canManage: boolean): string {
+  const signedInAs = `You’re signed in as ${formatTeamRoleWithArticle(role)}`;
+  return canManage
+    ? `${signedInAs}, so you can invite people and revoke invitations.`
+    : `${signedInAs}. Only owners and managers can invite people or revoke invitations.`;
+}
+
+function ViewOnlyInviteCard() {
+  return (
+    <SettingsCard title="Invite someone" description="Only owners and managers can invite people.">
+      <Text variant="caption" className="pt-3">
+        Ask an owner or manager to send the invitation.
+      </Text>
+    </SettingsCard>
+  );
+}
 
 export function OpsTeamManagementClient() {
   const { memberships, activeRestaurantId, permissions } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
-  const [activeWorkspace, setActiveWorkspace] = useState<TeamWorkspace>('invite');
-  const selectWorkspace = useCallback((workspace: TeamWorkspace) => {
-    setActiveWorkspace(workspace);
-    window.history.replaceState(
-      null,
-      '',
-      workspace === 'invite' ? '#team-invite' : '#team-invitations',
-    );
-  }, []);
+  // One request for every invitation: the filters and their counts are worked out on the client.
+  const invitations = useOpsTeamInvitations({
+    restaurantId: activeRestaurantId,
+    status: 'all',
+  });
 
   if (memberships.length === 0) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>No restaurant access</AlertTitle>
-        <AlertDescription>
-          Your account is not linked to any restaurants yet. Ask an owner or manager to send you an
-          invitation.
-        </AlertDescription>
-      </Alert>
+      <OpsEmptyState
+        title="No restaurant access"
+        description="Your account is not linked to any restaurants yet. Ask an owner or manager to send you an invitation."
+      />
     );
   }
 
@@ -43,85 +60,45 @@ export function OpsTeamManagementClient() {
     return <Skeleton className="h-36 w-full" />;
   }
 
-  const canManage = permissions.canManageTeam || isRestaurantAdminRole(activeMembership.role);
-  const visibleWorkspace = canManage ? activeWorkspace : 'invitations';
+  const role = activeMembership.role as RestaurantRole;
+  const canManage = permissions.canManageTeam || isRestaurantAdminRole(role);
+  const invites = invitations.data ?? NO_INVITES;
 
   return (
     <RestaurantSettingsCommandCenter
-      eyebrow="Team command center"
-      title="Team"
-      description="Invite staff, review pending access, and keep team permissions clear without leaving restaurant settings."
-      metrics={[
-        {
-          label: 'Your role',
-          value: activeMembership.role,
-          description: canManage ? 'can manage invites' : 'view-only team access',
-          variant: canManage ? 'default' : 'secondary',
-          Icon: ShieldCheck,
-        },
-        {
-          label: 'Invite access',
-          value: canManage ? 'Enabled' : 'Limited',
-          description: 'owners and managers only',
-          variant: canManage ? 'secondary' : 'metric',
-          Icon: UserPlus,
-        },
-      ]}
-      railTitle="Team workflow"
-      railDescription="Invite first, then review pending or accepted invitations below."
-      railItems={[
-        ...(canManage
-          ? [
-              {
-                label: 'Invite member',
-                description: 'Send access to a manager or host.',
-                href: '#team-invite',
-                Icon: UserPlus,
-                isActive: visibleWorkspace === 'invite',
-                onSelect: () => selectWorkspace('invite'),
-              },
-            ]
-          : []),
-        {
-          label: 'Invitations',
-          description: 'Review pending, accepted, expired, or revoked invites.',
-          href: '#team-invitations',
-          Icon: Users,
-          isActive: visibleWorkspace === 'invitations',
-          onSelect: () => selectWorkspace('invitations'),
-        },
-      ]}
-      footer="Role rules stay unchanged: only owners and managers can send or revoke invitations."
+      title={TEAM_ROUTE.title}
+      description={TEAM_ROUTE.description}
+      status={
+        <p className="flex items-start gap-2 text-sm text-foreground">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <span>{getTeamAccessLine(role, canManage)}</span>
+        </p>
+      }
     >
-      <div className="flex flex-col gap-6">
-        {!canManage ? (
-          <Alert>
-            <AlertTitle>Limited permissions</AlertTitle>
-            <AlertDescription>
-              Only owners and managers can send invitations. Contact an owner if you need to add
-              teammates.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        <section className="flex flex-col gap-6">
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22.5rem]">
+        <div
+          id="team-invite"
+          className="min-w-0 scroll-mt-28 xl:sticky xl:top-4 xl:col-start-2 xl:row-start-1"
+        >
           {canManage ? (
-            <div
-              id="team-invite"
-              hidden={visibleWorkspace !== 'invite'}
-              className={visibleWorkspace !== 'invite' ? 'hidden scroll-mt-28' : 'scroll-mt-28'}
-            >
-              <TeamInviteForm restaurantId={activeRestaurantId} />
-            </div>
-          ) : null}
-          <div
-            id="team-invitations"
-            hidden={visibleWorkspace !== 'invitations'}
-            className={visibleWorkspace !== 'invitations' ? 'hidden scroll-mt-28' : 'scroll-mt-28'}
-          >
-            <TeamInvitesTable restaurantId={activeRestaurantId} canManage={canManage} />
-          </div>
-        </section>
+            <TeamInviteForm restaurantId={activeRestaurantId} existingInvites={invites} />
+          ) : (
+            <ViewOnlyInviteCard />
+          )}
+        </div>
+        <div id="team-invitations" className="min-w-0 scroll-mt-28 xl:col-start-1 xl:row-start-1">
+          <TeamInvitesTable
+            restaurantId={activeRestaurantId}
+            canManage={canManage}
+            invites={invitations.data}
+            isLoading={invitations.isLoading}
+            isFetching={invitations.isFetching}
+            error={invitations.error}
+            onRetry={() => {
+              void invitations.refetch();
+            }}
+          />
+        </div>
       </div>
     </RestaurantSettingsCommandCenter>
   );

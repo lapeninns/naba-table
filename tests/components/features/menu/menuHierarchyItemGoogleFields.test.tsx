@@ -3,26 +3,47 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { itemInitialState } from '@/components/features/menu/menuHierarchyDomain';
-import { GoogleItemEssentialsFields } from '@/components/features/menu/menuHierarchyItemGoogleFields';
+import {
+  GoogleItemDetailsFields,
+  ItemEssentialsFields,
+} from '@/components/features/menu/menuHierarchyItemGoogleFields';
 
 import { applySetterCalls, makeItem } from './__fixtures__/menuHierarchy';
 
-describe('GoogleItemEssentialsFields', () => {
-  it('@smoke renders essentials, portion, and nutrition groups', () => {
-    render(<GoogleItemEssentialsFields state={itemInitialState()} setState={vi.fn()} />);
+describe('ItemEssentialsFields and GoogleItemDetailsFields', () => {
+  it('@smoke essentials show name, description, price, dietary and allergens', () => {
+    render(<ItemEssentialsFields state={itemInitialState()} setState={vi.fn()} />);
 
-    expect(screen.getByText('Essentials')).toBeInTheDocument();
     expect(screen.getByText('Item name')).toBeInTheDocument();
-    expect(screen.getByText('Allergens')).toBeInTheDocument();
-    expect(screen.getByText('Dietary restrictions')).toBeInTheDocument();
-    expect(screen.getByText('Preparation methods')).toBeInTheDocument();
-    expect(screen.getByText('Guest menu portion size')).toBeInTheDocument();
-    expect(screen.getByText('Google nutrition facts')).toBeInTheDocument();
+    expect(screen.getByText('Description')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Price' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Dietary' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Allergens' })).toHaveAccessibleDescription(
+      'Check with your kitchen before publishing',
+    );
+    expect(screen.queryByText('Preparation methods')).not.toBeInTheDocument();
+  });
+
+  it('@smoke Google details keep spiciness, serves, preparation, portion, nutrition and labels', () => {
+    render(<GoogleItemDetailsFields state={itemInitialState()} setState={vi.fn()} />);
+
+    for (const text of [
+      'Spiciness',
+      'Serves',
+      'Preparation methods',
+      'Ingredients',
+      'Guest menu portion size',
+      'Google nutrition facts',
+      'Primary label language',
+      'Additional Google labels',
+    ]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
   });
 
   it('@smoke prefills values from an existing item state', () => {
     const state = itemInitialState(makeItem());
-    render(<GoogleItemEssentialsFields state={state} setState={vi.fn()} />);
+    render(<ItemEssentialsFields state={state} setState={vi.fn()} />);
 
     expect(screen.getByDisplayValue('Burrata')).toBeInTheDocument();
     expect(screen.getByDisplayValue('9.5')).toBeInTheDocument();
@@ -34,7 +55,7 @@ describe('GoogleItemEssentialsFields', () => {
     const user = userEvent.setup();
     const setState = vi.fn();
     const initial = itemInitialState();
-    render(<GoogleItemEssentialsFields state={initial} setState={setState} />);
+    render(<ItemEssentialsFields state={initial} setState={setState} />);
 
     const [name] = screen.getAllByRole('textbox');
     await user.type(name, 'B');
@@ -50,7 +71,7 @@ describe('GoogleItemEssentialsFields', () => {
     const user = userEvent.setup();
     const setState = vi.fn();
     const initial = { ...itemInitialState(), allergens: ['DAIRY'] };
-    render(<GoogleItemEssentialsFields state={initial} setState={setState} />);
+    render(<ItemEssentialsFields state={initial} setState={setState} />);
 
     await user.click(screen.getByRole('checkbox', { name: 'Egg' }));
     let patched = applySetterCalls(setState, initial);
@@ -66,7 +87,7 @@ describe('GoogleItemEssentialsFields', () => {
     const user = userEvent.setup();
     const setState = vi.fn();
     const initial = itemInitialState();
-    render(<GoogleItemEssentialsFields state={initial} setState={setState} />);
+    render(<GoogleItemDetailsFields state={initial} setState={setState} />);
 
     await user.type(screen.getByPlaceholderText('Lower CALORIE'), '2');
     await user.type(screen.getByPlaceholderText('Upper CALORIE'), '5');

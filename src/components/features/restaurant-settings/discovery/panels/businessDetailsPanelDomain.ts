@@ -24,18 +24,18 @@ export const BUSINESS_DETAILS_OPENING_DATE_FIELD = {
   id: 'business-details-opening-date',
   label: 'Opening date',
   field: 'openingDate',
-  helperText: 'Optional public opening date for the venue.',
+  helperText: 'Optional.',
   type: 'date',
 } satisfies BusinessDetailsDateFieldSpec;
 
 export const BUSINESS_DETAILS_STATUS_FIELD = {
   id: 'business-details-status',
   label: 'Business status',
-  helperText: 'Optional public status for profile checks and listings.',
+  helperText: 'Shown on public listings.',
 } as const;
 
 export const BUSINESS_DETAILS_STATUS_OPTIONS = [
-  { value: 'unset', label: 'Unset' },
+  { value: 'unset', label: 'Not set' },
   { value: 'open', label: 'Open' },
   { value: 'closed_temporarily', label: 'Closed temporarily' },
   { value: 'closed_permanently', label: 'Closed permanently' },
@@ -43,7 +43,7 @@ export const BUSINESS_DETAILS_STATUS_OPTIONS = [
 
 export const BUSINESS_DETAILS_SERVICE_AREA_FIELD = {
   id: 'business-details-service-area-business',
-  label: 'Service-area business',
+  label: 'We serve customers at their location',
   field: 'isServiceAreaBusiness',
-  helperText: 'Mark this when the restaurant serves guests beyond the venue.',
+  helperText: 'For delivery or catering. Add the towns or areas you serve below.',
 } satisfies BusinessDetailsSwitchSpec;

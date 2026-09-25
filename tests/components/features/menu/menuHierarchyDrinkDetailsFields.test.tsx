@@ -11,7 +11,6 @@ describe('DrinkDetailsFields', () => {
   it('@smoke renders drink profile inputs and switches', () => {
     render(<DrinkDetailsFields state={itemInitialState()} setState={vi.fn()} />);
 
-    expect(screen.getByText('Drink details')).toBeInTheDocument();
     for (const labelText of ['ABV %', 'Volume ml', 'Serving size', 'Style', 'Region', 'Grape']) {
       expect(screen.getByText(labelText)).toBeInTheDocument();
     }

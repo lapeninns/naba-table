@@ -1,32 +1,25 @@
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Text } from '@/components/ui/typography';
 
-import type { DualSyncReviewSectionState } from './dualSyncReviewAccordionDomain';
+import type { DualSyncReviewSectionState } from './dualSyncReviewSectionDomain';
 
 interface DualSyncReviewSectionHeaderProps {
+  readonly headingId: string;
   readonly sectionState: DualSyncReviewSectionState;
 }
 
-export function DualSyncReviewSectionHeader({ sectionState }: DualSyncReviewSectionHeaderProps) {
+export function DualSyncReviewSectionHeader({
+  headingId,
+  sectionState,
+}: DualSyncReviewSectionHeaderProps) {
   return (
-    <div className="flex w-full flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between">
-      <span className="flex items-center gap-2 text-left">
-        <span>{sectionState.sectionLabel}</span>
-        <Badge variant="outline" className="h-4 px-1.5 py-0 font-mono text-[10px] font-normal">
-          {sectionState.countBadgeLabel}
-        </Badge>
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-56">
-        <div className="flex items-center justify-between gap-2 font-mono text-[10px] font-normal tabular-nums text-muted-foreground">
-          <span>{sectionState.progressLeadLabel}</span>
-          <span>{sectionState.progressCountLabel}</span>
-        </div>
-        <Progress
-          value={sectionState.progressValue}
-          className="h-1.5"
-          aria-label={sectionState.progressAriaLabel}
-        />
-      </div>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+      <Text as="h3" variant="subheading" id={headingId} className="text-sm">
+        {sectionState.sectionLabel}
+      </Text>
+      <Text variant="caption" as="span" className="tabular-nums">
+        {sectionState.countLabel}
+        {sectionState.progressLabel ? ` · ${sectionState.progressLabel}` : ''}
+      </Text>
     </div>
   );
 }

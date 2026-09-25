@@ -158,10 +158,10 @@ export function GbpDriftStatusPill({
       className={cn('h-7 px-2 text-xs font-medium', className)}
     >
       <Link href={reviewHref}>
-        <Badge variant={status.badgeTone} className="mr-1.5 px-1.5 py-0">
+        <Badge variant={status.badgeTone} className="mr-1.5 shrink-0 px-1.5 py-0">
           GBP
         </Badge>
-        {status.shortLabel}
+        <span className="min-w-0 truncate">{status.shortLabel}</span>
       </Link>
     </Button>
   );

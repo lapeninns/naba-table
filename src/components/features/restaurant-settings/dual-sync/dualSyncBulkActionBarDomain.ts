@@ -47,23 +47,23 @@ export type DualSyncBulkActionIntent =
 const DUAL_SYNC_BULK_ACTION_BUTTON_DEFINITIONS: ReadonlyArray<DualSyncBulkActionButtonDefinition> =
   [
     {
-      id: DUAL_SYNC_BULK_ACTION_IDS.importFromGoogle,
-      label: 'Import',
+      id: DUAL_SYNC_BULK_ACTION_IDS.exportToGoogle,
+      label: 'Send all to Google',
       variant: 'outline',
     },
     {
-      id: DUAL_SYNC_BULK_ACTION_IDS.exportToGoogle,
-      label: 'Export',
+      id: DUAL_SYNC_BULK_ACTION_IDS.importFromGoogle,
+      label: 'Use all Google’s',
       variant: 'outline',
     },
     {
       id: DUAL_SYNC_BULK_ACTION_IDS.ignore,
-      label: 'Ignore',
+      label: 'Ignore all',
       variant: 'outline',
     },
     {
       id: DUAL_SYNC_BULK_ACTION_IDS.clear,
-      label: 'Clear',
+      label: 'Clear choices',
       variant: 'ghost',
     },
   ];

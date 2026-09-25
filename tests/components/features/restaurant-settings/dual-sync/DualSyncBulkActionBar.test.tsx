@@ -46,7 +46,7 @@ describe('DualSyncBulkActionBar', () => {
     const user = userEvent.setup();
     const { onBulkSelectSection } = renderBar();
 
-    await user.click(screen.getByRole('button', { name: 'Import (2)' }));
+    await user.click(screen.getByRole('button', { name: 'Use all Google’s (2)' }));
 
     expect(onBulkSelectSection).toHaveBeenCalledWith(fields, 'import_from_google');
   });
@@ -55,7 +55,7 @@ describe('DualSyncBulkActionBar', () => {
     const user = userEvent.setup();
     const { onClearSection } = renderBar();
 
-    await user.click(screen.getByRole('button', { name: 'Clear (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Clear choices (1)' }));
 
     expect(onClearSection).toHaveBeenCalledWith(fields);
   });
@@ -63,7 +63,12 @@ describe('DualSyncBulkActionBar', () => {
   it('@contract disables every action while writes are blocked', () => {
     renderBar({ writeBlocked: true });
 
-    for (const name of ['Import (2)', 'Export (1)', 'Ignore (2)', 'Clear (1)']) {
+    for (const name of [
+      'Use all Google’s (2)',
+      'Send all to Google (1)',
+      'Ignore all (2)',
+      'Clear choices (1)',
+    ]) {
       expect(screen.getByRole('button', { name })).toBeDisabled();
     }
   });

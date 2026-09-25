@@ -93,16 +93,24 @@ All routes under `/app/(app)/*` require authentication. Unauthenticated users ar
 
 ##### Settings
 
-| Route                                      | Description         | File Path                                                        |
-| ------------------------------------------ | ------------------- | ---------------------------------------------------------------- |
-| `/app/settings`                            | Settings overview   | `src/app/app/(app)/settings/page.tsx`                            |
-| `/app/settings/restaurant`                 | Redirect to profile | `src/app/app/(app)/settings/restaurant/page.tsx`                 |
-| `/app/settings/restaurant/profile`         | Restaurant profile  | `src/app/app/(app)/settings/restaurant/profile/page.tsx`         |
-| `/app/settings/restaurant/operating-hours` | Operating hours     | `src/app/app/(app)/settings/restaurant/operating-hours/page.tsx` |
-| `/app/settings/restaurant/service-periods` | Service periods     | `src/app/app/(app)/settings/restaurant/service-periods/page.tsx` |
-| `/app/settings/restaurant/occasions`       | Special occasions   | `src/app/app/(app)/settings/restaurant/occasions/page.tsx`       |
-| `/app/settings/restaurant/team`            | Team settings       | `src/app/app/(app)/settings/restaurant/team/page.tsx`            |
-| `/app/settings/tables`                     | Table configuration | `src/app/app/(app)/settings/tables/page.tsx`                     |
+| Route                                              | Description                                                                 | File Path                                                                |
+| -------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `/app/settings`                                    | Settings overview                                                           | `src/app/app/(app)/settings/page.tsx`                                    |
+| `/app/settings/restaurant`                         | Restaurant setup overview (progress and links)                              | `src/app/app/(app)/settings/restaurant/page.tsx`                         |
+| `/app/settings/restaurant/profile`                 | Restaurant profile: public details and booking page link                    | `src/app/app/(app)/settings/restaurant/profile/page.tsx`                 |
+| `/app/settings/restaurant/availability`            | Availability and booking types, including table times                       | `src/app/app/(app)/settings/restaurant/availability/page.tsx`            |
+| `/app/settings/restaurant/operating-hours`         | Former route; renders Availability at Weekly hours                          | `src/app/app/(app)/settings/restaurant/operating-hours/page.tsx`         |
+| `/app/settings/restaurant/service-periods`         | Former route; renders Availability at Weekly hours                          | `src/app/app/(app)/settings/restaurant/service-periods/page.tsx`         |
+| `/app/settings/restaurant/occasions`               | Former route; renders Availability at Booking types                         | `src/app/app/(app)/settings/restaurant/occasions/page.tsx`               |
+| `/app/settings/restaurant/turn-durations`          | Former route; renders Availability at Booking types                         | `src/app/app/(app)/settings/restaurant/turn-durations/page.tsx`          |
+| `/app/settings/restaurant/tables`                  | Tables and zones                                                            | `src/app/app/(app)/settings/restaurant/tables/page.tsx`                  |
+| `/app/settings/restaurant/discovery`               | Discovery details (categories, links, amenities, services, where you serve) | `src/app/app/(app)/settings/restaurant/discovery/page.tsx`               |
+| `/app/settings/restaurant/menu`                    | Menu                                                                        | `src/app/app/(app)/settings/restaurant/menu/page.tsx`                    |
+| `/app/settings/restaurant/team`                    | Team invitations                                                            | `src/app/app/(app)/settings/restaurant/team/page.tsx`                    |
+| `/app/settings/restaurant/staff-communications`    | Staff communications: manager alerts and daily booking summary              | `src/app/app/(app)/settings/restaurant/staff-communications/page.tsx`    |
+| `/app/settings/restaurant/google-business-profile` | Google Business Profile link, compare and publish                           | `src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx` |
+| `/app/settings/restaurant/email-templates`         | Redirects to `/app/email-templates`                                         | `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`         |
+| `/app/settings/tables`                             | Table configuration                                                         | `src/app/app/(app)/settings/tables/page.tsx`                             |
 
 ---
 

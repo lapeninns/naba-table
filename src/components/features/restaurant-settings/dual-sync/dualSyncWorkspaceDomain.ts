@@ -68,26 +68,3 @@ export function getOrderedDualSyncSectionKeys(
 ): DualSyncSectionKey[] {
   return DUAL_SYNC_SECTION_ORDER.filter((key) => fieldsBySection.has(key));
 }
-
-export function getDualSyncAccordionValues(
-  orderedSectionKeys: ReadonlyArray<DualSyncSectionKey>,
-): string[] {
-  return [
-    ...orderedSectionKeys,
-    DUAL_SYNC_PANEL_VALUES.metrics,
-    DUAL_SYNC_PANEL_VALUES.pendingCandidates,
-    DUAL_SYNC_PANEL_VALUES.queueJobs,
-    DUAL_SYNC_PANEL_VALUES.publishes,
-    DUAL_SYNC_PANEL_VALUES.operations,
-  ];
-}
-
-export function resolveDualSyncOpenAccordionValue(
-  current: string | undefined,
-  orderedAccordionValues: ReadonlyArray<string>,
-): string | undefined {
-  if (current && orderedAccordionValues.includes(current)) {
-    return current;
-  }
-  return orderedAccordionValues[0];
-}

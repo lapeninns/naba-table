@@ -72,6 +72,7 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
     isLoadingZones: !summary && (isLoading || fallbackZonesQuery.isLoading),
     isZonesError: !summary && fallbackZonesQuery.isError,
     refetch,
+    refetchZones: fallbackZonesQuery.refetch,
     summary,
     tables,
     tablesQueryKey,

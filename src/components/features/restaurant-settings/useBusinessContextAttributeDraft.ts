@@ -1,59 +1,39 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import {
   createAttributeEditor,
   removeEditorRow,
-  toggleAmenityAttributeEditor,
+  setAmenityAttributeValue,
   updateEditorRow,
+  type AmenityValue,
 } from './businessContextEditorActions';
 
 import type { AmenityAttributeDefinition, AttributeEditor } from './businessContextModel';
+import type { BusinessContextFamilyUpdate } from './useBusinessContextLinkDraft';
 
-type UseBusinessContextAttributeDraftOptions = {
-  onDirty: () => void;
-};
-
-export function useBusinessContextAttributeDraft({
-  onDirty,
-}: UseBusinessContextAttributeDraftOptions) {
-  const [attributes, setAttributes] = useState<AttributeEditor[]>([]);
-
-  const toggleAmenityAttribute = (
-    definition: AmenityAttributeDefinition,
-    groupTitle: string,
-    checked: boolean,
-  ) => {
-    setAttributes((current) =>
-      toggleAmenityAttributeEditor(current, definition, groupTitle, checked),
-    );
-    onDirty();
-  };
-
-  const addAttribute = () => {
-    setAttributes((current) => [...current, createAttributeEditor()]);
-    onDirty();
-  };
-
-  const updateAttribute = <Key extends keyof AttributeEditor>(
-    rowId: string,
-    field: Key,
-    value: AttributeEditor[Key],
-  ) => {
-    setAttributes((current) => updateEditorRow(current, rowId, field, value));
-    onDirty();
-  };
-
-  const removeAttribute = (rowId: string) => {
-    setAttributes((current) => removeEditorRow(current, rowId));
-    onDirty();
-  };
-
-  return {
-    attributes,
-    setAttributes,
-    toggleAmenityAttribute,
-    addAttribute,
-    updateAttribute,
-    removeAttribute,
-  };
+export function useBusinessContextAttributeDraft(
+  update: BusinessContextFamilyUpdate<AttributeEditor[]>,
+) {
+  return useMemo(
+    () => ({
+      setAmenityValue: (
+        definition: AmenityAttributeDefinition,
+        groupTitle: string,
+        value: AmenityValue,
+      ) => update((current) => setAmenityAttributeValue(current, definition, groupTitle, value)),
+      /** Adds an empty raw attribute row and returns its row id. */
+      addAttribute: () => {
+        const row = createAttributeEditor();
+        update((current) => [...current, row]);
+        return row.id;
+      },
+      updateAttribute: <Key extends keyof AttributeEditor>(
+        rowId: string,
+        field: Key,
+        value: AttributeEditor[Key],
+      ) => update((current) => updateEditorRow(current, rowId, field, value)),
+      removeAttribute: (rowId: string) => update((current) => removeEditorRow(current, rowId)),
+    }),
+    [update],
+  );
 }

@@ -1,10 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const unsavedState = vi.hoisted(() => ({ hasUnsavedChanges: false }));
 const settingsContextState = vi.hoisted(() => ({
   headingContext: null as unknown,
+  pathname: null as string | null,
   restaurantName: null as string | null,
 }));
 
@@ -19,6 +20,7 @@ vi.mock('@/contexts/ops-unsaved-changes', () => ({
 vi.mock('@/components/features/restaurant-settings/shell/useRestaurantSettingsContext', () => ({
   useRestaurantSettingsContext: () => ({
     headingContext: settingsContextState.headingContext,
+    pathname: settingsContextState.pathname,
     restaurantName: settingsContextState.restaurantName,
     restaurantId: 'rest-1',
   }),
@@ -29,10 +31,13 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 
 import { stubMatchMedia } from './testUtils';
 
-function renderHeader(onExitClick = vi.fn()) {
+function renderHeader(
+  onExitClick = vi.fn(),
+  { sidebarOpen = true, title }: { sidebarOpen?: boolean; title?: string } = {},
+) {
   render(
-    <SidebarProvider>
-      <RestaurantSettingsChromeHeader onExitClick={onExitClick} />
+    <SidebarProvider defaultOpen={sidebarOpen}>
+      <RestaurantSettingsChromeHeader onExitClick={onExitClick} title={title} />
     </SidebarProvider>,
   );
   return { onExitClick };
@@ -43,6 +48,7 @@ describe('RestaurantSettingsChromeHeader', () => {
     stubMatchMedia();
     unsavedState.hasUnsavedChanges = false;
     settingsContextState.headingContext = null;
+    settingsContextState.pathname = null;
     settingsContextState.restaurantName = null;
   });
 
@@ -55,45 +61,69 @@ describe('RestaurantSettingsChromeHeader', () => {
     expect(screen.getByRole('link', { name: 'Close restaurant settings' })).toBeInTheDocument();
   });
 
-  it('@contract renders breadcrumb parent and leaf when the route provides one', () => {
-    settingsContextState.headingContext = {
-      chromeBreadcrumb: {
-        parentTitle: 'Availability',
-        parentHref: '/app/settings/restaurant/availability',
-        leafTitle: 'Weekly schedule',
-      },
-      chromeLeafTitle: 'Weekly schedule',
-    };
+  it('@contract renders a Settings crumb ahead of the h1 page title', () => {
+    settingsContextState.pathname = '/app/settings/restaurant/availability';
+    settingsContextState.headingContext = { chromeLeafTitle: 'Availability & Booking types' };
     renderHeader();
 
-    expect(screen.getByRole('link', { name: 'Availability' })).toHaveAttribute(
+    const breadcrumb = screen.getByRole('navigation', { name: 'Breadcrumb' });
+    expect(within(breadcrumb).getByRole('link', { name: 'Settings' })).toHaveAttribute(
       'href',
-      '/app/settings/restaurant/availability',
+      '/app/settings/restaurant',
     );
-    expect(screen.getByText('Weekly schedule')).toBeInTheDocument();
+    // The page itself is the h1, not a crumb.
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
+    ).toBeInTheDocument();
+    expect(within(breadcrumb).queryByText('Availability & Booking types')).not.toBeInTheDocument();
   });
 
-  it('@contract shows unsaved-changes and restaurant badges when present', () => {
-    unsavedState.hasUnsavedChanges = true;
-    settingsContextState.restaurantName = 'Old Crown Girton';
+  it('@contract omits the breadcrumb on the settings overview', () => {
+    settingsContextState.pathname = '/app/settings/restaurant';
+    settingsContextState.headingContext = { chromeLeafTitle: 'Restaurant setup' };
     renderHeader();
 
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant setup' })).toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+  });
+
+  it('@contract uses an explicit title over route copy for legacy pages', () => {
+    settingsContextState.pathname = '/app/settings/tables';
+    renderHeader(vi.fn(), { title: 'Tables' });
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Tables' })).toBeInTheDocument();
+  });
+
+  it('@contract shows a short unsaved status on phones and the full label from sm', () => {
+    unsavedState.hasUnsavedChanges = true;
+    renderHeader();
+
+    expect(screen.getByText('Unsaved')).toHaveClass('sm:hidden');
+    expect(screen.getByText('Unsaved changes')).toHaveClass('hidden', 'sm:inline');
+  });
+
+  it('@contract names the restaurant only when the sidebar rail hides it', () => {
+    settingsContextState.restaurantName = 'Old Crown Girton';
+    renderHeader();
+    expect(screen.queryByText('Old Crown Girton')).not.toBeInTheDocument();
+  });
+
+  it('@contract names the restaurant in the chrome when the sidebar is collapsed', () => {
+    settingsContextState.restaurantName = 'Old Crown Girton';
+    renderHeader(vi.fn(), { sidebarOpen: false });
     expect(screen.getByText('Old Crown Girton')).toBeInTheDocument();
   });
 
-  it('@contract keeps the title usable at 375px and defers the restaurant badge to sm', () => {
-    settingsContextState.headingContext = {
-      chromeBreadcrumb: null,
-      chromeLeafTitle: 'Google Business Profile',
-    };
-    settingsContextState.restaurantName = 'QA App Host Restaurant';
+  it('@contract lets long titles wrap to two lines on phones before truncating', () => {
+    settingsContextState.headingContext = { chromeLeafTitle: 'Availability & Booking types' };
     renderHeader();
 
-    const title = screen.getByRole('heading', { name: 'Google Business Profile', level: 1 });
-    expect(title.parentElement).toHaveClass('flex-1', 'min-w-0', 'overflow-hidden');
-    expect(title.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
-    expect(screen.getByText('QA App Host Restaurant')).toHaveClass('hidden', 'sm:inline-flex');
+    const title = screen.getByRole('heading', { name: 'Availability & Booking types', level: 1 });
+    expect(title).toHaveClass('line-clamp-2', 'sm:line-clamp-1', 'break-words', 'min-w-0');
+    expect(title).toHaveAttribute('title', 'Availability & Booking types');
+    expect(
+      screen.getByRole('button', { name: 'Toggle restaurant settings navigation' }),
+    ).toHaveClass('md:hidden');
   });
 
   it('@contract invokes the exit guard when the close link is clicked', async () => {

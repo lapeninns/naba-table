@@ -3,17 +3,9 @@ import {
   mapOverridesFromResponse,
   mapWeeklyFromResponse,
 } from './availabilityScheduleManagerUtils';
-import { type DayErrors, validateHours, validateServices } from './availabilityScheduleValidation';
 import { findServicePeriodDriftField } from './gbpDriftDomain';
 import { buildServicePeriodState, type DayServiceConfig } from './servicePeriodsMapper';
-import { validateTurnBandRows, type TurnBandRowError } from './turnBandsDomain';
-import {
-  DAYS_OF_WEEK,
-  type OverrideErrors,
-  type OverrideRow,
-  type WeeklyErrors,
-  type WeeklyRow,
-} from './types';
+import { DAYS_OF_WEEK, type OverrideRow, type WeeklyRow } from './types';
 
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 import type { OpsOccasion } from '@/services/ops/occasions';
@@ -36,14 +28,6 @@ export type AvailabilityScheduleDraftState = {
   overrideRows: OverrideRow[];
   turnBandsDraft: TurnBandsPayload;
   weeklyRows: WeeklyRow[];
-};
-
-export type AvailabilityScheduleValidationResult = {
-  isValid: boolean;
-  overrideErrors: OverrideErrors;
-  serviceErrors: DayErrors;
-  turnBandErrors: Record<string, TurnBandRowError[]>;
-  weeklyErrors: WeeklyErrors;
 };
 
 export function buildAvailabilityScheduleDraftState({
@@ -71,40 +55,6 @@ export function buildAvailabilityScheduleDraftState({
     overrideRows: mapOverridesFromResponse(operatingHours.overrides),
     turnBandsDraft: turnBands.bands ?? {},
     weeklyRows,
-  };
-}
-
-export function validateAvailabilityScheduleDraft({
-  dayConfigs,
-  overrideRows,
-  turnBandsDraft,
-  weeklyRows,
-}: {
-  readonly dayConfigs: DayServiceConfig[];
-  readonly overrideRows: OverrideRow[];
-  readonly turnBandsDraft: TurnBandsPayload;
-  readonly weeklyRows: WeeklyRow[];
-}): AvailabilityScheduleValidationResult {
-  const hourValidation = validateHours(weeklyRows, overrideRows);
-  const serviceValidation = validateServices(dayConfigs);
-  const turnBandErrors: Record<string, TurnBandRowError[]> = {};
-  let turnBandsValid = true;
-
-  Object.entries(turnBandsDraft).forEach(([optionKey, rows]) => {
-    if (!rows || rows.length === 0) return;
-    const validation = validateTurnBandRows(rows);
-    if (!validation.ok) {
-      turnBandErrors[optionKey] = validation.errors;
-      turnBandsValid = false;
-    }
-  });
-
-  return {
-    isValid: hourValidation.isValid && serviceValidation.isValid && turnBandsValid,
-    overrideErrors: hourValidation.overrideErrors,
-    serviceErrors: serviceValidation.serviceErrors,
-    turnBandErrors,
-    weeklyErrors: hourValidation.weeklyErrors,
   };
 }
 

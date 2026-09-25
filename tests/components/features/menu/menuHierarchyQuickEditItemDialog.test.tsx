@@ -27,7 +27,7 @@ describe('QuickEditItemDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Quick edit item' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('9.5')).toBeInTheDocument();
     expect(screen.getByDisplayValue('GBP')).toBeInTheDocument();
-    expect(switchByLabel('Active')).toBeChecked();
+    expect(switchByLabel('Shown on the menu')).toBeChecked();
     expect(switchByLabel('Sold out')).not.toBeChecked();
   });
 
@@ -79,7 +79,7 @@ describe('QuickEditItemDialog', () => {
     const user = userEvent.setup();
     const props = renderDialog({ pending: true });
 
-    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(props.onOpenChange).toHaveBeenCalledWith(false);

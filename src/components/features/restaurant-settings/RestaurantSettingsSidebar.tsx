@@ -7,19 +7,26 @@ import { SidebarCollapseTrigger } from '@/components/features/ops-shell/patterns
 import { Sidebar, SidebarHeader } from '@/components/ui/sidebar';
 
 import { RestaurantSettingsSidebarNav } from './RestaurantSettingsSidebarNav';
+import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 import { useRestaurantSettingsNav } from './useRestaurantSettingsNav';
 
 export function RestaurantSettingsSidebar() {
   const nav = useRestaurantSettingsNav();
+  const { restaurantName } = useRestaurantSettingsContext();
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
+      {/* One 48px row so its bottom border continues the settings chrome's border. */}
+      <SidebarHeader className="h-[var(--ops-chrome-height)] justify-center border-b border-sidebar-border py-0">
         <div className="flex items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:hidden">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5 py-1">
-            <p className="text-xs font-medium text-sidebar-foreground/70">Restaurant</p>
-            <p className="truncate text-sm font-semibold text-sidebar-foreground">Settings</p>
-          </div>
+          {/* Names the tenant being edited; the chrome shows it only when this rail is collapsed. */}
+          <p
+            className="min-w-0 flex-1 truncate text-sm font-semibold text-sidebar-foreground"
+            title={restaurantName ?? undefined}
+          >
+            <span className="sr-only">Settings for </span>
+            {restaurantName ?? 'Restaurant'}
+          </p>
           <SidebarCollapseTrigger
             labels={{
               expanded: 'Close settings menu',
@@ -27,7 +34,7 @@ export function RestaurantSettingsSidebar() {
             }}
           />
         </div>
-        <div className="hidden justify-center px-2 py-1 group-data-[collapsible=icon]:flex">
+        <div className="hidden justify-center group-data-[collapsible=icon]:flex">
           <SidebarCollapsedRailToggle openLabel="Open settings menu">
             <div
               className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"

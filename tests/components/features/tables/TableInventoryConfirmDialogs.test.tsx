@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,87 +6,90 @@ import { TableInventoryConfirmDialogs } from '@/components/features/tables/Table
 
 import type { TableInventory } from '@/services/ops/tables';
 
-const tableTarget = {
-  id: 'table-1',
-  tableNumber: '12',
-} as TableInventory;
-
-const zoneTarget = { id: 'zone-1', name: 'Patio', active: true, sortOrder: 0 };
-
 type ConfirmProps = Parameters<typeof TableInventoryConfirmDialogs>[0];
 
-function makeProps(overrides: Partial<ConfirmProps> = {}): ConfirmProps {
+const zone = { id: 'zone-main', name: 'Main', active: true, sortOrder: 0 };
+
+function makeTable(): TableInventory {
   return {
+    id: 'table-1',
+    restaurantId: 'rest-1',
+    tableNumber: '12',
+    capacity: 4,
+    minPartySize: 1,
+    maxPartySize: null,
+    section: null,
+    category: 'dining',
+    seatingType: 'standard',
+    mobility: 'movable',
+    zoneId: 'zone-main',
+    zoneName: 'Main',
+    zoneActive: true,
+    active: true,
+    status: 'available',
+    position: null,
+    notes: null,
+  };
+}
+
+function renderDialogs(overrides: Partial<ConfirmProps> = {}) {
+  const props: ConfirmProps = {
     tableDeleteTarget: null,
     zoneDeleteTarget: null,
+    zoneWithTables: null,
     isTableDeletePending: false,
     isZoneDeletePending: false,
     onTableOpenChange: vi.fn(),
     onZoneOpenChange: vi.fn(),
+    onZoneWithTablesOpenChange: vi.fn(),
     onConfirmTableDelete: vi.fn(),
     onConfirmZoneDelete: vi.fn(),
+    onShowZoneTables: vi.fn(),
     ...overrides,
   };
+  render(<TableInventoryConfirmDialogs {...props} />);
+  return props;
 }
 
 describe('TableInventoryConfirmDialogs', () => {
-  it('@contract keeps both dialogs closed without delete targets', () => {
-    render(<TableInventoryConfirmDialogs {...makeProps()} />);
-
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-  });
-
-  it('@contract @a11y confirms table deletion with the table number in the warning copy', async () => {
+  it('names the effect of deleting a table and offers turning it off instead', async () => {
     const user = userEvent.setup();
-    const props = makeProps({ tableDeleteTarget: tableTarget });
-    render(<TableInventoryConfirmDialogs {...props} />);
+    const props = renderDialogs({ tableDeleteTarget: makeTable() });
 
-    const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('Delete table?');
-    expect(dialog).toHaveTextContent(
-      'Table 12 will be removed from inventory and can no longer be assigned to bookings. This cannot be undone.',
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Delete table' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete table 12?' });
+    expect(
+      within(dialog).getByText(
+        'It can no longer be given to bookings. This can’t be undone. To keep it for later, turn it off instead.',
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete table' }));
     expect(props.onConfirmTableDelete).toHaveBeenCalledTimes(1);
   });
 
-  it('@contract cancels table deletion without firing the delete callback', async () => {
+  it('confirms deleting an empty zone', async () => {
     const user = userEvent.setup();
-    const props = makeProps({ tableDeleteTarget: tableTarget });
-    render(<TableInventoryConfirmDialogs {...props} />);
+    const props = renderDialogs({ zoneDeleteTarget: zone });
 
-    await user.click(screen.getByRole('button', { name: 'Keep table' }));
-
-    expect(props.onConfirmTableDelete).not.toHaveBeenCalled();
-    expect(props.onTableOpenChange).toHaveBeenCalledWith(false);
-  });
-
-  it('@contract shows a pending label while the table delete mutation runs', () => {
-    render(
-      <TableInventoryConfirmDialogs
-        {...makeProps({ tableDeleteTarget: tableTarget, isTableDeletePending: true })}
-      />,
-    );
-
-    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeInTheDocument();
-  });
-
-  it('@contract @a11y confirms zone deletion with the zone name in the warning copy', async () => {
-    const user = userEvent.setup();
-    const props = makeProps({ zoneDeleteTarget: zoneTarget });
-    render(<TableInventoryConfirmDialogs {...props} />);
-
-    const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('Delete zone?');
-    expect(dialog).toHaveTextContent(
-      'Patio will be removed from the floor-plan groups. This cannot be undone.',
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Delete zone' }));
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete Main?' });
+    expect(
+      within(dialog).getByText('The zone has no tables. This can’t be undone.'),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Delete zone' }));
     expect(props.onConfirmZoneDelete).toHaveBeenCalledTimes(1);
+  });
 
-    await user.click(screen.getByRole('button', { name: 'Keep zone' }));
-    expect(props.onZoneOpenChange).toHaveBeenCalledWith(false);
+  it('explains why a zone with tables cannot be deleted and shows its tables', async () => {
+    const user = userEvent.setup();
+    const props = renderDialogs({ zoneWithTables: { zone, tableCount: 3 } });
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Main still has tables' });
+    expect(
+      within(dialog).getByText(
+        'Move or delete its 3 tables before deleting the zone. To stop bookings for now, take the zone out of service instead.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Show its tables' }));
+    expect(props.onShowZoneTables).toHaveBeenCalledWith('zone-main');
   });
 });

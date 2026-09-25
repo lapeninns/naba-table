@@ -19,6 +19,8 @@ export type AttributeBoolOption = {
 export type AttributeAdvancedRowDisplayState = {
   title: string;
   subtitle: string;
+  /** The subtitle is the machine key, shown in the mono font. */
+  subtitleIsKey: boolean;
 };
 
 export const ATTRIBUTE_ADVANCED_TEXT_FIELDS = [
@@ -45,16 +47,22 @@ export const ATTRIBUTE_ADVANCED_JSON_FIELDS = [
   { label: 'Display value', field: 'displayValueJson' },
 ] satisfies AttributeFieldSpec[];
 
-export const ATTRIBUTE_ADVANCED_BOOL_OPTIONS = [
-  { label: 'Unset', value: 'unset' },
-  { label: 'True', value: 'true' },
-  { label: 'False', value: 'false' },
+/** Yes / No / Not set, in the order the amenity radios show them. "Not set" means unknown. */
+export const AMENITY_VALUE_OPTIONS = [
+  { label: 'Yes', value: 'true' },
+  { label: 'No', value: 'false' },
+  { label: 'Not set', value: 'unset' },
 ] satisfies AttributeBoolOption[];
 
-export type AmenityAttributeDisplayState = {
-  checked: boolean;
-  helperText: 'Saved as no' | 'Saved detail' | 'Not set';
-};
+export const ATTRIBUTE_ADVANCED_BOOL_OPTIONS = [
+  { label: 'Not set', value: 'unset' },
+  { label: 'Yes', value: 'true' },
+  { label: 'No', value: 'false' },
+] satisfies AttributeBoolOption[];
+
+export function getAmenityValueLabel(value: AttributeEditor['boolValue']): string {
+  return AMENITY_VALUE_OPTIONS.find((option) => option.value === value)?.label ?? 'Not set';
+}
 
 export function findAmenityAttributeRow(
   attributes: AttributeEditor[],
@@ -63,34 +71,32 @@ export function findAmenityAttributeRow(
   return attributes.find((row) => row.attributeKey === definition.key);
 }
 
-export function countSelectedAmenityAttributes(
+/** Amenities in a group with a Yes or No answer ("N of M set"). */
+export function countSetAmenityAttributes(
   group: AmenityAttributeGroup,
   attributes: AttributeEditor[],
 ): number {
-  return group.keys.filter(
-    (definition) => findAmenityAttributeRow(attributes, definition)?.boolValue === 'true',
-  ).length;
+  return group.keys.filter((definition) => {
+    const value = findAmenityAttributeRow(attributes, definition)?.boolValue;
+    return value === 'true' || value === 'false';
+  }).length;
 }
 
-export function getAmenityAttributeDisplayState(
+export function getAmenityAttributeValue(
   row: AttributeEditor | undefined,
-): AmenityAttributeDisplayState {
-  if (!row) {
-    return { checked: false, helperText: 'Not set' };
-  }
-  return {
-    checked: row.boolValue === 'true',
-    helperText: row.boolValue === 'false' ? 'Saved as no' : 'Saved detail',
-  };
+): AttributeEditor['boolValue'] {
+  return row?.boolValue ?? 'unset';
 }
 
 export function getAttributeAdvancedRowDisplayState(
   row: AttributeEditor,
 ): AttributeAdvancedRowDisplayState {
+  const inCatalogue = AMENITY_ATTRIBUTE_KEYS.has(row.attributeKey);
   return {
     title: formatAttributeTitle(row),
-    subtitle: AMENITY_ATTRIBUTE_KEYS.has(row.attributeKey)
-      ? 'Shown in grouped amenities'
+    subtitle: inCatalogue
+      ? 'Also shown in the amenity list above'
       : row.attributeKey || 'No key set',
+    subtitleIsKey: !inCatalogue && Boolean(row.attributeKey),
   };
 }

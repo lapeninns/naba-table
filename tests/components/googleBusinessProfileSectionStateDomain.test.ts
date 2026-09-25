@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buildLocationValue } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import {
   deriveGoogleBusinessProfileSectionSummary,
+  describeGoogleBusinessProfileLinkedLocation,
   findGoogleBusinessProfileSelectedLocation,
   mergeGoogleBusinessProfileConnectionData,
   resolveGoogleBusinessProfileSelectedLocationValue,
@@ -108,10 +109,85 @@ describe('googleBusinessProfileSectionStateDomain', () => {
       manageOnGoogleHref: 'https://www.google.com/maps/search/?api=1&query_place_id=place-1',
       showConnect: false,
       showPicker: false,
-      stage: 'issue',
-      stageLabel: 'Action needed',
+      canReview: false,
+      connectionDescription:
+        'The last check with Google failed. Your saved settings are unchanged.',
+      connectionDone: true,
+      locationStep: 'chosen',
       status: 'sync_error',
     });
+  });
+
+  it('opens the review step for a mapped location when linked or after a sync issue', () => {
+    const mapped = { externalAccountId: 'account-1', externalLocationId: 'location-1' };
+
+    expect(
+      deriveGoogleBusinessProfileSectionSummary({
+        data: buildConnection({ ...mapped, status: 'sync_error' }),
+      }).canReview,
+    ).toBe(true);
+    expect(
+      deriveGoogleBusinessProfileSectionSummary({
+        data: buildConnection({ ...mapped, status: 'linked' }),
+      }).canReview,
+    ).toBe(true);
+    expect(
+      deriveGoogleBusinessProfileSectionSummary({
+        data: buildConnection({ ...mapped, status: 'reauth_required' }),
+      }).canReview,
+    ).toBe(false);
+    expect(
+      deriveGoogleBusinessProfileSectionSummary({
+        data: buildConnection({ externalLocationId: 'location-1', status: 'linked' }),
+      }).canReview,
+    ).toBe(false);
+  });
+
+  it('maps each connection status onto the step 1 and step 2 states', () => {
+    const cases = [
+      ['unlinked', false, 'locked', 'Connect Google to start.'],
+      ['pending_auth', false, 'locked', 'Finish signing in on the Google window.'],
+      ['authorized', true, 'choose', 'Google is connected. Pick the listing for this restaurant.'],
+      [
+        'reauth_required',
+        true,
+        'choose',
+        'Google access expired. Reconnect to keep comparing and publishing.',
+      ],
+      ['linked', true, 'chosen', 'Connected and a location is chosen.'],
+    ] as const;
+
+    for (const [status, connectionDone, locationStep, connectionDescription] of cases) {
+      expect(
+        deriveGoogleBusinessProfileSectionSummary({ data: buildConnection({ status }) }),
+      ).toMatchObject({ connectionDone, locationStep, connectionDescription });
+    }
+  });
+
+  it('describes the linked listing from the matching location, then the business info', () => {
+    const linked = location({
+      accountName: 'accounts/9',
+      locationName: 'locations/9',
+      title: 'Nabatable Main',
+      accountDisplayName: 'Owner account',
+      addressText: '1 High Street',
+    });
+
+    expect(
+      describeGoogleBusinessProfileLinkedLocation(
+        buildConnection({
+          availableLocations: [linked],
+          externalAccountName: 'accounts/9',
+          externalLocationName: 'locations/9',
+        }),
+      ),
+    ).toEqual({ business: 'Nabatable Main', account: 'Owner account', address: '1 High Street' });
+
+    expect(
+      describeGoogleBusinessProfileLinkedLocation(
+        buildConnection({ externalLocationTitle: 'Listing title', externalAccountName: null }),
+      ),
+    ).toEqual({ business: 'Listing title', account: 'Not available', address: 'Not available' });
   });
 });
 

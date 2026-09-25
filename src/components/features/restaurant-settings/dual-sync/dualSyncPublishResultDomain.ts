@@ -18,7 +18,16 @@ export function formatPublishResultTimestamp(value: string | null | undefined): 
   return formatDualSyncTimestamp(value, { emptyFallback: '-' });
 }
 
-export function getPublishResultTitle(result: DualSyncPublishResponse | null): string {
+export function getPublishResultTitle(
+  result: DualSyncPublishResponse | null,
+  purpose: 'publish' | 'import' = 'publish',
+): string {
+  if (purpose === 'import') {
+    if (!result) return 'Google values';
+    if (result.failedCount > 0) return 'Some Google values were not saved';
+    if (result.succeededCount > 0) return 'Google values saved in Nabatable';
+    return 'No Google values were saved';
+  }
   if (!result) return 'Publish result';
   if (result.failedCount > 0) return 'Publish completed with failures';
   if (result.succeededCount > 0) return 'Publish completed';

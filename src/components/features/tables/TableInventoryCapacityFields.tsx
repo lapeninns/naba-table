@@ -1,62 +1,92 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Text } from '@/components/ui/typography';
+
+import { TABLE_FORM_LIMITS, type TableFormErrors } from './tableInventoryFormDomain';
+import { describedBy, TableFieldError } from './TableInventoryParts';
 
 import type { TableInventory } from '@/services/ops/tables';
 
-export function TableInventoryCapacityFields({ table }: { readonly table: TableInventory | null }) {
+export function TableInventoryCapacityFields({
+  table,
+  errors,
+}: {
+  readonly table: TableInventory | null;
+  readonly errors: TableFormErrors;
+}) {
   return (
     <>
-      <div>
-        <p className="text-sm font-semibold text-foreground">Capacity</p>
-        <Text variant="caption" className="leading-5">
-          Start with the table number, covers, and accepted party-size range.
-        </Text>
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="tableNumber">Table number *</Label>
-        <Input
-          id="tableNumber"
-          name="tableNumber"
-          defaultValue={table?.tableNumber ?? ''}
-          required
-        />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="capacity">Capacity *</Label>
-        <Input
-          id="capacity"
-          name="capacity"
-          type="number"
-          min={1}
-          max={20}
-          defaultValue={table?.capacity ?? 4}
-          required
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="minPartySize">Min party size</Label>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid content-start gap-2">
+          <Label htmlFor="tableNumber">Table number</Label>
           <Input
-            id="minPartySize"
-            name="minPartySize"
-            type="number"
-            min={1}
-            defaultValue={table?.minPartySize ?? 1}
+            id="tableNumber"
+            name="tableNumber"
+            defaultValue={table?.tableNumber ?? ''}
+            maxLength={TABLE_FORM_LIMITS.tableNumberMax}
+            autoComplete="off"
+            aria-invalid={errors.tableNumber ? true : undefined}
+            aria-describedby={describedBy(errors.tableNumber && 'tableNumber-error')}
           />
+          <TableFieldError id="tableNumber-error" message={errors.tableNumber} />
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="maxPartySize">Max party size</Label>
+        <div className="grid content-start gap-2">
+          <Label htmlFor="capacity">Seats</Label>
           <Input
-            id="maxPartySize"
-            name="maxPartySize"
+            id="capacity"
+            name="capacity"
             type="number"
-            min={1}
-            defaultValue={table?.maxPartySize ?? ''}
-            placeholder="Same as capacity"
+            inputMode="numeric"
+            min={TABLE_FORM_LIMITS.seatsMin}
+            max={TABLE_FORM_LIMITS.seatsMax}
+            defaultValue={table?.capacity ?? 4}
+            className="tabular-nums"
+            aria-invalid={errors.capacity ? true : undefined}
+            aria-describedby={describedBy('capacity-hint', errors.capacity && 'capacity-error')}
           />
+          <p id="capacity-hint" className="text-xs leading-5 text-muted-foreground">
+            1 to 20.
+          </p>
+          <TableFieldError id="capacity-error" message={errors.capacity} />
         </div>
       </div>
+
+      <fieldset className="grid gap-3">
+        <legend className="mb-1 text-sm font-medium">Party sizes this table accepts</legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid content-start gap-2">
+            <Label htmlFor="minPartySize">Smallest party</Label>
+            <Input
+              id="minPartySize"
+              name="minPartySize"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              defaultValue={table?.minPartySize ?? 1}
+              className="tabular-nums"
+              aria-invalid={errors.minPartySize ? true : undefined}
+              aria-describedby={describedBy(errors.minPartySize && 'minPartySize-error')}
+            />
+            <TableFieldError id="minPartySize-error" message={errors.minPartySize} />
+          </div>
+          <div className="grid content-start gap-2">
+            <Label htmlFor="maxPartySize">Largest party</Label>
+            <Input
+              id="maxPartySize"
+              name="maxPartySize"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={TABLE_FORM_LIMITS.seatsMax}
+              defaultValue={table?.maxPartySize ?? ''}
+              placeholder="Same as seats"
+              className="tabular-nums"
+              aria-invalid={errors.maxPartySize ? true : undefined}
+              aria-describedby={describedBy(errors.maxPartySize && 'maxPartySize-error')}
+            />
+            <TableFieldError id="maxPartySize-error" message={errors.maxPartySize} />
+          </div>
+        </div>
+      </fieldset>
     </>
   );
 }

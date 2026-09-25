@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Accordion } from '@/components/ui/accordion';
 import { DualSyncReviewSection } from '@/components/features/restaurant-settings/dual-sync/DualSyncReviewSection';
 
 import { makeDualSyncFieldSummary } from '../testUtils';
@@ -22,17 +21,15 @@ function renderSection(fields: ReadonlyArray<DualSyncFieldSummary>) {
     onSelectAction: vi.fn(),
   };
   render(
-    <Accordion type="multiple" defaultValue={['profile']}>
-      <DualSyncReviewSection
-        sectionKey="profile"
-        fields={fields}
-        decisions={{}}
-        showDriftOnly={false}
-        writeBlocked={false}
-        getSectionProgress={() => sectionProgress}
-        {...handlers}
-      />
-    </Accordion>,
+    <DualSyncReviewSection
+      sectionKey="profile"
+      fields={fields}
+      decisions={{}}
+      showDriftOnly={false}
+      writeBlocked={false}
+      getSectionProgress={() => sectionProgress}
+      {...handlers}
+    />,
   );
   return handlers;
 }
@@ -41,18 +38,20 @@ describe('DualSyncReviewSection', () => {
   it('@contract renders the section header, bulk bar, and field rows', () => {
     renderSection([makeDualSyncFieldSummary() as DualSyncFieldSummary]);
 
-    expect(screen.getByText('Profile')).toBeInTheDocument();
-    expect(screen.getByText('Bulk select')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Profile' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Profile', level: 3 })).toBeInTheDocument();
+    expect(screen.getByText(/0 of 1 chosen/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('group', { name: /choose for every field in this section/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Business name')).toBeInTheDocument();
   });
 
   it('@contract routes per-field action selection with the field key', async () => {
     const user = userEvent.setup();
-    const { onSelectAction } = renderSection([
-      makeDualSyncFieldSummary() as DualSyncFieldSummary,
-    ]);
+    const { onSelectAction } = renderSection([makeDualSyncFieldSummary() as DualSyncFieldSummary]);
 
-    await user.click(screen.getByRole('radio', { name: 'Ignore field' }));
+    await user.click(screen.getByRole('radio', { name: 'Ignore' }));
 
     expect(onSelectAction).toHaveBeenCalledWith('profile.name', 'ignore');
   });

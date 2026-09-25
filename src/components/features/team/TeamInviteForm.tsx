@@ -1,18 +1,19 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { AlertCircle, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 
-import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
+import { useSettingsDiscardGuard } from '@/components/features/restaurant-settings/shared/useSettingsDiscardGuard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,81 +29,161 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Text } from '@/components/ui/typography';
 import { useOpsCreateTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
 
 import {
+  TEAM_INVITE_DUPLICATE_MESSAGE,
   TEAM_INVITE_ROLE_OPTIONS,
+  TEAM_ROLE_DESCRIPTIONS,
+  TEAM_ROLE_ORDER,
+  describeTeamInviteFailure,
+  formatTeamInviteDate,
+  formatTeamRole,
+  hasWaitingTeamInvite,
   teamInviteFormSchema,
+  type TeamInviteFailure,
   type TeamInviteFormValues,
 } from './teamInviteModel';
 
-import type { RestaurantRole } from '@/lib/owner/auth/roles';
 import type { TeamInvite } from '@/services/ops/team';
+
+const COARSE_TARGET_CLASS = '[@media(pointer:coarse)]:min-h-11';
 
 type TeamInviteFormProps = {
   restaurantId: string;
+  /** Loaded invitations, used to catch an invitation that is already waiting. */
+  existingInvites: readonly TeamInvite[];
 };
 
-type LastInvite = {
-  invite: TeamInvite;
-};
+type InviteResult =
+  | { ok: true; email: string; expiresAt: string }
+  | ({ ok: false } & TeamInviteFailure);
 
-export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
+function FieldError({ show }: { show: boolean }) {
+  if (!show) {
+    return null;
+  }
+  return (
+    <div className="flex items-start gap-1.5 text-destructive">
+      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <FormMessage />
+    </div>
+  );
+}
+
+function RoleGuide() {
+  return (
+    <Collapsible>
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={`group -ml-2 w-fit ${COARSE_TARGET_CLASS}`}
+        >
+          <ChevronDown
+            className="size-4 transition-transform group-data-[state=open]:rotate-180 motion-reduce:transition-none"
+            aria-hidden
+          />
+          What each role can do
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul className="mt-2 grid gap-2">
+          {TEAM_ROLE_ORDER.map((role) => (
+            <li key={role} className="grid gap-0.5 rounded-md border border-border/70 px-3 py-2">
+              <span className="text-sm font-medium text-foreground">{formatTeamRole(role)}</span>
+              <span className="text-xs leading-5 text-muted-foreground">
+                {TEAM_ROLE_DESCRIPTIONS[role]}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteFormProps) {
   const createInvite = useOpsCreateTeamInvite();
-  const [lastInvite, setLastInvite] = useState<LastInvite | null>(null);
+  const [result, setResult] = useState<InviteResult | null>(null);
+
+  // The schema reads the latest invitations through a ref so the resolver never goes stale.
+  const invitesRef = useRef(existingInvites);
+  useEffect(() => {
+    invitesRef.current = existingInvites;
+  }, [existingInvites]);
+  const schema = useMemo(
+    () =>
+      teamInviteFormSchema.superRefine((values, ctx) => {
+        if (hasWaitingTeamInvite(invitesRef.current, values.email)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['email'],
+            message: TEAM_INVITE_DUPLICATE_MESSAGE,
+          });
+        }
+      }),
+    [],
+  );
 
   const form = useForm<TeamInviteFormValues>({
-    resolver: zodResolver(teamInviteFormSchema),
-    mode: 'onChange',
+    resolver: zodResolver(schema),
+    mode: 'onTouched',
     defaultValues: {
       email: '',
       role: 'host',
     },
   });
 
+  // An email typed but not sent is an unsaved change: leaving asks first.
+  const draftEmail = useWatch({ control: form.control, name: 'email' });
+  const selectedRole = useWatch({ control: form.control, name: 'role' });
+  useSettingsDiscardGuard(
+    'team-invite-draft',
+    form.formState.isDirty && Boolean(draftEmail?.trim()),
+    'You have an invitation that has not been sent. Leave without sending it?',
+  );
+
+  const isSending = createInvite.isPending;
+
   const onSubmit = async (values: TeamInviteFormValues) => {
+    setResult(null);
     try {
-      const result = await createInvite.mutateAsync({
+      const response = await createInvite.mutateAsync({
         restaurantId,
         email: values.email,
-        role: values.role as RestaurantRole,
+        role: values.role,
       });
-      setLastInvite(result);
+      setResult({
+        ok: true,
+        email: response.invite.email,
+        expiresAt: response.invite.expiresAt,
+      });
       form.reset({ email: '', role: values.role });
-    } catch {
-      // Errors are surfaced via mutation error state.
+    } catch (error) {
+      setResult({ ok: false, ...describeTeamInviteFailure(error) });
     }
+    form.setFocus('email');
   };
 
   return (
     <SettingsCard
-      title="Invite a team member"
-      description="Owners and managers can invite teammates to manage reservations and guest communication."
+      title="Invite someone"
+      description="They get an email link that works for 7 days. Access is for this restaurant only."
       contentClassName="flex flex-col gap-4"
     >
-      {createInvite.error ? (
-        <Alert variant="destructive">
-          <AlertTitle>Invitation was not sent</AlertTitle>
-          <AlertDescription>{createInvite.error.message}</AlertDescription>
-        </Alert>
-      ) : null}
-
       <Form {...form}>
         <FormRoot
           onSubmit={form.handleSubmit(onSubmit)}
-          className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] md:items-end"
+          noValidate
+          aria-label="Invite someone"
+          className="grid gap-4"
         >
-          <div className="md:col-span-3">
-            <p className="text-sm font-semibold text-foreground">Who to invite</p>
-            <Text variant="caption">
-              Send access to one teammate at a time.
-            </Text>
-          </div>
           <FormField
             control={form.control}
             name="email"
-            render={({ field }) => (
+            render={({ field, fieldState }) => (
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
@@ -110,25 +191,15 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
                     {...field}
                     type="email"
                     inputMode="email"
-                    autoComplete="email"
-                    placeholder="teammate@example.com"
+                    autoComplete="off"
+                    placeholder="name@example.com"
+                    disabled={isSending}
                   />
                 </FormControl>
-                <FormMessage />
+                <FieldError show={Boolean(fieldState.error)} />
               </FormItem>
             )}
           />
-
-          <div className="md:col-span-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">Access scope</p>
-              <Badge variant="outline">Restaurant only</Badge>
-            </div>
-            <Text variant="caption">
-              Role controls this restaurant&apos;s bookings, guest communication, and settings
-              access.
-            </Text>
-          </div>
 
           <FormField
             control={form.control}
@@ -136,9 +207,9 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Role</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select value={field.value} onValueChange={field.onChange} disabled={isSending}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className={COARSE_TARGET_CLASS}>
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                   </FormControl>
@@ -152,44 +223,60 @@ export function TeamInviteForm({ restaurantId }: TeamInviteFormProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <Text variant="caption">
-                  Hosts can manage bookings and guest communication. Use manager access only for
-                  trusted staff who should manage settings.
-                </Text>
+                <FormDescription
+                  aria-live="polite"
+                  className="rounded-md bg-muted/50 px-3 py-2 text-xs leading-5"
+                >
+                  {TEAM_ROLE_DESCRIPTIONS[selectedRole]}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <Button
-            type="submit"
-            className="w-full md:w-auto"
-            disabled={createInvite.isPending || !form.formState.isValid}
-          >
-            {createInvite.isPending ? (
+          {result ? (
+            result.ok ? (
+              <Alert variant="success" role="status">
+                <CheckCircle2 className="size-4" aria-hidden />
+                <AlertTitle className="break-all">Invitation sent to {result.email}</AlertTitle>
+                <AlertDescription className="text-muted-foreground">
+                  It expires on{' '}
+                  <time dateTime={result.expiresAt} className="tabular-nums">
+                    {formatTeamInviteDate(result.expiresAt)}
+                  </time>
+                  .
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" aria-hidden />
+                <AlertTitle>Invitation wasn’t sent</AlertTitle>
+                <AlertDescription className="text-foreground">
+                  {result.message} <span className="text-muted-foreground">Reason code</span>{' '}
+                  <span className="font-mono text-xs">{result.code}</span>
+                </AlertDescription>
+              </Alert>
+            )
+          ) : null}
+
+          <Button type="submit" className={`w-full ${COARSE_TARGET_CLASS}`} disabled={isSending}>
+            {isSending ? (
               <>
-                <Loader2 data-icon="inline-start" className="animate-spin" aria-hidden />
-                Sending
+                <Loader2
+                  data-icon="inline-start"
+                  className="animate-spin motion-reduce:animate-none"
+                  aria-hidden
+                />
+                Sending…
               </>
             ) : (
-              'Send invite'
+              'Send invitation'
             )}
           </Button>
-          <Text variant="caption" className="md:col-span-3">
-            {formatSaveScopeMessage('team')}
-          </Text>
         </FormRoot>
       </Form>
 
-      {lastInvite ? (
-        <Alert variant="success">
-          <AlertTitle>Invitation sent</AlertTitle>
-          <AlertDescription>
-            The invitation email was sent to {lastInvite.invite.email}. It expires on{' '}
-            {new Date(lastInvite.invite.expiresAt).toLocaleString()}.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <RoleGuide />
     </SettingsCard>
   );
 }

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon';
 
-import { evaluateOnlineBookingWindow } from '@/server/booking/online-booking-window';
+import { evaluateOnlineBookingWindow } from '@/lib/restaurants/guest-schedule/online-booking-window';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { getRestaurantTurnBands } from '@/server/restaurants/turnBands';

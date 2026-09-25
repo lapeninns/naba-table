@@ -24,9 +24,7 @@ export function SettingsSectionHeader({
         <h3 className="text-base font-medium leading-6 tracking-tight">{title}</h3>
         {action}
       </div>
-      {description ? (
-        <Text variant="caption">{description}</Text>
-      ) : null}
+      {description ? <Text variant="caption">{description}</Text> : null}
     </div>
   );
 }

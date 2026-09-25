@@ -218,12 +218,16 @@ test.describe('ops capacity and table shipped routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/tables/);
-    await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible();
-    await expect(page.locator('main').getByText('Tables workflow')).toBeVisible();
-    await expect(page.locator('main').getByText('Ready for bookings')).toBeVisible();
-    await expect(page.locator('main').getByText('2 active tables, 8 covers')).toBeVisible();
-    await expect(page.locator('main').getByText('Dinner')).toBeVisible();
-    await expect(page.locator('main').getByText('16 covers')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Tables' })).toBeVisible();
+    const summary = page.locator('main').getByTestId('table-inventory-metrics');
+    await expect(summary.getByText('Bookable now')).toBeVisible();
+    await expect(summary.getByText('2 tables', { exact: true })).toBeVisible();
+    await expect(summary.getByText('8 seats')).toBeVisible();
+    await expect(summary.getByText('Dinner: 16 covers')).toBeVisible();
+    await expect(summary.getByRole('link', { name: 'Change meal times' })).toBeVisible();
+    await expect(page.locator('main').getByRole('region', { name: 'Zones' })).toBeVisible();
+    await expect(page.locator('main').getByRole('region', { name: 'Tables' })).toBeVisible();
+    await expect(page.locator('main').getByText('Tables workflow')).toHaveCount(0);
 
     await page.screenshot({
       path: testInfo.outputPath('ops-capacity-tables-settings-desktop.png'),
@@ -237,14 +241,10 @@ test.describe('ops capacity and table shipped routes', () => {
     await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await page
-      .locator('main')
-      .getByRole('button', { name: /^Inventory/ })
-      .click();
-    await page.getByRole('button', { name: 'Add table' }).click();
-    await expect(page.getByRole('dialog', { name: 'Add new table' })).toBeVisible();
+    await page.locator('main').getByRole('button', { name: 'Add table' }).first().click();
+    await expect(page.getByRole('dialog', { name: 'Add table' })).toBeVisible();
 
-    await page.getByRole('button', { name: /^Classification & service notes/ }).click();
+    await page.getByRole('button', { name: /^Details and service notes/ }).click();
     await page.getByRole('combobox', { name: 'Category' }).click();
     await expect(page.getByRole('option', { name: 'Dining' })).toBeVisible();
     await expect(page.getByRole('option', { name: 'Patio' })).toBeVisible();
@@ -266,19 +266,12 @@ test.describe('ops capacity and table shipped routes', () => {
     await expect(
       page.getByRole('button', { name: 'Toggle restaurant settings navigation' }),
     ).toBeVisible();
-    await expect(page.locator('main').getByText('Tables workflow')).toBeVisible();
-
-    await page
-      .locator('main')
-      .getByRole('button', { name: /^Inventory/ })
-      .click();
-
-    await expect(page.locator('main').getByRole('heading', { name: 'Table 1' })).toBeVisible();
-    await expect(page.locator('main').getByText('Main Dining · 4 covers')).toBeVisible();
-    await expect(page.locator('main').getByRole('button', { name: 'Edit' }).first()).toBeVisible();
-    await expect(
-      page.locator('main').getByRole('button', { name: 'Delete' }).first(),
-    ).toBeVisible();
+    const card = page.locator('main').getByTestId(`table-card-${tables[0].id}`);
+    await expect(card.getByText('Table 1', { exact: true })).toBeVisible();
+    await expect(card.getByText('4 seats · parties of 1–4')).toBeVisible();
+    await expect(card.getByText('Bookable')).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Edit table 1' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Delete table 1' })).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-capacity-tables-settings-mobile.png'),

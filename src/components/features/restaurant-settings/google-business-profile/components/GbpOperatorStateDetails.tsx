@@ -1,5 +1,10 @@
+import { OctagonAlert, RefreshCw } from 'lucide-react';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+
+import { GbpDetailList } from './GbpDetailList';
 
 import type { GbpConnectionStateResponseV1 } from '@/services/ops/dual-sync';
 
@@ -24,68 +29,107 @@ function paths(values: readonly string[]) {
   );
 }
 
-export function GbpOperatorStateDetails({ state }: { state: GbpConnectionStateResponseV1 }) {
-  const rolloutLabel = state.rollout.eligible ? state.rollout.cohort : state.rollout.reason;
+export type GbpOperatorStateDetailsProps = {
+  readonly state: GbpConnectionStateResponseV1;
+  /** Starts a fresh Google refresh; omitted where the review workspace is unavailable. */
+  readonly onRequestRefresh?: () => void;
+  readonly refreshPending?: boolean;
+};
+
+export function GbpOperatorStateDetails({
+  state,
+  onRequestRefresh,
+  refreshPending = false,
+}: GbpOperatorStateDetailsProps) {
+  const pending = state.pendingUpdates;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="secondary">{state.connectionStatus}</Badge>
-        <Badge variant={state.writeState === 'eligible' ? 'status-confirmed' : 'status-pending'}>
-          {state.writeState}
-        </Badge>
-        <Badge variant="outline">Generation {state.connectionGeneration}</Badge>
-        <Badge variant="outline">Consent epoch {state.consentEpoch}</Badge>
-      </div>
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-muted-foreground">Reason</dt>
-          <dd className="font-mono">{state.reasonCode ?? 'none'}</dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Rollout</dt>
-          <dd className="flex items-center gap-2">
-            <span className="font-mono">{rolloutLabel}</span>
-            <span className="text-xs text-muted-foreground">{time(state.rollout.evaluatedAt)}</span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Refresh</dt>
-          <dd className="flex items-center gap-2">
-            <Badge variant="outline">{state.refresh.status}</Badge>
-            <span>{time(state.refresh.lastSucceededAt)}</span>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted-foreground">Refresh error</dt>
-          <dd className="font-mono">{state.refresh.safeErrorCode ?? 'none'}</dd>
-        </div>
-      </dl>
-
-      {state.pendingUpdates.state === 'unknown' ? (
+      {pending.state === 'unknown' ? (
         <Alert variant="destructive">
-          <AlertTitle>Pending Google paths are unknown — publishing is stopped</AlertTitle>
+          <OctagonAlert className="size-4" aria-hidden />
+          <AlertTitle>Publishing is stopped: Google’s pending changes are unknown</AlertTitle>
           <AlertDescription className="flex flex-col gap-2">
-            <span>Refresh Google and review a new exact preview before publishing.</span>
-            {paths(state.pendingUpdates.unknownPaths)}
+            <span>
+              Google has pending updates Nabatable can’t list. Request a fresh refresh, then create
+              a new preview before publishing.
+            </span>
+            <span className="flex flex-col gap-1">
+              <span className="text-xs">Unknown paths</span>
+              {paths(pending.unknownPaths)}
+            </span>
+            {onRequestRefresh ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="self-start"
+                onClick={onRequestRefresh}
+                disabled={refreshPending}
+              >
+                <RefreshCw
+                  data-icon="inline-start"
+                  className={refreshPending ? 'animate-spin motion-reduce:animate-none' : undefined}
+                  aria-hidden
+                />
+                {refreshPending ? 'Refreshing…' : 'Request a fresh refresh'}
+              </Button>
+            ) : null}
           </AlertDescription>
         </Alert>
-      ) : state.pendingUpdates.state === 'known' ? (
-        <div className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <p className="mb-1 font-medium">Pending location masks</p>
-            {paths(state.pendingUpdates.locationMasks)}
-          </div>
-          <div>
-            <p className="mb-1 font-medium">Pending attribute paths</p>
-            {paths(state.pendingUpdates.attributePaths)}
-          </div>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          Google reports no pending location or attribute updates.
-        </p>
-      )}
+      ) : null}
+
+      <GbpDetailList
+        items={[
+          { label: 'Connection status', value: state.connectionStatus, mono: true },
+          { label: 'Write state', value: state.writeState, mono: true },
+          {
+            label: 'Connection generation',
+            value: String(state.connectionGeneration),
+            mono: true,
+          },
+          { label: 'Consent epoch', value: String(state.consentEpoch), mono: true },
+          { label: 'Safe reason code', value: state.reasonCode ?? 'none', mono: true },
+          {
+            label: 'Rollout',
+            value: (
+              <span className="flex flex-wrap items-center gap-x-2">
+                <span className="font-mono text-xs">
+                  {state.rollout.eligible ? state.rollout.cohort : state.rollout.reason}
+                </span>
+                <span>{state.rollout.eligible ? 'Eligible' : 'Not eligible'}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {time(state.rollout.evaluatedAt)}
+                </span>
+              </span>
+            ),
+          },
+          {
+            label: 'Refresh state',
+            value: (
+              <span className="flex flex-wrap items-center gap-x-2">
+                <span className="font-mono text-xs">{state.refresh.status}</span>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  Last succeeded {time(state.refresh.lastSucceededAt)}
+                </span>
+              </span>
+            ),
+          },
+          { label: 'Refresh error', value: state.refresh.safeErrorCode ?? 'none', mono: true },
+          {
+            label: 'Pending location masks',
+            value:
+              pending.state === 'known'
+                ? paths(pending.locationMasks)
+                : pending.state === 'unknown'
+                  ? 'Unknown. Publishing is stopped.'
+                  : 'Google reports no pending location or attribute updates.',
+          },
+          ...(pending.state === 'known'
+            ? [{ label: 'Pending attribute paths', value: paths(pending.attributePaths) }]
+            : []),
+        ]}
+      />
     </div>
   );
 }

@@ -17,7 +17,7 @@ describe('React development tooling', () => {
 
     expect(manifest.devDependencies).toMatchObject({
       'react-doctor': expect.any(String),
-      'react-grab': expect.any(String),
+      'react-grab': '^0.2.0',
       'react-scan': expect.any(String),
     });
   });
@@ -27,5 +27,6 @@ describe('React development tooling', () => {
 
     expect(rootLayout).toContain("process.env.NODE_ENV === 'development'");
     expect(rootLayout).toContain("process.env.NEXT_PUBLIC_DISABLE_REACT_DEVTOOLS !== '1'");
+    expect(rootLayout).toContain('//unpkg.com/react-grab@0.2.0/dist/index.global.js');
   });
 });

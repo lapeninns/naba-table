@@ -191,15 +191,11 @@ export function makeServiceItemRow(over: Record<string, unknown> = {}) {
 }
 
 /**
- * Full-shape stand-in for the RestaurantBusinessContextEditor hook result used
- * by the discovery panels; every mutator is a vi.fn() so panels can assert
- * routing without the query/draft machinery.
+ * Stand-in for the RestaurantBusinessContextEditor hook result used by the discovery panels;
+ * every mutator is a vi.fn() so panels can assert routing without the query/draft machinery.
  */
 export function makeBusinessContextEditor(over: Record<string, unknown> = {}) {
   return {
-    contextQuery: { data: null, isLoading: false, error: null },
-    activeTab: '' as string,
-    setActiveTab: vi.fn(),
     businessDetails: {
       openingDate: '',
       businessStatus: 'open',
@@ -208,39 +204,32 @@ export function makeBusinessContextEditor(over: Record<string, unknown> = {}) {
     links: [] as unknown[],
     categories: [] as unknown[],
     serviceAreas: [] as unknown[],
-    serviceAreaDraft: '',
-    setServiceAreaDraft: vi.fn(),
     attributes: [] as unknown[],
     serviceItems: [] as unknown[],
     seedSource: familyRecord<'core' | 'provider' | 'empty'>('core'),
     dirty: familyRecord(false),
-    errors: {} as Partial<Record<string, string | null>>,
-    savingFamily: null as string | null,
-    savedFamily: null as string | null,
     providerCounts: familyRecord(0),
-    coreCounts: familyRecord(0),
     updateBusinessDetails: vi.fn(),
-    addLink: vi.fn(),
+    addLink: vi.fn(() => 'link-new'),
     updateLink: vi.fn(),
     removeLink: vi.fn(),
-    addCategory: vi.fn(),
+    addCategory: vi.fn(() => true),
     updateCategory: vi.fn(),
+    makeCategoryPrimary: vi.fn(),
     removeCategory: vi.fn(),
     updateMoreHoursDraft: vi.fn(),
     addMoreHoursTypes: vi.fn(),
     removeMoreHoursType: vi.fn(),
+    addServiceArea: vi.fn(() => true),
     updateServiceArea: vi.fn(),
-    addServiceAreaFromDraft: vi.fn(),
     removeServiceArea: vi.fn(),
-    toggleAmenityAttribute: vi.fn(),
-    addAttribute: vi.fn(),
+    setAmenityValue: vi.fn(),
+    addAttribute: vi.fn(() => 'attribute-new'),
     updateAttribute: vi.fn(),
     removeAttribute: vi.fn(),
-    addServiceItem: vi.fn(),
+    addServiceItem: vi.fn(() => 'service-item-new'),
     updateServiceItem: vi.fn(),
     removeServiceItem: vi.fn(),
-    resetFamily: vi.fn(),
-    saveFamily: vi.fn().mockResolvedValue(undefined),
     ...over,
   };
 }

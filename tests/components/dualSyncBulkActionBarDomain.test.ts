@@ -21,29 +21,29 @@ describe('dualSyncBulkActionBarDomain', () => {
       }),
     ).toEqual([
       {
-        id: DUAL_SYNC_BULK_ACTION_IDS.importFromGoogle,
-        label: 'Import',
-        variant: 'outline',
-        count: 2,
-        disabled: false,
-      },
-      {
         id: DUAL_SYNC_BULK_ACTION_IDS.exportToGoogle,
-        label: 'Export',
+        label: 'Send all to Google',
         variant: 'outline',
         count: 1,
         disabled: false,
       },
       {
+        id: DUAL_SYNC_BULK_ACTION_IDS.importFromGoogle,
+        label: 'Use all Google’s',
+        variant: 'outline',
+        count: 2,
+        disabled: false,
+      },
+      {
         id: DUAL_SYNC_BULK_ACTION_IDS.ignore,
-        label: 'Ignore',
+        label: 'Ignore all',
         variant: 'outline',
         count: 3,
         disabled: false,
       },
       {
         id: DUAL_SYNC_BULK_ACTION_IDS.clear,
-        label: 'Clear',
+        label: 'Clear choices',
         variant: 'ghost',
         count: 4,
         disabled: false,
@@ -63,8 +63,8 @@ describe('dualSyncBulkActionBarDomain', () => {
         },
       }).map((button) => [button.id, button.disabled]),
     ).toEqual([
-      [DUAL_SYNC_BULK_ACTION_IDS.importFromGoogle, true],
       [DUAL_SYNC_BULK_ACTION_IDS.exportToGoogle, false],
+      [DUAL_SYNC_BULK_ACTION_IDS.importFromGoogle, true],
       [DUAL_SYNC_BULK_ACTION_IDS.ignore, true],
       [DUAL_SYNC_BULK_ACTION_IDS.clear, false],
     ]);

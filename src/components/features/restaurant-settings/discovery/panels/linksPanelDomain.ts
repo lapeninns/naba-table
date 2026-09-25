@@ -9,11 +9,11 @@ export type LinkTextFieldSpec = {
 };
 
 export const LINK_TEXT_FIELDS = [
-  { label: 'Label', field: 'label', placeholder: 'Website' },
+  { label: 'Label', field: 'label', placeholder: 'Optional' },
   {
-    label: 'URL',
+    label: 'Web address',
     field: 'url',
-    placeholder: 'https://example.com',
+    placeholder: 'https://',
     inputMode: 'url',
     type: 'url',
   },
@@ -23,10 +23,7 @@ export function getLinkTypeLabel(linkType: string): string | null {
   return LINK_TYPE_OPTIONS.find((option) => option.value === linkType)?.label ?? null;
 }
 
-export function getLinkRowTitle(row: LinkEditor): string {
-  return row.label || getLinkTypeLabel(row.linkType) || 'New link';
-}
-
+/** "Instagram link", or the link's own label when it has one. */
 export function getLinkRemoveLabel(row: LinkEditor): string {
-  return row.label || row.linkType || 'link';
+  return `${row.label.trim() || getLinkTypeLabel(row.linkType) || 'new'} link`;
 }

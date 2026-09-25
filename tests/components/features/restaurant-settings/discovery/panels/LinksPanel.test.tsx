@@ -1,33 +1,39 @@
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { LinksPanel } from '@/components/features/restaurant-settings/discovery/panels/LinksPanel';
 
 import { makeBusinessContextEditor, makeLinkRow } from '../../testUtils';
+import { renderWithDiscoveryForm } from '../renderWithDiscoveryForm';
 
 import type { RestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 
-describe('LinksPanel', () => {
-  it('@smoke renders a row per link with the add action', () => {
-    const editor = makeBusinessContextEditor({ links: [makeLinkRow()] });
-    render(
-      <LinksPanel embedded={false} editor={editor as unknown as RestaurantBusinessContextEditor} />,
-    );
+function renderPanel(over: Record<string, unknown> = {}) {
+  const editor = makeBusinessContextEditor(over);
+  renderWithDiscoveryForm(
+    <LinksPanel editor={editor as unknown as RestaurantBusinessContextEditor} />,
+  );
+  return editor;
+}
 
-    expect(screen.getByRole('button', { name: /Add link/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save links' })).toBeDisabled();
+describe('LinksPanel', () => {
+  it('@smoke shows an empty state and adds a link', async () => {
+    const user = userEvent.setup();
+    const editor = renderPanel();
+
+    expect(screen.getByText('No links yet.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add link' }));
+    expect(editor.addLink).toHaveBeenCalledTimes(1);
   });
 
-  it('@contract adds a link through the panel action', async () => {
+  it('@a11y returns focus to Add link after removing a link', async () => {
     const user = userEvent.setup();
-    const editor = makeBusinessContextEditor();
-    render(
-      <LinksPanel embedded={false} editor={editor as unknown as RestaurantBusinessContextEditor} />,
-    );
+    const editor = renderPanel({ links: [makeLinkRow()] });
 
-    await user.click(screen.getByRole('button', { name: /Add link/ }));
+    await user.click(screen.getByRole('button', { name: 'Remove Website link' }));
 
-    expect(editor.addLink).toHaveBeenCalledTimes(1);
+    expect(editor.removeLink).toHaveBeenCalledWith('link-1');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Add link' })).toHaveFocus());
   });
 });

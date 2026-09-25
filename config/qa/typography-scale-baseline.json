@@ -1,5 +1,5 @@
 {
-  "total": 49,
-  "files": 38,
+  "total": 44,
+  "files": 35,
   "note": "Raw text-2xl..7xl outside components/ui. Prefer <Heading>. Re-pin only when clearing debt."
 }

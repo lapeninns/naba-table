@@ -30,7 +30,10 @@ describe('SchemaOrg', () => {
 
     expect(organization.name).toBe('Nabatable');
     expect(organization.url).toBe('https://nabatable.com');
-    expect((organization.contactPoint as { areaServed: string }).areaServed).toBe('GB');
+    // GB targeting comes from the address; the personal sales contact point was removed (#172).
+    expect((organization.address as { addressCountry: string }).addressCountry).toBe('GB');
+    expect(organization).not.toHaveProperty('contactPoint');
+    expect(JSON.stringify(schema)).not.toMatch(/telephone|email/i);
     expect((product.offers as { priceCurrency: string }).priceCurrency).toBe('GBP');
     expect(website.name).toBe('Nabatable');
   });

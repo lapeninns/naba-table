@@ -16,9 +16,11 @@ export function RecommendationFields({
   readonly state: ItemFormState;
 }) {
   return (
-    <div className="rounded-md border p-4">
-      <Text variant="subheading" as="h3">Recommendations</Text>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+    <section className="flex flex-col gap-4">
+      <Text variant="subheading" as="h3">
+        Recommendations
+      </Text>
+      <div className="grid gap-4 sm:grid-cols-2">
         <SwitchField
           label="Featured"
           checked={state.featured}
@@ -48,12 +50,12 @@ export function RecommendationFields({
           />
         </Field>
       </div>
-      <Field label="Pairing notes" className="mt-4">
+      <Field label="Pairing notes">
         <Textarea
           value={state.pairingNotes}
           onChange={(event) => patchItemState(setState, { pairingNotes: event.target.value })}
         />
       </Field>
-    </div>
+    </section>
   );
 }

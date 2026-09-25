@@ -10,6 +10,7 @@ import {
   type DualSyncToastIntent,
 } from '../dualSyncShellActionDomain';
 
+import type { DualSyncDecisionEntry } from '../dualSyncWorkspaceDecisionDomain';
 import type { DualSyncWorkspace } from './useDualSyncWorkspace';
 import type {
   DualSyncPublishPreviewResponse,
@@ -18,6 +19,8 @@ import type {
 
 interface UseDualSyncPublishPreviewActionArgs {
   readonly workspace: DualSyncWorkspace;
+  /** The draft decisions to preview; defaults to every draft decision. */
+  readonly decisions?: Readonly<Record<string, DualSyncDecisionEntry>>;
   readonly syncPaused: boolean;
   readonly pauseReason: string;
   readonly canSubmit: boolean;
@@ -30,16 +33,18 @@ interface UseDualSyncPublishPreviewActionArgs {
 
 export function useDualSyncPublishPreviewAction({
   workspace,
+  decisions,
   syncPaused,
   pauseReason,
   canSubmit,
   openPublishPreview,
   showToast,
 }: UseDualSyncPublishPreviewActionArgs) {
+  const activeDecisions = decisions ?? workspace.decisions;
   return useCallback(async () => {
     const readiness = buildDualSyncPublishPreviewReadiness({
       stateData: workspace.stateQuery.data,
-      decisions: workspace.decisions,
+      decisions: activeDecisions,
       syncPaused,
       pauseReason,
       canSubmit,
@@ -60,12 +65,12 @@ export function useDualSyncPublishPreviewAction({
       showToast(getDualSyncErrorToastIntent(error, 'Publish preview failed.'));
     }
   }, [
+    activeDecisions,
     canSubmit,
     openPublishPreview,
     pauseReason,
     showToast,
     syncPaused,
-    workspace.decisions,
     workspace.previewPublishMutation,
     workspace.stateQuery.data,
   ]);

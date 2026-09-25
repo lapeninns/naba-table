@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  deriveProfileSetupChecks,
   deriveRestaurantSetupOverviewState,
+  getFailedSourcesForRow,
   isRequiredSetupLoading,
+  type SetupCheckSource,
 } from '@/components/features/restaurant-settings/overview/restaurantSetupOverviewDomain';
+import { isProfileSetupComplete } from '@/lib/ops/restaurant-setup-rules';
 
 import type {
   OperatingHoursSnapshot,
@@ -21,21 +25,21 @@ const completeProfile = {
 } as RestaurantProfile;
 
 const openHours = {
-  weekly: [{ isClosed: false }],
+  weekly: [{ isClosed: false }, { isClosed: false }, { isClosed: true }],
 } as OperatingHoursSnapshot;
 
-const servicePeriods = [{ id: 'lunch-1' }] as ServicePeriodRow[];
+const servicePeriods = [{ id: 'lunch-1' }, { id: 'dinner-1' }] as ServicePeriodRow[];
 
 const tableSummary = {
   totalTables: 4,
-  availableTables: 4,
+  availableTables: 3,
   totalCapacity: 16,
   zones: [],
   serviceCapacities: [],
 } as TableInventorySummary;
 
 describe('restaurantSetupOverviewDomain', () => {
-  it('derives complete required setup and optional summaries from service state', () => {
+  it('derives complete required setup and row checks from service state', () => {
     const state = deriveRestaurantSetupOverviewState({
       profile: completeProfile,
       operatingHours: openHours,
@@ -45,24 +49,30 @@ describe('restaurantSetupOverviewDomain', () => {
       pendingInvites: 1,
     });
 
-    expect(state.requiredSetup).toMatchObject({
+    expect(state.readiness).toMatchObject({
       complete: 3,
       total: 3,
-      percent: 100,
-      title: 'Your restaurant is ready to take bookings.',
+      ready: true,
+      title: 'Ready to take bookings',
     });
-    expect(state.optionalSetup).toMatchObject({
-      started: 2,
-      total: 3,
-      value: 'Menu ready · Team ready',
-    });
-    expect(state.cards.map((card) => [card.key, card.status])).toEqual([
-      ['profile', 'complete'],
-      ['availability', 'complete'],
-      ['tables', 'complete'],
+    expect(state.requiredCards.map((card) => card.key)).toEqual([
+      'profile',
+      'availability',
+      'tables',
+    ]);
+    expect(state.optionalCards.map((card) => [card.key, card.status])).toEqual([
+      ['discovery', 'optional'],
       ['google', 'optional'],
       ['menu', 'complete'],
       ['team', 'complete'],
+    ]);
+    expect(state.requiredCards[1]?.checks.map((check) => check.label)).toEqual([
+      '2 days open each week',
+      '2 meal times set',
+    ]);
+    expect(state.requiredCards[2]?.checks.map((check) => check.label)).toEqual([
+      '4 tables added',
+      '3 bookable now',
     ]);
   });
 
@@ -76,18 +86,89 @@ describe('restaurantSetupOverviewDomain', () => {
       pendingInvites: 0,
     });
 
-    expect(state.requiredSetup).toMatchObject({
+    expect(state.readiness).toMatchObject({
       complete: 0,
       total: 3,
-      percent: 0,
-      title: 'Next up: Public profile',
-      description: 'Add public phone before go-live.',
+      ready: false,
+      nextKey: 'profile',
+      description: '0 of 3 required steps complete. Next: public profile.',
     });
-    expect(state.cards.slice(0, 3).map((card) => card.status)).toEqual([
+    expect(state.requiredCards.map((card) => card.status)).toEqual([
       'attention',
       'attention',
       'attention',
     ]);
+  });
+
+  it('treats missing data as incomplete rather than failed', () => {
+    const state = deriveRestaurantSetupOverviewState({
+      profile: null,
+      operatingHours: null,
+      servicePeriods: null,
+      tableSummary: null,
+      menuCount: 0,
+      pendingInvites: 0,
+    });
+
+    expect(state.requiredCards.map((card) => card.status)).toEqual([
+      'attention',
+      'attention',
+      'attention',
+    ]);
+  });
+
+  it('matches the shared profile rule field by field', () => {
+    const profiles = [
+      completeProfile,
+      { ...completeProfile, name: '  ' },
+      { ...completeProfile, slug: null },
+      { ...completeProfile, timezone: '' },
+      { ...completeProfile, contactPhone: null },
+    ] as RestaurantProfile[];
+
+    for (const profile of profiles) {
+      const checks = deriveProfileSetupChecks(profile);
+      expect(Object.values(checks).every(Boolean)).toBe(isProfileSetupComplete(profile));
+    }
+    expect(deriveProfileSetupChecks({ ...completeProfile, name: '  ' })).toEqual({
+      name: false,
+      slug: true,
+      timezone: true,
+      contactPhone: true,
+    });
+  });
+
+  it('maps failed queries to the rows that depend on them', () => {
+    const failed = new Set<SetupCheckSource>(['servicePeriods', 'team']);
+
+    expect(getFailedSourcesForRow('availability', failed)).toEqual(['servicePeriods']);
+    expect(getFailedSourcesForRow('team', failed)).toEqual(['team']);
+    expect(getFailedSourcesForRow('profile', failed)).toEqual([]);
+    expect(getFailedSourcesForRow('google', failed)).toEqual([]);
+    expect(getFailedSourcesForRow('discovery', failed)).toEqual([]);
+
+    const state = deriveRestaurantSetupOverviewState({
+      profile: completeProfile,
+      operatingHours: openHours,
+      servicePeriods,
+      tableSummary,
+      menuCount: 0,
+      pendingInvites: 0,
+      failedSources: failed,
+    });
+
+    expect(state.requiredCards.map((card) => card.status)).toEqual([
+      'complete',
+      'unknown',
+      'complete',
+    ]);
+    expect(state.optionalCards.map((card) => card.status)).toEqual([
+      'optional',
+      'optional',
+      'optional',
+      'unknown',
+    ]);
+    expect(state.readiness.hasFailedCheck).toBe(true);
   });
 
   it('combines required loading flags', () => {

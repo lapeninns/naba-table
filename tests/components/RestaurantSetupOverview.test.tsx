@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const overviewState = vi.hoisted(() => ({
@@ -36,22 +37,35 @@ const overviewState = vi.hoisted(() => ({
       address: '1 High Street',
     },
     isLoading: false,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
   },
   hoursQuery: {
     data: {
       weekly: [{ isClosed: false }],
     },
     isLoading: false,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
   },
   servicePeriodsQuery: {
     data: [{ id: 'lunch-1' }],
     isLoading: false,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
   },
   menuQuery: {
     data: { menus: [] },
+    isError: false,
+    refetch: vi.fn(),
   },
   teamQuery: {
     data: [],
+    isError: false,
+    refetch: vi.fn(),
   },
 }));
 
@@ -146,16 +160,38 @@ describe('RestaurantSetupOverview', () => {
     overviewState.servicePeriodsQuery.isLoading = false;
     overviewState.menuQuery.data = { menus: [] };
     overviewState.teamQuery.data = [];
+    for (const query of [
+      overviewState.detailsQuery,
+      overviewState.hoursQuery,
+      overviewState.servicePeriodsQuery,
+      overviewState.menuQuery,
+      overviewState.teamQuery,
+    ]) {
+      query.isError = false;
+      query.refetch.mockReset();
+    }
   });
 
-  it('renders required setup cards with links to profile, availability, and tables', async () => {
+  it('shows the readiness summary and links each required row to its settings page', async () => {
     renderOverview();
 
-    expect(await screen.findByText('Restaurant setup')).toBeInTheDocument();
     await waitFor(() =>
       expect(overviewState.tableService.list).toHaveBeenCalledWith('rest-1', {
         includeSummary: true,
       }),
+    );
+    const summary = await screen.findByRole('region', { name: 'Ready to take bookings' });
+    expect(
+      within(summary).getByText(
+        '3 of 3 required steps complete. Guests can request times on your booking page.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(summary).getByRole('img', { name: '3 of 3 required steps complete' }),
+    ).toBeInTheDocument();
+    expect(within(summary).getByRole('link', { name: 'Preview guest times' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/availability',
     );
 
     expect(screen.getByRole('link', { name: 'Open profile' })).toHaveAttribute(
@@ -164,15 +200,36 @@ describe('RestaurantSetupOverview', () => {
     );
     expect(screen.getByRole('link', { name: 'Open availability' })).toHaveAttribute(
       'href',
-      '/app/settings/restaurant/availability#booking-rules',
+      '/app/settings/restaurant/availability#weekly-hours',
     );
     expect(screen.getByRole('link', { name: 'Open tables' })).toHaveAttribute(
       'href',
-      '/app/settings/restaurant/tables#table-capacity-summary',
+      '/app/settings/restaurant/tables',
     );
+    expect(screen.queryByText('Setup flow')).not.toBeInTheDocument();
   });
 
-  it('marks profile as needs attention when name is missing', async () => {
+  it('lists what was checked for each required step', async () => {
+    renderOverview();
+
+    const required = await screen.findByRole('region', {
+      name: 'Required before guests can book',
+    });
+    const tables = await within(required).findByRole('listitem', { name: /Seating capacity/ });
+    await waitFor(() => expect(within(tables).getByText('4 tables added')).toBeInTheDocument());
+    expect(within(tables).getByText('4 bookable now')).toBeInTheDocument();
+
+    const availability = within(required).getByRole('listitem', { name: /Booking availability/ });
+    expect(
+      within(within(availability).getByRole('list', { name: 'What was checked' })).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(2);
+    expect(within(availability).getByText('1 day open each week')).toBeInTheDocument();
+    expect(within(availability).getByText('1 meal time set')).toBeInTheDocument();
+  });
+
+  it('marks profile as needs attention and names it as the next step when the name is missing', async () => {
     overviewState.detailsQuery.data = {
       ...overviewState.detailsQuery.data,
       name: '',
@@ -180,43 +237,103 @@ describe('RestaurantSetupOverview', () => {
 
     renderOverview();
 
-    expect((await screen.findAllByText('Public profile')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0);
-    expect(await screen.findByText('Add restaurant name before go-live.')).toBeInTheDocument();
+    const summary = await screen.findByRole('region', { name: 'Not ready for bookings yet' });
+    expect(
+      await within(summary).findByText('2 of 3 required steps complete. Next: public profile.'),
+    ).toBeInTheDocument();
+    expect(within(summary).queryByRole('link', { name: 'Preview guest times' })).toBeNull();
+
+    const profile = screen.getByRole('listitem', { name: /Public profile/ });
+    expect(within(profile).getByText('Needs attention')).toBeInTheDocument();
+    expect(within(profile).getByText('Missing:', { exact: false })).toHaveTextContent('Missing:');
+    expect(within(profile).getByText('Restaurant name')).toBeInTheDocument();
   });
 
-  it('marks profile as needs attention when the public phone is missing', async () => {
+  it('gives only the first incomplete required step the primary button', async () => {
     overviewState.detailsQuery.data = {
       ...overviewState.detailsQuery.data,
       contactPhone: null,
     };
+    overviewState.servicePeriodsQuery.data = [];
 
     renderOverview();
 
-    expect((await screen.findAllByText('Public profile')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Needs attention').length).toBeGreaterThan(0);
-    expect(await screen.findByText('Add public phone before go-live.')).toBeInTheDocument();
+    const profileLink = await screen.findByRole('link', { name: 'Open profile' });
+    const primaryLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.classList.contains('bg-primary'));
+    expect(primaryLinks).toEqual([profileLink]);
+    expect(screen.getByRole('link', { name: 'Open availability' })).toHaveClass('bg-background');
   });
 
-  it('derives optional setup metric from menu and team state', async () => {
+  it('keeps the current optional rules and wording', async () => {
     overviewState.menuQuery.data = { menus: [{ id: 'menu-1' }] } as never;
     overviewState.teamQuery.data = [{ id: 'invite-1' }] as never;
 
     renderOverview();
 
-    expect(await screen.findByText('Menu ready · Team ready')).toBeInTheDocument();
+    const optional = await screen.findByRole('region', { name: 'Optional' });
+    const google = within(optional).getByRole('listitem', { name: /Google Business Profile/ });
+    expect(within(google).getByText('Optional')).toBeInTheDocument();
     expect(
-      screen.getAllByText('Useful after the profile and availability basics are ready.').length,
-    ).toBeGreaterThan(0);
+      within(google).getByText('Useful after the profile and availability basics are ready.'),
+    ).toBeInTheDocument();
+    expect(within(optional).getByText('1 menu catalogue entry found.')).toBeInTheDocument();
+    expect(within(optional).getByText('1 pending invite.')).toBeInTheDocument();
+    expect(within(optional).queryByText(/Proposed/)).toBeNull();
+  });
+
+  it('shows "Couldn’t check" on the failed row and refetches only that row’s failed checks', async () => {
+    const user = userEvent.setup();
+    overviewState.servicePeriodsQuery.isError = true;
+
+    renderOverview();
+
+    expect(await screen.findByText('Some setup checks could not load')).toBeInTheDocument();
+    const availability = await screen.findByRole('listitem', { name: /Booking availability/ });
+    expect(within(availability).getByText('Couldn’t check')).toBeInTheDocument();
+    expect(
+      within(availability).getByText(
+        'The availability check didn’t respond, so this status may be out of date. Saved settings are unchanged.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(availability).queryByRole('list', { name: 'What was checked' })).toBeNull();
+    expect(screen.getByRole('region', { name: 'Some checks couldn’t run' })).toBeInTheDocument();
+
+    await user.click(within(availability).getByRole('button', { name: 'Check again' }));
+
+    expect(overviewState.servicePeriodsQuery.refetch).toHaveBeenCalledTimes(1);
+    expect(overviewState.hoursQuery.refetch).not.toHaveBeenCalled();
+    expect(overviewState.detailsQuery.refetch).not.toHaveBeenCalled();
+  });
+
+  it('marks the tables row as failed when the tables request errors and checks it again', async () => {
+    const user = userEvent.setup();
+    overviewState.tableService.list.mockRejectedValue(new Error('network'));
+
+    renderOverview();
+
+    const tables = await screen.findByRole('listitem', { name: /Seating capacity/ });
+    await waitFor(() => expect(within(tables).getByText('Couldn’t check')).toBeInTheDocument());
+
+    overviewState.tableService.list.mockResolvedValue({
+      tables: [],
+      summary: { totalTables: 2, availableTables: 2 },
+    });
+    await user.click(within(tables).getByRole('button', { name: 'Check again' }));
+
+    await waitFor(() => expect(within(tables).getByText('Complete')).toBeInTheDocument());
+    expect(within(tables).getByText('2 tables added')).toBeInTheDocument();
   });
 
   it('shows skeletons while restaurant details are loading', () => {
     overviewState.detailsQuery.data = null;
     overviewState.detailsQuery.isLoading = true;
 
-    const { container } = renderOverview();
+    renderOverview();
 
-    expect(screen.getByText('Loading')).toBeInTheDocument();
-    expect(container.querySelectorAll('.h-48.rounded-lg')).toHaveLength(3);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading setup status…');
+    expect(screen.getByTestId('setup-steps-skeleton').children).toHaveLength(3);
+    expect(screen.queryByRole('region', { name: 'Required before guests can book' })).toBeNull();
   });
 });

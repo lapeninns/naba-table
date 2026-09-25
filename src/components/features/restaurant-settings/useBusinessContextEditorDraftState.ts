@@ -1,200 +1,128 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useMemo, useReducer } from 'react';
 
 import {
-  EMPTY_BUSINESS_DETAILS,
-  EMPTY_SEED_SOURCE,
-  deriveBusinessContextEditorState,
-  deriveBusinessContextFamilyState,
-  type BusinessContextFamilyPayloadState,
-  type FamilyKey,
-} from './businessContextModel';
+  businessContextDraftReducer,
+  computeBusinessContextDirtyState,
+  deriveSavedBusinessContextDrafts,
+  INITIAL_BUSINESS_CONTEXT_DRAFT_STATE,
+  type BusinessContextDrafts,
+} from './businessContextDraftState';
+import { DISCOVERY_SECTION_ORDER, type FamilyKey } from './businessContextModel';
 import { useBusinessContextAttributeDraft } from './useBusinessContextAttributeDraft';
 import { useBusinessContextBusinessDetailsDraft } from './useBusinessContextBusinessDetailsDraft';
 import { useBusinessContextCategoryDraft } from './useBusinessContextCategoryDraft';
-import { useBusinessContextEditorWorkflowState } from './useBusinessContextEditorWorkflowState';
 import { useBusinessContextLinkDraft } from './useBusinessContextLinkDraft';
 import { useBusinessContextServiceAreaDraft } from './useBusinessContextServiceAreaDraft';
 import { useBusinessContextServiceItemDraft } from './useBusinessContextServiceItemDraft';
 
+import type { BusinessContextFamilyUpdate } from './useBusinessContextLinkDraft';
 import type { RestaurantBusinessContextSnapshot } from '@/services/ops/restaurants';
 
 type UseBusinessContextEditorDraftStateOptions = {
+  restaurantId: string | null;
   snapshot: RestaurantBusinessContextSnapshot | null | undefined;
 };
 
+/**
+ * The single page draft for Discovery details. Dirty state is derived by comparing each section
+ * with the saved values, so a section pre-filled from Google counts as unsaved until it is saved,
+ * and undoing an edit by hand makes the section clean again.
+ */
 export function useBusinessContextEditorDraftState({
+  restaurantId,
   snapshot,
 }: UseBusinessContextEditorDraftStateOptions) {
-  const [activeTab, setActiveTab] = useState<FamilyKey | ''>('businessDetails');
-  const [seedSource, setSeedSource] = useState(EMPTY_SEED_SOURCE);
-  const workflow = useBusinessContextEditorWorkflowState();
-  const { resetWorkflowState } = workflow;
-  const {
-    businessDetails,
-    setBusinessDetails: setBusinessDetailsDraft,
-    updateBusinessDetails,
-  } = useBusinessContextBusinessDetailsDraft({
-    onDirty: () => workflow.markDirty('businessDetails'),
-  });
-  const {
-    links,
-    setLinks: setLinkDrafts,
-    addLink,
-    updateLink,
-    removeLink,
-  } = useBusinessContextLinkDraft({
-    onDirty: () => workflow.markDirty('links'),
-  });
-  const {
-    categories,
-    setCategories: setCategoryDrafts,
-    addCategory,
-    updateCategory,
-    removeCategory,
-    updateMoreHoursDraft,
-    addMoreHoursTypes,
-    removeMoreHoursType,
-  } = useBusinessContextCategoryDraft({
-    onDirty: () => workflow.markDirty('categories'),
-  });
-  const {
-    serviceAreas,
-    serviceAreaDraft,
-    setServiceAreaDraft,
-    resetServiceAreas,
-    updateServiceArea,
-    addServiceAreaFromDraft,
-    removeServiceArea,
-  } = useBusinessContextServiceAreaDraft({
-    onDirty: () => workflow.markDirty('serviceAreas'),
-  });
-  const {
-    attributes,
-    setAttributes: setAttributeDrafts,
-    toggleAmenityAttribute,
-    addAttribute,
-    updateAttribute,
-    removeAttribute,
-  } = useBusinessContextAttributeDraft({
-    onDirty: () => workflow.markDirty('attributes'),
-  });
-  const {
-    serviceItems,
-    setServiceItems: setServiceItemDrafts,
-    addServiceItem,
-    updateServiceItem,
-    removeServiceItem,
-  } = useBusinessContextServiceItemDraft({
-    onDirty: () => workflow.markDirty('serviceItems'),
-  });
+  const [state, dispatch] = useReducer(
+    businessContextDraftReducer,
+    INITIAL_BUSINESS_CONTEXT_DRAFT_STATE,
+  );
+  const restaurantKey = restaurantId ?? '';
 
-  const payloadState = {
-    businessDetails,
-    links,
-    categories,
-    serviceAreas,
-    attributes,
-    serviceItems,
-  } satisfies BusinessContextFamilyPayloadState;
+  // Apply each new server snapshot during render (not in an effect) so the editor never paints
+  // an empty draft first.
+  if (snapshot && (snapshot !== state.seenSnapshot || restaurantKey !== state.restaurantKey)) {
+    dispatch({ type: 'snapshotReceived', restaurantKey, snapshot });
+  }
 
-  useEffect(() => {
-    if (!snapshot) {
-      return;
-    }
+  const updateFamily = useCallback(
+    <Family extends FamilyKey>(
+      family: Family,
+      updater: (current: BusinessContextDrafts[Family]) => BusinessContextDrafts[Family],
+    ) =>
+      dispatch({
+        type: 'edit',
+        apply: (drafts) => ({ ...drafts, [family]: updater(drafts[family]) }),
+      }),
+    [],
+  );
+  const updateBusinessDetailsFamily = useCallback<
+    BusinessContextFamilyUpdate<BusinessContextDrafts['businessDetails']>
+  >((updater) => updateFamily('businessDetails', updater), [updateFamily]);
+  const updateLinks = useCallback<BusinessContextFamilyUpdate<BusinessContextDrafts['links']>>(
+    (updater) => updateFamily('links', updater),
+    [updateFamily],
+  );
+  const updateCategories = useCallback<
+    BusinessContextFamilyUpdate<BusinessContextDrafts['categories']>
+  >((updater) => updateFamily('categories', updater), [updateFamily]);
+  const updateServiceAreas = useCallback<
+    BusinessContextFamilyUpdate<BusinessContextDrafts['serviceAreas']>
+  >((updater) => updateFamily('serviceAreas', updater), [updateFamily]);
+  const updateAttributes = useCallback<
+    BusinessContextFamilyUpdate<BusinessContextDrafts['attributes']>
+  >((updater) => updateFamily('attributes', updater), [updateFamily]);
+  const updateServiceItems = useCallback<
+    BusinessContextFamilyUpdate<BusinessContextDrafts['serviceItems']>
+  >((updater) => updateFamily('serviceItems', updater), [updateFamily]);
 
-    const next = deriveBusinessContextEditorState(snapshot);
-    setBusinessDetailsDraft(next.businessDetails);
-    setLinkDrafts(next.links);
-    setCategoryDrafts(next.categories);
-    resetServiceAreas(next.serviceAreas);
-    setAttributeDrafts(next.attributes);
-    setServiceItemDrafts(next.serviceItems);
-    setSeedSource(next.seedSource);
-    resetWorkflowState();
-  }, [
-    snapshot,
-    resetWorkflowState,
-    resetServiceAreas,
-    setAttributeDrafts,
-    setBusinessDetailsDraft,
-    setCategoryDrafts,
-    setLinkDrafts,
-    setServiceItemDrafts,
-  ]);
+  const businessDetailsActions = useBusinessContextBusinessDetailsDraft(
+    updateBusinessDetailsFamily,
+  );
+  const linkActions = useBusinessContextLinkDraft(updateLinks);
+  const categoryActions = useBusinessContextCategoryDraft(updateCategories);
+  const serviceAreaActions = useBusinessContextServiceAreaDraft(updateServiceAreas);
+  const attributeActions = useBusinessContextAttributeDraft(updateAttributes);
+  const serviceItemActions = useBusinessContextServiceItemDraft(updateServiceItems);
 
-  const resetFamily = (family: FamilyKey) => {
-    if (!snapshot) {
-      return;
-    }
+  const savedDrafts = useMemo(
+    () => deriveSavedBusinessContextDrafts(state.baseline),
+    [state.baseline],
+  );
+  const dirty = useMemo(
+    () => computeBusinessContextDirtyState(state.drafts, savedDrafts),
+    [savedDrafts, state.drafts],
+  );
+  const dirtyFamilies = useMemo(
+    () => DISCOVERY_SECTION_ORDER.filter((family) => dirty[family]),
+    [dirty],
+  );
 
-    const next = deriveBusinessContextFamilyState(snapshot, family);
-
-    if (family === 'businessDetails') {
-      setBusinessDetailsDraft(next.businessDetails ?? EMPTY_BUSINESS_DETAILS);
-    }
-    if (family === 'links') {
-      setLinkDrafts(next.links ?? []);
-    }
-    if (family === 'categories') {
-      setCategoryDrafts(next.categories ?? []);
-    }
-    if (family === 'serviceAreas') {
-      resetServiceAreas(next.serviceAreas ?? []);
-    }
-    if (family === 'attributes') {
-      setAttributeDrafts(next.attributes ?? []);
-    }
-    if (family === 'serviceItems') {
-      setServiceItemDrafts(next.serviceItems ?? []);
-    }
-
-    setSeedSource((current) => ({
-      ...current,
-      [family]: next.seedSource?.[family] ?? EMPTY_SEED_SOURCE[family],
-    }));
-    workflow.markFamilyClean(family);
-  };
+  const resetFamilies = useCallback(
+    (families: readonly FamilyKey[]) => dispatch({ type: 'resetFamilies', families }),
+    [],
+  );
+  const applySavedSnapshot = useCallback(
+    (family: FamilyKey, saved: RestaurantBusinessContextSnapshot) =>
+      dispatch({ type: 'familySaved', family, snapshot: saved }),
+    [],
+  );
 
   return {
-    activeTab,
-    setActiveTab,
-    businessDetails,
-    links,
-    categories,
-    serviceAreas,
-    serviceAreaDraft,
-    setServiceAreaDraft,
-    attributes,
-    serviceItems,
-    seedSource,
-    dirty: workflow.dirty,
-    errors: workflow.errors,
-    savedFamily: workflow.savedFamily,
-    isDirty: workflow.isDirty,
-    payloadState,
-    updateBusinessDetails,
-    addLink,
-    updateLink,
-    removeLink,
-    addCategory,
-    updateCategory,
-    removeCategory,
-    updateMoreHoursDraft,
-    addMoreHoursTypes,
-    removeMoreHoursType,
-    updateServiceArea,
-    addServiceAreaFromDraft,
-    removeServiceArea,
-    toggleAmenityAttribute,
-    addAttribute,
-    updateAttribute,
-    removeAttribute,
-    addServiceItem,
-    updateServiceItem,
-    removeServiceItem,
-    resetFamily,
-    prepareFamilySave: workflow.prepareFamilySave,
-    markFamilySaved: workflow.markFamilySaved,
-    markFamilySaveFailed: workflow.markFamilySaveFailed,
+    ...state.drafts,
+    drafts: state.drafts,
+    savedDrafts,
+    baseline: state.baseline,
+    seedSource: state.seedSource,
+    dirty,
+    dirtyFamilies,
+    isDirty: dirtyFamilies.length > 0,
+    ...businessDetailsActions,
+    ...linkActions,
+    ...categoryActions,
+    ...serviceAreaActions,
+    ...attributeActions,
+    ...serviceItemActions,
+    resetFamilies,
+    applySavedSnapshot,
   };
 }

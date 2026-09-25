@@ -1,84 +1,169 @@
-import { Building2, MapPin, MegaphoneIcon, ScanLine } from 'lucide-react';
+import { sanitizePayload } from '../../../../../components/ops/restaurants/restaurantDetailsFormModel';
 
-import type { ProfileDirtyKey } from '../restaurantProfileModel';
-import type { LucideIcon } from 'lucide-react';
+import type { ProfileAnalyticsSection } from '../../../../../components/ops/restaurants/details/shared';
+import type {
+  DetailsField,
+  FormState,
+} from '../../../../../components/ops/restaurants/restaurantDetailsFormModel';
+import type { RestaurantProfile } from '@/services/ops/restaurants';
 
-export type ProfileSectionId = 'brand' | 'contact' | 'advanced' | 'notifications';
+/** Section ids double as the analytics `dirty_sections` keys, so they stay stable. */
+export type ProfileSectionId = 'public' | 'notifications';
 
 export type ProfileSectionDefinition = {
   id: ProfileSectionId;
-  /** Stable dirty key on the form model. */
-  dirtyKey: Extract<ProfileDirtyKey, ProfileSectionId>;
-  /** Short nav label. */
-  navLabel: string;
-  /** Headline rendered in the pane. */
-  paneTitle: string;
-  /** One-line subtitle in the pane. */
-  paneDescription: string;
-  /** Sentence answering "what does this control for guests vs staff?". */
-  audience: string;
-  /** Readiness step displayed in the Profile rail. */
-  setupStep?: number;
-  icon: LucideIcon;
-  /** Legacy hash segment for inbound deep links only (not rendered as a DOM id). */
-  legacyHash: string;
+  /** Section name used in the jump bar, the save bar and the success toast. */
+  name: string;
+  description: string;
+  /** Who sees what this section controls. */
+  audience: 'Guest-facing' | 'Staff only';
+  /** DOM id of the section. Other pages link to these anchors, so they never change. */
+  anchorId: string;
+  /** Fields in the order they appear on the page. */
+  fields: readonly DetailsField[];
+  analyticsSection: ProfileAnalyticsSection;
+  /** The partial payload this section sends to `PATCH /api/ops/restaurants/:id`. */
+  buildPayload: (state: FormState) => Partial<RestaurantProfile>;
 };
+
+/** A labelled group of fields inside a section, with its own jump-bar anchor. */
+export type ProfileFieldGroupDefinition = {
+  name: string;
+  /** DOM id of the group. Other pages deep-link here, so these never change. */
+  anchorId: string;
+  fields: readonly DetailsField[];
+};
+
+/**
+ * The public details form: identity and booking page link first, then location and contact.
+ * It is one form, saved in one request.
+ */
+export const PROFILE_FIELD_GROUPS: readonly ProfileFieldGroupDefinition[] = [
+  {
+    name: 'Name and booking link',
+    anchorId: 'profile-identity',
+    fields: ['name', 'slug', 'businessDescription'],
+  },
+  {
+    name: 'Location and contact',
+    anchorId: 'profile-contact',
+    fields: [
+      'timezone',
+      'address',
+      'googleMapUrl',
+      'contactPhone',
+      'contactEmail',
+      'googleReviewUrl',
+    ],
+  },
+];
+
+/** Anchor of the booking page link field; older links point straight at it. */
+export const PROFILE_BOOKING_URL_ANCHOR_ID = 'profile-booking-url';
 
 export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = [
   {
-    id: 'brand',
-    dirtyKey: 'brand',
-    navLabel: 'Brand',
-    paneTitle: 'Brand and identity',
-    paneDescription: 'Logo, name, and short public description guests recognise first.',
-    audience: 'Guest-facing.',
-    setupStep: 1,
-    icon: Building2,
-    legacyHash: 'profile-identity',
+    id: 'public',
+    name: 'Public details',
+    description: 'Shown on your booking page, confirmations and previews.',
+    audience: 'Guest-facing',
+    anchorId: 'profile-public-details',
+    fields: PROFILE_FIELD_GROUPS.flatMap((group) => group.fields),
+    analyticsSection: 'public_details',
+    buildPayload: (state) => {
+      const payload = sanitizePayload(state);
+      return {
+        name: payload.name,
+        slug: payload.slug,
+        businessDescription: payload.businessDescription,
+        timezone: payload.timezone,
+        contactEmail: payload.contactEmail,
+        contactPhone: payload.contactPhone,
+        address: payload.address,
+        googleMapUrl: payload.googleMapUrl,
+        googleReviewUrl: payload.googleReviewUrl,
+      };
+    },
   },
-  {
-    id: 'advanced',
-    dirtyKey: 'advanced',
-    navLabel: 'Booking link',
-    paneTitle: 'Public booking page URL',
-    paneDescription: 'The link guests open to book this restaurant.',
-    audience: 'Guest-facing. Required to take bookings.',
-    setupStep: 2,
-    icon: ScanLine,
-    legacyHash: 'profile-booking-url',
-  },
-  {
-    id: 'contact',
-    dirtyKey: 'contact',
-    navLabel: 'Contact',
-    paneTitle: 'Contact and location',
-    paneDescription: 'Phone, email, address, directions, and review links.',
-    audience: 'Guest-facing.',
-    setupStep: 3,
-    icon: MapPin,
-    legacyHash: 'profile-contact',
-  },
+];
+
+/**
+ * Staff communications: who the restaurant tells about bookings. Restaurant-level settings,
+ * saved through the same restaurant update endpoint as before.
+ */
+export const STAFF_COMMUNICATIONS_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = [
   {
     id: 'notifications',
-    dirtyKey: 'notifications',
-    navLabel: 'Manager alerts',
-    paneTitle: 'Manager alerts',
-    paneDescription: 'Internal booking-summary alerts for managers.',
-    audience: 'Staff-only. Guests never see these settings.',
-    setupStep: 4,
-    icon: MegaphoneIcon,
-    legacyHash: 'profile-notifications',
+    name: 'Manager alerts',
+    description: 'Who gets told about bookings. Guests never see the alert number.',
+    audience: 'Staff only',
+    anchorId: 'staff-communications-manager-alerts',
+    fields: [
+      'managerName',
+      'managerNotificationPhone',
+      'managerDailySummaryEnabled',
+      'managerWhatsappEnabled',
+    ],
+    analyticsSection: 'manager_notifications',
+    buildPayload: (state) => {
+      const payload = sanitizePayload(state);
+      return {
+        managerName: payload.managerName,
+        managerNotificationPhone: payload.managerNotificationPhone,
+        managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
+        managerWhatsappEnabled: payload.managerWhatsappEnabled,
+      };
+    },
   },
-] as const;
+];
 
-export function findProfileSection(id: ProfileSectionId): ProfileSectionDefinition {
-  const match = PROFILE_SECTION_DEFINITIONS.find((section) => section.id === id);
-  if (!match) {
-    throw new Error(`Unknown profile section id: ${id}`);
+/** Every field the Profile page edits, in page order. */
+export const PROFILE_FIELD_ORDER: readonly DetailsField[] = PROFILE_SECTION_DEFINITIONS.flatMap(
+  (section) => section.fields,
+);
+
+export const PROFILE_FIELD_LABELS: Partial<Record<DetailsField, string>> = {
+  name: 'Restaurant name',
+  businessDescription: 'Business description',
+  slug: 'Booking page link',
+  timezone: 'Timezone',
+  address: 'Address',
+  googleMapUrl: 'Google Maps link',
+  contactPhone: 'Public phone',
+  contactEmail: 'Contact email',
+  googleReviewUrl: 'Guest review link',
+  managerName: 'Manager name',
+  managerNotificationPhone: 'Manager alert number',
+  managerDailySummaryEnabled: 'Daily booking summary',
+  managerWhatsappEnabled: 'Try WhatsApp first',
+};
+
+/** DOM id of each field's control, used by "Show first issue" and the readiness links. */
+export const PROFILE_FIELD_DOM_IDS: Partial<Record<DetailsField, string>> = {
+  name: 'restaurant-name',
+  businessDescription: 'restaurant-business-description',
+  slug: 'restaurant-slug',
+  timezone: 'restaurant-timezone',
+  address: 'restaurant-address',
+  googleMapUrl: 'restaurant-google-map',
+  contactPhone: 'restaurant-phone',
+  contactEmail: 'restaurant-email',
+  googleReviewUrl: 'restaurant-google-review',
+  managerName: 'restaurant-manager-name',
+  managerNotificationPhone: 'restaurant-manager-notification-phone',
+  managerDailySummaryEnabled: 'restaurant-manager-daily-summary-enabled',
+  managerWhatsappEnabled: 'restaurant-manager-whatsapp-enabled',
+};
+
+/** Scrolls a field into view and focuses it without a second scroll jump. */
+export function focusProfileElement(elementId: string) {
+  const element = typeof document !== 'undefined' ? document.getElementById(elementId) : null;
+  if (!(element instanceof HTMLElement)) {
+    return;
   }
-  return match;
-}
-
-export function findProfileSectionByLegacyHash(hash: string): ProfileSectionDefinition | undefined {
-  return PROFILE_SECTION_DEFINITIONS.find((section) => section.legacyHash === hash);
+  const reduceMotion =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  element.scrollIntoView?.({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
+  element.focus({ preventScroll: true });
 }

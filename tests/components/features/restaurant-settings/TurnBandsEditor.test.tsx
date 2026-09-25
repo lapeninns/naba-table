@@ -37,7 +37,9 @@ describe('TurnBandsEditor', () => {
   it('@contract updates a row when its duration is edited', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render(<TurnBandsEditor bands={[{ maxPartySize: 2, durationMinutes: 60 }]} onChange={onChange} />);
+    render(
+      <TurnBandsEditor bands={[{ maxPartySize: 2, durationMinutes: 60 }]} onChange={onChange} />,
+    );
 
     const duration = screen.getByLabelText('Duration in minutes');
     await user.type(duration, '5');
@@ -50,7 +52,7 @@ describe('TurnBandsEditor', () => {
     const onChange = vi.fn();
     render(<TurnBandsEditor bands={bands} onChange={onChange} />);
 
-    await user.click(screen.getAllByRole('button', { name: 'Remove band' })[0]);
+    await user.click(screen.getAllByRole('button', { name: /Remove band/ })[0]);
 
     expect(onChange).toHaveBeenCalledWith([{ maxPartySize: 6, durationMinutes: 120 }]);
   });

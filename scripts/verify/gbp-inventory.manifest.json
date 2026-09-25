@@ -12513,15 +12513,6 @@
     },
     {
       "kind": "content",
-      "signature": "src/components/features/restaurant-settings/google-business-profile/components/GbpOverviewCard.tsx#manageOnGoogleHref",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
       "signature": "src/components/features/restaurant-settings/google-business-profile/googleBusinessProfileSectionStateDomain.ts#manageOnGoogleHref",
       "owner": "data-governance",
       "category": "repository-wide-provider-content",
@@ -12585,43 +12576,7 @@
     },
     {
       "kind": "content",
-      "signature": "src/components/features/restaurant-settings/google-business-profile/sections/GbpSyncSummarySection.tsx#gbpDrift",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
-      "signature": "src/components/features/restaurant-settings/google-business-profile/sections/GoogleBusinessProfileOverviewPanel.tsx#manageOnGoogleHref",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
-      "signature": "src/components/features/restaurant-settings/google-business-profile/useGoogleBusinessProfileSectionState.ts#gbpDrift",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
       "signature": "src/components/features/restaurant-settings/google-business-profile/useGoogleBusinessProfileSectionState.ts#handleConnectGoogle",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
-      "signature": "src/components/features/restaurant-settings/google-business-profile/useGoogleBusinessProfileSectionState.ts#manageOnGoogleHref",
       "owner": "data-governance",
       "category": "repository-wide-provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
@@ -12635,7 +12590,7 @@
       "category": "repository-wide-provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 2
+      "expectedCount": 1
     },
     {
       "kind": "content",

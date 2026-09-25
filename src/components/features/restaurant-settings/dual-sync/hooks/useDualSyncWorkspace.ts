@@ -10,14 +10,9 @@ import type { DualSyncSectionKey } from '@/server/dual-sync';
 type UseDualSyncWorkspaceArgs = {
   restaurantId: string;
   sections?: ReadonlyArray<DualSyncSectionKey>;
-  singleOpenSections: boolean;
 };
 
-export function useDualSyncWorkspace({
-  restaurantId,
-  sections,
-  singleOpenSections,
-}: UseDualSyncWorkspaceArgs) {
+export function useDualSyncWorkspace({ restaurantId, sections }: UseDualSyncWorkspaceArgs) {
   const lazyPanels = useDualSyncLazyPanelState();
 
   const dualSync = useOpsDualSync({
@@ -33,7 +28,6 @@ export function useDualSyncWorkspace({
   const reviewState = useDualSyncWorkspaceReviewState({
     fields,
     sections,
-    singleOpenSections,
     coreSnapshotHash: dualSync.stateQuery.data?.coreSnapshotHash,
     gbpSnapshotHash: dualSync.stateQuery.data?.gbpSnapshotHash,
   });

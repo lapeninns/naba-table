@@ -2,7 +2,8 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SectionAccordionTable } from '@/components/features/menu/menuHierarchySections';
+import { MenuSectionList } from '@/components/features/menu/menuHierarchySections';
+import { HttpError } from '@/lib/http/errors';
 
 import {
   makeItem,
@@ -15,19 +16,32 @@ import {
 const hooks = vi.hoisted(() => ({
   patchSection: undefined as unknown as MutationStub,
   patchItem: undefined as unknown as MutationStub,
-  patchOption: undefined as unknown as MutationStub,
 }));
+
+const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+
+vi.mock('sonner', () => ({ toast: toastMock }));
 
 vi.mock('@/hooks/ops/useOpsMenuHierarchy', () => ({
   useOpsPatchRestaurantMenuSection: () => hooks.patchSection,
   useOpsPatchRestaurantMenuItem: () => hooks.patchItem,
-  useOpsPatchRestaurantMenuOption: () => hooks.patchOption,
 }));
 
 const twoSectionMenu = () =>
   makeMenu({
     sections: [
-      makeSection({ id: 'section-1', displayOrder: 1 }),
+      makeSection({
+        id: 'section-1',
+        displayOrder: 1,
+        items: [
+          makeItem({ id: 'item-1' }),
+          makeItem({
+            id: 'item-2',
+            labels: [{ displayName: 'Soup', description: 'Of the day', languageCode: 'en-GB' }],
+            extensions: { availabilityPolicy: { soldOut: true } },
+          }),
+        ],
+      }),
       makeSection({
         id: 'section-2',
         displayOrder: 2,
@@ -38,71 +52,60 @@ const twoSectionMenu = () =>
     ],
   });
 
-function renderSections(overrides: Partial<Parameters<typeof SectionAccordionTable>[0]> = {}) {
+function renderSections(overrides: Partial<Parameters<typeof MenuSectionList>[0]> = {}) {
   const props = {
     menu: twoSectionMenu(),
     gbpDriftFields: [],
-    selectedSectionId: 'section-1',
     restaurantId: 'rest-1',
-    onSelectSection: vi.fn(),
+    onCreateSection: vi.fn(),
     onCreateItem: vi.fn(),
     onEditSection: vi.fn(),
     onDeleteSection: vi.fn(),
     onEditItem: vi.fn(),
     onDeleteItem: vi.fn(),
     onCreateOption: vi.fn(),
-    onEditOption: vi.fn(),
-    onDeleteOption: vi.fn(),
     ...overrides,
   };
-  render(<SectionAccordionTable {...props} />);
+  render(<MenuSectionList {...props} />);
   return props;
 }
 
-describe('SectionAccordionTable', () => {
+describe('MenuSectionList', () => {
   beforeEach(() => {
     hooks.patchSection = mutationStub();
     hooks.patchItem = mutationStub();
-    hooks.patchOption = mutationStub();
+    toastMock.success.mockReset();
+    toastMock.error.mockReset();
   });
 
-  it('@smoke shows an empty state when the menu has no sections', () => {
-    renderSections({ menu: makeMenu({ sections: [] }) });
+  it('@smoke offers Add section when the menu has no sections', async () => {
+    const user = userEvent.setup();
+    const props = renderSections({ menu: makeMenu({ sections: [] }) });
 
     expect(screen.getByText('No sections yet')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Add section' }));
+    expect(props.onCreateSection).toHaveBeenCalledTimes(1);
   });
 
-  it('@smoke renders section titles, item counts, and inactive badges', () => {
+  it('@smoke renders every section open with its heading, item count and hidden badge', () => {
     renderSections();
 
-    expect(screen.getByText('Starters')).toBeInTheDocument();
-    expect(screen.getByText('Mains')).toBeInTheDocument();
-    expect(screen.getByText('1 item')).toBeInTheDocument();
-    expect(screen.getByText('0 items')).toBeInTheDocument();
-    expect(screen.getByText('Inactive')).toBeInTheDocument();
-  });
+    const starters = screen.getByRole('region', { name: /Starters/ });
+    expect(within(starters).getByRole('heading', { level: 3 })).toHaveTextContent('Starters');
+    expect(within(starters).getByText('2 items')).toBeInTheDocument();
+    expect(within(starters).getByText('Burrata')).toBeInTheDocument();
 
-  it('@contract expands the selected section to reveal its item table', () => {
-    renderSections();
-
-    expect(within(screen.getByRole('table')).getByText('Burrata')).toBeInTheDocument();
-  });
-
-  it('@contract selecting a collapsed section reports its id', async () => {
-    const user = userEvent.setup();
-    const props = renderSections();
-
-    await user.click(screen.getByRole('button', { name: /^Mains/ }));
-
-    expect(props.onSelectSection).toHaveBeenCalledWith('section-2');
+    const mains = screen.getByRole('region', { name: /Mains/ });
+    expect(within(mains).getByText('0 items')).toBeInTheDocument();
+    expect(within(mains).getByText('Hidden')).toBeInTheDocument();
+    expect(within(mains).getByText('No items in this section yet.')).toBeInTheDocument();
   });
 
   it('@contract moving a section down swaps display orders via two patches', async () => {
     const user = userEvent.setup();
     renderSections();
 
-    const [moveFirstDown] = screen.getAllByRole('button', { name: 'Move section down' });
-    await user.click(moveFirstDown);
+    await user.click(screen.getByRole('button', { name: 'Move Starters down' }));
 
     await waitFor(() => expect(hooks.patchSection.mutateAsync).toHaveBeenCalledTimes(2));
     expect(hooks.patchSection.mutateAsync).toHaveBeenCalledWith({
@@ -115,26 +118,38 @@ describe('SectionAccordionTable', () => {
       sectionId: 'section-2',
       payload: { displayOrder: 1 },
     });
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Section order saved.'));
+  });
+
+  it('@contract keeps the failure toast when a move fails', async () => {
+    const user = userEvent.setup();
+    hooks.patchSection.mutateAsync.mockRejectedValue(
+      new HttpError({ message: 'x', status: 500, code: 'HTTP_500' }),
+    );
+    renderSections();
+
+    await user.click(screen.getByRole('button', { name: 'Move Starters down' }));
+
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith(
+        'Could not move the section. The order is unchanged. Reason code HTTP_500.',
+      ),
+    );
   });
 
   it('@contract disables move-up on the first and move-down on the last section', () => {
     renderSections();
 
-    const ups = screen.getAllByRole('button', { name: 'Move section up' });
-    const downs = screen.getAllByRole('button', { name: 'Move section down' });
-    expect(ups[0]).toBeDisabled();
-    expect(downs[downs.length - 1]).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move Starters up' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move Mains down' })).toBeDisabled();
   });
 
-  it('@contract @a11y edits and deletes a section through its actions menu', async () => {
+  it('@contract @a11y edits a section from its header and deletes it from its actions menu', async () => {
     const user = userEvent.setup();
     const props = renderSections();
 
-    await user.click(screen.getByRole('button', { name: 'Open section actions for Starters' }));
-    await user.click(await screen.findByRole('menuitem', { name: 'Edit section' }));
-    expect(props.onEditSection).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'section-1' }),
-    );
+    await user.click(screen.getByRole('button', { name: 'Edit Starters' }));
+    expect(props.onEditSection).toHaveBeenCalledWith(expect.objectContaining({ id: 'section-1' }));
 
     await user.click(screen.getByRole('button', { name: 'Open section actions for Starters' }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete section' }));
@@ -147,16 +162,30 @@ describe('SectionAccordionTable', () => {
     const user = userEvent.setup();
     const props = renderSections();
 
-    const [addToFirst] = screen.getAllByRole('button', { name: 'Add item' });
-    await user.click(addToFirst);
+    await user.click(screen.getByRole('button', { name: 'Add item to Mains' }));
 
-    expect(props.onCreateItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'section-1' }));
+    expect(props.onCreateItem).toHaveBeenCalledWith(expect.objectContaining({ id: 'section-2' }));
   });
 
-  it('@contract renders items of items-bearing sections through ItemTable', () => {
-    renderSections();
+  it('@contract search hides non-matching items and empty sections', () => {
+    renderSections({ filter: { query: 'soup', status: 'all' } });
 
-    const mobileLists = screen.getAllByTestId('mobile-item-list');
-    expect(within(mobileLists[0]).getByText('Burrata')).toBeInTheDocument();
+    expect(screen.getByText('Soup')).toBeInTheDocument();
+    expect(screen.queryByText('Burrata')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /Mains/ })).not.toBeInTheDocument();
+  });
+
+  it('@contract the Sold out filter keeps only sold-out items', () => {
+    renderSections({ filter: { query: '', status: 'sold-out' } });
+
+    expect(screen.getByText('Soup')).toBeInTheDocument();
+    expect(screen.queryByText('Burrata')).not.toBeInTheDocument();
+  });
+
+  it('@contract shows No items match when the filter matches nothing', () => {
+    renderSections({ filter: { query: 'zzz', status: 'all' } });
+
+    expect(screen.getByText('No items match')).toBeInTheDocument();
+    expect(screen.getByText('Try another search or filter.')).toBeInTheDocument();
   });
 });

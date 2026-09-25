@@ -17,19 +17,31 @@ import {
   useGbpDriftStatus,
 } from './GbpDriftProvider';
 import { mergeGbpDriftSectionStatuses } from './gbpDriftStatus';
-import { RESTAURANT_SETTINGS_NAV_ITEMS } from './routes';
+import {
+  RESTAURANT_SETTINGS_NAV_ITEMS,
+  RESTAURANT_SETTINGS_OVERVIEW_ROUTE,
+  RESTAURANT_SETTINGS_ROUTE_MAP,
+  RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS,
+  type RestaurantSettingsNavItem,
+} from './routes';
 
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 
 type Prefetcher = () => Promise<unknown> | undefined;
-export type SettingsHref = (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number]['href'];
+const OVERVIEW_NAV_ITEM: RestaurantSettingsNavItem = RESTAURANT_SETTINGS_OVERVIEW_ROUTE;
+
+export type SettingsHref =
+  | (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number]['href']
+  | typeof OVERVIEW_NAV_ITEM.href;
 type PrefetchMap = Partial<Record<SettingsHref, Prefetcher>>;
 type NavDriftSectionMap = Partial<Record<SettingsHref, ReadonlyArray<DualSyncSectionKey>>>;
 
+/** `label: null` renders the group without a heading (Restaurant setup sits above the groups). */
 export const RESTAURANT_SETTINGS_NAV_GROUPS: Array<{
-  label: string;
+  label: string | null;
   hrefs: SettingsHref[];
 }> = [
+  { label: null, hrefs: ['/app/settings/restaurant'] },
   {
     label: 'Required setup',
     hrefs: [
@@ -39,12 +51,12 @@ export const RESTAURANT_SETTINGS_NAV_GROUPS: Array<{
     ],
   },
   {
-    label: 'Operations',
-    hrefs: [
-      '/app/settings/restaurant/discovery',
-      '/app/settings/restaurant/menu',
-      '/app/settings/restaurant/team',
-    ],
+    label: 'Restaurant details',
+    hrefs: ['/app/settings/restaurant/discovery', '/app/settings/restaurant/menu'],
+  },
+  {
+    label: 'Staff',
+    hrefs: ['/app/settings/restaurant/team', '/app/settings/restaurant/staff-communications'],
   },
   {
     label: 'Integrations',
@@ -52,14 +64,31 @@ export const RESTAURANT_SETTINGS_NAV_GROUPS: Array<{
   },
 ];
 
+const ALL_NAV_ITEMS: RestaurantSettingsNavItem[] = [
+  OVERVIEW_NAV_ITEM,
+  ...RESTAURANT_SETTINGS_NAV_ITEMS,
+];
+
 export const GROUPED_RESTAURANT_SETTINGS_NAV_ITEMS = RESTAURANT_SETTINGS_NAV_GROUPS.map(
   (group) => ({
     ...group,
     items: group.hrefs
-      .map((href) => RESTAURANT_SETTINGS_NAV_ITEMS.find((item) => item.href === href))
-      .filter((item): item is (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number] => Boolean(item)),
+      .map((href) => ALL_NAV_ITEMS.find((item) => item.href === href))
+      .filter((item): item is RestaurantSettingsNavItem => Boolean(item)),
   }),
 );
+
+/** Unsaved-changes registry ids that mark each sidebar item "Unsaved". */
+const NAV_UNSAVED_ENTRY_IDS: Partial<Record<SettingsHref, string>> = Object.fromEntries(
+  Object.entries(RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS).map(([view, id]) => [
+    RESTAURANT_SETTINGS_ROUTE_MAP[view as keyof typeof RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS].href,
+    id,
+  ]),
+);
+
+export function getRestaurantSettingsNavUnsavedEntryId(href: string): string | undefined {
+  return NAV_UNSAVED_ENTRY_IDS[href as SettingsHref];
+}
 
 const NAV_DRIFT_SECTIONS: NavDriftSectionMap = {
   '/app/settings/restaurant/profile': ['profile'],
@@ -85,7 +114,7 @@ const NAV_DRIFT_SECTIONS: NavDriftSectionMap = {
 
 export function isRestaurantSettingsRouteActive(pathname: string, href: string) {
   const normalizedHref = normalizeOpsPathname(href);
-  if (normalizedHref === '/settings/restaurant') {
+  if (normalizedHref === normalizeOpsPathname(OVERVIEW_NAV_ITEM.href)) {
     return pathname === normalizedHref;
   }
   return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
@@ -93,7 +122,7 @@ export function isRestaurantSettingsRouteActive(pathname: string, href: string) 
 
 export function isRestaurantSettingsNavItemActive(
   pathname: string,
-  item: (typeof RESTAURANT_SETTINGS_NAV_ITEMS)[number],
+  item: RestaurantSettingsNavItem,
 ) {
   if (isRestaurantSettingsRouteActive(pathname, item.href)) {
     return true;
@@ -147,6 +176,14 @@ export function useRestaurantSettingsNav() {
 
     return {
       '/app/settings/restaurant/profile': () =>
+        prefetchIfStale({
+          queryClient,
+          queryKey: queryKeys.opsRestaurants.detail(id),
+          queryFn: () => restaurantService.getProfile(id),
+          enabled: true,
+        }),
+      // Same restaurant record as Profile.
+      '/app/settings/restaurant/staff-communications': () =>
         prefetchIfStale({
           queryClient,
           queryKey: queryKeys.opsRestaurants.detail(id),
@@ -211,8 +248,9 @@ export function useRestaurantSettingsNav() {
       '/app/settings/restaurant/team': () =>
         prefetchIfStale({
           queryClient,
-          queryKey: queryKeys.team.invitations(id),
-          queryFn: () => teamService.listInvites(id, 'pending'),
+          // The Team page loads every invitation once and filters on the device.
+          queryKey: queryKeys.team.invitations(id, 'all'),
+          queryFn: () => teamService.listInvites(id, 'all'),
           enabled: true,
         }),
     };

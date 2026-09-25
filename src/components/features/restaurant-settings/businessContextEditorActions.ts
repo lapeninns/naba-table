@@ -43,6 +43,37 @@ export function createCategoryEditor(): CategoryEditor {
   };
 }
 
+/**
+ * Adds a named category. The first category becomes the main one, as a listing needs one.
+ */
+export function addNamedCategoryEditor(
+  categories: CategoryEditor[],
+  row: CategoryEditor,
+): CategoryEditor[] {
+  return [...categories, { ...row, isPrimary: categories.length === 0 }];
+}
+
+/** Marks one category as the main one and clears the others: only one can be main. */
+export function makePrimaryCategoryEditor(
+  categories: CategoryEditor[],
+  rowId: string,
+): CategoryEditor[] {
+  return categories.map((item) => ({ ...item, isPrimary: item.id === rowId }));
+}
+
+/** Removes a category; when the main one goes, the first remaining category becomes main. */
+export function removeCategoryEditor(
+  categories: CategoryEditor[],
+  rowId: string,
+): CategoryEditor[] {
+  const removed = categories.find((item) => item.id === rowId);
+  const remaining = removeEditorRow(categories, rowId);
+  if (!removed?.isPrimary || remaining.length === 0 || remaining.some((item) => item.isPrimary)) {
+    return remaining;
+  }
+  return remaining.map((item, index) => (index === 0 ? { ...item, isPrimary: true } : item));
+}
+
 export function updateCategoryMoreHoursDraft(
   categories: CategoryEditor[],
   rowId: string,
@@ -106,6 +137,18 @@ export function removeMoreHoursTypeFromCategory(
   );
 }
 
+/** Adds an area by name unless it is already listed. */
+export function addNamedServiceAreaEditor(
+  serviceAreas: ServiceAreaEditor[],
+  row: ServiceAreaEditor,
+): ServiceAreaEditor[] {
+  const name = row.displayName.trim().toLowerCase();
+  if (!name || serviceAreas.some((item) => item.displayName.trim().toLowerCase() === name)) {
+    return serviceAreas;
+  }
+  return [...serviceAreas, row];
+}
+
 export function createServiceAreaEditor(displayName: string): ServiceAreaEditor {
   return {
     id: makeEditorId('service-area'),
@@ -143,9 +186,12 @@ export function createAttributeEditor(): AttributeEditor {
   };
 }
 
+export type AmenityValue = AttributeEditor['boolValue'];
+
 export function createAmenityAttributeEditor(
   definition: AmenityAttributeDefinition,
   groupTitle: string,
+  value: Exclude<AmenityValue, 'unset'> = 'true',
 ): AttributeEditor {
   return {
     ...createAttributeEditor(),
@@ -155,37 +201,47 @@ export function createAmenityAttributeEditor(
     attributeId: definition.key,
     displayName: definition.label,
     valueType: 'boolean',
-    boolValue: 'true',
+    boolValue: value,
   };
 }
 
-export function toggleAmenityAttributeEditor(
+function isUnsavedEditorRow(row: { id: string }, prefix: string): boolean {
+  return row.id.startsWith(`${prefix}-`);
+}
+
+/**
+ * Sets an amenity to Yes, No or Not set. "Not set" keeps a saved row (its value becomes unknown)
+ * but drops a row that was only added in this draft, so nothing new is sent for it.
+ */
+export function setAmenityAttributeValue(
   attributes: AttributeEditor[],
   definition: AmenityAttributeDefinition,
   groupTitle: string,
-  checked: boolean,
+  value: AmenityValue,
 ): AttributeEditor[] {
   const existing = attributes.find((item) => item.attributeKey === definition.key);
-  if (existing) {
-    return attributes.map((item) =>
-      item.id === existing.id
-        ? {
-            ...item,
-            attributeGroup: item.attributeGroup || groupTitle,
-            attributeId: item.attributeId || definition.key,
-            displayName: item.displayName || definition.label,
-            valueType: item.valueType || 'boolean',
-            boolValue: checked ? 'true' : 'false',
-          }
-        : item,
-    );
+  if (!existing) {
+    return value === 'unset'
+      ? attributes
+      : [...attributes, createAmenityAttributeEditor(definition, groupTitle, value)];
   }
 
-  if (!checked) {
-    return attributes;
+  if (value === 'unset' && isUnsavedEditorRow(existing, 'attribute')) {
+    return removeEditorRow(attributes, existing.id);
   }
 
-  return [...attributes, createAmenityAttributeEditor(definition, groupTitle)];
+  return attributes.map((item) =>
+    item.id === existing.id
+      ? {
+          ...item,
+          attributeGroup: item.attributeGroup || groupTitle,
+          attributeId: item.attributeId || definition.key,
+          displayName: item.displayName || definition.label,
+          valueType: item.valueType || 'boolean',
+          boolValue: value,
+        }
+      : item,
+  );
 }
 
 export function createServiceItemEditor(): ServiceItemEditor {

@@ -1,40 +1,28 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import { createLinkEditor, removeEditorRow, updateEditorRow } from './businessContextEditorActions';
 
 import type { LinkEditor } from './businessContextModel';
 
-type UseBusinessContextLinkDraftOptions = {
-  onDirty: () => void;
-};
+/** Applies an update to one section of the Discovery draft. */
+export type BusinessContextFamilyUpdate<T> = (updater: (current: T) => T) => void;
 
-export function useBusinessContextLinkDraft({ onDirty }: UseBusinessContextLinkDraftOptions) {
-  const [links, setLinks] = useState<LinkEditor[]>([]);
-
-  const addLink = () => {
-    setLinks((current) => [...current, createLinkEditor()]);
-    onDirty();
-  };
-
-  const updateLink = <Key extends keyof LinkEditor>(
-    rowId: string,
-    field: Key,
-    value: LinkEditor[Key],
-  ) => {
-    setLinks((current) => updateEditorRow(current, rowId, field, value));
-    onDirty();
-  };
-
-  const removeLink = (rowId: string) => {
-    setLinks((current) => removeEditorRow(current, rowId));
-    onDirty();
-  };
-
-  return {
-    links,
-    setLinks,
-    addLink,
-    updateLink,
-    removeLink,
-  };
+export function useBusinessContextLinkDraft(update: BusinessContextFamilyUpdate<LinkEditor[]>) {
+  return useMemo(
+    () => ({
+      /** Adds an empty link and returns its row id, so focus can move to it. */
+      addLink: () => {
+        const row = createLinkEditor();
+        update((current) => [...current, row]);
+        return row.id;
+      },
+      updateLink: <Key extends keyof LinkEditor>(
+        rowId: string,
+        field: Key,
+        value: LinkEditor[Key],
+      ) => update((current) => updateEditorRow(current, rowId, field, value)),
+      removeLink: (rowId: string) => update((current) => removeEditorRow(current, rowId)),
+    }),
+    [update],
+  );
 }

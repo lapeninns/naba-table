@@ -53,6 +53,11 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 240 10% 4%;
+    /* Status text on the 10% status tint (badges, inline status). The fill tones
+       above fail 4.5:1 as small text on their own tint; these deep steps pass
+       (success 4.8:1 on #f0fdf4, warning 4.8:1 on #fffbeb). */
+    --success-text: 142 72% 29%; /* #15803d */
+    --warning-text: 26 90% 37%; /* #b45309 */
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
     --border: 240 6% 90%;
@@ -281,6 +286,13 @@
     --pg-density-card-py: 1.25rem;
     --pg-density-control-h: 2.75rem;
 
+    /* Ops focused-mode chrome (restaurant settings). One chrome height and one
+       horizontal gutter shared by the header, docked section tabs and the page
+       content so their left edges align at every breakpoint. The gutter steps
+       16 → 24 → 32px at sm and lg below. */
+    --ops-chrome-height: 3rem;
+    --ops-shell-gutter: 1rem;
+
     /* The legacy --guest-* alias block (space/text/leading/radius/shadow/
        transition/hover) was retired 2026-09-21 after a repo-wide grep found no
        remaining consumers; compose from the --pg-* tokens above instead. */
@@ -311,6 +323,18 @@
   @media (min-width: 640px) {
     [data-theme='app'] {
       --pg-density-card-px: 1.25rem;
+    }
+  }
+
+  @media (min-width: 640px) {
+    :root {
+      --ops-shell-gutter: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    :root {
+      --ops-shell-gutter: 2rem;
     }
   }
 
@@ -347,6 +371,8 @@
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 240 10% 4%;
+    --success-text: 142 71% 45%;
+    --warning-text: 38 92% 50%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
     --border: 240 4% 16%;

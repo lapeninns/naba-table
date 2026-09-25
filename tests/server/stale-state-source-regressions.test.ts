@@ -33,12 +33,11 @@ describe('stale state security regressions', () => {
 
   it('clears availability GBP draft overrides when field keys disappear or unmount', () => {
     const source = readSource(
-      'src/components/features/restaurant-settings/useAvailabilityScheduleManagerController.ts',
+      'src/components/features/restaurant-settings/availability/useAvailabilityPageController.ts',
     );
 
-    expect(source).toContain('registeredAvailabilityDraftKeysRef');
-    expect(source).toContain('staleKeys');
-    expect(source).toContain('clearDriftDraftOverrides?.(staleKeys)');
-    expect(source).toContain('clearDriftDraftOverrides?.(Array.from(nextKeys))');
+    expect(source).toContain('registeredDriftKeysRef');
+    expect(source).toContain('clearDriftDraftOverrides?.(stale)');
+    expect(source).toContain('clearDriftDraftOverrides?.([...nextKeys])');
   });
 });

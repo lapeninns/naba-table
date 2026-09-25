@@ -2,13 +2,15 @@ import { opsHref } from '@/lib/url/opsHref';
 
 import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
 
+import type { DualSyncSectionKey } from '@/server/dual-sync';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
 export const GBP_ANCHOR_IDS = ['gbp-connection', 'gbp-location', 'gbp-sync-review'] as const;
 
 export type GbpAnchorId = (typeof GBP_ANCHOR_IDS)[number];
-export type GbpWorkflowStage = 'connect' | 'location' | 'linked' | 'issue';
-export type GbpStepStatus = 'complete' | 'active' | 'blocked' | 'pending';
+export type GbpConnectionStatus = GoogleBusinessProfileConnection['status'];
+/** Step 2: locked until step 1 is done, then choose a listing, then chosen. */
+export type GbpLocationStep = 'locked' | 'choose' | 'chosen';
 export type PersistentGbpErrorKind = 'authorization' | 'callback' | 'disconnect' | 'link';
 export type PersistentGbpError = {
   kind: PersistentGbpErrorKind;
@@ -23,37 +25,32 @@ export const AVAILABILITY_SCHEDULE_HREF = opsHref(
   `/settings/restaurant/availability${availabilityHash(AVAILABILITY_ANCHORS.availabilitySchedule)}`,
 );
 
+const CONNECTION_DESCRIPTIONS: Record<GbpConnectionStatus, string> = {
+  unlinked: 'Connect Google to start.',
+  pending_auth: 'Finish signing in on the Google window.',
+  authorized: 'Google is connected. Pick the listing for this restaurant.',
+  linked: 'Connected and a location is chosen.',
+  sync_error: 'The last check with Google failed. Your saved settings are unchanged.',
+  reauth_required: 'Google access expired. Reconnect to keep comparing and publishing.',
+};
+
 export function isGbpAnchorId(value: string): value is GbpAnchorId {
   return GBP_ANCHOR_ID_SET.has(value);
 }
 
-export function getStage(
-  data: GoogleBusinessProfileConnection | null | undefined,
-): GbpWorkflowStage {
-  if (!data || data.status === 'unlinked' || data.status === 'pending_auth') {
-    return 'connect';
-  }
-  if (data.status === 'authorized') {
-    return 'location';
-  }
-  if (data.status === 'reauth_required' || data.status === 'sync_error') {
-    return 'issue';
-  }
-  return 'linked';
+export function getGbpConnectionDescription(status: GbpConnectionStatus): string {
+  return CONNECTION_DESCRIPTIONS[status];
 }
 
-export function getStageLabel(stage: GbpWorkflowStage): string {
-  switch (stage) {
-    case 'linked':
-      return 'Linked and ready';
-    case 'location':
-      return 'Choose location';
-    case 'issue':
-      return 'Action needed';
-    case 'connect':
-    default:
-      return 'Connect Google';
-  }
+/** Step 1 is done once Google has authorised Nabatable, even if access later needs renewing. */
+export function isGbpConnectionStepDone(status: GbpConnectionStatus): boolean {
+  return status !== 'unlinked' && status !== 'pending_auth';
+}
+
+export function getGbpLocationStep(status: GbpConnectionStatus): GbpLocationStep {
+  if (status === 'linked' || status === 'sync_error') return 'chosen';
+  if (status === 'authorized' || status === 'reauth_required') return 'choose';
+  return 'locked';
 }
 
 export function getLocationTitle(data: GoogleBusinessProfileConnection | null): string {
@@ -70,31 +67,14 @@ export function getConnectedAccountLabel(data: GoogleBusinessProfileConnection |
   return data.connectedGoogleEmail ?? data.connectedGoogleName ?? 'Google account not connected';
 }
 
-export function getStepStatus(
-  step: 'connect' | 'location' | 'review',
-  data: GoogleBusinessProfileConnection | null,
-  stage: GbpWorkflowStage,
-): GbpStepStatus {
-  if (!data || data.status === 'unlinked' || data.status === 'pending_auth') {
-    return step === 'connect' ? 'active' : 'blocked';
-  }
-  if (data.status === 'authorized' || data.status === 'reauth_required') {
-    if (step === 'connect') return 'complete';
-    if (step === 'location') return 'active';
-    return 'blocked';
-  }
-  if (data.status === 'sync_error') {
-    return step === 'review' ? 'active' : 'complete';
-  }
-  if (stage === 'linked') {
-    return step === 'review' ? 'pending' : 'complete';
-  }
-  return 'pending';
-}
-
-export function stepBadgeLabel(status: GbpStepStatus): string | undefined {
-  if (status === 'complete') return 'Done';
-  if (status === 'active') return 'Now';
-  if (status === 'blocked') return 'Locked';
-  return undefined;
-}
+/** The dual-sync sections reviewed in step 3 of the Google Business Profile page. */
+export const GBP_REVIEW_SECTIONS: ReadonlyArray<DualSyncSectionKey> = [
+  'profile',
+  'operatingHours',
+  'servicePeriods',
+  'businessContext.categories',
+  'businessContext.serviceAreas',
+  'businessContext.attributes',
+  'businessContext.serviceItems',
+  'foodMenus',
+];

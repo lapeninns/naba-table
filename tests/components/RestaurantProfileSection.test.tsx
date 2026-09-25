@@ -5,24 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const updateProfileMock = vi.hoisted(() => vi.fn());
 const analyticsTrackMock = vi.hoisted(() => vi.fn());
 const analyticsEmitMock = vi.hoisted(() => vi.fn());
-const businessContextData = vi.hoisted(() => ({
-  core: {
-    businessDetails: null,
-    links: [],
-    categories: [],
-    serviceAreas: [],
-    attributes: [],
-    serviceItems: [],
-  },
-  providerSnapshot: {
-    businessDetails: null,
-    links: [],
-    categories: [],
-    serviceAreas: [],
-    attributes: [],
-    serviceItems: [],
-  },
-}));
+const registerUnsavedMock = vi.hoisted(() => vi.fn());
+const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 const gbpConnectionData = vi.hoisted(() => ({
   isConfigured: false,
   provider: 'google_business_profile',
@@ -34,8 +18,11 @@ vi.mock('next/image', () => ({
   default: () => null,
 }));
 
+vi.mock('sonner', () => ({ toast: toastMock }));
+
 vi.mock('@/contexts/ops-unsaved-changes', () => ({
-  useRegisterOpsUnsavedChanges: vi.fn(),
+  useRegisterOpsUnsavedChanges: registerUnsavedMock,
+  useRegisterOptionalOpsUnsavedChanges: vi.fn(),
 }));
 
 vi.mock('@/lib/analytics', () => ({
@@ -65,18 +52,6 @@ vi.mock('@/hooks/ops/useOpsDualSync', () => ({
 
 vi.mock('@/hooks/ops/useOpsRestaurantLogoUpload', () => ({
   useOpsRestaurantLogoUpload: () => ({
-    mutateAsync: vi.fn(),
-    isPending: false,
-  }),
-}));
-
-vi.mock('@/hooks/ops/useOpsRestaurantBusinessContext', () => ({
-  useOpsRestaurantBusinessContext: () => ({
-    data: businessContextData,
-    isLoading: false,
-    error: null,
-  }),
-  useOpsUpdateRestaurantBusinessContext: () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
@@ -121,14 +96,20 @@ vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
   }),
 }));
 
-import {
-  buildProfileValues,
-  deriveReadiness,
-  displayProfileValue,
-} from '@/components/features/restaurant-settings/restaurantProfileModel';
 import { RestaurantProfileSection } from '@/components/features/restaurant-settings/RestaurantProfileSection';
+import { HttpError } from '@/lib/http/errors';
 
 import type { RestaurantProfile } from '@/services/ops/restaurants';
+
+function saveBar() {
+  return screen.getByRole('region', { name: 'Unsaved changes' });
+}
+
+async function renderProfile() {
+  const view = render(<RestaurantProfileSection restaurantId="rest-1" />);
+  await screen.findByRole('heading', { level: 2, name: 'Public details' });
+  return view;
+}
 
 describe('RestaurantProfileSection', () => {
   beforeEach(() => {
@@ -137,9 +118,13 @@ describe('RestaurantProfileSection', () => {
     profile.slug = 'old-crown-girton';
     profile.timezone = 'Europe/London';
     profile.contactPhone = '+441223277217';
+    profile.contactEmail = 'ops@oldcrowngirton.example';
     profile.address = '1 High Street';
     profile.businessDescription = null;
     profile.logoUrl = null;
+    profile.managerDailySummaryEnabled = false;
+    profile.managerWhatsappEnabled = false;
+    profile.managerNotificationPhone = '+441223277217';
     updateProfileMock.mockReset();
     updateProfileMock.mockImplementation(async (payload: Partial<RestaurantProfile>) => ({
       ...profile,
@@ -148,252 +133,334 @@ describe('RestaurantProfileSection', () => {
     }));
     analyticsTrackMock.mockReset();
     analyticsEmitMock.mockReset();
+    registerUnsavedMock.mockReset();
+    toastMock.mockReset();
+    toastMock.success.mockReset();
+    toastMock.error.mockReset();
   });
 
-  it('submits all dirty restaurant detail forms from the sticky save bar', async () => {
-    const user = userEvent.setup();
+  it('renders one public-details form: name, booking link and contact grouped, no manager alerts', async () => {
+    const { container } = await renderProfile();
 
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
+    const headings = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(headings).toContain('Public details');
+    expect(headings).not.toContain('Manager alerts');
+    expect(headings).not.toContain('Brand');
+    expect(headings).not.toContain('Booking page link');
+    const form = screen.getByRole('region', { name: 'Public details' });
+    expect(within(form).getByText('Guest-facing')).toBeInTheDocument();
 
-    await screen.findAllByText('Brand and identity');
-    await user.type(
-      screen.getByRole('textbox', { name: /business description/i }),
-      'Family friendly pub',
-    );
-    await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
-    await user.clear(screen.getByRole('textbox', { name: /contact phone/i }));
-    await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
-
-    expect(await screen.findByText('2 unsaved profile sections')).toBeInTheDocument();
-    expect(screen.getByText('2 unsaved profile sections').closest('[role="alert"]')).toHaveClass(
-      'sticky',
-      'bottom-0',
-    );
-    expect(
-      screen.getByText(/save profile changes without leaving this settings workspace/i),
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Save all' }));
-
-    await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(2));
-    expect(updateProfileMock).toHaveBeenCalledWith({
-      name: 'Old Crown Girton',
-      businessDescription: 'Family friendly pub',
-    });
-    expect(updateProfileMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        contactPhone: '+447700900000',
-      }),
-    );
-    expect(analyticsTrackMock).toHaveBeenCalledWith(
-      'restaurant_profile_save_all_clicked',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        dirty_section_count: 2,
-        dirty_sections: ['brand', 'contact'],
-        completeness_score: expect.any(Number),
-        missing_count: expect.any(Number),
-        elapsed_ms: expect.any(Number),
-      }),
-    );
-    expect(analyticsEmitMock).toHaveBeenCalledWith(
-      'restaurant_profile_save_all_clicked',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        dirty_section_count: 2,
-      }),
-    );
-    expect(analyticsTrackMock).not.toHaveBeenCalledWith(
-      'restaurant_profile_save_all_clicked',
-      expect.objectContaining({
-        contactPhone: expect.any(String),
-      }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByText('2 unsaved profile sections')).not.toBeInTheDocument(),
-    );
-    expect(screen.getAllByRole('status').map((node) => node.textContent)).toEqual(
-      expect.arrayContaining([expect.stringMatching(/Saved just now/i)]),
-    );
-  }, 15_000);
-
-  it('renders the consolidated profile overview with rail navigation', async () => {
-    const user = userEvent.setup();
-
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await screen.findAllByText('Brand and identity');
-    expect(screen.getByRole('navigation', { name: 'Profile sections' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: /old crown girton/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /profile readiness/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/\/old-crown-girton/).length).toBeGreaterThan(0);
-    expect(screen.queryByText('Not linked')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Review booking URL' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
+    // Manager alerts moved to Staff communications.
+    expect(screen.queryByRole('textbox', { name: /manager name/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Try WhatsApp first' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Staff communications' })).toHaveAttribute(
       'href',
-      '/app/settings/restaurant/google-business-profile#gbp-connection',
+      '/app/settings/restaurant/staff-communications',
     );
-    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
 
-    const brandRail = screen.getByRole('button', { name: /^1 · Brand/i });
-    const contactRail = screen.getByRole('button', { name: /^3 · Contact/i });
-    const bookingRail = screen.getByRole('button', { name: /^2 · Booking link/i });
-    const managerAlertsRail = screen.getByRole('button', { name: /^4 · Manager alerts/i });
-    expect(brandRail).toBeInTheDocument();
-    expect(contactRail).toBeInTheDocument();
-    expect(bookingRail).toBeInTheDocument();
-    expect(managerAlertsRail).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Discovery details/i })).not.toBeInTheDocument();
+    // Older deep links keep working; the notifications anchor is gone.
+    for (const anchor of ['profile-identity', 'profile-booking-url', 'profile-contact']) {
+      expect(container.querySelector(`#${anchor}`)).not.toBeNull();
+    }
+    expect(container.querySelector('#profile-notifications')).toBeNull();
 
-    await user.click(bookingRail);
-    expect(screen.getByRole('textbox', { name: /booking page url/i })).toBeInTheDocument();
-    expect(bookingRail).toHaveAttribute('aria-current', 'page');
-
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('keeps profile subform save actions in the sticky bar and cancels the active draft', async () => {
-    const user = userEvent.setup();
-
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await screen.findAllByText('Brand and identity');
+    // The booking page link sits directly under the restaurant name, before the description.
+    const name = screen.getByRole('textbox', { name: /restaurant name/i });
+    const slug = screen.getByRole('textbox', { name: /link name/i });
     const description = screen.getByRole('textbox', { name: /business description/i });
-    await user.type(description, 'Family friendly pub');
+    expect(name.compareDocumentPosition(slug)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(slug.compareDocumentPosition(description)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
-    expect(screen.getByText('1 unsaved profile section')).toBeInTheDocument();
-    const stickyBar = screen.getByText('1 unsaved profile section').closest('[role="alert"]');
-    expect(stickyBar).not.toBeNull();
-    expect(
-      within(stickyBar as HTMLElement).getByRole('button', { name: 'Save brand' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: /save brand & identity/i }),
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      within(stickyBar as HTMLElement).getByRole('button', { name: 'Cancel changes' }),
+    const jumpBar = screen.getByRole('navigation', { name: 'Sections on this page' });
+    expect(within(jumpBar).getByRole('link', { name: 'Name and booking link' })).toHaveAttribute(
+      'href',
+      '#profile-identity',
     );
+    expect(within(jumpBar).getByRole('link', { name: 'Location and contact' })).toHaveAttribute(
+      'href',
+      '#profile-contact',
+    );
+    expect(within(jumpBar).queryByRole('link', { name: 'Manager alerts' })).toBeNull();
 
-    await waitFor(() => expect(description).toHaveValue(''));
-    expect(screen.queryByText('1 unsaved profile section')).not.toBeInTheDocument();
-  });
-
-  it('renders contact blocks in Location, Public contact, After visit order', async () => {
-    const user = userEvent.setup();
-
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await screen.findAllByText('Brand and identity');
-    await user.click(screen.getByRole('button', { name: /^3 · Contact/i }));
-
-    const contactForm = document.getElementById('restaurant-profile-contact-form');
-    expect(contactForm).not.toBeNull();
-    const location = within(contactForm as HTMLElement).getByText('Location');
-    const publicContact = within(contactForm as HTMLElement).getByText('Public contact');
-    const afterVisit = within(contactForm as HTMLElement).getByText('After visit');
-
+    // Contact groups read Location, Public contact, After the visit.
+    const location = within(form).getByText('Location');
+    const publicContact = within(form).getByText('Public contact');
+    const afterVisit = within(form).getByText('After the visit');
     expect(location.compareDocumentPosition(publicContact)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(publicContact.compareDocumentPosition(afterVisit)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(document.getElementById('restaurant-timezone')).toBeInTheDocument();
-    expect(document.getElementById('restaurant-address')).toBeInTheDocument();
-    expect(document.getElementById('restaurant-google-map')).toBeInTheDocument();
-    expect(document.getElementById('restaurant-phone')).toBeInTheDocument();
-    expect(document.getElementById('restaurant-email')).toBeInTheDocument();
-    expect(document.getElementById('restaurant-google-review')).toBeInTheDocument();
-  });
 
-  it('focuses the exact required field from the command-center primary action', async () => {
-    const user = userEvent.setup();
-    profile.slug = '';
-
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await screen.findAllByText('Brand and identity');
-    const fixAction = await screen.findByRole('button', {
-      name: /fix public booking page url/i,
-    });
-    await user.click(fixAction);
-
-    const slugInput = await screen.findByRole('textbox', { name: /booking page url/i });
-    await waitFor(() => expect(slugInput).toHaveFocus());
-  });
-
-  it('does not render legacy hash ids on profile cards', async () => {
-    const { container } = render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await screen.findAllByText('Brand and identity');
-    expect(container.querySelector('#profile-identity')).toBeNull();
-    expect(container.querySelector('#profile-contact')).toBeNull();
-    expect(container.querySelector('#profile-booking-url')).toBeNull();
-    expect(container.querySelector('#profile-notifications')).toBeNull();
-    expect(container.querySelector('#profile-discovery')).toBeNull();
-  });
-
-  it('opens the matching section from a legacy hash and clears the url hash', async () => {
-    const replaceState = vi.spyOn(window.history, 'replaceState');
-
-    window.location.hash = '#profile-contact';
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await waitFor(() => expect(screen.getByText('Contact and location')).toBeVisible());
-
-    await waitFor(() =>
-      expect(replaceState).toHaveBeenCalledWith(
-        null,
-        '',
-        expect.not.stringContaining('#profile-contact'),
-      ),
-    );
-
-    replaceState.mockRestore();
-    window.location.hash = '';
-  });
-
-  it('renders the optional Google connection action without command-center footer links', async () => {
-    render(<RestaurantProfileSection restaurantId="rest-1" />);
-
-    await screen.findAllByText('Brand and identity');
-
-    expect(screen.getByRole('link', { name: 'Link Google' })).toHaveAttribute(
+    expect(screen.getByText('All changes saved')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+    expect(screen.getByText('Not linked')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Link Google Business Profile' })).toHaveAttribute(
       'href',
       '/app/settings/restaurant/google-business-profile#gbp-connection',
     );
-    expect(screen.queryByRole('link', { name: 'Compare with Google' })).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: /availability & booking types/i }),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /^team$/i })).not.toBeInTheDocument();
+    expect(registerUnsavedMock).toHaveBeenLastCalledWith(
+      'restaurant-profile',
+      false,
+      expect.any(String),
+    );
   });
-});
 
-describe('restaurant profile model', () => {
-  it('derives profile values and readiness from profile data', () => {
-    const values = buildProfileValues({
-      ...profile,
+  it('saves every public detail and the booking link in one request', async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    await user.type(
+      screen.getByRole('textbox', { name: /business description/i }),
+      'Family friendly pub',
+    );
+    const slug = screen.getByRole('textbox', { name: /link name/i });
+    await user.clear(slug);
+    await user.type(slug, 'the-old-crown');
+    const phone = screen.getByRole('textbox', { name: /public phone/i });
+    await user.clear(phone);
+    await user.type(phone, '+447700900000');
+
+    expect(within(saveBar()).getByText('3 unsaved changes')).toBeInTheDocument();
+    expect(within(saveBar()).getByText(/Public details/)).toBeInTheDocument();
+    expect(registerUnsavedMock).toHaveBeenLastCalledWith(
+      'restaurant-profile',
+      true,
+      expect.any(String),
+    );
+    const jumpBar = screen.getByRole('navigation', { name: 'Sections on this page' });
+    expect(
+      within(jumpBar).getByRole('link', { name: /Name and booking link.*Edited/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(jumpBar).getByRole('link', { name: /Location and contact.*Edited/ }),
+    ).toBeInTheDocument();
+
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Saved Public details.'));
+    expect(updateProfileMock).toHaveBeenCalledTimes(1);
+    expect(updateProfileMock).toHaveBeenCalledWith({
       name: 'Old Crown Girton',
-      slug: 'old-crown-girton',
+      slug: 'the-old-crown',
+      businessDescription: 'Family friendly pub',
       timezone: 'Europe/London',
-      businessDescription: 'Village pub',
-      logoUrl: 'https://cdn.example/logo.png',
+      contactEmail: 'ops@oldcrowngirton.example',
+      contactPhone: '+447700900000',
+      address: '1 High Street',
+      googleMapUrl: 'https://maps.google.com/demo-venue',
+      googleReviewUrl: 'https://g.page/demo-venue/review',
     });
-    const readiness = deriveReadiness(values, 'https://cdn.example/logo.png');
+    // Manager alert fields are never sent from Profile.
+    const payload = updateProfileMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    for (const field of [
+      'managerName',
+      'managerNotificationPhone',
+      'managerDailySummaryEnabled',
+      'managerWhatsappEnabled',
+    ]) {
+      expect(payload).not.toHaveProperty(field);
+    }
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
 
-    expect(values).toEqual(
+    expect(analyticsTrackMock).toHaveBeenCalledWith(
+      'restaurant_profile_save_all_clicked',
       expect.objectContaining({
-        name: 'Old Crown Girton',
-        slug: 'old-crown-girton',
-        timezone: 'Europe/London',
-        businessDescription: 'Village pub',
+        restaurant_id: 'rest-1',
+        dirty_section_count: 1,
+        dirty_sections: ['public'],
       }),
     );
-    expect(readiness.score).toBe(100);
-    expect(readiness.missing).toEqual([]);
+    expect(analyticsTrackMock).toHaveBeenCalledWith(
+      'restaurant_profile_section_saved',
+      expect.objectContaining({
+        section: 'public_details',
+        changed_fields: ['slug', 'businessDescription', 'contactPhone'],
+      }),
+    );
+    expect(analyticsTrackMock).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ contactPhone: expect.any(String) }),
+    );
+  }, 20_000);
+
+  it('reports a failed save with the reason code, keeps the edits and never claims success', async () => {
+    const user = userEvent.setup();
+    updateProfileMock.mockRejectedValueOnce(
+      new HttpError({ message: 'Conflict', status: 409, code: 'SLUG_TAKEN' }),
+    );
+    await renderProfile();
+
+    const slug = screen.getByRole('textbox', { name: /link name/i });
+    await user.clear(slug);
+    await user.type(slug, 'the-old-crown');
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      await within(saveBar()).findByText('Public details not saved. Your edits are still here.'),
+    ).toBeInTheDocument();
+    expect(within(saveBar()).getByText('SLUG_TAKEN')).toHaveClass('font-mono');
+    expect(screen.getByText('Not all changes saved')).toBeInTheDocument();
+    expect(slug).toHaveValue('the-old-crown');
+    expect(analyticsTrackMock).toHaveBeenCalledWith(
+      'restaurant_profile_section_save_failed',
+      expect.objectContaining({ section: 'public_details', code: 'HttpError' }),
+    );
+    expect(toastMock.success).not.toHaveBeenCalled();
+
+    await user.click(within(saveBar()).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(2));
+    expect(updateProfileMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ slug: 'the-old-crown' }),
+    );
+    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Saved Public details.'));
+  }, 20_000);
+
+  it('shows errors after a field is touched and blocks saving until they are fixed', async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    const email = screen.getByRole('textbox', { name: /contact email/i });
+    await user.clear(email);
+    await user.type(email, 'not-an-email');
+    expect(screen.queryByText('Invalid email format')).not.toBeInTheDocument();
+    expect(within(saveBar()).getByText('1 issue to fix before saving')).toBeInTheDocument();
+
+    await user.tab();
+    expect(await screen.findByText('Invalid email format')).toBeInTheDocument();
+    expect(email).toHaveAttribute('aria-invalid', 'true');
+    expect(email).toHaveAttribute('aria-describedby', 'restaurant-email-error');
+
+    const save = within(saveBar()).getByRole('button', { name: 'Save changes' });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    await user.click(save);
+    expect(updateProfileMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(email).toHaveFocus());
+    expect(analyticsTrackMock).toHaveBeenCalledWith(
+      'restaurant_profile_validation_error',
+      expect.objectContaining({ section: 'public_details', fields: ['contactEmail'] }),
+    );
+    const jumpBar = screen.getByRole('navigation', { name: 'Sections on this page' });
+    expect(
+      within(jumpBar).getByRole('link', { name: /Location and contact.*1 issue/ }),
+    ).toBeInTheDocument();
   });
 
-  it('formats preview helper values without leaking blank strings', () => {
-    expect(displayProfileValue('  Old Crown  ', 'Fallback')).toBe('Old Crown');
-    expect(displayProfileValue('   ', 'Fallback')).toBe('Fallback');
+  it('shows every issue and focuses the first one from "Show first issue"', async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    await user.clear(screen.getByRole('textbox', { name: /restaurant name/i }));
+    await user.clear(screen.getByRole('textbox', { name: /link name/i }));
+    await user.type(screen.getByRole('textbox', { name: /link name/i }), 'Bad Slug');
+    await user.click(screen.getByRole('button', { name: 'Show first issue' }));
+
+    expect(await screen.findByText('Restaurant name is required')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Booking page link must contain only lowercase letters, numbers, and hyphens',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /restaurant name/i })).toHaveFocus(),
+    );
+    const jumpBar = screen.getByRole('navigation', { name: 'Sections on this page' });
+    expect(
+      within(jumpBar).getByRole('link', { name: /Name and booking link.*2 issues/ }),
+    ).toBeInTheDocument();
+  });
+
+  it('discards every change after confirmation', async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    const description = screen.getByRole('textbox', { name: /business description/i });
+    await user.type(description, 'Family friendly pub');
+    const phone = screen.getByRole('textbox', { name: /public phone/i });
+    await user.clear(phone);
+    await user.type(phone, '+447700900000');
+
+    await user.click(within(saveBar()).getByRole('button', { name: 'Discard' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Discard all changes?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Discard changes' }));
+
+    await waitFor(() => expect(description).toHaveValue(''));
+    expect(phone).toHaveValue('+441223277217');
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+    expect(updateProfileMock).not.toHaveBeenCalled();
+  });
+
+  it('reviews changes as was → now and undoes them', async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    const name = screen.getByRole('textbox', { name: /restaurant name/i });
+    await user.clear(name);
+    await user.type(name, 'The Old Crown');
+
+    await user.click(within(saveBar()).getByRole('button', { name: 'Review changes' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Review changes' });
+    expect(within(dialog).getByText('Restaurant name')).toBeInTheDocument();
+    expect(within(dialog).getByText('Old Crown Girton')).toBeInTheDocument();
+    expect(within(dialog).getByText('The Old Crown')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: /Undo section\s*Public details/ }));
+    expect(within(dialog).queryByText('Restaurant name')).not.toBeInTheDocument();
+    expect(name).toHaveValue('Old Crown Girton');
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+  });
+
+  it('previews a changed booking page link and disables Copy link until it is saved', async () => {
+    const user = userEvent.setup();
+    await renderProfile();
+
+    const preview = screen.getByTestId('booking-link-preview');
+    expect(within(preview).getByText('Guests book at')).toBeInTheDocument();
+    expect(within(preview).getByText(/\/restaurants\/old-crown-girton\/book$/)).toBeInTheDocument();
+    expect(within(preview).getByRole('button', { name: 'Copy link' })).toBeEnabled();
+
+    const slug = screen.getByRole('textbox', { name: /link name/i });
+    await user.clear(slug);
+    await user.type(slug, 'the-old-crown');
+
+    expect(
+      within(preview).getByText(
+        'New link after you save. Guests keep using the old one until then.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(preview).getByText(/\/restaurants\/the-old-crown\/book$/)).toBeInTheDocument();
+    expect(within(preview).getByText(/\/restaurants\/old-crown-girton\/book$/)).toBeInTheDocument();
+    expect(within(preview).getByRole('button', { name: 'Copy link' })).toBeDisabled();
+  });
+
+  it('lists readiness with required details first and focuses the field from "Add"', async () => {
+    const user = userEvent.setup();
+    profile.slug = '';
+    await renderProfile();
+
+    expect(screen.getAllByText('1 detail needed before guests can book').length).toBeGreaterThan(0);
+    expect(screen.getByText('6 of 9 details filled in.')).toBeInTheDocument();
+    const checklist = screen.getByRole('list', { name: 'Profile details' });
+    const labels = within(checklist)
+      .getAllByRole('listitem')
+      .map((item) => item.textContent ?? '');
+    expect(labels[0]).toMatch(/^Restaurant name/);
+    expect(labels.findIndex((text) => text.includes('Logo'))).toBeGreaterThan(3);
+    expect(labels.find((text) => text.includes('Logo'))).toMatch(/Optional/);
+
+    await user.click(within(checklist).getByRole('button', { name: 'Add Booking page link' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: /link name/i })).toHaveFocus());
+
+    // Below xl the compact summary offers the same jump.
+    await user.click(screen.getByRole('button', { name: 'Add booking page link' }));
+    await waitFor(() => expect(screen.getByRole('textbox', { name: /link name/i })).toHaveFocus());
+  });
+
+  it('keeps the logo on its own immediate save and says so', async () => {
+    await renderProfile();
+
+    expect(screen.getByText('Saves as soon as you upload it.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload logo' })).toBeInTheDocument();
   });
 });

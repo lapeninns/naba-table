@@ -1,34 +1,263 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildTableInventoryCommandMetrics,
-  buildTableInventorySummaryCards,
+  buildServiceCapacityLines,
+  buildTableInventoryOverview,
+  buildTableZoneLookup,
+  compareTableNumbers,
+  DEFAULT_TABLE_LIST_FILTERS,
+  describeNotBookableReasons,
+  describeZonesInService,
+  filterTableInventory,
+  formatTableDetails,
   formatTablePartySize,
-  formatTableSeatingType,
-  formatTableStatus,
-  getTableAvailabilityLabel,
-  getTableInventoryDesktopEmptyMessage,
-  getTableInventoryEmptyMessage,
-  isTableServiceReady,
+  formatZoneTableStats,
+  getTableBookingStatus,
+  getTableListEmptyState,
+  getZoneTableStats,
+  groupTablesByZone,
+  hasActiveTableFilters,
+  matchesTableSearch,
 } from '@/components/features/tables/tableInventoryDisplayDomain';
 import {
   buildTableFormDraft,
   buildTableInventoryZoneOptions,
   buildTableInventoryZones,
+  getDuplicateTableNumberMessage,
+  getFirstInvalidTableField,
   getSelectedTableZone,
   parseTableFormPayload,
+  parseZoneFormPayload,
 } from '@/components/features/tables/tableInventoryFormDomain';
+import { ALL_ZONES_VALUE } from '@/components/features/tables/tableInventoryModel';
 
 import type { TableInventory, TableInventorySummary } from '@/services/ops/tables';
 
+const zones = [
+  { id: 'main', name: 'Main dining room', active: true, sortOrder: 0 },
+  { id: 'bar', name: 'Bar', active: true, sortOrder: 1 },
+  { id: 'garden', name: 'Garden terrace', active: false, sortOrder: 2 },
+];
+
+describe('computed Bookings status', () => {
+  it('is bookable only when the table is on, its zone is in service and it is not out of service', () => {
+    expect(getTableBookingStatus(table())).toEqual({
+      bookable: true,
+      reason: null,
+      label: 'Bookable',
+    });
+  });
+
+  it('names the first reason a table cannot be booked, in a fixed order', () => {
+    const lookup = buildTableZoneLookup(zones);
+
+    expect(getTableBookingStatus(table({ active: false, zoneId: 'garden' }), lookup)).toMatchObject(
+      { bookable: false, reason: 'turned-off', label: 'Not bookable: turned off' },
+    );
+    expect(getTableBookingStatus(table({ zoneId: 'garden' }), lookup)).toMatchObject({
+      bookable: false,
+      reason: 'zone-out-of-service',
+      label: 'Not bookable: Garden terrace is out of service',
+    });
+    expect(getTableBookingStatus(table({ status: 'out_of_service' }), lookup)).toMatchObject({
+      bookable: false,
+      reason: 'out-of-service',
+      label: 'Not bookable: marked out of service',
+    });
+  });
+
+  it('treats reserved and occupied as notes that do not stop bookings', () => {
+    expect(getTableBookingStatus(table({ status: 'reserved' })).bookable).toBe(true);
+    expect(getTableBookingStatus(table({ status: 'occupied' })).bookable).toBe(true);
+  });
+
+  it('reads zone state from the zones list before the table row, so zone switches apply at once', () => {
+    const lookup = buildTableZoneLookup([{ id: 'main', name: 'Main', active: false }]);
+    expect(getTableBookingStatus(table({ zoneActive: true }), lookup).bookable).toBe(false);
+    expect(getTableBookingStatus(table({ zoneActive: false, zoneName: 'Main' })).label).toBe(
+      'Not bookable: Main is out of service',
+    );
+  });
+});
+
+describe('tables list filtering', () => {
+  const tables = [
+    table({ id: 't1', tableNumber: '1', zoneId: 'main', notes: 'Window seat' }),
+    table({ id: 't2', tableNumber: '12', zoneId: 'main', active: false }),
+    table({ id: 't3', tableNumber: 'B1', zoneId: 'bar', notes: null }),
+    table({ id: 't4', tableNumber: 'G1', zoneId: 'garden' }),
+  ];
+  const lookup = buildTableZoneLookup(zones);
+
+  it('searches by table number or note, ignoring case and spaces around the query', () => {
+    expect(matchesTableSearch(tables[0], '  WINDOW ')).toBe(true);
+    expect(matchesTableSearch(tables[2], 'b1')).toBe(true);
+    expect(matchesTableSearch(tables[2], 'window')).toBe(false);
+    expect(matchesTableSearch(tables[2], '')).toBe(true);
+  });
+
+  it('combines zone, bookable and search filters', () => {
+    const ids = (filters: Partial<typeof DEFAULT_TABLE_LIST_FILTERS>) =>
+      filterTableInventory(tables, { ...DEFAULT_TABLE_LIST_FILTERS, ...filters }, lookup).map(
+        (item) => item.id,
+      );
+
+    expect(ids({})).toEqual(['t1', 't2', 't3', 't4']);
+    expect(ids({ zoneId: 'main' })).toEqual(['t1', 't2']);
+    expect(ids({ bookable: 'bookable' })).toEqual(['t1', 't3']);
+    expect(ids({ bookable: 'not-bookable' })).toEqual(['t2', 't4']);
+    expect(ids({ query: '1' })).toEqual(['t1', 't2', 't3', 't4']);
+    expect(ids({ query: '12', bookable: 'not-bookable' })).toEqual(['t2']);
+  });
+
+  it('knows when any filter is active', () => {
+    expect(hasActiveTableFilters(DEFAULT_TABLE_LIST_FILTERS)).toBe(false);
+    expect(hasActiveTableFilters({ ...DEFAULT_TABLE_LIST_FILTERS, query: '  ' })).toBe(false);
+    expect(hasActiveTableFilters({ ...DEFAULT_TABLE_LIST_FILTERS, query: '4' })).toBe(true);
+    expect(hasActiveTableFilters({ ...DEFAULT_TABLE_LIST_FILTERS, zoneId: 'bar' })).toBe(true);
+    expect(hasActiveTableFilters({ ...DEFAULT_TABLE_LIST_FILTERS, bookable: 'bookable' })).toBe(
+      true,
+    );
+    expect(DEFAULT_TABLE_LIST_FILTERS.zoneId).toBe(ALL_ZONES_VALUE);
+  });
+
+  it('groups tables by zone in zone order and sorts table numbers naturally', () => {
+    const grouped = groupTablesByZone(
+      [
+        table({ id: 'a', tableNumber: '10', zoneId: 'main' }),
+        table({ id: 'b', tableNumber: '2', zoneId: 'main' }),
+        table({ id: 'c', tableNumber: 'B1', zoneId: 'bar' }),
+        table({ id: 'd', tableNumber: 'X', zoneId: 'unknown', zoneName: 'Old zone' }),
+      ],
+      zones,
+    );
+
+    expect(grouped.map((group) => [group.zoneName, group.tables.map((item) => item.id)])).toEqual([
+      ['Main dining room', ['b', 'a']],
+      ['Bar', ['c']],
+      ['Old zone', ['d']],
+    ]);
+    expect(compareTableNumbers('2', '10')).toBeLessThan(0);
+  });
+});
+
+describe('tables summary', () => {
+  it('counts bookable tables and seats, and not bookable tables by reason', () => {
+    const overview = buildTableInventoryOverview(
+      [
+        table({ capacity: 2 }),
+        table({ capacity: 4 }),
+        table({ active: false }),
+        table({ zoneId: 'garden' }),
+        table({ zoneId: 'garden', active: false }),
+        table({ status: 'out_of_service' }),
+      ],
+      zones,
+    );
+
+    expect(overview).toMatchObject({
+      totalTables: 6,
+      bookableTables: 2,
+      bookableSeats: 6,
+      notBookableTables: 4,
+      notBookableReasons: { 'turned-off': 2, 'zone-out-of-service': 1, 'out-of-service': 1 },
+      zoneCount: 3,
+      zonesOutOfService: 1,
+    });
+    expect(describeNotBookableReasons(overview)).toBe(
+      '2 turned off · 1 in a zone out of service · 1 marked out of service',
+    );
+    expect(describeZonesInService(overview)).toBe('1 out of service');
+  });
+
+  it('words empty and fully bookable summaries', () => {
+    const empty = buildTableInventoryOverview([], []);
+    expect(describeNotBookableReasons(empty)).toBe('No tables yet');
+    expect(describeZonesInService(empty)).toBe('No zones yet');
+
+    const allBookable = buildTableInventoryOverview([table()], [zones[0]]);
+    expect(describeNotBookableReasons(allBookable)).toBe('Every table can be booked');
+    expect(describeZonesInService(allBookable)).toBe('All in service');
+  });
+
+  it('shows the server per-service capacity, not an estimate', () => {
+    const summary: Pick<TableInventorySummary, 'serviceCapacities'> = {
+      serviceCapacities: [
+        serviceCapacity({ key: 'lunch', label: 'Lunch', capacity: 1, turnsPerTable: 0 }),
+        serviceCapacity({ key: 'dinner', label: 'Dinner', capacity: 16, turnsPerTable: 2 }),
+      ],
+    };
+
+    expect(buildServiceCapacityLines(summary)).toEqual([
+      {
+        key: 'lunch',
+        label: 'Lunch',
+        value: '1 cover',
+        description: 'The meal time is shorter than one turn',
+      },
+      {
+        key: 'dinner',
+        label: 'Dinner',
+        value: '16 covers',
+        description: 'About 2 turns per table · 8 tables',
+      },
+    ]);
+    expect(buildServiceCapacityLines(null)).toEqual([]);
+  });
+
+  it('describes a zone by its tables and seats', () => {
+    const stats = getZoneTableStats(
+      [table({ capacity: 2 }), table({ capacity: 4 }), table({ zoneId: 'bar', capacity: 6 })],
+      'main',
+    );
+    expect(stats).toEqual({ tableCount: 2, seatCount: 6 });
+    expect(formatZoneTableStats(stats)).toBe('2 tables · 6 seats');
+    expect(formatZoneTableStats({ tableCount: 1, seatCount: 1 })).toBe('1 table · 1 seat');
+  });
+});
+
+describe('table display helpers', () => {
+  it('shows the party size range, using seats when there is no largest party', () => {
+    expect(formatTablePartySize({ minPartySize: 2, maxPartySize: 6, capacity: 6 })).toBe('2–6');
+    expect(formatTablePartySize({ minPartySize: 1, maxPartySize: null, capacity: 4 })).toBe('1–4');
+    expect(formatTablePartySize({ minPartySize: 2, maxPartySize: 2, capacity: 2 })).toBe('2');
+  });
+
+  it('lists only details that differ from the defaults', () => {
+    expect(formatTableDetails(table())).toBe('');
+    expect(
+      formatTableDetails(
+        table({ seatingType: 'high_top', mobility: 'fixed', section: 'Window', notes: 'Wobbly' }),
+      ),
+    ).toBe('High-top · Fixed · Window · Wobbly');
+  });
+
+  it('picks the right empty state for the tables list', () => {
+    expect(getTableListEmptyState(3, 1)).toEqual({
+      title: 'No tables match',
+      description: 'Try another zone, search or filter.',
+      action: 'clear-filters',
+    });
+    expect(getTableListEmptyState(0, 1)).toMatchObject({
+      title: 'No tables yet',
+      action: 'add-table',
+    });
+    expect(getTableListEmptyState(0, 0)).toEqual({
+      title: 'No tables yet',
+      description: 'Add a zone first, then your tables.',
+      action: null,
+    });
+  });
+});
+
 describe('tableInventoryDomain table form helpers', () => {
-  it('builds initial form drafts from the table or the first active zone', () => {
-    const zones = [
+  it('builds initial form drafts from the table, the preferred zone or the first active zone', () => {
+    const draftZones = [
       { id: 'inactive-zone', active: false },
       { id: 'active-zone', active: true },
     ];
 
-    expect(buildTableFormDraft(null, zones)).toMatchObject({
+    expect(buildTableFormDraft(null, draftZones)).toMatchObject({
       zoneId: 'active-zone',
       category: 'dining',
       seatingType: 'standard',
@@ -36,7 +265,21 @@ describe('tableInventoryDomain table form helpers', () => {
       status: 'available',
       active: true,
     });
-    expect(buildTableFormDraft(table(), zones)).toMatchObject({
+    expect(buildTableFormDraft(null, draftZones, 'inactive-zone').zoneId).toBe('inactive-zone');
+    expect(buildTableFormDraft(null, draftZones, 'missing').zoneId).toBe('active-zone');
+    expect(
+      buildTableFormDraft(
+        table({
+          zoneId: 'table-zone',
+          category: 'patio',
+          seatingType: 'booth',
+          mobility: 'fixed',
+          status: 'out_of_service',
+          active: false,
+        }),
+        draftZones,
+      ),
+    ).toMatchObject({
       zoneId: 'table-zone',
       category: 'patio',
       seatingType: 'booth',
@@ -47,14 +290,14 @@ describe('tableInventoryDomain table form helpers', () => {
   });
 
   it('finds the selected zone without leaking lookup logic into the form', () => {
-    const zones = [
+    const list = [
       { id: 'zone-1', name: 'Main' },
       { id: 'zone-2', name: 'Patio' },
     ];
 
-    expect(getSelectedTableZone(zones, 'zone-2')).toEqual({ id: 'zone-2', name: 'Patio' });
-    expect(getSelectedTableZone(zones, undefined)).toBeNull();
-    expect(getSelectedTableZone(zones, 'missing')).toBeNull();
+    expect(getSelectedTableZone(list, 'zone-2')).toEqual({ id: 'zone-2', name: 'Patio' });
+    expect(getSelectedTableZone(list, undefined)).toBeNull();
+    expect(getSelectedTableZone(list, 'missing')).toBeNull();
   });
 
   it('normalizes summary zones before fallback zones and sorts by order then name', () => {
@@ -101,117 +344,6 @@ describe('tableInventoryDomain table form helpers', () => {
     ]);
   });
 
-  it('normalizes table inventory display labels outside the renderer', () => {
-    expect(formatTablePartySize({ minPartySize: 2, maxPartySize: 6 })).toBe('2–6');
-    expect(formatTablePartySize({ minPartySize: 4, maxPartySize: null })).toBe('4+');
-    expect(formatTableStatus('out_of_service')).toBe('out of service');
-    expect(formatTableSeatingType('high_top')).toBe('high top');
-
-    expect(isTableServiceReady({ active: true, zoneActive: true })).toBe(true);
-    expect(isTableServiceReady({ active: true, zoneActive: false })).toBe(false);
-    expect(getTableAvailabilityLabel({ active: true, zoneActive: true })).toBe('Active');
-    expect(getTableAvailabilityLabel({ active: true, zoneActive: false })).toBe('Blocked by zone');
-    expect(getTableAvailabilityLabel({ active: false, zoneActive: true })).toBe('Inactive');
-  });
-
-  it('builds command metrics and summary cards from service-ready tables', () => {
-    const summary: TableInventorySummary = {
-      totalTables: 3,
-      totalCapacity: 10,
-      availableTables: 2,
-      zones: [
-        { id: 'main', name: 'Main', active: true, sortOrder: 1 },
-        { id: 'patio', name: 'Patio', active: false, sortOrder: 2 },
-      ],
-      serviceCapacities: [
-        {
-          key: 'dinner',
-          label: 'Dinner',
-          capacity: 16,
-          tablesConsidered: 2,
-          turnsPerTable: 2,
-        },
-      ],
-    };
-    const tables = [
-      table({ id: 'ready-1', capacity: 4, active: true, zoneActive: true }),
-      table({ id: 'ready-2', capacity: 2, active: true, zoneActive: true }),
-      table({ id: 'blocked', capacity: 4, active: true, zoneActive: false }),
-    ];
-
-    expect(buildTableInventoryCommandMetrics(summary, tables)).toEqual([
-      {
-        key: 'bookable-tables',
-        label: 'Bookable tables',
-        value: '2 tables',
-        description: '6 covers',
-        variant: 'secondary',
-      },
-      {
-        key: 'zones',
-        label: 'Zones',
-        value: '2',
-        description: 'floor-plan groups',
-        variant: 'outline',
-      },
-      {
-        key: 'inventory-total',
-        label: 'Inventory total',
-        value: '3 tables',
-        description: '10 planned covers',
-        variant: 'metric',
-      },
-    ]);
-
-    expect(buildTableInventorySummaryCards(summary, tables)).toEqual([
-      {
-        key: 'ready-for-bookings',
-        label: 'Ready for bookings',
-        value: '2 active tables, 6 covers',
-        description: 'Active tables in active zones can be booked.',
-      },
-      {
-        key: 'inventory-total',
-        label: 'Inventory total',
-        value: '3 tables',
-        description: '10 planned covers across all table records',
-      },
-      {
-        key: 'inactive-tables',
-        label: 'Needs attention',
-        value: '1 tables',
-        description: '1 inactive',
-      },
-      {
-        key: 'zones-configured',
-        label: 'Zones configured',
-        value: '2',
-        description: '1 inactive',
-      },
-      {
-        key: 'service-dinner',
-        label: 'Dinner',
-        value: '16 covers',
-        description: '≈2 turns across 2 tables',
-      },
-    ]);
-  });
-
-  it('keeps mobile and desktop empty-state copy deterministic', () => {
-    expect(getTableInventoryEmptyMessage(0)).toBe(
-      'Add your first tables. Start with table number and capacity; advanced details can come later.',
-    );
-    expect(getTableInventoryDesktopEmptyMessage(0)).toBe(
-      'No table records yet. Add tables with number and capacity first; advanced details can come later.',
-    );
-    expect(getTableInventoryEmptyMessage(3)).toBe(
-      'No tables match this filter. Try showing all zones or tables.',
-    );
-    expect(getTableInventoryDesktopEmptyMessage(3)).toBe(
-      'No tables match this filter. Try showing all zones or tables.',
-    );
-  });
-
   it('parses valid form data into a normalized table payload', () => {
     const formData = new FormData();
     formData.set('tableNumber', '  A12  ');
@@ -249,43 +381,85 @@ describe('tableInventoryDomain table form helpers', () => {
     });
   });
 
-  it('returns explicit validation errors for invalid form data', () => {
-    const emptyTableNumber = new FormData();
-    emptyTableNumber.set('capacity', '4');
+  it('defaults an empty smallest party to 1 and an empty largest party to seats', () => {
+    const formData = new FormData();
+    formData.set('tableNumber', '3');
+    formData.set('capacity', '2');
+    formData.set('minPartySize', '');
+    formData.set('maxPartySize', '');
 
-    expect(parseTableFormPayload(emptyTableNumber, draft())).toEqual({
+    const result = parseTableFormPayload(formData, draft());
+    expect(result).toMatchObject({ ok: true, payload: { minPartySize: 1, maxPartySize: null } });
+  });
+
+  it('returns field errors that restate the server rules', () => {
+    const formData = new FormData();
+    formData.set('tableNumber', '   ');
+    formData.set('capacity', '21');
+    formData.set('minPartySize', '4');
+    formData.set('maxPartySize', '3');
+    formData.set('notes', 'x'.repeat(501));
+
+    const result = parseTableFormPayload(formData, { ...draft(), zoneId: undefined });
+    expect(result).toEqual({
       ok: false,
-      error: 'Enter a table number before saving.',
+      errors: {
+        tableNumber: 'Enter a table number',
+        capacity: 'Enter seats from 1 to 20',
+        maxPartySize: 'Largest party must be at least the smallest party, up to 20',
+        zoneId: 'Choose a zone',
+        notes: 'Use 500 characters or fewer',
+      },
+    });
+    if (!result.ok) {
+      expect(getFirstInvalidTableField(result.errors)).toBe('tableNumber');
+    }
+
+    const zeroSeats = new FormData();
+    zeroSeats.set('tableNumber', '1');
+    zeroSeats.set('capacity', '0');
+    zeroSeats.set('maxPartySize', '25');
+    expect(parseTableFormPayload(zeroSeats, draft())).toEqual({
+      ok: false,
+      errors: {
+        capacity: 'Enter seats from 1 to 20',
+        maxPartySize: 'Largest party must be at least the smallest party, up to 20',
+      },
+    });
+    expect(getFirstInvalidTableField({})).toBeNull();
+  });
+
+  it('words the duplicate table number error from the server conflict', () => {
+    expect(getDuplicateTableNumberMessage(' 12 ')).toBe('Table 12 already exists');
+  });
+
+  it('requires a zone name and keeps the order within the server range', () => {
+    const empty = new FormData();
+    empty.set('zoneName', '  ');
+    expect(parseZoneFormPayload(empty)).toEqual({
+      ok: false,
+      errors: { zoneName: 'Enter a zone name' },
     });
 
-    const invalidCapacity = new FormData();
-    invalidCapacity.set('tableNumber', '1');
-    invalidCapacity.set('capacity', '0');
-
-    expect(parseTableFormPayload(invalidCapacity, draft())).toEqual({
+    const outOfRange = new FormData();
+    outOfRange.set('zoneName', 'Bar');
+    outOfRange.set('sortOrder', '1001');
+    expect(parseZoneFormPayload(outOfRange)).toEqual({
       ok: false,
-      error: 'Capacity must be at least 1 cover.',
+      errors: { sortOrder: 'Enter a whole number from -1000 to 1000' },
     });
 
-    const missingZone = new FormData();
-    missingZone.set('tableNumber', '1');
-    missingZone.set('capacity', '2');
-
-    expect(parseTableFormPayload(missingZone, { ...draft(), zoneId: undefined })).toEqual({
-      ok: false,
-      error: 'Choose a zone before saving this table.',
+    const valid = new FormData();
+    valid.set('zoneName', ' Terrace ');
+    valid.set('sortOrder', '2');
+    expect(parseZoneFormPayload(valid)).toEqual({
+      ok: true,
+      payload: { name: 'Terrace', sortOrder: 2 },
     });
 
-    const invalidPartyRange = new FormData();
-    invalidPartyRange.set('tableNumber', '1');
-    invalidPartyRange.set('capacity', '2');
-    invalidPartyRange.set('minPartySize', '4');
-    invalidPartyRange.set('maxPartySize', '3');
-
-    expect(parseTableFormPayload(invalidPartyRange, draft())).toEqual({
-      ok: false,
-      error: 'Max party size must be greater than or equal to the min party size.',
-    });
+    const noOrder = new FormData();
+    noOrder.set('zoneName', 'Bar');
+    expect(parseZoneFormPayload(noOrder)).toEqual({ ok: true, payload: { name: 'Bar' } });
   });
 });
 
@@ -300,6 +474,21 @@ function draft() {
   };
 }
 
+function serviceCapacity(
+  overrides: Partial<TableInventorySummary['serviceCapacities'][number]>,
+): TableInventorySummary['serviceCapacities'][number] {
+  return {
+    key: 'dinner',
+    label: 'Dinner',
+    capacity: 0,
+    tablesConsidered: 8,
+    turnsPerTable: 0,
+    seatsPerTurn: 32,
+    assumptions: { windowMinutes: 240, turnMinutes: 90, bufferMinutes: 15, intervalMinutes: 15 },
+    ...overrides,
+  };
+}
+
 function table(overrides: Partial<TableInventory> = {}): TableInventory {
   return {
     id: 'table-1',
@@ -309,14 +498,14 @@ function table(overrides: Partial<TableInventory> = {}): TableInventory {
     minPartySize: 1,
     maxPartySize: null,
     section: null,
-    category: 'patio',
-    seatingType: 'booth',
-    mobility: 'fixed',
-    zoneId: 'table-zone',
-    zoneName: 'Main',
+    category: 'dining',
+    seatingType: 'standard',
+    mobility: 'movable',
+    zoneId: 'main',
+    zoneName: 'Main dining room',
     zoneActive: true,
-    active: false,
-    status: 'out_of_service',
+    active: true,
+    status: 'available',
     position: null,
     notes: null,
     ...overrides,

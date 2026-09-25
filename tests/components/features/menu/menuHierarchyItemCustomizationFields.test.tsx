@@ -8,22 +8,22 @@ import { CustomizationFields } from '@/components/features/menu/menuHierarchyIte
 import { applySetterCalls, switchByLabel } from './__fixtures__/menuHierarchy';
 
 describe('CustomizationFields', () => {
-  it('@smoke renders customization controls with allow-customizations on by default', () => {
+  it('@smoke renders customisation controls with allow-customisations on by default', () => {
     render(<CustomizationFields state={itemInitialState()} setState={vi.fn()} />);
 
-    expect(screen.getByText('Customization')).toBeInTheDocument();
-    expect(switchByLabel('Allow customizations')).toBeChecked();
+    expect(screen.getByRole('heading', { name: 'Customisation' })).toBeInTheDocument();
+    expect(switchByLabel('Allow customisations')).toBeChecked();
     expect(screen.getByText('Max selections')).toBeInTheDocument();
     expect(screen.getByText('Modifier group IDs')).toBeInTheDocument();
   });
 
-  it('@contract disabling customizations patches the flag', async () => {
+  it('@contract disabling customisations patches the flag', async () => {
     const user = userEvent.setup();
     const setState = vi.fn();
     const initial = itemInitialState();
     render(<CustomizationFields state={initial} setState={setState} />);
 
-    await user.click(switchByLabel('Allow customizations'));
+    await user.click(switchByLabel('Allow customisations'));
 
     expect(applySetterCalls(setState, initial).allowCustomizations).toBe(false);
   });

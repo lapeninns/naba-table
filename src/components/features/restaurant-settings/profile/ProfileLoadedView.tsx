@@ -1,160 +1,297 @@
 'use client';
 
-import { ProfileSectionBody } from './ProfileSectionBody';
-import { ProfileSectionPane } from './ProfileSectionPane';
-import { PROFILE_SECTION_DEFINITIONS } from './profileSections';
-import { ProfileShell } from './ProfileShell';
-import { ProfileStatusBar } from './ProfileStatusBar';
-import { UnifiedActionBar } from './UnifiedActionBar';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react';
 
-import type { deriveProfileVerification } from '../google-business-profile/googleBusinessProfileVerification';
-import type { RestaurantLogoUploader } from '../RestaurantLogoUploader';
-import type {
-  ProfileDirtyKey,
-  ProfileDirtySection,
-  ReadinessItemKey,
-} from '../restaurantProfileModel';
-import type { RestaurantSettingsCommandRailItem } from '../shared';
-import type { ProfileSectionDefinition, ProfileSectionId } from './profileSections';
-import type {
-  RestaurantDetailsDraftValues,
-  RestaurantDetailsFormValues,
+import {
+  AdvancedIdentitySubform,
+  BrandIdentitySubform,
+  ContactLocationSubform,
 } from '@/components/ops/restaurants/RestaurantDetailsForm';
+
+import { ProfileFieldGroup } from '../../../../../components/ops/restaurants/details/shared';
+import { RestaurantLogoUploader } from '../RestaurantLogoUploader';
+import { deriveReadiness, type ReadinessItemKey } from '../restaurantProfileModel';
+import { RESTAURANT_SETTINGS_ROUTE_MAP, RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
+import {
+  SettingsReviewChangesDialog,
+  SettingsSaveBar,
+  SettingsStatusLine,
+  pluralise,
+  scrollToSettingsSection,
+  useSettingsSectionSpy,
+  type RestaurantSettingsCommandRailItem,
+} from '../shared';
+import { useProfileDraft, useProfileEditorAnalytics, useProfileGbpDraftOverrides } from './hooks';
+import { READINESS_FIELD_TARGETS } from './profileReadinessTargets';
+import { ProfileSectionPane } from './ProfileSectionPane';
+import {
+  PROFILE_BOOKING_URL_ANCHOR_ID,
+  PROFILE_FIELD_GROUPS,
+  PROFILE_SECTION_DEFINITIONS,
+  focusProfileElement,
+  type ProfileSectionId,
+} from './profileSections';
+import { PROFILE_LAYOUT_GRID_CLASS, ProfileShell } from './ProfileShell';
+import {
+  ProfileGoogleCard,
+  ProfileReadinessPanel,
+  ProfileReadinessSummary,
+} from './ProfileStatusBar';
+
+import type { ProfileSubformProps } from '../../../../../components/ops/restaurants/details/shared';
+import type { deriveProfileVerification } from '../google-business-profile/googleBusinessProfileVerification';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
-import type { ComponentProps } from 'react';
 
 type ProfileLoadedViewProps = {
   restaurantId: string;
-  railItems: RestaurantSettingsCommandRailItem[];
-  activeSectionId: ProfileSectionId;
-  activeSection: ProfileSectionDefinition;
-  dirtyState: Record<ProfileDirtyKey, boolean>;
-  dirtyHandlers: Record<ProfileDirtyKey, (dirty: boolean) => void>;
-  draftHandlers: Partial<
-    Record<ProfileDirtyKey, (draft: RestaurantDetailsDraftValues, dirty: boolean) => void>
-  >;
-  dirtyFormSections: readonly (ProfileDirtySection & { formId: string })[];
-  missingRequiredSectionIds: ReadonlySet<ProfileSectionId>;
-  initialValues: RestaurantDetailsFormValues;
-  restaurantName: string;
-  profile: RestaurantProfile | null | undefined;
+  profile: RestaurantProfile;
   updateMutation: ComponentProps<typeof RestaurantLogoUploader>['updateMutation'];
-  isLoading: boolean;
-  onLogoPreviewChange: (previewUrl: string | null | undefined) => void;
-  onResetDraftChange: (key: ProfileDirtyKey, resetDraft: (() => void) | null) => void;
   gbpFieldVerifications: ReturnType<typeof deriveProfileVerification>['fields'];
-  bookingSlug: string | null;
-  readinessScore: number;
-  readinessStageLabel: string;
-  completedCount: number;
-  totalCount: number;
-  requiredRemainingCount: number;
-  googleHint: string | null;
-  googleHref: string;
+  registerGbpDraftOverride?: (fieldKey: string, value: unknown | null) => void;
+  clearGbpDraftOverrides?: (fieldKeys?: ReadonlyArray<string>) => void;
   googleLinked: boolean;
-  nextActionLabel: string | null;
-  nextActionDescription: string;
-  nextReadinessItemKey: ReadinessItemKey | null;
-  onFocusReadinessItem: (key: ReadinessItemKey) => void;
-  onSaveAll: () => void;
-  onCancelActive: () => void;
+  googleDetail: string;
+  googleHref: string;
   gbpDriftCount: number;
   onCompareWithGoogle?: () => void;
 };
 
+const GROUP_ANCHOR_IDS = PROFILE_FIELD_GROUPS.map((group) => group.anchorId);
+/** Every in-page anchor other pages may deep-link to. */
+const DEEP_LINK_ANCHOR_IDS = [
+  ...PROFILE_SECTION_DEFINITIONS.map((section) => section.anchorId),
+  ...GROUP_ANCHOR_IDS,
+  PROFILE_BOOKING_URL_ANCHOR_ID,
+];
+const LEAVE_MESSAGE = 'You have unsaved restaurant profile changes. Leave without saving them?';
+
+/**
+ * The Restaurant profile page once loaded: one public-details form with a jump bar for its
+ * groups, one page-wide draft, one save bar, and the readiness checklist beside it from `xl`.
+ * Manager alerts live on the Staff communications page.
+ */
 export function ProfileLoadedView({
   restaurantId,
-  railItems,
-  activeSectionId,
-  activeSection,
-  dirtyState,
-  dirtyHandlers,
-  draftHandlers,
-  dirtyFormSections,
-  missingRequiredSectionIds,
-  initialValues,
-  restaurantName,
   profile,
   updateMutation,
-  isLoading,
-  onLogoPreviewChange,
-  onResetDraftChange,
   gbpFieldVerifications,
-  bookingSlug,
-  readinessScore,
-  readinessStageLabel,
-  completedCount,
-  totalCount,
-  requiredRemainingCount,
-  googleHint,
-  googleHref,
+  registerGbpDraftOverride,
+  clearGbpDraftOverrides,
   googleLinked,
-  nextActionLabel,
-  nextActionDescription,
-  nextReadinessItemKey,
-  onFocusReadinessItem,
-  onSaveAll,
-  onCancelActive,
+  googleDetail,
+  googleHref,
   gbpDriftCount,
   onCompareWithGoogle,
 }: ProfileLoadedViewProps) {
-  return (
-    <ProfileShell railItems={railItems}>
-      <div className="flex flex-col gap-4">
-        <ProfileStatusBar
-          bookingSlug={bookingSlug}
-          readinessScore={readinessScore}
-          readinessStageLabel={readinessStageLabel}
-          completedCount={completedCount}
-          totalCount={totalCount}
-          requiredRemainingCount={requiredRemainingCount}
-          googleHint={googleHint}
-          googleHref={googleHref}
-          nextActionLabel={nextActionLabel}
-          nextActionDescription={nextActionDescription}
-          onJumpToBooking={() => onFocusReadinessItem('bookingUrl')}
-          onJumpToNextAction={
-            nextReadinessItemKey ? () => onFocusReadinessItem(nextReadinessItemKey) : null
-          }
-        />
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null | undefined>(undefined);
+  const previewLogoUrl = logoPreviewUrl === undefined ? profile.logoUrl : logoPreviewUrl;
+  const updateProfile = updateMutation.mutateAsync;
 
-        {PROFILE_SECTION_DEFINITIONS.map((section) => (
-          <ProfileSectionPane
-            key={section.id}
-            section={section}
-            isActive={section.id === activeSectionId}
-            isDirty={dirtyState[section.dirtyKey]}
-            isMissingRequired={missingRequiredSectionIds.has(section.id)}
-          >
-            <ProfileSectionBody
-              section={section}
-              restaurantId={restaurantId}
-              restaurantName={restaurantName}
-              logoUrl={profile?.logoUrl ?? null}
-              updateMutation={updateMutation}
-              isLoading={isLoading}
-              onLogoPreviewChange={onLogoPreviewChange}
-              initialValues={initialValues}
-              dirtyHandlers={dirtyHandlers}
-              draftHandlers={draftHandlers}
-              onResetDraftChange={onResetDraftChange}
-              gbpFieldVerifications={gbpFieldVerifications}
-            />
-          </ProfileSectionPane>
-        ))}
+  // Analytics needs the draft's readiness, and the draft reports Save; a ref breaks the loop.
+  const saveRequestedRef = useRef<(sectionIds: readonly ProfileSectionId[]) => void>(() => {});
+  const handleSaveRequested = useCallback(
+    (sectionIds: readonly ProfileSectionId[]) => saveRequestedRef.current(sectionIds),
+    [],
+  );
+  const draft = useProfileDraft({
+    restaurantId,
+    profile,
+    updateProfile,
+    sections: PROFILE_SECTION_DEFINITIONS,
+    unsavedEntryId: RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS.profile,
+    leaveMessage: LEAVE_MESSAGE,
+    onSaveRequested: handleSaveRequested,
+  });
 
-        <UnifiedActionBar
-          dirtyFormSections={dirtyFormSections}
-          activeSection={activeSection}
-          lastSavedAt={profile?.updatedAt ?? null}
-          onSaveAll={onSaveAll}
-          onCancelActive={onCancelActive}
-          gbpDriftCount={gbpDriftCount}
-          onCompareWithGoogle={onCompareWithGoogle}
-          googleHref={googleHref}
-          googleLinked={googleLinked}
-        />
+  const readiness = useMemo(
+    () => deriveReadiness(draft.previewValues, previewLogoUrl),
+    [draft.previewValues, previewLogoUrl],
+  );
+  const dirtySectionIds = useMemo(
+    () => draft.dirtySections.map((section) => section.id),
+    [draft.dirtySections],
+  );
+  const { emitSaveAllClicked } = useProfileEditorAnalytics({
+    restaurantId,
+    data: profile,
+    dirtySectionIds,
+    formDirty: draft.isDirty,
+    readiness,
+  });
+  useEffect(() => {
+    saveRequestedRef.current = emitSaveAllClicked;
+  }, [emitSaveAllClicked]);
+
+  useProfileGbpDraftOverrides({
+    previewValues: draft.previewValues,
+    registerGbpDraftOverride,
+    clearGbpDraftOverrides,
+  });
+
+  // Other pages deep-link to a group (#profile-contact); scroll there once it exists.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash && DEEP_LINK_ANCHOR_IDS.includes(hash)) {
+      scrollToSettingsSection(hash);
+    }
+  }, []);
+
+  const activeAnchorId = useSettingsSectionSpy(GROUP_ANCHOR_IDS);
+  const { dirtyFields, visibleErrors } = draft;
+  const railItems = useMemo<RestaurantSettingsCommandRailItem[]>(
+    () =>
+      PROFILE_FIELD_GROUPS.map((group) => {
+        const issues = group.fields.filter((field) => visibleErrors[field]).length;
+        const edited = group.fields.some((field) => dirtyFields.includes(field));
+        return {
+          label: group.name,
+          targetId: group.anchorId,
+          isActive: group.anchorId === activeAnchorId,
+          badge:
+            issues > 0
+              ? { label: pluralise(issues, 'issue'), tone: 'issue' as const }
+              : edited
+                ? { label: 'Edited', tone: 'edited' as const }
+                : null,
+        };
+      }),
+    [activeAnchorId, dirtyFields, visibleErrors],
+  );
+
+  const handleFocusReadinessItem = useCallback((key: ReadinessItemKey) => {
+    focusProfileElement(READINESS_FIELD_TARGETS[key]);
+  }, []);
+
+  const subformProps: ProfileSubformProps = {
+    state: draft.draft,
+    savedState: draft.savedState,
+    errors: draft.visibleErrors,
+    onFieldChange: draft.setField,
+    onFieldBlur: draft.markTouched,
+    gbpFieldVerifications,
+  };
+  const restaurantName = draft.draft.name.trim() || profile.name || 'Restaurant';
+  const statusBySection = new Map(
+    draft.sectionStatuses.map((status) => [status.section.id, status] as const),
+  );
+
+  const [identityGroup, contactGroup] = PROFILE_FIELD_GROUPS;
+
+  // Name, booking page link and description form one group; location and contact follow.
+  const renderSectionBody = () => (
+    <div className="flex flex-col gap-8">
+      <div id={identityGroup?.anchorId} className="min-w-0 scroll-mt-28">
+        <ProfileFieldGroup title={identityGroup?.name ?? 'Name and booking link'}>
+          <RestaurantLogoUploader
+            restaurantId={restaurantId}
+            restaurantName={restaurantName}
+            logoUrl={profile.logoUrl}
+            updateMutation={updateMutation}
+            onPreviewChange={setLogoPreviewUrl}
+          />
+          <BrandIdentitySubform
+            {...subformProps}
+            afterName={
+              <div id={PROFILE_BOOKING_URL_ANCHOR_ID} className="min-w-0 scroll-mt-28">
+                <AdvancedIdentitySubform {...subformProps} />
+              </div>
+            }
+          />
+        </ProfileFieldGroup>
       </div>
+      <div
+        id={contactGroup?.anchorId}
+        className="min-w-0 scroll-mt-28 border-t border-border/60 pt-6"
+      >
+        <ContactLocationSubform {...subformProps} />
+      </div>
+    </div>
+  );
+
+  return (
+    <ProfileShell
+      railItems={railItems}
+      status={
+        <SettingsStatusLine
+          changeCount={draft.dirtyFields.length}
+          issueCount={draft.issueCount}
+          progress={draft.progress}
+          failure={draft.failure}
+          lastSavedAt={profile.updatedAt}
+        />
+      }
+    >
+      <div className={PROFILE_LAYOUT_GRID_CLASS}>
+        <div className="flex min-w-0 flex-col gap-4">
+          <ProfileReadinessSummary
+            className="xl:hidden"
+            items={readiness.items}
+            onFocusItem={handleFocusReadinessItem}
+          />
+          {PROFILE_SECTION_DEFINITIONS.map((section) => {
+            const status = statusBySection.get(section.id);
+            return (
+              <ProfileSectionPane
+                key={section.id}
+                section={section}
+                isDirty={status?.isDirty ?? false}
+                issueCount={status?.visibleIssueCount ?? 0}
+              >
+                {renderSectionBody()}
+              </ProfileSectionPane>
+            );
+          })}
+          <p className="text-xs leading-5 text-muted-foreground">
+            <span className="font-medium text-foreground">Related settings.</span> Manager alerts
+            and the daily booking summary are on{' '}
+            <Link
+              href={RESTAURANT_SETTINGS_ROUTE_MAP['staff-communications'].href}
+              className="underline underline-offset-2"
+            >
+              Staff communications
+            </Link>
+            .
+          </p>
+        </div>
+
+        <aside
+          aria-label="Profile readiness and Google"
+          className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4"
+        >
+          <ProfileReadinessPanel
+            className="hidden xl:block"
+            items={readiness.items}
+            onFocusItem={handleFocusReadinessItem}
+          />
+          <ProfileGoogleCard
+            googleLinked={googleLinked}
+            googleDetail={googleDetail}
+            googleHref={googleHref}
+            gbpDriftCount={gbpDriftCount}
+            onCompareWithGoogle={onCompareWithGoogle}
+          />
+        </aside>
+      </div>
+
+      <SettingsSaveBar
+        changeCount={draft.dirtyFields.length}
+        sectionNames={draft.dirtySections.map((section) => section.name)}
+        issueCount={draft.issueCount}
+        progress={draft.progress}
+        failure={draft.failure}
+        onSave={() => void draft.save()}
+        onDiscard={draft.discard}
+        onShowFirstIssue={draft.showFirstIssue}
+        onReview={() => draft.setReviewOpen(true)}
+      />
+      <SettingsReviewChangesDialog
+        open={draft.reviewOpen}
+        onOpenChange={draft.setReviewOpen}
+        groups={draft.reviewGroups}
+        onUndoGroup={draft.undoSection}
+        onSave={() => void draft.save()}
+      />
     </ProfileShell>
   );
 }

@@ -1,57 +1,63 @@
-import { motion } from 'motion/react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
 
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { opsHref } from '@/lib/url/opsHref';
+import { cn } from '@/lib/utils';
 
-import type { RequiredSetupSummary } from './buildSetupCards';
+import type { ReadinessSummary } from './buildSetupCards';
 
 type SetupProgressPanelProps = {
-  requiredSetup: RequiredSetupSummary;
+  readiness: ReadinessSummary;
 };
 
-export function SetupProgressPanel({ requiredSetup }: SetupProgressPanelProps) {
+/** Readiness summary: whether guests can book, the next required step and a segmented bar. */
+export function SetupProgressPanel({ readiness }: SetupProgressPanelProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="overflow-hidden"
+    <Card
+      role="region"
+      aria-labelledby="setup-readiness-heading"
+      data-testid="setup-readiness-summary"
+      className="flex flex-col gap-3 p-4 sm:p-5"
     >
-      <Card className="border-primary/20 bg-primary/5 shadow-sm">
-        <CardHeader className="gap-4 p-5 sm:p-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-1">
-              <Badge variant="metric" className="w-fit">
-                Onboarding progress
-              </Badge>
-              <CardTitle className="text-xl leading-tight sm:text-2xl">
-                {requiredSetup.title}
-              </CardTitle>
-              <CardDescription className="max-w-xl text-xs leading-5">
-                {requiredSetup.description}
-              </CardDescription>
-            </div>
-            <div className="flex shrink-0 items-baseline gap-1 text-right">
-              <span className="text-3xl font-bold text-foreground sm:text-4xl">
-                {requiredSetup.percent}%
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">complete</span>
-            </div>
-          </div>
-        </CardHeader>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h2
+            id="setup-readiness-heading"
+            className="flex items-center gap-2 text-base font-semibold leading-6 text-foreground"
+          >
+            {readiness.ready ? (
+              <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
+            ) : null}
+            {readiness.hasFailedCheck ? (
+              <AlertTriangle className="size-4 shrink-0 text-destructive" aria-hidden />
+            ) : null}
+            {readiness.title}
+          </h2>
+          <p className="text-sm leading-6 text-muted-foreground">{readiness.description}</p>
+        </div>
+        {readiness.ready ? (
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="w-fit shrink-0 [@media(pointer:coarse)]:min-h-11"
+          >
+            <Link href={opsHref('/settings/restaurant/availability')}>Preview guest times</Link>
+          </Button>
+        ) : null}
+      </div>
 
-        <CardContent className="p-5 pt-0 sm:p-6 sm:pt-0">
-          <Progress value={requiredSetup.percent} aria-label="Required setup completion" />
-
-          <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-            <span>
-              {requiredSetup.complete} of {requiredSetup.total} required steps complete
-            </span>
-            <span>{requiredSetup.footer}</span>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+      <div role="img" aria-label={readiness.progressLabel} className="flex gap-1">
+        {readiness.segments.map((done, index) => (
+          <span
+            key={index}
+            data-state={done ? 'complete' : 'incomplete'}
+            className={cn('h-1.5 flex-1 rounded-full', done ? 'bg-success' : 'bg-muted')}
+          />
+        ))}
+      </div>
+    </Card>
   );
 }

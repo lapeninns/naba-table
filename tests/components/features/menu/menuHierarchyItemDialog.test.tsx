@@ -3,10 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ItemDialog } from '@/components/features/menu/menuHierarchyItemDialog';
+import { HttpError } from '@/lib/http/errors';
 
 import {
   makeItem,
   makeMenu,
+  makeOption,
   makeSection,
   mutationStub,
   type MutationStub,
@@ -15,11 +17,13 @@ import {
 const hooks = vi.hoisted(() => ({
   createItem: undefined as unknown as MutationStub,
   updateItem: undefined as unknown as MutationStub,
+  patchOption: undefined as unknown as MutationStub,
 }));
 
 vi.mock('@/hooks/ops/useOpsMenuHierarchy', () => ({
   useOpsCreateRestaurantMenuItem: () => hooks.createItem,
   useOpsUpdateRestaurantMenuItem: () => hooks.updateItem,
+  useOpsPatchRestaurantMenuOption: () => hooks.patchOption,
 }));
 
 function renderDialog(overrides: Partial<Parameters<typeof ItemDialog>[0]> = {}) {
@@ -40,31 +44,75 @@ describe('ItemDialog', () => {
   beforeEach(() => {
     hooks.createItem = mutationStub();
     hooks.updateItem = mutationStub();
+    hooks.patchOption = mutationStub();
   });
 
-  it('@smoke @a11y renders the create dialog with grouped field sections', () => {
+  it('@smoke @a11y keeps essentials visible and less-used groups collapsed', () => {
     renderDialog();
 
-    expect(screen.getByRole('dialog', { name: 'Create item' })).toBeInTheDocument();
-    expect(screen.getByText('Essentials')).toBeInTheDocument();
-    expect(screen.getByText('Google publishing')).toBeInTheDocument();
-    expect(screen.getByText('Guest menu')).toBeInTheDocument();
-    expect(screen.getByText('Recommendations')).toBeInTheDocument();
-    expect(screen.getByText('Customization')).toBeInTheDocument();
-    expect(screen.getByText('Import metadata')).toBeInTheDocument();
-    expect(screen.queryByText('Drink details')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Add item to Starters' })).toBeInTheDocument();
+    expect(screen.getByText('Item name')).toBeInTheDocument();
+    expect(screen.getByText('Description')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Price' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Dietary' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Allergens' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Availability' })).toBeInTheDocument();
+
+    for (const name of [/Options guests can choose/, /Google details/, /More/]) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('aria-expanded', 'false');
+    }
+    expect(screen.queryByRole('button', { name: /Drink details/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Preparation methods')).not.toBeInTheDocument();
   });
 
-  it('@contract shows drink details only for drinks menus', () => {
+  it('@contract every existing field group is still reachable through the disclosures', async () => {
+    const user = userEvent.setup();
+    renderDialog({ item: makeItem() });
+
+    await user.click(screen.getByRole('button', { name: /Google details/ }));
+    for (const text of [
+      'Google photo keys',
+      'Manual paste fallback',
+      'Local image URL',
+      'Spiciness',
+      'Serves',
+      'Preparation methods',
+      'Ingredients',
+      'Guest menu portion size',
+      'Google nutrition facts',
+      'Primary label language',
+      'Additional Google labels',
+    ]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
+
+    await user.click(screen.getByRole('button', { name: /More/ }));
+    for (const name of [
+      'Availability details',
+      'Recommendations',
+      'Customisation',
+      'Import metadata',
+    ]) {
+      expect(screen.getByRole('heading', { name })).toBeInTheDocument();
+    }
+    expect(screen.getByText('Availability status')).toBeInTheDocument();
+    expect(screen.getByText('Orderable')).toBeInTheDocument();
+  });
+
+  it('@contract shows drink details only for drinks menus, open by default', () => {
     renderDialog({ menu: makeMenu({ menuKind: 'drinks' }) });
 
-    expect(screen.getByText('Drink details')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Drink details/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.getByText('ABV %')).toBeInTheDocument();
   });
 
   it('@contract titles as edit and prefills when an item is provided', () => {
     renderDialog({ item: makeItem() });
 
-    expect(screen.getByRole('dialog', { name: 'Edit item' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Edit Burrata' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('Burrata')).toBeInTheDocument();
   });
 
@@ -72,6 +120,7 @@ describe('ItemDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
+    await user.click(screen.getByRole('button', { name: /Google details/ }));
     await user.type(
       screen.getByPlaceholderText('locations/{locationId}/media/{mediaKey}'),
       'https://example.com/image.jpg',
@@ -82,10 +131,31 @@ describe('ItemDialog', () => {
     expect(screen.getByText('No GBP media keys selected.')).toBeInTheDocument();
   });
 
+  it('@contract opens Google details to show a media key error found on save', async () => {
+    const user = userEvent.setup();
+    renderDialog({
+      item: makeItem({ media: { googleMediaKeys: ['https://example.com/a.jpg'], localMedia: {} } }),
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+
+    expect(screen.getByRole('button', { name: /Google details/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(
+      screen.getByText(
+        'Google media keys cannot be image URLs. Put local URLs in the local image field.',
+      ),
+    ).toBeInTheDocument();
+    expect(hooks.updateItem.mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('@contract adds and removes media keys as badges', async () => {
     const user = userEvent.setup();
     renderDialog();
 
+    await user.click(screen.getByRole('button', { name: /Google details/ }));
     const draft = screen.getByPlaceholderText('locations/{locationId}/media/{mediaKey}');
     await user.type(draft, 'locations/1/media/abc');
     await user.click(screen.getByRole('button', { name: 'Add' }));
@@ -96,6 +166,38 @@ describe('ItemDialog', () => {
 
     await user.click(removeButton);
     expect(screen.getByText('No GBP media keys selected.')).toBeInTheDocument();
+  });
+
+  it('@contract options list the live item options and open the option dialogs', async () => {
+    const user = userEvent.setup();
+    const optionCallbacks = {
+      onCreateOption: vi.fn(),
+      onEditOption: vi.fn(),
+      onDeleteOption: vi.fn(),
+    };
+    const item = makeItem();
+    const liveItem = makeItem({ options: [makeOption()] });
+    renderDialog({ item, liveItem, optionCallbacks });
+
+    const disclosure = screen.getByRole('button', { name: /Options guests can choose/ });
+    expect(disclosure).toHaveTextContent('1 option');
+    await user.click(disclosure);
+
+    await user.click(screen.getByRole('button', { name: 'Edit option Extra bread' }));
+    expect(optionCallbacks.onEditOption).toHaveBeenCalledWith(liveItem, liveItem.options[0]);
+
+    await user.click(screen.getByRole('button', { name: 'Add option' }));
+    expect(optionCallbacks.onCreateOption).toHaveBeenCalledWith(liveItem);
+  });
+
+  it('@contract a new item explains options come after the first save', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.click(screen.getByRole('button', { name: /Options guests can choose/ }));
+    expect(
+      screen.getByText('Save the item first, then add options such as a large portion.'),
+    ).toBeInTheDocument();
   });
 
   it('@contract creating an item saves a payload built from the form and closes', async () => {
@@ -130,14 +232,19 @@ describe('ItemDialog', () => {
     hooks.createItem = mutationStub({ isPending: true });
     renderDialog();
 
-    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
   });
 
-  it('@contract surfaces mutation errors inside the dialog', () => {
-    hooks.createItem = mutationStub({ error: new Error('Save failed hard') });
+  it('@contract surfaces mutation errors inside the dialog with the reason code only', () => {
+    hooks.createItem = mutationStub({
+      error: new HttpError({ message: 'Save failed hard', status: 500, code: 'HTTP_500' }),
+    });
     renderDialog();
 
-    expect(screen.getByText('Save failed hard')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Not saved. Your edits are still in this dialog. Reason code HTTP_500.',
+    );
+    expect(screen.queryByText(/Save failed hard/)).not.toBeInTheDocument();
   });
 
   it('@contract cancel closes without saving', async () => {

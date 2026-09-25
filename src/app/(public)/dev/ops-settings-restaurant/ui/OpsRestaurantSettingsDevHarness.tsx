@@ -27,6 +27,7 @@ const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'menu', label: 'Menu' },
   { value: 'tables', label: 'Tables' },
   { value: 'team', label: 'Team' },
+  { value: 'staff-communications', label: 'Staff communications' },
 ];
 
 export function OpsRestaurantSettingsDevHarness() {

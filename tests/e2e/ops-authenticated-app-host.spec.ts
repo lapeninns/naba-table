@@ -166,22 +166,29 @@ async function installOpsApiMocks(page: Page) {
 }
 
 async function expectProfileStatusBar(page: Page) {
-  const readinessRing = page.getByRole('img', { name: /Profile readiness/ });
-  await expect(readinessRing).toBeVisible();
-  await expect(page.locator('main').getByText('All prerequisites complete')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Review booking URL' })).toBeVisible();
-  await expect(page.getByRole('link', { exact: true, name: 'Link Google' })).toHaveAttribute(
+  // Readiness is a sticky column from xl and a compact summary card below it.
+  await expect(
+    page.locator('main').getByText('Everything guests need is filled in').filter({ visible: true }),
+  ).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Link Google Business Profile' })).toHaveAttribute(
     'href',
     '/app/settings/restaurant/google-business-profile#gbp-connection',
   );
-  await expect(page.getByRole('link', { name: 'Compare with Google' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Compare with Google/ })).toHaveCount(0);
+  await expect(page.getByRole('heading', { level: 2, name: 'Public details' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Name and booking link' })).toHaveAttribute(
+    'href',
+    '#profile-identity',
+  );
+  // Manager alerts moved to Staff communications.
+  await expect(page.getByRole('switch', { name: 'Try WhatsApp first' })).toHaveCount(0);
+}
 
-  const readinessBox = await readinessRing.boundingBox();
-  const activePane = page.locator('main').getByText('Brand and identity').first();
-  const paneBox = await activePane.boundingBox();
-  expect(readinessBox).not.toBeNull();
-  expect(paneBox).not.toBeNull();
-  expect(readinessBox!.y).toBeLessThan(paneBox!.y);
+async function expectStaffCommunications(page: Page) {
+  await page.locator('main').getByRole('link', { name: 'Staff communications' }).click();
+  await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/staff-communications/);
+  await expect(page.getByRole('heading', { level: 2, name: 'Manager alerts' })).toBeVisible();
+  await expect(page.getByRole('switch', { name: 'Try WhatsApp first' })).toBeVisible();
 }
 
 test.describe('authenticated ops app-host shipped routes', () => {
@@ -227,17 +234,15 @@ test.describe('authenticated ops app-host shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
     await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
-    await expect(page.locator('main').getByText('QA App Host Restaurant').first()).toBeVisible();
-    await expectProfileStatusBar(page);
-    await page.getByText('4 · Manager alerts', { exact: true }).click();
     await expect(
-      page.getByRole('switch', { name: /Send daily summary via WhatsApp first/ }),
-    ).toBeVisible();
-
+      page.locator('main').getByRole('textbox', { name: /^Restaurant name/ }),
+    ).toHaveValue('QA App Host Restaurant');
+    await expectProfileStatusBar(page);
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-profile-authenticated-desktop.png'),
       fullPage: true,
     });
+    await expectStaffCommunications(page);
   });
 
   test('restaurant profile status bar wraps on tablet @p1 @browser @local-only', async ({
@@ -249,15 +254,11 @@ test.describe('authenticated ops app-host shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
     await expectProfileStatusBar(page);
-    await page.getByText('4 · Manager alerts', { exact: true }).click();
-    await expect(
-      page.getByRole('switch', { name: /Send daily summary via WhatsApp first/ }),
-    ).toBeVisible();
-
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-profile-authenticated-tablet.png'),
       fullPage: true,
     });
+    await expectStaffCommunications(page);
   });
 
   test('restaurant discovery details renders authenticated shipped route proof @p1 @browser @smoke @local-only', async ({
@@ -270,7 +271,7 @@ test.describe('authenticated ops app-host shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/discovery/);
     await expect(page.locator('main').getByText('Discovery details').first()).toBeVisible();
-    await expect(page.locator('main').getByText('Dining categories').first()).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Categories' })).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-discovery-authenticated-desktop.png'),

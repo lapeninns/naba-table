@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { emitProfileEditorAnalytics } from '../profileEditorAnalytics';
 
-import type { ProfileDirtySection, deriveReadiness } from '../../restaurantProfileModel';
+import type { deriveReadiness } from '../../restaurantProfileModel';
+import type { ProfileSectionId } from '../profileSections';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
 
 type UseProfileEditorAnalyticsInput = {
   restaurantId: string | null;
   data: RestaurantProfile | null | undefined;
-  dirtySections: readonly ProfileDirtySection[];
+  dirtySectionIds: readonly ProfileSectionId[];
   formDirty: boolean;
   readiness: ReturnType<typeof deriveReadiness>;
 };
@@ -18,7 +19,7 @@ type UseProfileEditorAnalyticsInput = {
 export function useProfileEditorAnalytics({
   restaurantId,
   data,
-  dirtySections,
+  dirtySectionIds,
   formDirty,
   readiness,
 }: UseProfileEditorAnalyticsInput) {
@@ -26,14 +27,14 @@ export function useProfileEditorAnalytics({
   const viewedRestaurantIdRef = useRef<string | null>(null);
   const editStartedEmittedRef = useRef(false);
   const dropoffEmittedRef = useRef(false);
-  const dirtySectionsRef = useRef<readonly ProfileDirtySection[]>([]);
+  const dirtySectionsRef = useRef<readonly ProfileSectionId[]>([]);
 
   const emitSaveAllClicked = useCallback(
-    (dirtyFormSections: readonly (ProfileDirtySection & { formId: string })[]) => {
+    (sectionIds: readonly ProfileSectionId[]) => {
       emitProfileEditorAnalytics('restaurant_profile_save_all_clicked', {
         restaurant_id: restaurantId,
-        dirty_section_count: dirtyFormSections.length,
-        dirty_sections: dirtyFormSections.map((section) => section.key),
+        dirty_section_count: sectionIds.length,
+        dirty_sections: [...sectionIds],
         completeness_score: readiness.score,
         missing_count: readiness.missing.length,
         elapsed_ms: Math.max(0, Date.now() - sessionStartedAtRef.current),
@@ -43,8 +44,8 @@ export function useProfileEditorAnalytics({
   );
 
   useEffect(() => {
-    dirtySectionsRef.current = dirtySections;
-  }, [dirtySections]);
+    dirtySectionsRef.current = dirtySectionIds;
+  }, [dirtySectionIds]);
 
   useEffect(() => {
     if (!restaurantId || !data || viewedRestaurantIdRef.current === restaurantId) {
@@ -66,7 +67,7 @@ export function useProfileEditorAnalytics({
   }, [data, readiness.completed.length, readiness.missing, readiness.score, restaurantId]);
 
   useEffect(() => {
-    if (!restaurantId || dirtySections.length === 0 || editStartedEmittedRef.current) {
+    if (!restaurantId || dirtySectionIds.length === 0 || editStartedEmittedRef.current) {
       return;
     }
 
@@ -74,12 +75,12 @@ export function useProfileEditorAnalytics({
     dropoffEmittedRef.current = false;
     emitProfileEditorAnalytics('restaurant_profile_edit_started', {
       restaurant_id: restaurantId,
-      dirty_section_count: dirtySections.length,
-      dirty_sections: dirtySections.map((section) => section.key),
+      dirty_section_count: dirtySectionIds.length,
+      dirty_sections: [...dirtySectionIds],
       completeness_score: readiness.score,
       elapsed_ms: Math.max(0, Date.now() - sessionStartedAtRef.current),
     });
-  }, [dirtySections, readiness.score, restaurantId]);
+  }, [dirtySectionIds, readiness.score, restaurantId]);
 
   useEffect(() => {
     if (!formDirty) {
@@ -97,7 +98,7 @@ export function useProfileEditorAnalytics({
       emitProfileEditorAnalytics('restaurant_profile_dropoff_before_save', {
         restaurant_id: restaurantId,
         dirty_section_count: currentDirtySections.length,
-        dirty_sections: currentDirtySections.map((section) => section.key),
+        dirty_sections: [...currentDirtySections],
         elapsed_ms: Math.max(0, Date.now() - sessionStartedAtRef.current),
       });
     };

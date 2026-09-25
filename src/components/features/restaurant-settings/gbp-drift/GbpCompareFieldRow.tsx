@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, CheckCircle2, ExternalLink } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ExternalLink, GitCompareArrows } from 'lucide-react';
 import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
@@ -35,12 +35,19 @@ export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-foreground">{view.label}</p>
-            <Badge variant={isDrifted ? 'default' : 'secondary'} className="text-[11px]">
-              {isDrifted ? 'Drifted' : 'Synced'}
+            <Badge variant={isDrifted ? 'default' : 'secondary'} className="gap-1 text-xs">
+              {isDrifted ? (
+                <GitCompareArrows data-icon="inline-start" aria-hidden />
+              ) : (
+                <CheckCircle2 data-icon="inline-start" aria-hidden />
+              )}
+              {isDrifted ? 'Differs from Google' : 'Matches Google'}
             </Badge>
           </div>
           {view.helpText ? (
-            <Text variant="caption" className="mt-1">{view.helpText}</Text>
+            <Text variant="caption" className="mt-1">
+              {view.helpText}
+            </Text>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -70,17 +77,13 @@ export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
 
       <div className="grid gap-3 md:grid-cols-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase leading-4 text-muted-foreground">
-            Nabatable
-          </p>
+          <p className="text-xs font-medium leading-4 text-muted-foreground">Nabatable</p>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono text-xs leading-5 text-foreground">
             {formatGbpDriftPreview(view.localValue)}
           </pre>
         </div>
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase leading-4 text-muted-foreground">
-            Google
-          </p>
+          <p className="text-xs font-medium leading-4 text-muted-foreground">Google</p>
           <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono text-xs leading-5 text-foreground">
             {formatGbpDriftPreview(view.gbpValue)}
           </pre>

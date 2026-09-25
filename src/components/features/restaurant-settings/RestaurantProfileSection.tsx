@@ -1,11 +1,13 @@
 'use client';
 
+import { CircleAlert } from 'lucide-react';
 import { useCallback, useMemo } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/typography';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import {
   useOpsRestaurantDetails,
@@ -18,19 +20,8 @@ import { PROFILE_WORKSPACE_COMPARE_SECTION_KEYS } from './gbp/profileCompareSect
 import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
 import { useGbpDriftSectionStatus, useGbpDriftStatus } from './GbpDriftProvider';
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
-import { ProfileLoadedView, ProfileShell } from './profile';
-import {
-  useProfileDraftState,
-  useProfileEditorAnalytics,
-  useProfileGbpDraftOverrides,
-  useProfileReadiness,
-  useProfileSectionNav,
-} from './profile/hooks';
-import {
-  SettingsCard,
-  SettingsSectionStates,
-  type RestaurantSettingsCommandRailItem,
-} from './shared';
+import { PROFILE_LAYOUT_GRID_CLASS, ProfileLoadedView, ProfileShell } from './profile';
+import { SettingsSectionStates, getSettingsSaveReasonCode } from './shared';
 
 const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
 
@@ -38,58 +29,51 @@ type RestaurantProfileSectionProps = {
   restaurantId: string | null;
 };
 
+function ProfileLoadingState() {
+  return (
+    <ProfileShell>
+      <div className={PROFILE_LAYOUT_GRID_CLASS} role="status" aria-live="polite">
+        <span className="sr-only">Loading restaurant profile…</span>
+        <div className="flex min-w-0 flex-col gap-4" aria-hidden>
+          {[0, 1].map((index) => (
+            <Card key={index} variant="compact" className="border-border/70">
+              <div className="flex flex-col gap-2 border-b border-border/60 px-4 py-4 sm:px-5">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-4 w-full max-w-md" />
+              </div>
+              <div className="flex flex-col gap-5 px-4 py-5 sm:px-5">
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-24 w-full" />
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+        <Card variant="compact" className="hidden border-border/70 p-4 xl:block" aria-hidden>
+          <div className="flex flex-col gap-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-1.5 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </Card>
+      </div>
+    </ProfileShell>
+  );
+}
+
 export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSectionProps) {
   const { data, error, isLoading, refetch } = useOpsRestaurantDetails(restaurantId);
   const gbpConnectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
   const { status: gbpStatus } = useGbpDriftStatus();
   const gbpDrift = useOptionalGbpDrift();
-  const registerGbpDraftOverride = gbpDrift?.registerDraftOverride;
-  const clearGbpDraftOverrides = gbpDrift?.clearDraftOverrides;
   const profileDriftStatus = useGbpDriftSectionStatus(PROFILE_WORKSPACE_COMPARE_SECTION_KEYS);
   const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
 
-  const {
-    dirtyState,
-    dirtySections,
-    dirtyFormSections,
-    formDirty,
-    initialValues,
-    previewValues,
-    previewLogoUrl,
-    setLogoPreviewUrl,
-    dirtyHandlers,
-    draftHandlers,
-    registerResetDraftHandler,
-    resetSectionDraft,
-  } = useProfileDraftState(data);
-  const { activeSectionId, activeSection, setActiveSectionId, buildRailItems } =
-    useProfileSectionNav();
-
-  useProfileGbpDraftOverrides({
-    previewValues,
-    registerGbpDraftOverride,
-    clearGbpDraftOverrides,
-  });
-  const {
-    readiness,
-    missingRequiredSectionIds,
-    readinessStageLabel,
-    nextReadinessItem,
-    handleFocusReadinessItem,
-  } = useProfileReadiness({
-    previewValues,
-    previewLogoUrl,
-    setActiveSectionId,
-  });
-  const { emitSaveAllClicked } = useProfileEditorAnalytics({
-    restaurantId,
-    data,
-    dirtySections,
-    formDirty,
-    readiness,
-  });
-
-  const derivedRestaurantName = previewValues.name.trim() || data?.name || 'Restaurant';
   const profileVerification = useMemo(
     () =>
       deriveProfileVerification({
@@ -120,31 +104,16 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   }, [gbpDrift, profileReviewCount]);
   const googleStatusDetail =
     hasGbpDriftContext && gbpStatus.kind === 'connected_with_review' && profileReviewCount > 0
-      ? 'Review profile and discovery drift in the Google workspace before importing or exporting.'
+      ? 'Review profile and discovery differences in the Google workspace before importing or exporting.'
       : gbpConnectionQuery.data?.status === 'linked'
         ? googleDifferenceCount > 0
           ? 'Review differences before importing so guest-facing details stay intentional.'
-          : 'Google fields match this profile snapshot.'
+          : 'Google fields match this profile.'
         : hasGbpDriftContext && gbpStatus.kind === 'connected_outdated'
           ? gbpStatus.detail
-          : 'Link Google only when you need import or side-by-side comparison.';
-  const handleSaveAllProfileForms = useCallback(() => {
-    emitSaveAllClicked(dirtyFormSections);
-    dirtyFormSections.forEach((section) => {
-      const form = document.getElementById(section.formId);
-      if (form instanceof HTMLFormElement) {
-        form.requestSubmit();
-      }
-    });
-  }, [dirtyFormSections, emitSaveAllClicked]);
-  const handleCancelActiveSection = useCallback(() => {
-    resetSectionDraft(activeSection.dirtyKey);
-  }, [activeSection.dirtyKey, resetSectionDraft]);
-
-  const railItems: RestaurantSettingsCommandRailItem[] = useMemo(
-    () => buildRailItems({ dirtyState, missingRequiredSectionIds }),
-    [buildRailItems, dirtyState, missingRequiredSectionIds],
-  );
+          : isGoogleLinked
+            ? 'Linked. Differences with Google are reviewed in the Google workspace.'
+            : 'Optional. Link Google only when you need import or side-by-side comparison.';
 
   return (
     <SettingsSectionStates
@@ -153,91 +122,51 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       error={error}
       noRestaurant={
         <ProfileShell>
-          <SettingsCard
+          <OpsEmptyState
             title="Select a restaurant"
-            description="Pick a restaurant from the sidebar switcher to manage what guests and staff see."
-          >
-            <Text variant="caption">
-              Choose a restaurant using the sidebar switcher to update its public details and team
-              alerts.
-            </Text>
-          </SettingsCard>
+            description="Choose a restaurant with the sidebar switcher to edit its public details."
+          />
         </ProfileShell>
       }
-      loading={
-        <ProfileShell>
-          <SettingsCard
-            title="Loading restaurant profile"
-            description="Loading the restaurant details staff use day to day."
-          >
-            <div className="flex flex-col gap-4">
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          </SettingsCard>
-        </ProfileShell>
-      }
+      loading={<ProfileLoadingState />}
       errorState={(loadError) => (
         <ProfileShell>
-          <SettingsCard
-            title="Restaurant profile"
-            description="Update public details and team alerts."
-          >
-            <Alert variant="destructive">
-              <AlertTitle>Unable to load restaurant details</AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-4">
-                <span>{loadError.message}</span>
-                <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-                  Retry
-                </Button>
-              </AlertDescription>
-            </Alert>
-          </SettingsCard>
+          <Alert variant="destructive">
+            <CircleAlert aria-hidden />
+            <AlertTitle>Couldn’t load the restaurant profile</AlertTitle>
+            <AlertDescription className="flex flex-col items-start gap-3">
+              <span>
+                Your saved details are unchanged. Reason code{' '}
+                <span className="font-mono">{getSettingsSaveReasonCode(loadError)}</span>
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+                Try again
+              </Button>
+            </AlertDescription>
+          </Alert>
         </ProfileShell>
       )}
     >
-      {(activeRestaurantId) => (
-        <ProfileLoadedView
-          restaurantId={activeRestaurantId}
-          railItems={railItems}
-          activeSectionId={activeSectionId}
-          activeSection={activeSection}
-          dirtyState={dirtyState}
-          dirtyHandlers={dirtyHandlers}
-          draftHandlers={draftHandlers}
-          dirtyFormSections={dirtyFormSections}
-          missingRequiredSectionIds={missingRequiredSectionIds}
-          initialValues={initialValues}
-          restaurantName={derivedRestaurantName}
-          profile={data}
-          updateMutation={updateMutation}
-          isLoading={isLoading && !data}
-          onLogoPreviewChange={setLogoPreviewUrl}
-          onResetDraftChange={registerResetDraftHandler}
-          gbpFieldVerifications={profileVerification.fields}
-          bookingSlug={previewValues.slug || null}
-          readinessScore={readiness.score}
-          readinessStageLabel={readinessStageLabel}
-          completedCount={readiness.completed.length}
-          totalCount={readiness.missing.length + readiness.completed.length}
-          requiredRemainingCount={readiness.missingRequired.length}
-          googleHint={isGoogleLinked ? null : googleStatusDetail}
-          googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
-          googleLinked={Boolean(isGoogleLinked)}
-          nextActionLabel={nextReadinessItem ? `Fix ${nextReadinessItem.label}` : null}
-          nextActionDescription={
-            nextReadinessItem
-              ? 'Complete the next required item to make the booking link reliable for guests.'
-              : 'Required profile fields are complete. You can now polish discovery details.'
-          }
-          nextReadinessItemKey={nextReadinessItem?.key ?? null}
-          onFocusReadinessItem={handleFocusReadinessItem}
-          onSaveAll={handleSaveAllProfileForms}
-          onCancelActive={handleCancelActiveSection}
-          gbpDriftCount={profileReviewCount}
-          onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
-        />
-      )}
+      {(activeRestaurantId) =>
+        data ? (
+          <ProfileLoadedView
+            key={activeRestaurantId}
+            restaurantId={activeRestaurantId}
+            profile={data}
+            updateMutation={updateMutation}
+            gbpFieldVerifications={profileVerification.fields}
+            registerGbpDraftOverride={gbpDrift?.registerDraftOverride}
+            clearGbpDraftOverrides={gbpDrift?.clearDraftOverrides}
+            googleLinked={Boolean(isGoogleLinked)}
+            googleDetail={googleStatusDetail}
+            googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
+            gbpDriftCount={profileReviewCount}
+            onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
+          />
+        ) : (
+          <ProfileLoadingState />
+        )
+      }
     </SettingsSectionStates>
   );
 }

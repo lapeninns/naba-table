@@ -13,14 +13,20 @@ vi.mock('@/components/features/restaurant-settings/gbp-drift/useGbpDrift', () =>
 
 import { GbpDriftFieldBadge } from '@/components/features/restaurant-settings/gbp-drift/GbpDriftFieldBadge';
 
-function makeDrift(effectiveStatus: 'drifted' | 'in_sync') {
+function makeDrift(effectiveStatus: 'drifted' | 'in_sync', gbpValue: unknown = null) {
   return {
     isLinked: true,
     openCompare: vi.fn(),
     fieldViewByKey: new Map([
       [
         'profile.name',
-        { fieldKey: 'profile.name', sectionKey: 'profile', label: 'Business name', effectiveStatus },
+        {
+          fieldKey: 'profile.name',
+          sectionKey: 'profile',
+          label: 'Business name',
+          effectiveStatus,
+          gbpValue,
+        },
       ],
     ]),
   };
@@ -42,8 +48,10 @@ describe('GbpDriftFieldBadge', () => {
     driftState.current = makeDrift('drifted');
     render(<GbpDriftFieldBadge fieldKey="profile.name" />);
 
-    const button = screen.getByRole('button', { name: 'Compare Business name with Google' });
-    expect(button).toHaveTextContent('Drifted from GBP');
+    const button = screen.getByRole('button', {
+      name: 'Differs from Google: compare Business name with Google',
+    });
+    expect(button).toHaveTextContent('Differs from Google');
 
     await user.click(button);
     expect(driftState.current.openCompare).toHaveBeenCalledWith(
@@ -55,6 +63,15 @@ describe('GbpDriftFieldBadge', () => {
     driftState.current = makeDrift('in_sync');
     render(<GbpDriftFieldBadge fieldKey="profile.name" />);
 
-    expect(screen.getByText('Synced with GBP')).toBeInTheDocument();
+    expect(screen.getByText('Matches Google')).toBeInTheDocument();
+  });
+
+  it('@a11y shows the Google value in the tooltip', async () => {
+    const user = userEvent.setup();
+    driftState.current = makeDrift('drifted', 'The Old Crown');
+    render(<GbpDriftFieldBadge fieldKey="profile.name" />);
+
+    await user.hover(screen.getByRole('button', { name: /compare business name with google/i }));
+    expect((await screen.findAllByText('Google has: The Old Crown')).length).toBeGreaterThan(0);
   });
 });

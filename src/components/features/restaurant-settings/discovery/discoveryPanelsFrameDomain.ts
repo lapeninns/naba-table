@@ -1,71 +1,60 @@
 import {
   DISCOVERY_SECTION_DESCRIPTIONS,
   DISCOVERY_SECTION_ORDER,
-  TAB_LABELS,
+  DISCOVERY_SECTION_TITLES,
+  discoverySectionAnchorId,
   type DirtyState,
-  type ErrorState,
   type FamilyKey,
 } from '../businessContextModel';
+import { pluralise } from '../shared/settingsSaveSequence';
 
-import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
+import type { SettingsSectionNavBadge } from '../shared/SettingsSectionNav';
 
-export type DiscoveryFrameEditorState = {
-  dirty: DirtyState;
-  errors: ErrorState;
-};
-
-export type DiscoverySectionFrameState = {
+export type DiscoverySectionState = {
   family: FamilyKey;
   title: string;
   description: string;
+  anchorId: string;
   dirty: boolean;
-  hasError: boolean;
-  triggerLabel: string;
-  driftFields: ReadonlyArray<DualSyncFieldSummary>;
+  /** Issues shown to staff in this section (after a save attempt or once a field is left). */
+  issueCount: number;
+  badge: SettingsSectionNavBadge | null;
 };
 
-export function isDiscoveryFamily(value: string): value is FamilyKey {
-  return DISCOVERY_SECTION_ORDER.includes(value as FamilyKey);
-}
-
-export function resolveDiscoveryFamily(value: string): FamilyKey | null {
-  return isDiscoveryFamily(value) ? value : null;
-}
-
-export function formatDiscoveryTriggerLabel({
-  title,
+/** "N issues" wins over "Edited": staff need to see where the blocking problems are. */
+export function getDiscoverySectionBadge({
   dirty,
-  hasError,
+  issueCount,
 }: {
-  title: string;
   dirty: boolean;
-  hasError: boolean;
-}): string {
-  return [title, dirty ? 'unsaved changes' : null, hasError ? 'needs attention' : null]
-    .filter(Boolean)
-    .join(', ');
+  issueCount: number;
+}): SettingsSectionNavBadge | null {
+  if (issueCount > 0) {
+    return { label: pluralise(issueCount, 'issue'), tone: 'issue' };
+  }
+  if (dirty) {
+    return { label: 'Edited', tone: 'edited', srLabel: 'Unsaved changes' };
+  }
+  return null;
 }
 
-export function buildDiscoverySectionFrameState({
-  family,
-  editor,
-  gbpDriftFieldsByFamily,
+export function buildDiscoverySectionStates({
+  dirty,
+  issueCounts,
 }: {
-  family: FamilyKey;
-  editor: DiscoveryFrameEditorState;
-  gbpDriftFieldsByFamily?: Readonly<Record<FamilyKey, ReadonlyArray<DualSyncFieldSummary>>>;
-}): DiscoverySectionFrameState {
-  const title = TAB_LABELS[family];
-  const dirty = editor.dirty[family];
-  const hasError = Boolean(editor.errors[family]);
-
-  return {
-    family,
-    title,
-    description: DISCOVERY_SECTION_DESCRIPTIONS[family],
-    dirty,
-    hasError,
-    triggerLabel: formatDiscoveryTriggerLabel({ title, dirty, hasError }),
-    driftFields: gbpDriftFieldsByFamily?.[family] ?? [],
-  };
+  dirty: DirtyState;
+  issueCounts: Readonly<Record<FamilyKey, number>>;
+}): DiscoverySectionState[] {
+  return DISCOVERY_SECTION_ORDER.map((family) => {
+    const issueCount = issueCounts[family];
+    return {
+      family,
+      title: DISCOVERY_SECTION_TITLES[family],
+      description: DISCOVERY_SECTION_DESCRIPTIONS[family],
+      anchorId: discoverySectionAnchorId(family),
+      dirty: dirty[family],
+      issueCount,
+      badge: getDiscoverySectionBadge({ dirty: dirty[family], issueCount }),
+    };
+  });
 }

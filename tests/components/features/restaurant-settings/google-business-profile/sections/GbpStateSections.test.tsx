@@ -13,9 +13,7 @@ describe('GbpStateSections', () => {
   it('@smoke prompts for a restaurant in the no-restaurant state', () => {
     render(<NoRestaurantGbpSection />);
 
-    expect(
-      screen.getByText(/Select a restaurant using the sidebar switcher/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Select a restaurant using the sidebar switcher/)).toBeInTheDocument();
   });
 
   it('@smoke @a11y announces the loading state as busy status', () => {
@@ -32,7 +30,7 @@ describe('GbpStateSections', () => {
     expect(screen.getByText('Unable to load Google Business Profile')).toBeInTheDocument();
     expect(screen.getByText('Connection fetch failed')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 

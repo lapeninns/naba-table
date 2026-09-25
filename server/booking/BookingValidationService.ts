@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 
 import { isBookingType, type BookingType } from '@/lib/enums';
+import { evaluateOnlineBookingWindow } from '@/lib/restaurants/guest-schedule/online-booking-window';
 import { inferMealTypeFromTime, calculateDurationMinutes } from '@/server/bookings';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
@@ -10,7 +11,6 @@ import {
 import { recordObservabilityEvent } from '@/server/observability';
 import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
 
-import { evaluateOnlineBookingWindow } from './online-booking-window';
 import { mapCapacityErrorCode } from './types';
 
 import type {
