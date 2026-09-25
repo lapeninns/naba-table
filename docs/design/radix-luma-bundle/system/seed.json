@@ -1,0 +1,22 @@
+{
+  "colorPrimary": "#1447e6",
+  "colorSuccess": "#16a34a",
+  "colorWarning": "#f59e0b",
+  "colorError": "#e7000b",
+  "colorInfo": "#0ea5e9",
+  "colorLink": "#1447e6",
+  "colorTextBase": "#09090b",
+  "colorBgBase": "#ffffff",
+  "fontFamily": "Inter, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+  "fontFamilyCode": "'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+  "fontSize": 14,
+  "borderRadius": 8,
+  "sizeUnit": 4,
+  "sizeStep": 4,
+  "controlHeight": 36,
+  "lineWidth": 1,
+  "motionUnit": 0.125,
+  "motionBase": 0,
+  "wireframe": false,
+  "motion": true
+}

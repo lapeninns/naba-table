@@ -1,0 +1,120 @@
+{
+  "name": "Radix Luma",
+  "tagline": "Radix Luma is a restrained, professionally dense interface system.",
+  "description": "A dual-mode design system built on Zinc neutrals and a singular cobalt-blue accent, optimized for clarity, restraint, and professional density.",
+  "sourceUrl": "designmd://radix-luma",
+  "logo": {
+    "primary": null,
+    "alternates": [],
+    "notes": "No logo supplied in pasted DESIGN.md."
+  },
+  "colors": [
+    {
+      "role": "background",
+      "hex": "#ffffff",
+      "oklch": "",
+      "name": "Background",
+      "usage": "page canvas"
+    },
+    {
+      "role": "foreground",
+      "hex": "#09090b",
+      "oklch": "",
+      "name": "Foreground",
+      "usage": "body text and headings"
+    },
+    {
+      "role": "accent",
+      "hex": "#223300",
+      "oklch": "",
+      "name": "Button glow",
+      "usage": "primary actions and emphasis"
+    },
+    {
+      "role": "surface",
+      "hex": "#f5f5f5",
+      "oklch": "",
+      "name": "Surface",
+      "usage": "cards and panels"
+    },
+    {
+      "role": "muted",
+      "hex": "#f4f4f5",
+      "oklch": "",
+      "name": "Secondary",
+      "usage": "secondary text and metadata"
+    },
+    {
+      "role": "border",
+      "hex": "#e4e4e7",
+      "oklch": "",
+      "name": "Border",
+      "usage": "rules and dividers"
+    },
+    {
+      "role": "accent-secondary",
+      "hex": "#18181b",
+      "oklch": "",
+      "name": "Secondary foreground",
+      "usage": "secondary actions and links"
+    }
+  ],
+  "typography": {
+    "display": {
+      "family": "Merriweather",
+      "fallbacks": [
+        "system-ui",
+        "-apple-system",
+        "Segoe UI",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ],
+      "weights": [400, 700]
+    },
+    "body": {
+      "family": "Inter",
+      "fallbacks": [
+        "system-ui",
+        "-apple-system",
+        "Segoe UI",
+        "Helvetica Neue",
+        "Arial",
+        "sans-serif"
+      ],
+      "weights": [400, 700]
+    },
+    "mono": {
+      "family": "Geist Mono",
+      "fallbacks": ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      "weights": [400, 700]
+    }
+  },
+  "voice": {
+    "adjectives": [],
+    "tone": "A dual-mode design system built on Zinc neutrals and a singular cobalt-blue accent, optimized for clarity, restraint, and professional density.",
+    "messagingPillars": [
+      "A dual-mode design system built on Zinc neutrals and a singular cobalt-blue accent, optimized for clarity, restraint, and professional density.",
+      "Radix Luma is a restrained, professionally dense interface system. The Zinc-based neutral palette provides an institutional backbone while a singular cobalt-blue accent (#1447E6) drives all interactive affordance. The mood is clinical yet warm — like a well-organized studio where every tool has its place.\n\nThe system supports full light/dark mode duality with **light mode as the default**. On first load, the UI renders in light mode regardless of OS preference. Users can manually toggle via the `d` keyboard shortcut. The chosen theme is persisted in `localStorage` so subsequent visits respect the override. Theme switching is instantaneous — `disableTransitionOnChange` prevents the flash of intermediate states. In light mode, surfaces are pure white with Zinc-100 tonal layers for secondary regions. In dark mode, surfaces shift to Zinc-950/900 with translucent white borders (10% opacity) that create subtle edge definition without harsh contrast.\n\nHeadlines use **Merriweather**, a distinctive serif that adds editorial weight and visual authority to display-level content. All body, label, and interface text uses **Inter** for its neutral geometric clarity and excellent small-size legibility. **Geist Mono** is reserved for code snippets, metadata, and technical labels.\n\nThe overall density sits at 10/10 — cockpit-dense. Every pixel earns its place. Layouts pack maximum information into minimum space while maintaining strict visual hierarchy through weight, color, and type scale — never through whitespace alone.\n\n### Apple Design Principles\n\nThis system is governed by the five foundational principles from Apple's Human Interface Guidelines:\n\n1. **Aesthetic Integrity.** The visual style matches the function. A data-dense dashboard uses tight spacing and monospace numbers. A marketing hero uses generous padding and display type. Never apply one mood to the other's context.\n2. **Consistency.** Every screen uses the same tokens, the same type scale, the same radius profiles. Identical components look identical everywhere. Users never have to relearn an interface pattern.\n3. **Direct Manipulation.** Interactive elements respond immediately to input. Buttons depress on touch. Cards lift on hover. Focus rings appear instantly. The UI feels physical.\n4. **Feedback.** Every action produces a visible response. State changes animate. Errors surface inline with the destructive color. Success confirms with a brief visual shift. Silence is never an answer.\n5. **User Control.** Theme preference is persisted but always overridable. Animations respect `prefers-reduced-motion`. Nothing auto-plays. Nothing traps scroll. The user is always in charge."
+    ],
+    "vocabulary": {
+      "use": [],
+      "avoid": []
+    }
+  },
+  "imagery": {
+    "style": "",
+    "subjects": [],
+    "treatment": "",
+    "avoid": [],
+    "samples": []
+  },
+  "layout": {
+    "radius": "0.375rem",
+    "borderWeight": "1px",
+    "spacing": "8px",
+    "postureRules": [
+      "Component kit should cover: button-primary, button-primary-hover, button-secondary, button-secondary-hover, button-outline, button-ghost, button-ghost-hover, button-destructive, button-link, card-standard, popover, input-field."
+    ]
+  }
+}

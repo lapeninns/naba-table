@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en-GB" data-theme="guest">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radix Luma — component kit</title>
+<link rel="stylesheet" href="fonts/radix-luma-latin.css">
+<link rel="stylesheet" href="tokens.css">
+<script>
+  // Light by default regardless of OS; stored overrides win. Applied before paint.
+  (function () {
+    try {
+      var d = document.documentElement;
+      if (localStorage.getItem('luma:theme') === 'dark') d.classList.add('dark');
+      var s = localStorage.getItem('luma:surface');
+      if (s === 'app' || s === 'guest') d.setAttribute('data-theme', s);
+    } catch (_) {}
+  })();
+</script>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg); color: var(--fg);
+    font: 400 16px/24px var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  [data-theme='app'] body { font-size: 14px; line-height: 20px; }
+  svg { flex: none; }
+  a { color: var(--accent-text); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: 0 0 0 5px color-mix(in oklch, var(--ring) 30%, transparent); }
+  .mono { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
+  .eyebrow { font: 600 12px/16px var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .muted { color: var(--muted); }
+  .skip { position: absolute; left: 8px; top: -60px; background: var(--card); padding: 8px 12px; border-radius: var(--radius); z-index: 50; }
+  .skip:focus { top: 8px; }
+
+  /* ---------- Shell ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20; height: 48px;
+    display: flex; align-items: center; gap: 12px; padding: 0 16px;
+    background: color-mix(in oklch, var(--bg) 80%, transparent);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--fg); min-height: var(--hit); }
+  .brand img { width: 32px; height: 32px; }
+  .brand b { font: 700 18px/1 var(--font-body); letter-spacing: -.01em; }
+  .topbar .sep { width: 1px; height: 20px; background: var(--border); }
+  .topbar .title { font-weight: 500; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .topbar .tools { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  @media (max-width: 767px) { .topbar .sep, .topbar .title { display: none; } }
+  @media (max-width: 479px) { .brand b { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .topbar { gap: 8px; padding: 0 12px; } }
+  .seg { display: inline-flex; padding: 2px; border-radius: var(--radius); background: var(--surface); }
+  .seg button {
+    height: 32px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent;
+    color: var(--muted); font: 500 13px/1 var(--font-body); cursor: pointer; position: relative;
+  }
+  .seg button::after { content: ''; position: absolute; inset: -6px -2px; }
+  .seg button[aria-pressed='true'] { background: var(--card); color: var(--fg); box-shadow: var(--shadow-sm); }
+  .seg button:hover:not([aria-pressed='true']) { color: var(--fg); }
+
+  .layout { display: grid; grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  main { min-width: 0; padding: 24px 24px 96px; max-width: 1280px; }
+  @media (min-width: 1024px) {
+    .layout { grid-template-columns: 256px minmax(0, 1fr); }
+    .sidebar {
+      display: block; position: sticky; top: 48px; height: calc(100dvh - 48px); overflow-y: auto;
+      background: var(--surface-soft); border-right: 1px solid var(--border); padding: 16px 12px;
+    }
+    main { padding: 40px 48px 96px; }
+  }
+  @media (min-width: 1280px) { main { padding-inline: 96px; } }
+  .sidebar p { padding: 8px 8px 4px; }
+  .sidebar a {
+    display: flex; align-items: center; min-height: 36px; padding: 0 8px; border-radius: var(--radius);
+    color: var(--fg); text-decoration: none; font-weight: 500; font-size: 14px;
+  }
+  .sidebar a:hover { background: var(--surface); }
+  .sidebar a[aria-current='true'] { color: var(--sidebar-accent); font-weight: 600; background: var(--accent-tint); }
+
+  /* ---------- Sections ---------- */
+  .intro { max-width: 65ch; padding-bottom: 40px; border-bottom: 1px solid var(--border); }
+  .h-display { font: 700 var(--text-display)/1.17 var(--font-display); letter-spacing: -.02em; margin: 8px 0 12px; text-wrap: balance; }
+  .h-lg { font: 700 var(--text-headline-lg)/1.22 var(--font-display); letter-spacing: -.01em; text-wrap: balance; }
+  .h-md { font: 700 var(--text-headline-md)/1.33 var(--font-display); }
+  [data-theme='app'] .h-display, [data-theme='app'] .h-lg, [data-theme='app'] .h-md { font-family: var(--font-body); font-weight: 600; letter-spacing: -.01em; }
+  [data-theme='app'] .h-display { font-size: 30px; line-height: 36px; }
+  [data-theme='app'] .h-lg { font-size: 22px; line-height: 28px; }
+  [data-theme='app'] .h-md { font-size: 16px; line-height: 24px; }
+  .lead { font-size: 18px; line-height: 28px; color: var(--muted); text-wrap: pretty; }
+  [data-theme='app'] .lead { font-size: 14px; line-height: 20px; }
+  section.block { padding-top: clamp(40px, 8vw, 64px); scroll-margin-top: 64px; }
+  [data-theme='app'] section.block { padding-top: 32px; }
+  .block-head { display: grid; gap: 4px; margin-bottom: 20px; max-width: 65ch; }
+  .block-head p { color: var(--muted); text-wrap: pretty; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .grid > * { grid-column: span 12; min-width: 0; }
+  @media (min-width: 768px) {
+    .s5 { grid-column: span 5 !important; } .s7 { grid-column: span 7 !important; }
+    .s4 { grid-column: span 4 !important; } .s8 { grid-column: span 8 !important; }
+    .s6 { grid-column: span 6 !important; }
+  }
+  @media (min-width: 1024px) { .grid { gap: 24px; } }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); padding: 24px; }
+  [data-theme='app'] .card { padding: 16px; }
+  @media (min-width: 640px) { [data-theme='app'] .card { padding: 16px 20px; } }
+  .card > .eyebrow { display: block; margin-bottom: 12px; }
+  .card-interactive { transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); text-decoration: none; color: inherit; display: block; }
+  .card-interactive:hover { box-shadow: var(--shadow-md); }
+  .card-interactive:active { transform: translateY(1px); }
+
+  /* ---------- Colour ---------- */
+  .swatch { display: grid; grid-template-rows: 72px auto; border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; background: var(--card); }
+  .swatch .chip { border-bottom: 1px solid var(--border); }
+  .swatch .meta { padding: 12px; display: grid; gap: 2px; }
+  .swatch .meta b { font-weight: 600; font-size: 14px; }
+  .swatch .meta span { font-size: 12px; line-height: 16px; color: var(--muted); }
+  .sw-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sw-grid > :last-child { grid-column: span 2; }
+  @media (min-width: 768px) { .sw-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .ramp { display: grid; grid-template-columns: repeat(5, 1fr); border-radius: var(--radius); overflow: hidden; height: 40px; }
+
+  /* ---------- Type ---------- */
+  .type-row { display: grid; grid-template-columns: 1fr; gap: 4px; padding: 16px 0; border-top: 1px solid var(--border); }
+  .type-row:first-child { border-top: 0; padding-top: 0; }
+  @media (min-width: 768px) { .type-row { grid-template-columns: 180px minmax(0, 1fr); gap: 24px; align-items: baseline; } }
+  .type-row .spec { color: var(--muted); }
+
+  /* ---------- Buttons ---------- */
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn {
+    --h: var(--control-h);
+    position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: var(--h); padding: 0 12px; border: 1px solid transparent; border-radius: var(--radius-button);
+    font: 600 14px/20px var(--font-body); letter-spacing: .01em; white-space: nowrap;
+    cursor: pointer; text-decoration: none;
+    transition: background-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  }
+  .btn::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; min-height: var(--hit); transform: translateY(-50%); }
+  .btn:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn svg { width: 16px; height: 16px; }
+  .btn-xs { --h: 24px; padding: 0 8px; font-size: 12px; } .btn-sm { --h: 32px; } .btn-lg { --h: 40px; padding: 0 16px; }
+  .btn-icon { width: var(--h); padding: 0; }
+  .btn-primary { background: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover:not(:disabled), .btn-primary.is-hover { background: var(--accent-hover); box-shadow: var(--shadow-glow); }
+  .btn-secondary { background: var(--surface); color: var(--accent-2); }
+  .btn-secondary:hover:not(:disabled), .btn-secondary.is-hover { background: var(--secondary-hover); }
+  .btn-outline { background: var(--bg); color: var(--fg); border-color: var(--border); }
+  .btn-outline:hover:not(:disabled), .btn-outline.is-hover { background: var(--surface); }
+  .btn-ghost { background: transparent; color: var(--fg); }
+  .btn-ghost:hover:not(:disabled), .btn-ghost.is-hover { background: var(--surface); }
+  .btn-destructive { background: var(--destructive-soft); color: var(--destructive-text); }
+  .btn-destructive:hover:not(:disabled), .btn-destructive.is-hover { background: color-mix(in oklch, var(--destructive) 18%, var(--bg)); }
+  .btn-link { background: transparent; color: var(--accent-text); padding: 0 4px; }
+  .btn-link:hover { text-decoration: underline; }
+  .is-focus { outline: 2px solid var(--accent-text); outline-offset: 2px; box-shadow: 0 0 0 5px color-mix(in oklch, var(--ring) 30%, transparent); }
+  .spec-table { width: 100%; border-collapse: collapse; }
+  .spec-table th { text-align: left; font-weight: 500; font-size: 12px; color: var(--muted); padding: 0 12px 8px 0; }
+  .spec-table td { padding: 8px 12px 8px 0; border-top: 1px solid var(--border); vertical-align: middle; }
+  .scroll-x { overflow-x: auto; }
+
+  /* ---------- Forms ---------- */
+  .field { display: grid; gap: 6px; }
+  .field label { font-weight: 500; font-size: 14px; line-height: 20px; }
+  .field .hint { font-size: 12px; line-height: 16px; color: var(--muted); }
+  .input, .select {
+    height: var(--control-h); width: 100%; padding: 0 12px; border: 1px solid var(--input); border-radius: var(--radius);
+    background: var(--bg); color: var(--fg); font: 400 14px/20px var(--font-body);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .input::placeholder { color: var(--muted); }
+  .input:focus-visible, .select:focus-visible, .input.is-focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 30%, transparent), 0 0 0 1px var(--accent-text); }
+  .input[aria-invalid='true'] { border-color: var(--destructive); }
+  .input:disabled { background: var(--surface); color: var(--muted); cursor: not-allowed; }
+  .error { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 16px; color: var(--destructive-text); }
+  .error svg { width: 14px; height: 14px; margin-top: 1px; }
+  .form-grid { display: grid; gap: 16px; }
+  @media (min-width: 640px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+  .check { display: flex; align-items: center; gap: 10px; min-height: var(--hit); cursor: pointer; font-size: 14px; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+  .switch { position: relative; width: 36px; height: 20px; border-radius: var(--radius-pill); border: 0; background: var(--input); cursor: pointer; transition: background-color var(--dur-fast) var(--ease); }
+  .switch::before { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--card); box-shadow: var(--shadow-sm); transition: transform var(--dur) var(--ease-spring); }
+  .switch[aria-checked='true'] { background: var(--accent); }
+  .switch[aria-checked='true']::before { transform: translateX(16px); background: var(--on-accent); }
+  .switch::after { content: ''; position: absolute; inset: -12px -4px; }
+
+  /* ---------- Badges & alerts ---------- */
+  .badge { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 2px 10px; border-radius: var(--radius-pill); font: 500 12px/16px var(--font-body); border: 1px solid transparent; white-space: nowrap; }
+  .badge svg { width: 12px; height: 12px; }
+  .b-default { background: var(--accent); color: var(--on-accent); }
+  .b-secondary { background: var(--surface); color: var(--accent-2); }
+  .b-outline { border-color: var(--border); color: var(--fg); }
+  .b-success { background: var(--success-soft); color: var(--success-text); }
+  .b-warning { background: var(--warning-soft); color: var(--warning-text); }
+  .b-danger { background: var(--destructive-soft); color: var(--destructive-text); }
+  .alert { display: grid; grid-template-columns: 16px 1fr; gap: 4px 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); }
+  .alert svg { width: 16px; height: 16px; margin-top: 2px; }
+  .alert b { font-weight: 600; font-size: 14px; }
+  .alert p { grid-column: 2; font-size: 14px; line-height: 20px; color: var(--muted); }
+  .alert.danger { border-color: color-mix(in oklch, var(--destructive) 40%, var(--border)); }
+  .alert.danger svg, .alert.danger b { color: var(--destructive-text); }
+
+  /* ---------- Overlays ---------- */
+  .menu-wrap { position: relative; display: inline-block; }
+  .popover {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 10; min-width: 200px; padding: 4px;
+    background: color-mix(in oklch, var(--card) 90%, transparent);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popover);
+  }
+  .popover[hidden] { display: none; }
+  .popover.static { position: static; display: block; }
+  .popover [role='menuitem'] {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%;
+    min-height: 32px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent;
+    color: var(--fg); font: 400 14px/20px var(--font-body); text-align: left; cursor: pointer;
+  }
+  .popover [role='menuitem']:hover, .popover [role='menuitem']:focus-visible { background: var(--surface); outline: none; box-shadow: none; }
+  .popover [role='menuitem'].danger { color: var(--destructive-text); }
+  .popover hr { border: 0; border-top: 1px solid var(--border); margin: 4px -4px; }
+  .dialog { max-width: 420px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-popover); padding: 24px; display: grid; gap: 8px; }
+  .dialog .row { justify-content: flex-end; margin-top: 12px; }
+
+  /* ---------- Data ---------- */
+  .table-wrap { border: 1px solid var(--border); border-radius: var(--radius-xl); overflow-x: auto; background: var(--card); }
+  table.data { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 520px; }
+  .data th { text-align: left; font-weight: 500; font-size: 12px; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--surface-soft); }
+  .data td { padding: 10px 12px; border-top: 1px solid var(--border); }
+  .data tr:first-child td { border-top: 0; }
+  .data .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .chart { display: grid; gap: 10px; }
+  .bar-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 56px; gap: 12px; align-items: center; font-size: 14px; }
+  .bar-track { height: 12px; background: var(--surface); border-radius: var(--radius-sm); overflow: hidden; }
+  .bar { height: 100%; width: calc(var(--v) / var(--max) * 100%); border-radius: var(--radius-sm); }
+  .bar-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+  .sample { display: inline-block; margin-top: 12px; }
+
+  /* ---------- Logo ---------- */
+  .logo-tile { display: grid; place-items: center; gap: 12px; padding: 24px; border-radius: var(--radius-xl); border: 1px solid var(--border); background: var(--card); min-height: 180px; }
+  .logo-tile.inverse { background: var(--accent); border-color: transparent; }
+  .logo-tile .lockup { display: flex; align-items: center; gap: 8px; }
+  .logo-tile .lockup b { font: 700 20px/1 var(--font-body); letter-spacing: -.01em; }
+  .logo-tile.inverse .lockup b, .logo-tile.inverse .cap { color: var(--on-accent); }
+  .rules { display: grid; gap: 8px; padding-left: 18px; font-size: 14px; line-height: 20px; }
+  .rules li::marker { color: var(--muted); }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar" data-od-id="kit-topbar">
+  <a class="brand" href="#main" data-od-id="kit-brand" aria-label="Nabatable — Radix Luma component kit">
+    <img src="logos/nabatable-logo.svg" width="32" height="32" alt="">
+    <b>Nabatable</b>
+  </a>
+  <span class="sep" aria-hidden="true"></span>
+  <span class="title">Radix Luma component kit</span>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Surface" data-od-id="surface-toggle">
+      <button type="button" data-surface="guest" aria-pressed="true">Guest</button>
+      <button type="button" data-surface="app" aria-pressed="false">App</button>
+    </div>
+    <div class="seg" role="group" aria-label="Appearance (shortcut: d)" data-od-id="theme-toggle">
+      <button type="button" data-mode="light" aria-pressed="true">Light</button>
+      <button type="button" data-mode="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" aria-label="Sections" data-od-id="kit-sidebar">
+    <p class="eyebrow">Foundations</p>
+    <a href="#colour">Colour</a>
+    <a href="#type">Typography</a>
+    <a href="#logo">Logo</a>
+    <p class="eyebrow" style="margin-top:12px">Components</p>
+    <a href="#buttons">Buttons</a>
+    <a href="#forms">Forms</a>
+    <a href="#status">Badges and alerts</a>
+    <a href="#cards">Cards</a>
+    <a href="#overlays">Popovers and dialogs</a>
+    <a href="#data">Tables and charts</a>
+  </nav>
+
+  <main id="main" data-od-id="kit-main">
+    <div class="intro" data-od-id="kit-intro">
+      <span class="eyebrow">Design system · light and dark · guest and app</span>
+      <h1 class="h-display" data-od-id="kit-title">Radix Luma</h1>
+      <p class="lead">Zinc neutrals with one cobalt accent. Switch surfaces above: <b>Guest</b> uses Merriweather headings and capsule buttons. <b>App</b> is the ops console, with Inter throughout, 14px body text and 8px controls. Press <kbd class="mono">d</kbd> to switch between light and dark.</p>
+    </div>
+
+    <!-- ================= Colour ================= -->
+    <section class="block" id="colour" aria-labelledby="colour-h" data-od-id="section-colour">
+      <div class="block-head">
+        <h2 class="h-lg" id="colour-h">Colour</h2>
+        <p>There are seven roles. Values change with the theme; contrast ratios are measured against the page background.</p>
+      </div>
+      <div class="sw-grid" data-od-id="swatches-roles">
+        <div class="swatch"><div class="chip" style="background:var(--bg)"></div><div class="meta"><b>Background</b><span class="mono" data-light="#ffffff" data-dark="#09090b"></span><span>Canvas</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--surface)"></div><div class="meta"><b>Surface</b><span class="mono" data-light="#f4f4f5" data-dark="#27272a"></span><span>Secondary fills</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--fg)"></div><div class="meta"><b>Foreground</b><span class="mono" data-light="#09090b · 19.9:1" data-dark="#fafafa · 19.1:1"></span><span>Text</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--muted)"></div><div class="meta"><b>Muted foreground</b><span class="mono" data-light="#71717b · 4.8:1" data-dark="#9f9fa9 · 7.6:1"></span><span>Metadata, placeholders</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--border)"></div><div class="meta"><b>Border</b><span class="mono" data-light="#e4e4e7" data-dark="white 10%"></span><span>Non-text lines</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--accent)"></div><div class="meta"><b>Primary</b><span class="mono" data-light="#1447e6 · 6.8:1" data-dark="#193cb8 fill · #2b7fff text"></span><span>Actions and focus only</span></div></div>
+        <div class="swatch"><div class="chip" style="background:var(--accent-2)"></div><div class="meta"><b>Secondary foreground</b><span class="mono" data-light="#18181b" data-dark="#fafafa"></span><span>Labels on surface</span></div></div>
+      </div>
+      <div class="grid" style="margin-top:24px">
+        <div class="card s7" data-od-id="card-status-colours">
+          <span class="eyebrow">Status (tint + deep text)</span>
+          <div class="row">
+            <span class="badge b-success"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg>Success</span>
+            <span class="badge b-warning"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 5v4M8 11.5v.01"/></svg>Warning</span>
+            <span class="badge b-danger"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>Destructive</span>
+            <span class="badge b-secondary">Neutral</span>
+          </div>
+          <p class="muted" style="margin-top:12px;font-size:14px;line-height:20px">Solid success (#16a34a), warning (#f59e0b) and info (#0ea5e9) fail with small white text (3.3, 2.1 and 2.9:1). Use them only for icons, and use the tint and deep-text pairs for labels.</p>
+        </div>
+        <div class="card s5" data-od-id="card-chart-ramp">
+          <span class="eyebrow">Chart ramp</span>
+          <div class="ramp" role="img" aria-label="Chart ramp from chart-1 light periwinkle to chart-5 deep navy">
+            <span style="background:var(--chart-1)"></span><span style="background:var(--chart-2)"></span><span style="background:var(--chart-3)"></span><span style="background:var(--chart-4)"></span><span style="background:var(--chart-5)"></span>
+          </div>
+          <p class="mono muted" style="margin-top:8px">8ec5ff · 2b7fff · 155dfc · 1447e6 · 193cb8</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Type ================= -->
+    <section class="block" id="type" aria-labelledby="type-h" data-od-id="section-type">
+      <div class="block-head">
+        <h2 class="h-lg" id="type-h">Typography</h2>
+        <p>Merriweather 700 for guest headings, Inter for everything else, and Geist Mono for codes and times. Use no more than two weights on a screen.</p>
+      </div>
+      <div class="card" data-od-id="card-type-scale">
+        <div class="type-row"><span class="mono spec">display · 48/56 · −0.02em</span><span class="h-display" style="margin:0">Book a table</span></div>
+        <div class="type-row"><span class="mono spec">headline-lg · 36/44</span><span class="h-lg">Tonight’s bookings</span></div>
+        <div class="type-row"><span class="mono spec">headline-md · 24/32</span><span class="h-md">Your booking</span></div>
+        <div class="type-row"><span class="mono spec">title-lg · Inter 20/28 600</span><span style="font:600 20px/28px var(--font-body)">Table settings</span></div>
+        <div class="type-row"><span class="mono spec">body-md · 16/24</span><span style="font-size:16px;line-height:24px;max-width:65ch">We will email you when the team has reviewed your booking. You can change the time from the link in that email.</span></div>
+        <div class="type-row"><span class="mono spec">body-sm · 14/20</span><span style="font-size:14px;line-height:20px">Helper text, table cells and dense lists.</span></div>
+        <div class="type-row"><span class="mono spec">eyebrow · 12/16 600 +0.08em</span><span class="eyebrow">Saturday 14 June</span></div>
+        <div class="type-row"><span class="mono spec">mono · Geist Mono 12/16</span><span class="mono">BR-0000 · 19:45 · T12</span></div>
+      </div>
+    </section>
+
+    <!-- ================= Logo ================= -->
+    <section class="block" id="logo" aria-labelledby="logo-h" data-od-id="section-logo">
+      <div class="block-head">
+        <h2 class="h-lg" id="logo-h">Logo</h2>
+        <p>This is the real Nabatable mark from the product repo. Use it unchanged, with the bold Inter wordmark.</p>
+      </div>
+      <div class="grid">
+        <div class="logo-tile s4" data-od-id="logo-light"><div class="lockup"><img src="logos/nabatable-logo.svg" width="40" height="40" alt="Nabatable logo"><b>Nabatable</b></div><span class="mono muted cap">variant="light"</span></div>
+        <div class="logo-tile inverse s4" data-od-id="logo-dark"><div class="lockup"><img src="logos/nabatable-logo.svg" width="40" height="40" alt="Nabatable logo"><b>Nabatable</b></div><span class="mono cap">variant="dark" · cobalt or dark surfaces</span></div>
+        <div class="card s4" data-od-id="logo-rules">
+          <span class="eyebrow">Rules</span>
+          <ul class="rules">
+            <li>Don't recolour, stretch or rotate the mark, and don't add effects to it.</li>
+            <li>Its gradient is its own. Never use logo blues in the UI.</li>
+            <li>Use the animated mark only for hero or loading moments.</li>
+            <li>No clear-space or minimum-size rule has been set yet.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Buttons ================= -->
+    <section class="block" id="buttons" aria-labelledby="buttons-h" data-od-id="section-buttons">
+      <div class="block-head">
+        <h2 class="h-lg" id="buttons-h">Buttons</h2>
+        <p>Use one filled primary per view. On the guest surface buttons are capsules; in the app they use an 8px radius. Every size keeps a 44px hit area.</p>
+      </div>
+      <div class="grid">
+        <div class="card s7" data-od-id="card-button-variants">
+          <span class="eyebrow">Variants</span>
+          <div class="row">
+            <button class="btn btn-primary" type="button" data-od-id="btn-primary">Change booking</button>
+            <button class="btn btn-secondary" type="button">Add to waitlist</button>
+            <button class="btn btn-outline" type="button">Message guest</button>
+            <button class="btn btn-ghost" type="button">Skip</button>
+            <button class="btn btn-destructive" type="button">Cancel booking</button>
+            <button class="btn btn-link" type="button">View booking</button>
+          </div>
+        </div>
+        <div class="card s5" data-od-id="card-button-sizes">
+          <span class="eyebrow">Sizes · 24 / 32 / 36 / 40</span>
+          <div class="row">
+            <button class="btn btn-outline btn-xs" type="button">Extra small</button>
+            <button class="btn btn-outline btn-sm" type="button">Small</button>
+            <button class="btn btn-outline" type="button">Default</button>
+            <button class="btn btn-outline btn-lg" type="button">Large</button>
+            <button class="btn btn-outline btn-icon" type="button" aria-label="Add table"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg></button>
+          </div>
+        </div>
+        <div class="card" data-od-id="card-button-states">
+          <span class="eyebrow">States</span>
+          <div class="scroll-x">
+            <table class="spec-table">
+              <thead><tr><th scope="col">Variant</th><th scope="col">Rest</th><th scope="col">Hover</th><th scope="col">Focus</th><th scope="col">Disabled</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">secondary</td><td><span class="btn btn-secondary">Save</span></td><td><span class="btn btn-secondary is-hover">Save</span></td><td><span class="btn btn-secondary is-focus">Save</span></td><td><button class="btn btn-secondary" disabled type="button">Save</button></td></tr>
+                <tr><td class="mono">outline</td><td><span class="btn btn-outline">Export</span></td><td><span class="btn btn-outline is-hover">Export</span></td><td><span class="btn btn-outline is-focus">Export</span></td><td><button class="btn btn-outline" disabled type="button">Export</button></td></tr>
+                <tr><td class="mono">destructive</td><td><span class="btn btn-destructive">Remove</span></td><td><span class="btn btn-destructive is-hover">Remove</span></td><td><span class="btn btn-destructive is-focus">Remove</span></td><td><button class="btn btn-destructive" disabled type="button">Remove</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="margin-top:12px;font-size:14px;line-height:20px">Primary hover darkens to #1240cf and adds the cobalt glow. When pressed, it scales to 0.98 and moves down 1px. Hover the primary above to try it. Text never gets lighter on hover.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Forms ================= -->
+    <section class="block" id="forms" aria-labelledby="forms-h" data-od-id="section-forms">
+      <div class="block-head">
+        <h2 class="h-lg" id="forms-h">Forms</h2>
+        <p>Labels go above the input and never float. Errors appear below the field with an icon, and focus uses the ring halo with a cobalt edge.</p>
+      </div>
+      <form class="card form-grid" novalidate data-od-id="card-form" id="demo-form">
+        <div class="field">
+          <label for="f-name">Guest name</label>
+          <input class="input" id="f-name" autocomplete="name" placeholder="Full name">
+          <span class="hint">As it should appear on the booking.</span>
+        </div>
+        <div class="field">
+          <label for="f-email">Email</label>
+          <input class="input" id="f-email" type="email" autocomplete="email" value="guest@example" aria-invalid="true" aria-describedby="f-email-err">
+          <span class="error" id="f-email-err"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11v.01"/></svg>Enter an email address with a domain, like name@example.com.</span>
+        </div>
+        <div class="field">
+          <label for="f-party">Party size</label>
+          <select class="select" id="f-party"><option>2 guests</option><option>4 guests</option><option>6 guests</option></select>
+        </div>
+        <div class="field">
+          <label for="f-ref">Booking reference</label>
+          <input class="input mono" id="f-ref" value="BR-0000" disabled>
+          <span class="hint">Set by the system.</span>
+        </div>
+        <label class="check"><input type="checkbox" checked> Send a reminder the day before</label>
+        <div class="check" style="justify-content:space-between">
+          <span id="sw-label">Accept walk-ins</span>
+          <button class="switch" type="button" role="switch" aria-checked="true" aria-labelledby="sw-label" data-od-id="switch-walkins"></button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ================= Status ================= -->
+    <section class="block" id="status" aria-labelledby="status-h" data-od-id="section-status">
+      <div class="block-head">
+        <h2 class="h-lg" id="status-h">Badges and alerts</h2>
+        <p>Status always pairs colour with words or an icon.</p>
+      </div>
+      <div class="grid">
+        <div class="card s5" data-od-id="card-badges">
+          <span class="eyebrow">Badges</span>
+          <div class="row">
+            <span class="badge b-default">Default</span><span class="badge b-secondary">VIP</span><span class="badge b-outline">Walk-in</span>
+            <span class="badge b-success">Confirmed</span><span class="badge b-warning">Pending</span><span class="badge b-danger">No-show</span>
+          </div>
+        </div>
+        <div class="s7" style="display:grid;gap:12px" data-od-id="alerts">
+          <div class="alert" role="status"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 7.5V11M8 5v.01"/></svg><b>Booking request received</b><p>Your table is not confirmed yet. We will email you when the team has reviewed it.</p></div>
+          <div class="alert danger" role="alert"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path d="M8 5v3.5M8 11v.01"/></svg><b>Couldn't save the service hours</b><p>Dinner closes before it opens. Change the close time to after 17:00.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Cards ================= -->
+    <section class="block" id="cards" aria-labelledby="cards-h" data-od-id="section-cards">
+      <div class="block-head">
+        <h2 class="h-lg" id="cards-h">Cards</h2>
+        <p>Cards are white with a 1px border and a 12px radius, and have no resting shadow. Only interactive cards lift on hover.</p>
+      </div>
+      <div class="grid">
+        <div class="card s5" data-od-id="card-static">
+          <span class="eyebrow">Static</span>
+          <h3 class="h-md">Your booking</h3>
+          <p class="muted" style="margin-top:4px">Saturday 14 June · request received</p>
+          <dl style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;font-size:14px">
+            <div><dt class="eyebrow">Time</dt><dd class="mono" style="font-size:14px;line-height:20px">19:45</dd></div>
+            <div><dt class="eyebrow">Party</dt><dd>4 guests</dd></div>
+          </dl>
+        </div>
+        <a class="card card-interactive s7" href="#cards" data-od-id="card-interactive">
+          <span class="eyebrow">Interactive — hover me</span>
+          <h3 class="h-md">Find a table</h3>
+          <p class="muted" style="margin-top:4px;max-width:48ch">See availability for each service, then send a booking request. The card lifts to show it can be clicked.</p>
+        </a>
+      </div>
+    </section>
+
+    <!-- ================= Overlays ================= -->
+    <section class="block" id="overlays" aria-labelledby="overlays-h" data-od-id="section-overlays">
+      <div class="block-head">
+        <h2 class="h-lg" id="overlays-h">Popovers and dialogs</h2>
+        <p>These are level 2. They have a border and the popover shadow. Menus use an 8px radius and dialogs use 12px.</p>
+      </div>
+      <div class="grid">
+        <div class="card s5" data-od-id="card-menu">
+          <span class="eyebrow">Dropdown menu</span>
+          <div class="menu-wrap">
+            <button class="btn btn-outline" type="button" id="menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="menu">Booking actions
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
+            <div class="popover" id="menu" role="menu" hidden>
+              <button role="menuitem" type="button">Change time <span class="mono muted">T</span></button>
+              <button role="menuitem" type="button">Move table <span class="mono muted">M</span></button>
+              <hr>
+              <button role="menuitem" type="button" class="danger">Cancel booking</button>
+            </div>
+          </div>
+        </div>
+        <div class="s7" data-od-id="dialog-sample">
+          <div class="dialog" role="dialog" aria-labelledby="dlg-t" aria-describedby="dlg-d">
+            <h3 class="h-md" id="dlg-t">Cancel this booking?</h3>
+            <p class="muted" id="dlg-d" style="font-size:14px;line-height:20px">The guest will get a cancellation email. This can't be undone.</p>
+            <div class="row"><button class="btn btn-ghost" type="button">Keep booking</button><button class="btn btn-destructive" type="button">Cancel booking</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Data ================= -->
+    <section class="block" id="data" aria-labelledby="data-h" data-od-id="section-data">
+      <div class="block-head">
+        <h2 class="h-lg" id="data-h">Tables and charts</h2>
+        <p>Right-align numbers and use tabular figures. Charts use the cobalt ramp, and every bar has a label and a value.</p>
+      </div>
+      <div class="grid">
+        <div class="s7" data-od-id="table-bookings">
+          <div class="table-wrap">
+            <table class="data">
+              <caption class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Sample bookings</caption>
+              <thead><tr><th scope="col">Time</th><th scope="col">Guest</th><th scope="col">Table</th><th scope="col" class="num">Covers</th><th scope="col">Status</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">19:00</td><td>Guest A</td><td>T4</td><td class="num">2</td><td><span class="badge b-success">Confirmed</span></td></tr>
+                <tr><td class="mono">19:30</td><td>Guest B</td><td>T7</td><td class="num">6</td><td><span class="badge b-warning">Pending</span></td></tr>
+                <tr><td class="mono">19:45</td><td>Guest C</td><td>T12</td><td class="num">4</td><td><span class="badge b-secondary">Seated</span></td></tr>
+                <tr><td class="mono">20:15</td><td>Guest D</td><td>T1</td><td class="num">3</td><td><span class="badge b-danger">No-show</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <span class="eyebrow sample">Sample data</span>
+        </div>
+        <div class="card s5" data-od-id="chart-covers">
+          <span class="eyebrow">Covers by service · sample data</span>
+          <div class="chart" style="--max: 40">
+            <div class="bar-row"><span>Lunch</span><div class="bar-track"><div class="bar" style="--v: 18; background: var(--chart-2)"></div></div><span class="bar-value">18</span></div>
+            <div class="bar-row"><span>Dinner</span><div class="bar-track"><div class="bar" style="--v: 40; background: var(--chart-4)"></div></div><span class="bar-value">40</span></div>
+            <div class="bar-row"><span>Bar</span><div class="bar-track"><div class="bar" style="--v: 9; background: var(--chart-5)"></div></div><span class="bar-value">9</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  function paint() {
+    var dark = root.classList.contains('dark');
+    var surface = root.getAttribute('data-theme');
+    document.querySelectorAll('[data-mode]').forEach(function (b) { b.setAttribute('aria-pressed', String((b.dataset.mode === 'dark') === dark)); });
+    document.querySelectorAll('[data-surface]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.surface === surface)); });
+    document.querySelectorAll('[data-light]').forEach(function (el) { el.textContent = dark ? el.dataset.dark : el.dataset.light; });
+  }
+  function setMode(dark) {
+    root.classList.toggle('dark', dark);
+    try { localStorage.setItem('luma:theme', dark ? 'dark' : 'light'); } catch (_) {}
+    paint();
+  }
+  document.querySelectorAll('[data-mode]').forEach(function (b) { b.addEventListener('click', function () { setMode(b.dataset.mode === 'dark'); }); });
+  document.querySelectorAll('[data-surface]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      root.setAttribute('data-theme', b.dataset.surface);
+      try { localStorage.setItem('luma:surface', b.dataset.surface); } catch (_) {}
+      paint();
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (e.metaKey || e.ctrlKey || e.altKey || (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable))) return;
+    if (e.key === 'd') setMode(!root.classList.contains('dark'));
+  });
+
+  // Sidebar current section (hash-based; no scrollIntoView)
+  var links = document.querySelectorAll('.sidebar a');
+  function markCurrent() { links.forEach(function (a) { a.setAttribute('aria-current', String(a.getAttribute('href') === location.hash)); }); }
+  window.addEventListener('hashchange', markCurrent); markCurrent();
+
+  // Switch
+  document.querySelectorAll('.switch').forEach(function (s) {
+    s.addEventListener('click', function () { s.setAttribute('aria-checked', String(s.getAttribute('aria-checked') !== 'true')); });
+  });
+
+  // Email validation feedback
+  var email = document.getElementById('f-email'), err = document.getElementById('f-email-err');
+  email.addEventListener('input', function () {
+    var ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value);
+    email.setAttribute('aria-invalid', String(!ok)); err.hidden = ok;
+  });
+
+  // Dropdown menu
+  var mb = document.getElementById('menu-btn'), menu = document.getElementById('menu');
+  function closeMenu(focusBtn) { menu.hidden = true; mb.setAttribute('aria-expanded', 'false'); if (focusBtn) mb.focus(); }
+  mb.addEventListener('click', function () {
+    var open = menu.hidden; menu.hidden = !open; mb.setAttribute('aria-expanded', String(open));
+    if (open) menu.querySelector('[role=menuitem]').focus();
+  });
+  menu.addEventListener('keydown', function (e) {
+    var items = Array.prototype.slice.call(menu.querySelectorAll('[role=menuitem]'));
+    var i = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Escape') closeMenu(true);
+  });
+  menu.addEventListener('click', function (e) { if (e.target.closest('[role=menuitem]')) closeMenu(true); });
+  document.addEventListener('click', function (e) { if (!menu.hidden && !e.target.closest('.menu-wrap')) closeMenu(false); });
+
+  paint();
+})();
+</script>
+</body>
+</html>
