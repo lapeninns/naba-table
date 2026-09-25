@@ -11,7 +11,11 @@ import { useOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { cn } from '@/lib/utils';
 
 import { RestaurantSettingsChromeHeader } from './RestaurantSettingsChromeHeader';
-import { RestaurantSettingsSaveBarSlotContext } from './RestaurantSettingsSaveBarSlot';
+import {
+  createRestaurantSettingsSaveBarStore,
+  RestaurantSettingsSaveBarOutlet,
+  RestaurantSettingsSaveBarSlotContext,
+} from './RestaurantSettingsSaveBarSlot';
 import { RestaurantSettingsSectionNavSlotContext } from './RestaurantSettingsSectionNavSlot';
 import { RestaurantSettingsSidebar } from './RestaurantSettingsSidebar';
 import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
@@ -30,8 +34,9 @@ export function RestaurantSettingsFocusedShell({
 }: RestaurantSettingsFocusedShellProps) {
   const { confirmNavigation } = useOpsUnsavedChanges();
   const [sectionNav, setSectionNav] = useState<ReactNode | null>(null);
-  const [saveBar, setSaveBar] = useState<ReactNode | null>(null);
-  const saveBarSlot = useMemo(() => ({ setSaveBar }), []);
+  // An external store, not state: the page pushes its bar on every keystroke and only the
+  // outlet below re-renders.
+  const [saveBarSlot] = useState(createRestaurantSettingsSaveBarStore);
 
   const sectionNavSlot = useMemo(
     () => ({
@@ -105,7 +110,7 @@ export function RestaurantSettingsFocusedShell({
             >
               {children}
             </div>
-            {saveBar}
+            <RestaurantSettingsSaveBarOutlet store={saveBarSlot} />
           </RestaurantSettingsSaveBarSlotContext.Provider>
         </RestaurantSettingsSectionNavSlotContext.Provider>
       </SidebarInset>
