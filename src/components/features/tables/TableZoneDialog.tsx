@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 import {
   parseZoneFormPayload,
@@ -14,20 +21,22 @@ import {
   type ZoneFormErrors,
   type ZoneFormPayload,
 } from './tableInventoryFormDomain';
-import { describedBy, TableFieldError } from './TableInventoryParts';
+import { getZoneSuccessorId } from './tableRoomDomain';
+import { describedBy, TableFieldError } from './TableRoomParts';
 
 import type { TableZone } from './tableInventoryModel';
 
 const ZONE_FORM_ID = 'table-zone-form';
+const AT_THE_END = '__end__';
 
 type TableZoneDialogProps = {
   editingZone: TableZone | null;
+  /** Zones in page order, for the name check and the position choice. */
+  zones: ReadonlyArray<Pick<TableZone, 'id' | 'name'>>;
   isSaving: boolean;
   open: boolean;
-  /** Opened from "Add table" with no zones: the table dialog follows once the zone is added. */
+  /** Opened from "Add table" with no zones: the new table follows once the zone is added. */
   continuesToTable?: boolean;
-  /** Order for a new zone: after the existing zones. */
-  nextSortOrder?: number;
   onOpenChange: (open: boolean) => void;
   onSubmit: (payload: ZoneFormPayload) => void;
 };
@@ -37,30 +46,34 @@ function getSaveLabel(isEditing: boolean, continuesToTable: boolean) {
   return continuesToTable ? 'Add zone and continue' : 'Add zone';
 }
 
+/** Mount with a fresh `key` per opening so the fields start from the zone. */
 export function TableZoneDialog({
   editingZone,
+  zones,
   isSaving,
   open,
   continuesToTable = false,
-  nextSortOrder = 0,
   onOpenChange,
   onSubmit,
 }: TableZoneDialogProps) {
+  const [name, setName] = useState(editingZone?.name ?? '');
+  const [position, setPosition] = useState(
+    () => (editingZone ? getZoneSuccessorId(zones, editingZone.id) : null) ?? AT_THE_END,
+  );
   const [errors, setErrors] = useState<ZoneFormErrors>({});
-
-  const handleOpenChange = (next: boolean) => {
-    if (!next) setErrors({});
-    onOpenChange(next);
-  };
+  const others = zones.filter((zone) => zone.id !== editingZone?.id);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isSaving) return;
-    const result = parseZoneFormPayload(new FormData(event.currentTarget));
+    const result = parseZoneFormPayload(
+      { name, beforeZoneId: position === AT_THE_END ? null : position },
+      zones,
+      editingZone?.id ?? null,
+    );
     if (!result.ok) {
       setErrors(result.errors);
-      const field = result.errors.zoneName ? 'zoneName' : 'zoneSortOrder';
-      window.setTimeout(() => document.getElementById(field)?.focus(), 0);
+      window.setTimeout(() => document.getElementById('zoneName')?.focus(), 0);
       return;
     }
     setErrors({});
@@ -70,17 +83,17 @@ export function TableZoneDialog({
   return (
     <SettingsDialog
       open={open}
-      onOpenChange={handleOpenChange}
-      title={editingZone ? 'Edit zone' : 'Add zone'}
+      onOpenChange={onOpenChange}
+      title={editingZone ? `Edit ${editingZone.name}` : 'Add zone'}
       description={
         continuesToTable && !editingZone
           ? 'Tables belong to a zone. Add one, then add your table.'
-          : 'Zones group tables, such as Main dining room or Terrace.'
+          : 'An area of your room, such as Terrace or Private dining.'
       }
       testId="table-zone-dialog"
       footer={
         <>
-          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button type="submit" form={ZONE_FORM_ID} disabled={isSaving}>
@@ -89,20 +102,16 @@ export function TableZoneDialog({
         </>
       }
     >
-      <FormRoot
-        // Remount per zone so the fields start from that zone.
-        key={editingZone?.id ?? 'new-zone'}
-        id={ZONE_FORM_ID}
-        onSubmit={handleSubmit}
-        noValidate
-        className="grid gap-4"
-      >
-        <div className="grid gap-2">
-          <Label htmlFor="zoneName">Zone name</Label>
+      <FormRoot id={ZONE_FORM_ID} onSubmit={handleSubmit} noValidate className="grid gap-4">
+        <div className="grid gap-1">
+          <Label htmlFor="zoneName" className="text-[13px]">
+            Zone name
+          </Label>
           <Input
             id="zoneName"
             name="zoneName"
-            defaultValue={editingZone?.name ?? ''}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
             placeholder="e.g. Main dining room"
             maxLength={ZONE_FORM_LIMITS.nameMax}
             autoComplete="off"
@@ -111,27 +120,23 @@ export function TableZoneDialog({
           />
           <TableFieldError id="zoneName-error" message={errors.zoneName} />
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="zoneSortOrder">Order in lists</Label>
-          <Input
-            id="zoneSortOrder"
-            name="sortOrder"
-            type="number"
-            inputMode="numeric"
-            min={ZONE_FORM_LIMITS.sortOrderMin}
-            max={ZONE_FORM_LIMITS.sortOrderMax}
-            defaultValue={editingZone?.sortOrder ?? nextSortOrder}
-            className="max-w-32 tabular-nums"
-            aria-invalid={errors.sortOrder ? true : undefined}
-            aria-describedby={describedBy(
-              'zoneSortOrder-hint',
-              errors.sortOrder && 'zoneSortOrder-error',
-            )}
-          />
-          <p id="zoneSortOrder-hint" className="text-xs leading-5 text-muted-foreground">
-            Lower numbers appear first.
-          </p>
-          <TableFieldError id="zoneSortOrder-error" message={errors.sortOrder} />
+        <div className="grid gap-1">
+          <Label htmlFor="zonePosition" className="text-[13px]">
+            Position on this page
+          </Label>
+          <Select value={position} onValueChange={setPosition}>
+            <SelectTrigger id="zonePosition" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {others.map((zone) => (
+                <SelectItem key={zone.id} value={zone.id}>
+                  Before {zone.name}
+                </SelectItem>
+              ))}
+              <SelectItem value={AT_THE_END}>At the end</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </FormRoot>
     </SettingsDialog>

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import TableInventoryClient from '@/components/features/tables/TableInventoryClient';
 import {
@@ -163,12 +163,35 @@ function renderClient(options?: {
   );
 }
 
-function tablesList() {
-  return screen.getByRole('region', { name: 'Tables' });
+/** The sheet footer's Close, not the dialog's corner close button. */
+function footerClose(sheet: HTMLElement) {
+  const button = within(sheet)
+    .getAllByRole('button', { name: 'Close' })
+    .find((item) => !item.querySelector('svg'));
+  if (!button) throw new Error('No footer Close button');
+  return button;
 }
 
-function zonesPanel() {
-  return screen.getByRole('region', { name: 'Zones' });
+function room() {
+  return screen.getByTestId('room');
+}
+
+/** Wide screens show table details in the side panel instead of a sheet. */
+function useWideScreen() {
+  const original = window.matchMedia;
+  window.matchMedia = ((query: string) => ({
+    matches: query.includes('min-width: 1100px') || query.includes('min-width: 640px'),
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  })) as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = original;
+  };
 }
 
 beforeEach(() => {
@@ -181,7 +204,7 @@ describe('TableInventoryClient', () => {
     renderClient({ memberships: [] });
 
     expect(screen.getByText('No restaurant access')).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Tables' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('room')).not.toBeInTheDocument();
   });
 
   it('shows load errors with the reason code and a retry action, never the raw message', async () => {
@@ -201,90 +224,84 @@ describe('TableInventoryClient', () => {
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
-  it('shows the summary, zones and tables on one screen without a workflow rail', async () => {
+  it('shows the room zone by zone with capacity, joining and the page status', async () => {
     const tableService = createTableService();
     const zoneService = createZoneService();
 
     renderClient({ tableService, zoneService });
 
-    const summary = await screen.findByTestId('table-inventory-metrics');
-    expect(within(summary).getByText('Bookable now')).toBeInTheDocument();
-    expect(within(summary).getByText('2 tables')).toBeInTheDocument();
-    expect(within(summary).getByText('8 seats')).toBeInTheDocument();
-    expect(within(summary).getByText('Every table can be booked')).toBeInTheDocument();
-    expect(within(summary).getByText('All in service')).toBeInTheDocument();
-    expect(within(summary).getByText('Dinner: 16 covers')).toBeInTheDocument();
-    expect(within(summary).getByRole('link', { name: 'Change meal times' })).toHaveAttribute(
+    const main = await screen.findByRole('region', { name: 'Main' });
+    expect(within(main).getByText('1 table · 4 seats')).toBeInTheDocument();
+    expect(within(main).getByText('All seats bookable')).toBeInTheDocument();
+    expect(within(main).getByText('No tables to join here')).toBeInTheDocument();
+    expect(within(main).getByRole('switch', { name: 'In service' })).toBeChecked();
+    expect(
+      within(main).getByRole('button', {
+        name: 'Table 1, 4 seats, parties of 1–4, can be joined, bookable',
+      }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(within(main).getByRole('button', { name: 'Add table to Main' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Patio' })).toBeInTheDocument();
+
+    expect(screen.getByText('8 of 8 seats bookable')).toBeInTheDocument();
+    expect(screen.getByText('Every table can be booked')).toBeInTheDocument();
+
+    const capacity = screen.getByTestId('table-capacity-card');
+    expect(
+      within(capacity).getByRole('img', { name: '8 of 8 seats bookable' }),
+    ).toBeInTheDocument();
+    expect(within(capacity).getByText('16 covers')).toBeInTheDocument();
+    expect(within(capacity).getByRole('link', { name: 'Change meal times' })).toHaveAttribute(
       'href',
       expect.stringContaining('/settings/restaurant/availability#service-windows'),
     );
 
-    expect(screen.queryByText('Tables workflow')).not.toBeInTheDocument();
-    expect(within(zonesPanel()).getByRole('button', { name: 'Patio' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(
-      within(tablesList()).getByRole('columnheader', { name: 'Bookings' }),
-    ).toBeInTheDocument();
-    expect(within(tablesList()).getAllByText('Bookable').length).toBeGreaterThan(0);
-    expect(screen.getByRole('button', { name: 'Add table' })).toBeEnabled();
-
-    await waitFor(() => {
-      expect(tableService.list).toHaveBeenCalledTimes(1);
-    });
+    await waitFor(() => expect(tableService.list).toHaveBeenCalledTimes(1));
     expect(zoneService.list).not.toHaveBeenCalled();
   });
 
-  it('filters by zone from the zone name and by search while keeping focus in the search box', async () => {
+  it('fades tables that do not match the search and lists them in the list view', async () => {
     const user = userEvent.setup();
     renderClient();
 
-    const patio = await within(await screen.findByRole('region', { name: 'Zones' })).findByRole(
-      'button',
-      { name: 'Patio' },
-    );
-    await user.click(patio);
-    expect(patio).toHaveAttribute('aria-pressed', 'true');
-    expect(within(tablesList()).getByText('Showing 1 of 2')).toBeInTheDocument();
-    expect(within(tablesList()).queryByTestId('table-row-table-1')).not.toBeInTheDocument();
-
-    await user.click(patio);
-    expect(patio).toHaveAttribute('aria-pressed', 'false');
-
-    const search = within(tablesList()).getByRole('searchbox', { name: 'Search' });
+    const tile2 = await screen.findByRole('button', { name: /^Table 2,/ });
+    const search = screen.getByRole('searchbox', { name: 'Find a table' });
     await user.type(search, 'window');
     expect(search).toHaveFocus();
-    expect(search).toHaveValue('window');
-    expect(within(tablesList()).getByTestId('table-row-table-1')).toBeInTheDocument();
-    expect(within(tablesList()).queryByTestId('table-row-table-2')).not.toBeInTheDocument();
+    expect(tile2).toHaveClass('opacity-45');
+    expect(screen.getByRole('button', { name: /^Table 1,/ })).not.toHaveClass('opacity-45');
+    expect(within(room()).getByText(/Tables that don’t match are faded/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    const list = within(room()).getByRole('table', { name: 'All tables' });
+    expect(within(list).getByRole('rowheader', { name: '1' })).toBeInTheDocument();
+    expect(within(list).queryByRole('rowheader', { name: '2' })).not.toBeInTheDocument();
 
     await user.clear(search);
     await user.type(search, 'nothing');
-    expect(within(tablesList()).getByText('No tables match')).toBeInTheDocument();
-    await user.click(within(tablesList()).getByRole('button', { name: 'Clear filters' }));
+    expect(within(list).getByText(/No tables match/)).toBeInTheDocument();
+    await user.click(within(list).getByRole('button', { name: 'Clear filters' }));
     expect(search).toHaveValue('');
   });
 
-  it('shows one computed Bookings status and filters bookable tables', async () => {
+  it('shows why a table cannot be booked and points to it from the page status', async () => {
     const user = userEvent.setup();
     const result = buildTablesResult();
-    result.tables[1] = { ...result.tables[1], status: 'out_of_service' };
+    result.tables[1] = { ...result.tables[1]!, status: 'out_of_service' };
     renderClient({ tableService: createTableService({ list: vi.fn().mockResolvedValue(result) }) });
 
-    const list = await screen.findByRole('region', { name: 'Tables' });
-    expect(
-      await within(list).findAllByText('Not bookable: marked out of service'),
-    ).not.toHaveLength(0);
-    expect(within(list).queryByText('Blocked by zone')).not.toBeInTheDocument();
+    const tile = await screen.findByRole('button', {
+      name: 'Table 2, 4 seats, parties of 1–4, can be joined, not bookable: out of service',
+    });
+    expect(within(tile).getByText('Out of service')).toBeInTheDocument();
+    expect(screen.getByText('4 of 8 seats bookable')).toBeInTheDocument();
 
-    await user.click(within(list).getByRole('button', { name: 'Not bookable' }));
-    expect(within(list).getByRole('button', { name: 'Not bookable' })).toHaveAttribute(
+    await user.click(screen.getByRole('button', { name: '1 table needs a look' }));
+    expect(screen.getByRole('button', { name: 'Not bookable' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    expect(within(list).queryByTestId('table-row-table-1')).not.toBeInTheDocument();
-    expect(within(list).getByTestId('table-row-table-2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Table 1,/ })).toHaveClass('opacity-45');
   });
 
   it('updates the zone switch at once and rolls it back when the save fails', async () => {
@@ -300,18 +317,15 @@ describe('TableInventoryClient', () => {
     });
     renderClient({ zoneService });
 
-    const zoneSwitch = await within(
-      await screen.findByRole('region', { name: 'Zones' }),
-    ).findByRole('switch', { name: 'Patio in service' });
+    const patio = await screen.findByRole('region', { name: 'Patio' });
+    const zoneSwitch = within(patio).getByRole('switch', { name: 'In service' });
     expect(zoneSwitch).toBeChecked();
 
     await user.click(zoneSwitch);
 
     await waitFor(() => expect(zoneSwitch).not.toBeChecked());
-    expect(within(zonesPanel()).getByText('Tables kept, not bookable')).toBeInTheDocument();
-    expect(
-      within(tablesList()).getAllByText('Not bookable: Patio is out of service').length,
-    ).toBeGreaterThan(0);
+    expect(within(patio).getByText('Tables kept, not bookable.')).toBeInTheDocument();
+    expect(within(patio).getByText('Zone off')).toBeInTheDocument();
     expect(zoneService.update).toHaveBeenCalledWith('zone-patio', {
       name: undefined,
       sortOrder: undefined,
@@ -327,7 +341,7 @@ describe('TableInventoryClient', () => {
     );
   });
 
-  it('with no zones, Add table asks for a zone first and then opens the table dialog', async () => {
+  it('with no zones, Add table asks for a zone first and then opens the new table', async () => {
     const user = userEvent.setup();
     const createdZone: Zone = {
       id: 'zone-new',
@@ -355,10 +369,7 @@ describe('TableInventoryClient', () => {
     });
     renderClient({ tableService: createTableService({ list }), zoneService });
 
-    expect(
-      await within(await screen.findByRole('region', { name: 'Zones' })).findByText('No zones yet'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Add a zone first, then your tables.')).toBeInTheDocument();
+    expect(await screen.findByText('Start with a zone')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Add table' }));
     const zoneDialog = await screen.findByRole('dialog', { name: 'Add zone' });
@@ -376,13 +387,47 @@ describe('TableInventoryClient', () => {
       expect(zoneService.create).toHaveBeenCalledWith('rest-1', 'Terrace', 0);
     });
     expect(toastMocks.success).toHaveBeenCalledWith('Zone “Terrace” added.');
-    const tableDialog = await screen.findByRole('dialog', { name: 'Add table' });
-    expect(within(tableDialog).getByRole('combobox', { name: 'Zone' })).toHaveTextContent(
-      'Terrace',
+    const sheet = await screen.findByRole('dialog', { name: 'New table in Terrace' });
+    expect(within(sheet).getByRole('combobox', { name: 'Zone' })).toHaveTextContent('Terrace');
+  });
+
+  it('opens a table with its bookable and joining reasons and saves only on Save table', async () => {
+    const user = userEvent.setup();
+    const result = buildTablesResult();
+    result.tables.push(makeTable({ id: 'table-3', tableNumber: '3', capacity: 2 }));
+    const tableService = createTableService({
+      list: vi.fn().mockResolvedValue(result),
+      update: vi.fn(async (_id: string, payload) => ({ ...result.tables[0]!, ...payload })),
+    });
+    renderClient({ tableService });
+
+    await user.click(await screen.findByRole('button', { name: /^Table 1,/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Table 1' });
+    expect(within(sheet).getByTestId('bookable-reason')).toHaveTextContent(
+      'Bookable. Can be given to bookings for parties of 1–4.',
+    );
+    expect(within(sheet).getByTestId('join-reason')).toHaveTextContent(
+      'Can be joined with tables 3 in Main, up to 5 together. For example 1 + 3 seats 6.',
+    );
+
+    await user.click(within(sheet).getByRole('button', { name: 'One seat more' }));
+    expect(tableService.update).not.toHaveBeenCalled();
+    await user.click(within(sheet).getByRole('radio', { name: /Fixed/ }));
+    await user.click(within(sheet).getByRole('button', { name: 'Save table' }));
+
+    await waitFor(() =>
+      expect(tableService.update).toHaveBeenCalledWith(
+        'table-1',
+        expect.objectContaining({ capacity: 5, mobility: 'fixed', tableNumber: '1' }),
+      ),
+    );
+    expect(toastMocks.success).toHaveBeenCalledWith('Table 1 saved.');
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Table 1' })).not.toBeInTheDocument(),
     );
   });
 
-  it('shows a duplicate table number as a field error when the server returns 409', async () => {
+  it('shows a duplicate table number as a field error before and after saving', async () => {
     const user = userEvent.setup();
     const tableService = createTableService({
       create: vi
@@ -391,18 +436,26 @@ describe('TableInventoryClient', () => {
     });
     renderClient({ tableService });
 
-    await screen.findByTestId('table-row-table-1');
+    await screen.findByRole('region', { name: 'Main' });
     await user.click(screen.getByRole('button', { name: 'Add table' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Add table' });
-    await user.type(within(dialog).getByLabelText('Table number'), '1');
-    await user.click(within(dialog).getByRole('button', { name: 'Save table' }));
+    const sheet = await screen.findByRole('dialog', { name: 'New table in Main' });
+    const number = within(sheet).getByLabelText('Table number');
 
-    expect(await within(dialog).findByText('Table 1 already exists')).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Table number')).toHaveAttribute('aria-invalid', 'true');
+    await user.type(number, '1');
+    await user.click(within(sheet).getByRole('button', { name: 'Add table' }));
+    expect(await within(sheet).findByText('Table 1 already exists')).toBeInTheDocument();
+    expect(number).toHaveAttribute('aria-invalid', 'true');
+    expect(tableService.create).not.toHaveBeenCalled();
+
+    // Another operator added the same number meanwhile: the server's 409 lands on the field too.
+    await user.clear(number);
+    await user.type(number, '9');
+    await user.click(within(sheet).getByRole('button', { name: 'Add table' }));
+    expect(await within(sheet).findByText('Table 9 already exists')).toBeInTheDocument();
     expect(toastMocks.error).not.toHaveBeenCalled();
   });
 
-  it('keeps the dialog open and toasts the reason code when a table save fails', async () => {
+  it('keeps the new table open and toasts the reason code when a save fails', async () => {
     const user = userEvent.setup();
     const tableService = createTableService({
       create: vi
@@ -411,11 +464,11 @@ describe('TableInventoryClient', () => {
     });
     renderClient({ tableService });
 
-    await screen.findByTestId('table-row-table-1');
-    await user.click(screen.getByRole('button', { name: 'Add table' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Add table' });
-    await user.type(within(dialog).getByLabelText('Table number'), '7');
-    await user.click(within(dialog).getByRole('button', { name: 'Save table' }));
+    await screen.findByRole('region', { name: 'Main' });
+    await user.click(screen.getByRole('button', { name: 'Add table to Patio' }));
+    const sheet = await screen.findByRole('dialog', { name: 'New table in Patio' });
+    await user.type(within(sheet).getByLabelText('Table number'), '7');
+    await user.click(within(sheet).getByRole('button', { name: 'Add table' }));
 
     await waitFor(() => {
       expect(toastMocks.error).toHaveBeenCalledWith(
@@ -423,8 +476,37 @@ describe('TableInventoryClient', () => {
         expect.objectContaining({ description: expect.anything() }),
       );
     });
-    expect(screen.getByRole('dialog', { name: 'Add table' })).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Table number')).toHaveValue('7');
+    expect(tableService.create).toHaveBeenCalledWith(
+      'rest-1',
+      expect.objectContaining({ tableNumber: '7', zoneId: 'zone-patio', capacity: 4 }),
+    );
+    expect(within(sheet).getByLabelText('Table number')).toHaveValue('7');
+  });
+
+  it('asks before dropping unsaved edits', async () => {
+    const user = userEvent.setup();
+    renderClient();
+
+    await user.click(await screen.findByRole('button', { name: /^Table 1,/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Table 1' });
+    await user.type(within(sheet).getByLabelText('Notes'), ' by the door');
+    await user.click(footerClose(sheet));
+
+    const confirm = await screen.findByRole('alertdialog', {
+      name: 'Discard changes to this table?',
+    });
+    await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog', { name: 'Table 1' })).toBeInTheDocument();
+
+    await user.click(footerClose(sheet));
+    await user.click(
+      within(
+        await screen.findByRole('alertdialog', { name: 'Discard changes to this table?' }),
+      ).getByRole('button', { name: 'Discard changes' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Table 1' })).not.toBeInTheDocument(),
+    );
   });
 
   it('confirms a table delete by naming the effect', async () => {
@@ -432,8 +514,9 @@ describe('TableInventoryClient', () => {
     const tableService = createTableService({ remove: vi.fn().mockResolvedValue(undefined) });
     renderClient({ tableService });
 
-    const row = await screen.findByTestId('table-row-table-1');
-    await user.click(within(row).getByRole('button', { name: 'Delete table 1' }));
+    await user.click(await screen.findByRole('button', { name: /^Table 1,/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Table 1' });
+    await user.click(within(sheet).getByRole('button', { name: 'Delete' }));
 
     const confirm = await screen.findByRole('alertdialog', { name: 'Delete table 1?' });
     expect(
@@ -447,40 +530,100 @@ describe('TableInventoryClient', () => {
     expect(toastMocks.success).toHaveBeenCalledWith('Table 1 deleted.');
   });
 
-  it('explains why a zone with tables cannot be deleted and offers to show its tables', async () => {
+  it('offers to take a zone with tables out of service instead of deleting it', async () => {
     const user = userEvent.setup();
-    const zoneService = createZoneService();
+    const zoneService = createZoneService({
+      update: vi.fn().mockResolvedValue({ id: 'zone-main', name: 'Main', active: false }),
+    });
     renderClient({ zoneService });
 
-    const panel = await screen.findByRole('region', { name: 'Zones' });
-    await user.click(await within(panel).findByRole('button', { name: 'Delete Main' }));
+    const main = await screen.findByRole('region', { name: 'Main' });
+    await user.click(within(main).getByRole('button', { name: 'Delete Main' }));
 
     const dialog = await screen.findByRole('alertdialog', { name: 'Main still has tables' });
     expect(
       within(dialog).getByText(
-        'Move or delete its 1 table before deleting the zone. To stop bookings for now, take the zone out of service instead.',
+        'Move its 1 table to another zone, or delete them, before deleting the zone. To stop bookings for now, turn the zone out of service instead.',
       ),
     ).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: 'Show its tables' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Take out of service' }));
 
-    expect(within(zonesPanel()).getByRole('button', { name: 'Main' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
+    await waitFor(() =>
+      expect(zoneService.update).toHaveBeenCalledWith('zone-main', {
+        name: undefined,
+        sortOrder: undefined,
+        active: false,
+      }),
     );
-    expect(within(tablesList()).queryByTestId('table-row-table-2')).not.toBeInTheDocument();
     expect(zoneService.remove).not.toHaveBeenCalled();
   });
 
-  it('explains that only owners and managers can delete tables', async () => {
+  it('only offers deleting a table to owners and managers', async () => {
+    const user = userEvent.setup();
     renderClient({
-      memberships: [{ ...ownerMemberships[0], role: 'host' }],
+      memberships: [{ ...ownerMemberships[0]!, role: 'host' }],
     });
 
-    const row = await screen.findByTestId('table-row-table-1');
-    expect(within(row).queryByRole('button', { name: /Delete table/ })).not.toBeInTheDocument();
-    expect(
-      within(tablesList()).getByText('Only owners and managers can delete tables.'),
-    ).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^Table 1,/ }));
+    const sheet = await screen.findByRole('dialog', { name: 'Table 1' });
+    expect(within(sheet).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  describe('on wide screens', () => {
+    let restore: () => void = () => undefined;
+    beforeEach(() => {
+      restore = useWideScreen();
+    });
+    afterEach(() => restore());
+
+    it('shows the room at a glance and fixes a table from Needs a look at once', async () => {
+      const user = userEvent.setup();
+      const result = buildTablesResult();
+      result.tables[1] = { ...result.tables[1]!, active: false };
+      const tableService = createTableService({
+        list: vi.fn().mockResolvedValue(result),
+        update: vi.fn(() => new Promise<TableInventory>(() => undefined)),
+      });
+      renderClient({ tableService });
+
+      const panel = await screen.findByRole('complementary', { name: 'Table details' });
+      expect(within(panel).getByRole('heading', { name: 'Room at a glance' })).toBeInTheDocument();
+      expect(await within(panel).findByText('Needs a look (1)')).toBeInTheDocument();
+      expect(within(panel).getByTestId('party-coverage')).toBeInTheDocument();
+
+      await user.click(within(panel).getByRole('button', { name: 'Turn on table 2' }));
+
+      expect(tableService.update).toHaveBeenCalledWith('table-2', { active: true });
+      // Optimistic: the table counts as bookable before the server answers.
+      await waitFor(() => expect(screen.getByText('8 of 8 seats bookable')).toBeInTheDocument());
+    });
+
+    it('edits the selected table in the side panel and asks before switching away', async () => {
+      const user = userEvent.setup();
+      renderClient();
+
+      const tile1 = await screen.findByRole('button', { name: /^Table 1,/ });
+      await user.click(tile1);
+      const panel = screen.getByRole('complementary', { name: 'Table details' });
+      expect(within(panel).getByRole('heading', { name: 'Table 1' })).toBeInTheDocument();
+      expect(tile1).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+      await user.type(within(panel).getByLabelText('Notes'), '!');
+      await user.click(screen.getByRole('button', { name: /^Table 2,/ }));
+      const confirm = await screen.findByRole('alertdialog', {
+        name: 'Discard changes to this table?',
+      });
+      await user.click(within(confirm).getByRole('button', { name: 'Discard changes' }));
+
+      await waitFor(() =>
+        expect(within(panel).getByRole('heading', { name: 'Table 2' })).toBeInTheDocument(),
+      );
+
+      // Selecting the open table again closes it.
+      await user.click(screen.getByRole('button', { name: /^Table 2,/ }));
+      expect(within(panel).getByRole('heading', { name: 'Room at a glance' })).toBeInTheDocument();
+    });
   });
 });
 

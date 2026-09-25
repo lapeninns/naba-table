@@ -44,7 +44,7 @@ function renderDialogs(overrides: Partial<ConfirmProps> = {}) {
     onZoneWithTablesOpenChange: vi.fn(),
     onConfirmTableDelete: vi.fn(),
     onConfirmZoneDelete: vi.fn(),
-    onShowZoneTables: vi.fn(),
+    onTakeZoneOutOfService: vi.fn(),
     ...overrides,
   };
   render(<TableInventoryConfirmDialogs {...props} />);
@@ -71,25 +71,30 @@ describe('TableInventoryConfirmDialogs', () => {
     const props = renderDialogs({ zoneDeleteTarget: zone });
 
     const dialog = screen.getByRole('alertdialog', { name: 'Delete Main?' });
-    expect(
-      within(dialog).getByText('The zone has no tables. This can’t be undone.'),
-    ).toBeInTheDocument();
+    expect(within(dialog).getByText('It has no tables. This can’t be undone.')).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Delete zone' }));
     expect(props.onConfirmZoneDelete).toHaveBeenCalledTimes(1);
   });
 
-  it('explains why a zone with tables cannot be deleted and shows its tables', async () => {
+  it('explains why a zone with tables cannot be deleted and offers taking it out of service', async () => {
     const user = userEvent.setup();
     const props = renderDialogs({ zoneWithTables: { zone, tableCount: 3 } });
 
     const dialog = screen.getByRole('alertdialog', { name: 'Main still has tables' });
     expect(
       within(dialog).getByText(
-        'Move or delete its 3 tables before deleting the zone. To stop bookings for now, take the zone out of service instead.',
+        'Move its 3 tables to another zone, or delete them, before deleting the zone. To stop bookings for now, turn the zone out of service instead.',
       ),
     ).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: /Delete/ })).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: 'Show its tables' }));
-    expect(props.onShowZoneTables).toHaveBeenCalledWith('zone-main');
+    await user.click(within(dialog).getByRole('button', { name: 'Take out of service' }));
+    expect(props.onZoneWithTablesOpenChange).toHaveBeenCalledWith(false);
+    expect(props.onTakeZoneOutOfService).toHaveBeenCalledWith(zone);
+  });
+
+  it('cannot take a zone out of service twice', () => {
+    renderDialogs({ zoneWithTables: { zone: { ...zone, active: false }, tableCount: 1 } });
+
+    expect(screen.getByRole('button', { name: 'Take out of service' })).toBeDisabled();
   });
 });

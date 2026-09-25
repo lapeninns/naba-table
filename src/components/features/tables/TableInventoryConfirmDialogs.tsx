@@ -1,6 +1,16 @@
 'use client';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 import { countLabel } from './tableInventoryDisplayDomain';
 
@@ -19,7 +29,7 @@ export function TableInventoryConfirmDialogs({
   onZoneWithTablesOpenChange,
   onConfirmTableDelete,
   onConfirmZoneDelete,
-  onShowZoneTables,
+  onTakeZoneOutOfService,
 }: {
   tableDeleteTarget: TableInventory | null;
   zoneDeleteTarget: TableZone | null;
@@ -31,7 +41,7 @@ export function TableInventoryConfirmDialogs({
   onZoneWithTablesOpenChange: (open: boolean) => void;
   onConfirmTableDelete: () => void;
   onConfirmZoneDelete: () => void;
-  onShowZoneTables: (zoneId: string) => void;
+  onTakeZoneOutOfService: (zone: TableZone) => void;
 }) {
   return (
     <>
@@ -43,7 +53,6 @@ export function TableInventoryConfirmDialogs({
         }
         description="It can no longer be given to bookings. This can’t be undone. To keep it for later, turn it off instead."
         confirmLabel={isTableDeletePending ? 'Deleting…' : 'Delete table'}
-        cancelLabel="Keep table"
         tone="destructive"
         onConfirm={onConfirmTableDelete}
       />
@@ -52,31 +61,43 @@ export function TableInventoryConfirmDialogs({
         open={zoneDeleteTarget !== null}
         onOpenChange={onZoneOpenChange}
         title={zoneDeleteTarget ? `Delete ${zoneDeleteTarget.name}?` : 'Delete zone?'}
-        description="The zone has no tables. This can’t be undone."
+        description="It has no tables. This can’t be undone."
         confirmLabel={isZoneDeletePending ? 'Deleting…' : 'Delete zone'}
-        cancelLabel="Keep zone"
         tone="destructive"
         onConfirm={onConfirmZoneDelete}
       />
 
-      <ConfirmDialog
-        open={zoneWithTables !== null}
-        onOpenChange={onZoneWithTablesOpenChange}
-        title={zoneWithTables ? `${zoneWithTables.zone.name} still has tables` : 'Zone has tables'}
-        description={
-          zoneWithTables
-            ? `Move or delete its ${countLabel(
-                zoneWithTables.tableCount,
-                'table',
-              )} before deleting the zone. To stop bookings for now, take the zone out of service instead.`
-            : undefined
-        }
-        confirmLabel="Show its tables"
-        cancelLabel="Close"
-        onConfirm={() => {
-          if (zoneWithTables) onShowZoneTables(zoneWithTables.zone.id);
-        }}
-      />
+      <AlertDialog open={zoneWithTables !== null} onOpenChange={onZoneWithTablesOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {zoneWithTables ? `${zoneWithTables.zone.name} still has tables` : 'Zone has tables'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {zoneWithTables
+                ? `Move its ${countLabel(
+                    zoneWithTables.tableCount,
+                    'table',
+                  )} to another zone, or delete them, before deleting the zone. To stop bookings for now, turn the zone out of service instead.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={!zoneWithTables?.zone.active}
+              onClick={() => {
+                if (!zoneWithTables) return;
+                onZoneWithTablesOpenChange(false);
+                onTakeZoneOutOfService(zoneWithTables.zone);
+              }}
+            >
+              Take out of service
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

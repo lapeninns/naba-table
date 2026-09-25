@@ -433,33 +433,27 @@ describe('tableInventoryDomain table form helpers', () => {
     expect(getDuplicateTableNumberMessage(' 12 ')).toBe('Table 12 already exists');
   });
 
-  it('requires a zone name and keeps the order within the server range', () => {
-    const empty = new FormData();
-    empty.set('zoneName', '  ');
-    expect(parseZoneFormPayload(empty)).toEqual({
+  it('requires a unique zone name and keeps the chosen position', () => {
+    const existing = [
+      { id: 'main', name: 'Main dining room' },
+      { id: 'bar', name: 'Bar' },
+    ];
+
+    expect(parseZoneFormPayload({ name: '  ', beforeZoneId: null }, existing, null)).toEqual({
       ok: false,
       errors: { zoneName: 'Enter a zone name' },
     });
-
-    const outOfRange = new FormData();
-    outOfRange.set('zoneName', 'Bar');
-    outOfRange.set('sortOrder', '1001');
-    expect(parseZoneFormPayload(outOfRange)).toEqual({
+    expect(parseZoneFormPayload({ name: ' bar ', beforeZoneId: null }, existing, null)).toEqual({
       ok: false,
-      errors: { sortOrder: 'Enter a whole number from -1000 to 1000' },
+      errors: { zoneName: 'A zone with this name already exists' },
     });
-
-    const valid = new FormData();
-    valid.set('zoneName', ' Terrace ');
-    valid.set('sortOrder', '2');
-    expect(parseZoneFormPayload(valid)).toEqual({
+    expect(parseZoneFormPayload({ name: 'Bar', beforeZoneId: 'main' }, existing, 'bar')).toEqual({
       ok: true,
-      payload: { name: 'Terrace', sortOrder: 2 },
+      payload: { name: 'Bar', beforeZoneId: 'main' },
     });
-
-    const noOrder = new FormData();
-    noOrder.set('zoneName', 'Bar');
-    expect(parseZoneFormPayload(noOrder)).toEqual({ ok: true, payload: { name: 'Bar' } });
+    expect(parseZoneFormPayload({ name: ' Terrace ', beforeZoneId: null }, existing, null)).toEqual(
+      { ok: true, payload: { name: 'Terrace', beforeZoneId: null } },
+    );
   });
 });
 

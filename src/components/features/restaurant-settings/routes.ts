@@ -125,7 +125,7 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     href: opsHref('/settings/restaurant/tables'),
     title: 'Tables',
     description:
-      'Tables and zones decide who can be seated. Only active tables in zones that are in service can be given to bookings.',
+      'Your room, zone by zone. Only active tables in zones that are in service can be given to bookings.',
   },
   {
     view: 'team',

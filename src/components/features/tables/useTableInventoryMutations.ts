@@ -20,7 +20,7 @@ type UseTableInventoryMutationsParams = {
   readonly tablesQueryKey: QueryKey;
   readonly zonesQueryKey: QueryKey;
   /** The table was saved; `created` is false for an edit. */
-  readonly onTableSaved: (table: { tableNumber: string }, created: boolean) => void;
+  readonly onTableSaved: (table: TableInventory, created: boolean) => void;
   /** The server rejected the table number as a duplicate (HTTP 409). */
   readonly onTableNumberConflict: (tableNumber: string) => void;
   readonly onTableDeleted: (table: Pick<TableInventory, 'id' | 'tableNumber'>) => void;
@@ -29,6 +29,9 @@ type UseTableInventoryMutationsParams = {
   readonly onZoneDeleted: (zoneId: string) => void;
 };
 
+/** Other zones whose position changes with this save (`planZoneOrder`). */
+export type ZoneReorder = ReadonlyArray<{ zoneId: string; sortOrder: number }>;
+
 export type ZoneUpdateVariables = {
   zoneId: string;
   name?: string;
@@ -36,6 +39,15 @@ export type ZoneUpdateVariables = {
   active?: boolean;
   /** Only used for the confirmation toast; never sent. */
   zoneName?: string;
+  reorder?: ZoneReorder;
+};
+
+/** A one-field fix from "Needs a look", with the patch that undoes it. */
+export type TableQuickFixVariables = {
+  table: Pick<TableInventory, 'id' | 'tableNumber'>;
+  patch: Pick<UpdateTablePayload, 'active' | 'status'>;
+  undo: Pick<UpdateTablePayload, 'active' | 'status'> | null;
+  message: string;
 };
 
 type ZoneUpdateContext = { previousActive?: boolean };
@@ -131,6 +143,13 @@ export function useTableInventoryMutations({
   const queryClient = useQueryClient();
   const keys = { tablesQueryKey, zonesQueryKey };
 
+  /** Zones moved by a position change are renumbered one by one after the main save. */
+  const applyZoneReorder = async (reorder: ZoneReorder) => {
+    for (const item of reorder) {
+      await zoneService.update(item.zoneId, { sortOrder: item.sortOrder });
+    }
+  };
+
   const handleTableSaveError = (error: unknown, tableNumber: string) => {
     if (error instanceof HttpError && error.status === 409) {
       onTableNumberConflict(tableNumber);
@@ -147,10 +166,14 @@ export function useTableInventoryMutations({
       restaurantId: string;
       payload: CreateTablePayload;
     }) => tableService.create(restaurantId, payload),
-    onSuccess: (_table, variables) => {
+    onSuccess: (table) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
-      toast.success(`Table ${variables.payload.tableNumber} added.`);
-      onTableSaved(variables.payload, true);
+      toast.success(
+        table.zoneName
+          ? `Table ${table.tableNumber} added to ${table.zoneName}.`
+          : `Table ${table.tableNumber} added.`,
+      );
+      onTableSaved(table, true);
     },
     onError: (error, variables) => handleTableSaveError(error, variables.payload.tableNumber),
   });
@@ -163,12 +186,61 @@ export function useTableInventoryMutations({
       tableId: string;
       payload: UpdateTablePayload & { tableNumber: string };
     }) => tableService.update(tableId, payload),
-    onSuccess: (_table, variables) => {
+    onSuccess: (table) => {
       queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
-      toast.success(`Table ${variables.payload.tableNumber} updated.`);
-      onTableSaved(variables.payload, false);
+      toast.success(`Table ${table.tableNumber} saved.`);
+      onTableSaved(table, false);
     },
     onError: (error, variables) => handleTableSaveError(error, variables.payload.tableNumber),
+  });
+
+  const quickFixMutation = useMutation<
+    TableInventory,
+    unknown,
+    TableQuickFixVariables,
+    { previous?: ListTablesResult }
+  >({
+    mutationFn: ({ table, patch }) => tableService.update(table.id, patch),
+    // The room, counts and "Needs a look" all read the tables query, so patch it straight away.
+    onMutate: async ({ table, patch }) => {
+      await queryClient.cancelQueries({ queryKey: tablesQueryKey });
+      const previous = queryClient.getQueryData<ListTablesResult>(tablesQueryKey);
+      queryClient.setQueryData<ListTablesResult>(tablesQueryKey, (current) =>
+        current
+          ? {
+              ...current,
+              tables: current.tables.map((item) =>
+                item.id === table.id ? { ...item, ...patch } : item,
+              ),
+            }
+          : current,
+      );
+      return { previous };
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['ops', 'tables'] });
+    },
+    onSuccess: (_table, variables) => {
+      const { undo } = variables;
+      toast.success(variables.message, {
+        action: undo
+          ? {
+              label: 'Undo',
+              onClick: () =>
+                quickFixMutation.mutate({
+                  table: variables.table,
+                  patch: undo,
+                  undo: null,
+                  message: `Table ${variables.table.tableNumber} is back as it was.`,
+                }),
+            }
+          : undefined,
+      });
+    },
+    onError: (error, variables, context) => {
+      if (context?.previous) queryClient.setQueryData(tablesQueryKey, context.previous);
+      showTableInventoryErrorToast(`Table ${variables.table.tableNumber} wasn’t changed.`, error);
+    },
   });
 
   const deleteMutation = useMutation({
@@ -183,15 +255,21 @@ export function useTableInventoryMutations({
   });
 
   const zoneCreateMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       restaurantId,
       name,
       sortOrder,
+      reorder = [],
     }: {
       restaurantId: string;
       name: string;
       sortOrder?: number;
-    }) => zoneService.create(restaurantId, name, sortOrder),
+      reorder?: ZoneReorder;
+    }) => {
+      const zone = await zoneService.create(restaurantId, name, sortOrder);
+      await applyZoneReorder(reorder);
+      return zone;
+    },
     onSuccess: (zone) => {
       addZoneToCaches(queryClient, keys, zone);
       queryClient.invalidateQueries({ queryKey: zonesQueryKey });
@@ -204,8 +282,11 @@ export function useTableInventoryMutations({
   });
 
   const zoneUpdateMutation = useMutation<Zone, unknown, ZoneUpdateVariables, ZoneUpdateContext>({
-    mutationFn: ({ zoneId, name, sortOrder, active }) =>
-      zoneService.update(zoneId, { name, sortOrder, active }),
+    mutationFn: async ({ zoneId, name, sortOrder, active, reorder = [] }) => {
+      const zone = await zoneService.update(zoneId, { name, sortOrder, active });
+      await applyZoneReorder(reorder);
+      return zone;
+    },
     onMutate: async (variables) => {
       if (!isSeasonalToggle(variables)) {
         return {};
@@ -227,6 +308,17 @@ export function useTableInventoryMutations({
           zone.active
             ? `${name} is back in service. Its active tables can be booked.`
             : `${name} is out of service. Its tables are kept but can’t be booked.`,
+          {
+            action: {
+              label: 'Undo',
+              onClick: () =>
+                zoneUpdateMutation.mutate({
+                  zoneId: zone.id,
+                  active: !zone.active,
+                  zoneName: name,
+                }),
+            },
+          },
         );
         return;
       }
@@ -270,6 +362,7 @@ export function useTableInventoryMutations({
   return {
     createMutation,
     deleteMutation,
+    quickFixMutation,
     updateMutation,
     zoneCreateMutation,
     zoneDeleteMutation,

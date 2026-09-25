@@ -3,7 +3,8 @@ import type { TableInventory, TableInventorySummary } from '@/services/ops/table
 
 export type ZoneFormPayload = {
   name: string;
-  sortOrder?: number;
+  /** Zone this one is placed before on the page; null places it at the end. */
+  beforeZoneId: string | null;
 };
 
 export type TableFormDraft = Pick<
@@ -103,19 +104,62 @@ export function getDuplicateTableNumberMessage(tableNumber: string): string {
   return `Table ${tableNumber.trim()} already exists`;
 }
 
-export function parseTableFormPayload(
-  formData: FormData,
-  draft: TableFormDraft,
-): TableFormParseResult {
+/** The table editor's working copy: text fields stay as typed until the save parses them. */
+export type TableDraft = {
+  tableNumber: string;
+  capacity: string;
+  minPartySize: string;
+  maxPartySize: string;
+  zoneId: string | undefined;
+  mobility: TableFormState['mobility'];
+  active: boolean;
+  status: TableFormState['status'];
+  seatingType: TableFormState['seatingType'];
+  category: TableFormState['category'];
+  section: string;
+  notes: string;
+};
+
+const NEW_TABLE_SEATS = 4;
+
+export function buildTableDraft(
+  table: TableInventory | null,
+  zones: ReadonlyArray<Pick<TableZone, 'id' | 'active'>>,
+  preferredZoneId?: string | null,
+): TableDraft {
+  const base = buildTableFormDraft(table, zones, preferredZoneId);
+  return {
+    tableNumber: table?.tableNumber ?? '',
+    capacity: String(table?.capacity ?? NEW_TABLE_SEATS),
+    minPartySize: String(table?.minPartySize ?? 1),
+    maxPartySize: table?.maxPartySize == null ? '' : String(table.maxPartySize),
+    zoneId: base.zoneId,
+    mobility: base.mobility,
+    active: base.active,
+    status: base.status,
+    seatingType: base.seatingType,
+    category: base.category,
+    section: table?.section ?? '',
+    notes: table?.notes ?? '',
+  };
+}
+
+export function isTableDraftDirty(draft: TableDraft, initial: TableDraft): boolean {
+  return (Object.keys(initial) as Array<keyof TableDraft>).some(
+    (key) => draft[key] !== initial[key],
+  );
+}
+
+export function parseTableDraft(draft: TableDraft): TableFormParseResult {
   const errors: TableFormErrors = {};
-  const tableNumber = String(formData.get('tableNumber') ?? '').trim();
-  const capacity = parseWholeNumber(formData.get('capacity'));
-  const minRaw = String(formData.get('minPartySize') ?? '').trim();
-  const maxRaw = String(formData.get('maxPartySize') ?? '').trim();
+  const tableNumber = draft.tableNumber.trim();
+  const capacity = parseWholeNumber(draft.capacity);
+  const minRaw = draft.minPartySize.trim();
+  const maxRaw = draft.maxPartySize.trim();
   const minPartySize = minRaw === '' ? 1 : parseWholeNumber(minRaw);
   const maxPartySize = maxRaw === '' ? null : parseWholeNumber(maxRaw);
-  const section = normalizeOptionalText(formData.get('section'));
-  const notes = normalizeOptionalText(formData.get('notes'));
+  const section = normalizeOptionalText(draft.section);
+  const notes = normalizeOptionalText(draft.notes);
 
   if (!tableNumber) {
     errors.tableNumber = 'Enter a table number';
@@ -142,6 +186,14 @@ export function parseTableFormPayload(
       (minPartySize !== null && maxPartySize < minPartySize))
   ) {
     errors.maxPartySize = 'Largest party must be at least the smallest party, up to 20';
+  } else if (
+    // The allocator never seats more than a fixed table's seats (`deriveTableRules`).
+    draft.mobility === 'fixed' &&
+    maxPartySize !== null &&
+    capacity !== null &&
+    maxPartySize > capacity
+  ) {
+    errors.maxPartySize = `A fixed table can’t take more than its ${capacity} seats`;
   }
 
   if (!draft.zoneId) {
@@ -184,45 +236,62 @@ export function parseTableFormPayload(
   };
 }
 
-export type ZoneFormErrors = Partial<Record<'zoneName' | 'sortOrder', string>>;
+export function parseTableFormPayload(
+  formData: FormData,
+  draft: TableFormDraft,
+): TableFormParseResult {
+  const text = (name: string) => String(formData.get(name) ?? '');
+  return parseTableDraft({
+    tableNumber: text('tableNumber'),
+    capacity: text('capacity'),
+    minPartySize: text('minPartySize'),
+    maxPartySize: text('maxPartySize'),
+    section: text('section'),
+    notes: text('notes'),
+    zoneId: draft.zoneId,
+    category: draft.category,
+    seatingType: draft.seatingType,
+    mobility: draft.mobility,
+    status: draft.status,
+    active: draft.active,
+  });
+}
+
+export type ZoneFormErrors = Partial<Record<'zoneName', string>>;
 
 export type ZoneFormParseResult =
   | { ok: true; payload: ZoneFormPayload }
   | { ok: false; errors: ZoneFormErrors };
 
 /** Limits restate the server's zone schema (`/api/ops/zones`). */
-export const ZONE_FORM_LIMITS = { nameMax: 100, sortOrderMin: -1000, sortOrderMax: 1000 } as const;
+export const ZONE_FORM_LIMITS = { nameMax: 100 } as const;
 
-export function parseZoneFormPayload(formData: FormData): ZoneFormParseResult {
-  const errors: ZoneFormErrors = {};
-  const name = String(formData.get('zoneName') ?? '').trim();
-  const sortOrderRaw = String(formData.get('sortOrder') ?? '').trim();
+export function parseZoneFormPayload(
+  values: { name: string; beforeZoneId: string | null },
+  zones: ReadonlyArray<Pick<TableZone, 'id' | 'name'>>,
+  editingZoneId: string | null,
+): ZoneFormParseResult {
+  const name = values.name.trim();
+  const key = name.toLocaleLowerCase('en-GB');
 
   if (name.length === 0) {
-    errors.zoneName = 'Enter a zone name';
-  } else if (name.length > ZONE_FORM_LIMITS.nameMax) {
-    errors.zoneName = `Use ${ZONE_FORM_LIMITS.nameMax} characters or fewer`;
+    return { ok: false, errors: { zoneName: 'Enter a zone name' } };
+  }
+  if (name.length > ZONE_FORM_LIMITS.nameMax) {
+    return {
+      ok: false,
+      errors: { zoneName: `Use ${ZONE_FORM_LIMITS.nameMax} characters or fewer` },
+    };
+  }
+  if (
+    zones.some(
+      (zone) => zone.id !== editingZoneId && zone.name.trim().toLocaleLowerCase('en-GB') === key,
+    )
+  ) {
+    return { ok: false, errors: { zoneName: 'A zone with this name already exists' } };
   }
 
-  let sortOrder: number | undefined;
-  if (sortOrderRaw !== '') {
-    const parsed = /^-?\d+$/.test(sortOrderRaw) ? Number.parseInt(sortOrderRaw, 10) : Number.NaN;
-    if (
-      Number.isNaN(parsed) ||
-      parsed < ZONE_FORM_LIMITS.sortOrderMin ||
-      parsed > ZONE_FORM_LIMITS.sortOrderMax
-    ) {
-      errors.sortOrder = 'Enter a whole number from -1000 to 1000';
-    } else {
-      sortOrder = parsed;
-    }
-  }
-
-  if (errors.zoneName || errors.sortOrder) {
-    return { ok: false, errors };
-  }
-
-  return { ok: true, payload: sortOrder === undefined ? { name } : { name, sortOrder } };
+  return { ok: true, payload: { name, beforeZoneId: values.beforeZoneId } };
 }
 
 function parseWholeNumber(value: FormDataEntryValue | string | null): number | null {
@@ -231,7 +300,7 @@ function parseWholeNumber(value: FormDataEntryValue | string | null): number | n
   return Number.parseInt(raw, 10);
 }
 
-function normalizeOptionalText(value: FormDataEntryValue | null): string | null {
+function normalizeOptionalText(value: FormDataEntryValue | string | null): string | null {
   const normalized = String(value ?? '').trim();
   return normalized.length > 0 ? normalized : null;
 }
