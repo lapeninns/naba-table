@@ -67,6 +67,32 @@ describe('opsIntegrationQueries', () => {
     expect(keys).toContainEqual(queryKeys.opsRestaurants.detail(restaurantId));
   });
 
+  it('@contract every integration key it invalidates is scoped to the restaurant', () => {
+    const { queryClient, invalidateSpy } = spyClient();
+
+    invalidateOpsIntegrationQueries(queryClient, restaurantId);
+
+    for (const key of invalidatedKeys(invalidateSpy)) {
+      expect(key).toContain(restaurantId);
+    }
+  });
+
+  it('@contract skips the connection key a caller has just written from the response', () => {
+    const { queryClient, invalidateSpy } = spyClient();
+
+    invalidateOpsIntegrationQueries(queryClient, restaurantId, { connectionWritten: true });
+
+    const keys = invalidatedKeys(invalidateSpy);
+    expect(keys).toHaveLength(10);
+    expect(keys).not.toContainEqual(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId));
+    expect(keys).toContainEqual(
+      queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
+    );
+    expect(keys).toContainEqual(gbpOperatorQueryKeys.root(restaurantId));
+    expect(keys).toContainEqual(dualSyncQueryKeys.state(restaurantId));
+    expect(keys).toContainEqual(queryKeys.opsRestaurants.detail(restaurantId));
+  });
+
   it('@contract scopes dual-sync keys per restaurant', () => {
     expect(dualSyncQueryKeys.state('a')).toEqual(['dual-sync-state', 'a']);
     expect(dualSyncQueryKeys.publishJobDetail('b')).toEqual(['dual-sync-publish-job-detail', 'b']);
