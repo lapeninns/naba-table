@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
@@ -220,6 +220,40 @@ export function useTableInventoryMutations({
    * Queued toggles patch the cache before they run, so the cache can't tell a rollback where to go.
    */
   const confirmedZoneActive = useRef(new Map<string, boolean>());
+  /**
+   * Toasts outlive this hook, but an Undo runs through it, and so against whichever restaurant it
+   * is on by then. Undo toasts are dismissed on a switch or unmount, and a write that finishes
+   * after one gets no Undo. `undoRestaurant` is null once unmounted.
+   */
+  const undoToastIds = useRef(new Set<string | number>());
+  const undoRestaurant = useRef<{ restaurantId: string | null } | null>(null);
+  useEffect(() => {
+    undoRestaurant.current = { restaurantId };
+    const toastIds = undoToastIds.current;
+    return () => {
+      undoRestaurant.current = null;
+      for (const id of toastIds) toast.dismiss(id);
+      toastIds.clear();
+    };
+  }, [restaurantId]);
+
+  const showSuccessWithUndo = (
+    target: MutationTarget,
+    message: string,
+    onUndo: (() => void) | null,
+  ) => {
+    if (!onUndo || undoRestaurant.current?.restaurantId !== target.restaurantId) {
+      toast.success(message);
+      return;
+    }
+    const forget = () => undoToastIds.current.delete(toastId);
+    const toastId = toast.success(message, {
+      action: { label: 'Undo', onClick: onUndo },
+      onDismiss: forget,
+      onAutoClose: forget,
+    });
+    undoToastIds.current.add(toastId);
+  };
 
   /** Refetches one restaurant's tables, timeline, capacities and zones, and no one else's. */
   const invalidateRestaurantTables = (target: MutationTarget | undefined) => {
@@ -351,22 +385,21 @@ export function useTableInventoryMutations({
       }
       invalidateRestaurantTables(target);
     },
-    onSuccess: (_table, variables) => {
+    onSuccess: (_table, variables, context) => {
       const { undo } = variables;
-      toast.success(variables.message, {
-        action: undo
-          ? {
-              label: 'Undo',
-              onClick: () =>
-                quickFixMutation.mutate({
-                  table: variables.table,
-                  patch: undo,
-                  undo: null,
-                  message: `Table ${variables.table.tableNumber} is back as it was.`,
-                }),
-            }
-          : undefined,
-      });
+      showSuccessWithUndo(
+        context.target,
+        variables.message,
+        undo
+          ? () =>
+              quickFixMutation.mutate({
+                table: variables.table,
+                patch: undo,
+                undo: null,
+                message: `Table ${variables.table.tableNumber} is back as it was.`,
+              })
+          : null,
+      );
     },
     onError: (error, variables, context) => {
       // Undo only this table's fields, so other fixes in flight keep their values.
@@ -473,21 +506,13 @@ export function useTableInventoryMutations({
           zone.active,
         );
         const name = variables.zoneName ?? zone.name;
-        toast.success(
+        showSuccessWithUndo(
+          context.target,
           zone.active
             ? `${name} is back in service. Its active tables can be booked.`
             : `${name} is out of service. Its tables are kept but can’t be booked.`,
-          {
-            action: {
-              label: 'Undo',
-              onClick: () =>
-                zoneUpdateMutation.mutate({
-                  zoneId: zone.id,
-                  active: !zone.active,
-                  zoneName: name,
-                }),
-            },
-          },
+          () =>
+            zoneUpdateMutation.mutate({ zoneId: zone.id, active: !zone.active, zoneName: name }),
         );
         return;
       }

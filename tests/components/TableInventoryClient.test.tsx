@@ -24,7 +24,7 @@ import type ZoneService from '@/services/ops/zones';
 import type { Zone } from '@/services/ops/zones';
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
-const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+const toastMocks = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), dismiss: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastMocks }));
 
 const opsUser: OpsUser = {
