@@ -117,7 +117,7 @@ describe('useOpsGoogleBusinessProfile', () => {
     expect(restaurantService.getGoogleBusinessProfileConnection).not.toHaveBeenCalled();
   });
 
-  it('invalidates GBP and dual-sync workspace queries after linking a location', async () => {
+  it('writes the linked connection without refetching it and invalidates the rest of the integration surface', async () => {
     const queryClient = createTestQueryClient();
     const wrapper = createQueryWrapper(queryClient);
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -135,7 +135,10 @@ describe('useOpsGoogleBusinessProfile', () => {
       });
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({
+    expect(
+      queryClient.getQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId)),
+    ).toEqual(connectionState());
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
@@ -144,7 +147,7 @@ describe('useOpsGoogleBusinessProfile', () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['dual-sync-state', restaurantId] });
   });
 
-  it('invalidates GBP and dual-sync workspace queries after disconnecting', async () => {
+  it('writes the disconnected connection without refetching it and invalidates the rest of the integration surface', async () => {
     const queryClient = createTestQueryClient();
     const wrapper = createQueryWrapper(queryClient);
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
@@ -157,12 +160,43 @@ describe('useOpsGoogleBusinessProfile', () => {
       await result.current.mutateAsync();
     });
 
-    expect(invalidateSpy).toHaveBeenCalledWith({
+    expect(
+      queryClient.getQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId)),
+    ).toEqual(connectionState());
+    expect(invalidateSpy).not.toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
     });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['dual-sync-state', restaurantId] });
+  });
+  it('does not issue a second connection GET after linking while the connection is observed', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const { result } = renderHook(
+      () => ({
+        connection: useOpsGoogleBusinessProfileConnection(restaurantId),
+        link: useOpsLinkGoogleBusinessProfileLocation(restaurantId),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.connection.isSuccess).toBe(true));
+    expect(restaurantService.getGoogleBusinessProfileConnection).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await result.current.link.mutateAsync({
+        accountName: 'accounts/1',
+        accountId: 'account-1',
+        locationName: 'locations/1',
+        locationId: 'location-1',
+      });
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(restaurantService.getGoogleBusinessProfileConnection).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,12 +11,14 @@ import {
   listDualSyncJobs,
   previewDualSyncPublishPlan,
   publishDualSyncDecisions,
+  publishGbpExactV1,
   refreshDualSync,
   cancelDualSyncCandidate,
   retryDualSyncJob,
   runDualSyncAutoExport,
   setDualSyncControl,
 } from '@/services/ops/dual-sync';
+import { dualSyncQueryKeys, gbpOperatorQueryKeys } from '@src/hooks/ops/opsIntegrationQueries';
 
 vi.mock('@/services/ops/dual-sync', () => ({
   getDualSyncMetrics: vi.fn(),
@@ -28,6 +30,7 @@ vi.mock('@/services/ops/dual-sync', () => ({
   listDualSyncPublishJobs: vi.fn(),
   previewDualSyncPublishPlan: vi.fn(),
   publishDualSyncDecisions: vi.fn(),
+  publishGbpExactV1: vi.fn(),
   refreshDualSync: vi.fn(),
   cancelDualSyncCandidate: vi.fn(),
   retryDualSyncJob: vi.fn(),
@@ -501,4 +504,44 @@ describe('useOpsDualSync', () => {
     });
     expect(invalidateSpy).not.toHaveBeenCalled();
   });
+  it.each([
+    ['refreshMutation', () => undefined],
+    ['publishMutation', () => ({ decisions: [] })],
+    ['exactPublishMutation', () => ({})],
+    ['autoExportMutation', () => undefined],
+  ] as const)(
+    '@contract %s invalidates exactly the restaurant integration surface it can change',
+    async (mutationName, variables) => {
+      vi.mocked(publishGbpExactV1).mockResolvedValue({} as never);
+      const queryClient = createTestQueryClient();
+      const wrapper = createQueryWrapper(queryClient);
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      const { result } = renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+
+      await act(async () => {
+        await result.current[mutationName].mutateAsync(variables() as never);
+      });
+
+      const keys = (invalidateSpy.mock.calls as Array<[{ queryKey: readonly unknown[] }]>).map(
+        ([filters]) => filters.queryKey,
+      );
+      expect(keys).toEqual([
+        queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+        queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
+        gbpOperatorQueryKeys.root(restaurantId),
+        dualSyncQueryKeys.state(restaurantId),
+        dualSyncQueryKeys.operations(restaurantId),
+        dualSyncQueryKeys.jobs(restaurantId),
+        dualSyncQueryKeys.candidates(restaurantId),
+        dualSyncQueryKeys.metrics(restaurantId),
+        dualSyncQueryKeys.publishJobs(restaurantId),
+        dualSyncQueryKeys.publishJobDetail(restaurantId),
+        queryKeys.opsRestaurants.detail(restaurantId),
+      ]);
+      for (const key of keys) {
+        expect(key).toContain(restaurantId);
+      }
+    },
+  );
 });

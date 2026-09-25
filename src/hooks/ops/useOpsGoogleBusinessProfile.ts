@@ -193,7 +193,7 @@ export function useOpsLinkGoogleBusinessProfileLocation(
       if (!restaurantId) return;
       removeGbpOperatorQueries(queryClient, restaurantId);
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
-      invalidateOpsIntegrationQueries(queryClient, restaurantId);
+      invalidateOpsIntegrationQueries(queryClient, restaurantId, { connectionWritten: true });
     },
   });
 }
@@ -223,7 +223,7 @@ export function useOpsDisconnectGoogleBusinessProfile(
       if (!restaurantId) return;
       removeGbpOperatorQueries(queryClient, restaurantId);
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
-      invalidateOpsIntegrationQueries(queryClient, restaurantId);
+      invalidateOpsIntegrationQueries(queryClient, restaurantId, { connectionWritten: true });
     },
   });
 }

@@ -8,6 +8,7 @@ import {
   useOpsDeleteRestaurantMenu,
   useOpsMenuHierarchy,
   useOpsPatchRestaurantMenuItem,
+  useOpsUpdateRestaurantMenu,
   useOpsUpdateRestaurantMenuSection,
 } from '@src/hooks/ops/useOpsMenuHierarchy';
 
@@ -111,9 +112,7 @@ describe('menu hierarchy mutations', () => {
     const item = { id: 'item-1', name: 'Soup' };
     menuHierarchyService.updateItem.mockResolvedValue(item);
 
-    const { result, invalidateSpy } = setup(() =>
-      useOpsPatchRestaurantMenuItem(restaurantId),
-    );
+    const { result, invalidateSpy } = setup(() => useOpsPatchRestaurantMenuItem(restaurantId));
 
     await result.current.mutateAsync({
       menuId: 'menu-1',
@@ -150,5 +149,24 @@ describe('menu hierarchy mutations', () => {
 
     await expect(result.current.mutateAsync({ menuId: 'menu-1' })).rejects.toThrow('in use');
     expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+  it('@contract menu edits invalidate only the restaurant hierarchy list, not dual-sync state', async () => {
+    // Dual-sync food-menu drift compares the stored Nabatable projection, which only
+    // dual-sync refresh/publish rebuilds, so a menu edit cannot change the state response.
+    const menu = { id: 'menu-1', name: 'Dinner' };
+    menuHierarchyService.updateMenu.mockResolvedValue(menu);
+
+    const { result, invalidateSpy } = setup(() =>
+      useOpsUpdateRestaurantMenu({ restaurantId, menuId: 'menu-1' }),
+    );
+
+    await result.current.mutateAsync({ name: 'Dinner' } as never);
+
+    expect(
+      (invalidateSpy.mock.calls as Array<[{ queryKey: readonly unknown[] }]>).map(
+        ([filters]) => filters.queryKey,
+      ),
+    ).toEqual([listKey]);
+    expect(listKey).toContain(restaurantId);
   });
 });
