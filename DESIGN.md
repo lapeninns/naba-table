@@ -236,7 +236,7 @@ components:
   card-standard:
     backgroundColor: '{colors.card}'
     textColor: '{colors.card-foreground}'
-    rounded: '{rounded.lg}'
+    rounded: '{rounded.xl}'
   popover:
     backgroundColor: '{colors.popover}'
     textColor: '{colors.popover-foreground}'
@@ -293,11 +293,11 @@ Older documents live in [`docs/design/archive/`](docs/design/archive/) and are n
 
 Radix Luma is a restrained, professionally dense interface system. The Zinc-based neutral palette provides an institutional backbone while a singular cobalt-blue accent (#1447E6) drives all interactive affordance. The mood is clinical yet warm — like a well-organized studio where every tool has its place.
 
-The system supports full light/dark mode duality with **light mode as the default**. On first load, the UI renders in light mode regardless of OS preference. Users can manually toggle via the `d` keyboard shortcut. The chosen theme is persisted in `localStorage` so subsequent visits respect the override. Theme switching is instantaneous — `disableTransitionOnChange` prevents the flash of intermediate states. In light mode, surfaces are pure white with Zinc-100 tonal layers for secondary regions. In dark mode, surfaces shift to Zinc-950/900 with translucent white borders (10% opacity) that create subtle edge definition without harsh contrast.
+The system supports full light/dark mode duality with **light mode as the default**. On first load, the UI renders in light mode regardless of OS preference; dark is opt-in. Users choose `light`, `dark` or `system` through the theme toggle (`ThemeToggle` in the guest navbar, the colour-mode control in the ops sidebar footer). The choice is persisted in `localStorage` (`nabatable-color-mode`), synced across tabs, and applied before first paint by the bootstrap script in `src/app/layout.tsx`, so there is no flash of the wrong mode. In light mode, surfaces are pure white with Zinc-100 tonal layers for secondary regions. In dark mode, surfaces shift to Zinc-950/900 with solid Zinc-800 borders (#27272A) that give edge definition without harsh contrast.
 
-Headlines use **Merriweather**, a distinctive serif that adds editorial weight and visual authority to display-level content. All body, label, and interface text uses **Inter** for its neutral geometric clarity and excellent small-size legibility. **Geist Mono** is reserved for code snippets, metadata, and technical labels.
+On the guest surface, headlines use **Merriweather**, a distinctive serif that adds editorial weight and visual authority to display-level content. All body, label, and interface text uses **Inter** for its neutral geometric clarity and excellent small-size legibility; the ops (`app`) surface uses Inter for headlines too. **Geist Mono** is reserved for code snippets, metadata, and technical labels.
 
-The overall density sits at 10/10 — cockpit-dense. Every pixel earns its place. Layouts pack maximum information into minimum space while maintaining strict visual hierarchy through weight, color, and type scale — never through whitespace alone.
+Density depends on the surface. The ops (`app`) surface is cockpit-dense; every pixel earns its place, and hierarchy comes from weight, color and type scale rather than whitespace. The guest surface is roomier, but it keeps the same hierarchy rules.
 
 ### Apple Design Principles
 
@@ -322,14 +322,14 @@ Following Apple's approach, every color is defined by its **semantic purpose**, 
 - **Primary — Cobalt Blue (#1447E6):** The sole accent color. Used exclusively for primary CTAs, active states, focus rings, and interactive highlights. In dark mode this shifts to a deeper #193CB8 to maintain perceptual balance against dark surfaces.
 - **Muted (#F4F4F5 / dark: #27272A):** Zinc-100/800. Used for secondary surfaces, hover states on ghost buttons, and inactive regions.
 - **Muted Foreground (#71717B / dark: #9F9FA9):** Zinc-500/400. For secondary text, descriptions, placeholders, and metadata.
-- **Border (#E4E4E7 / dark: 10% white):** Structural 1px lines for dividers, input borders, and card edges. Equivalent to Apple's `separator` dynamic color.
+- **Border (#E4E4E7 / dark: #27272A):** Structural 1px lines for dividers, input borders, and card edges. Equivalent to Apple's `separator` dynamic color.
 - **Destructive (#E7000B / dark: #FF6467):** A saturated red for error states and destructive actions. Applied sparingly in 10% tinted fills with full-chroma text. Never assigned to a primary button role — per Apple HIG, destructive actions must never receive the most visually prominent style to prevent accidental invocation.
 - **Chart Palette:** A monochromatic blue ramp from light periwinkle (#8EC5FF) through the primary cobalt to deep navy (#193CB8), ensuring data visualizations feel cohesive with the brand accent.
 - **Glow Effects:** Ambient cobalt tints at 8% and 15% opacity for hover backgrounds and button glow shadows. A 6% neutral glow for soft card elevation.
 
 ### Appearance Adaptation
 
-All colors define explicit light and dark variants. Colors shift in both luminosity and chroma between modes — they are re-tuned, not simply inverted. This follows Apple's principle that dark mode is not an inversion but a separate, intentionally designed appearance. When Increase Contrast is enabled, border opacity doubles and muted-foreground shifts one step darker to exceed WCAG AAA ratios.
+All colors define explicit light and dark variants. Colors shift in both luminosity and chroma between modes — they are re-tuned, not simply inverted. This follows Apple's principle that dark mode is not an inversion but a separate, intentionally designed appearance. There is no separate high-contrast (`prefers-contrast`) theme yet; both modes must meet WCAG AA on their own.
 
 ### Color Independence
 
@@ -366,13 +366,18 @@ Display and headline tiers scale fluidly using `clamp()` — text feels proporti
 
 ### Font Weight Discipline
 
-Per Apple's typography guidance, thicker weights improve legibility at small sizes while thinner weights require larger sizes. This system uses only four weights: 400 (Regular) for body, 500 (Medium) for labels, 600 (Semi-bold) for buttons/eyebrows, and 700 (Bold) for headlines. Never use more than two weights on a single screen to maintain visual calm.
+Per Apple's typography guidance, thicker weights improve legibility at small sizes while thinner weights require larger sizes. This system uses only four weights: 400 (Regular) for body, 500 (Medium) for labels, 600 (Semi-bold) for buttons/eyebrows, and 700 (Bold) for headlines. Never introduce weights outside these four, and keep weight changes deliberate so hierarchy stays calm.
 
 ### Tracking Behavior
 
 Following Apple's SF Pro tracking tables, tracking is inversely proportional to size: positive at small sizes (eyebrow +0.08em at 12px), neutral at body (0 at 16px), negative at display (-0.02em at 48px). This ensures consistent optical density across the scale.
 
 ## Layout & Spacing
+
+> **Scope.** The 8px spacing scale, touch targets and line length apply to every surface. The
+> container, breakpoint, grid, section-rhythm, full-height and floating-navbar rules below are
+> for **guest and marketing pages**. The ops (`app`) surface uses the ops shell (sidebar layout,
+> `OpsPageShell`) and compact density instead.
 
 The layout system follows Apple's approach: content centered within safe areas, progressive margin scaling, and fluid adaptation at every breakpoint. Every dimension is derived from an 8px base grid with a 4px half-step for micro-adjustments.
 
@@ -398,7 +403,7 @@ The system uses five breakpoints. Each defines a complete layout reconfiguration
 | **xl**     | ≥ 1280px | 3            | 96px              | Max-width container reached. Content floats in generous outer margins.               |
 | **2xl**    | ≥ 1536px | 3            | 96px              | Wide container for media-heavy layouts only.                                         |
 
-### Grid System
+### Grid System (guest and marketing pages)
 
 A 12-column CSS Grid governs all multi-column layouts. Never use Flexbox percentage math or `calc()` hacks for column sizing — CSS Grid provides the semantic structure Apple recommends for adaptive layouts.
 
@@ -421,7 +426,7 @@ All vertical and horizontal spacing is derived from the 8px base:
 | `3xl` | 96px  | Major section separation on desktop                               |
 | `4xl` | 128px | Hero section top/bottom padding. Maximum vertical impact.         |
 
-### Section Rhythm
+### Section Rhythm (guest and marketing pages)
 
 Section spacing scales fluidly with viewport using `clamp()` — the Apple approach of "content breathes on larger screens, compresses on smaller ones":
 
@@ -467,7 +472,7 @@ Following Apple's materials system, floating elements use `backdrop-blur` to mai
 ### Border Behavior
 
 - **Light Mode:** Solid borders using the `border` token (#E4E4E7). Clean, structural.
-- **Dark Mode:** Borders shift to `rgba(255, 255, 255, 0.1)` — translucent white that simulates the glass-like edge definition Apple uses in dark mode interfaces.
+- **Dark Mode:** Solid borders using the dark `border` token (#27272A, Zinc-800). Don't hand-roll translucent white borders; use the token so both modes stay in sync.
 - **Focus States:** Input borders are replaced by the ring color on focus, with a 3px ring at 30% opacity. This provides the clear, unambiguous focus indication Apple requires for accessibility.
 
 ### Shadow Scale
@@ -563,18 +568,18 @@ The sidebar uses a subtly tinted surface (#FAFAFA in light, #18181B in dark) fol
 - Don't apply box-shadows to cards in the resting state — use border tokens for edge definition
 - Don't use the destructive color for non-error contexts or as a primary button style
 - Don't mix rounded profiles within the same component category
-- Don't use more than two font weights on a single screen
+- Don't use font weights outside 400/500/600/700
 
 ### Layout & Responsive
 
 - Do use `min-h-[100dvh]` for full-height sections — never `h-screen` (iOS Safari safe area violation)
-- Do use `clamp()` for all responsive spacing and typography — never discrete breakpoint jumps
+- Do use `clamp()` for all responsive spacing and typography — never discrete breakpoint jumps (guest/marketing)
 - Do constrain body text to `max-w-[65ch]` — readability degrades beyond 65 characters per line
 - Do ensure all interactive elements meet the 44×44px minimum touch target with 8px separation
 - Do use CSS Grid for multi-column layouts — never Flexbox percentage math or `calc()` hacks
-- Do use asymmetric column splits (5/7, 7/5) — never equal 6/6 halves
-- Do scale container padding with viewport: 24px → 48px → 96px
-- Don't use uniform "3 equal cards in a row" layouts — use bento grids with mixed column spans
+- Do use asymmetric column splits (5/7, 7/5) — never equal 6/6 halves (guest/marketing)
+- Do scale container padding with viewport: 24px → 48px → 96px (guest/marketing)
+- Don't use uniform "3 equal cards in a row" layouts — use bento grids with mixed column spans (guest/marketing)
 - Don't allow horizontal overflow on mobile — this is a critical failure
 
 ### Motion & Accessibility
@@ -585,6 +590,6 @@ The sidebar uses a subtly tinted surface (#FAFAFA in light, #18181B in dark) fol
 - Do use brief, precise animations for feedback — avoid decorative motion on frequent interactions
 - Do scale to at least 200% text size without layout breakage (WCAG 1.4.4)
 - Do maintain WCAG AA contrast ratios (4.5:1 normal text, 3:1 large text) in both light and dark modes
-- Don't use translucent borders in light mode — reserve `rgba(255, 255, 255, 0.1)` for dark mode only
+- Don't hand-roll border colors (translucent or otherwise) — use the `border` token in both modes
 - Don't auto-play animations, trap scroll, or override native browser behaviors
 - Don't rely solely on color to communicate state — always pair with shape, icon, or text
