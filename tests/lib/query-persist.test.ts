@@ -1,9 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { QueryClient, type Query } from '@tanstack/react-query';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { queryKeys } from '@/lib/query/keys';
-import { isVolatileOpsIntegrationQueryKey, shouldPersistQuery } from '@/lib/query/persist';
-
-import type { Query } from '@tanstack/react-query';
+import {
+  buildQueryStorageKey,
+  clearPersistedQueryCache,
+  configureQueryPersistence,
+  isVolatileOpsIntegrationQueryKey,
+  shouldPersistQuery,
+} from '@/lib/query/persist';
 
 function queryWithKey(queryKey: Query['queryKey'], meta?: Query['meta']): Query {
   return { queryKey, meta } as Query;
@@ -43,5 +48,137 @@ describe('query persistence filter', () => {
     expect(
       shouldPersistQuery(queryWithKey(queryKeys.bookings.detail('booking-1'), { persist: false })),
     ).toBe(false);
+  });
+});
+
+describe('throttled query persistence', () => {
+  const storageKey = buildQueryStorageKey('user-throttle');
+  let queryClient: QueryClient;
+  let unsubscribe: () => void;
+  let setItemSpy: ReturnType<typeof vi.spyOn>;
+
+  function writesFor(key: string): number {
+    return setItemSpy.mock.calls.filter(([calledKey]) => calledKey === key).length;
+  }
+
+  function setVisibility(state: DocumentVisibilityState): void {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+    setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    queryClient = new QueryClient();
+    unsubscribe = configureQueryPersistence(queryClient, { storageKey });
+    // Let the async restore resolve so cache subscriptions are attached.
+    await vi.advanceTimersByTimeAsync(0);
+    setItemSpy.mockClear();
+  });
+
+  afterEach(() => {
+    unsubscribe();
+    queryClient.clear();
+    setItemSpy.mockRestore();
+    setVisibility('visible');
+    window.localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  it('coalesces a burst of cache events into one trailing write per second', async () => {
+    for (let index = 0; index < 50; index += 1) {
+      queryClient.setQueryData(['restaurants', `r-${index}`], { index });
+    }
+    expect(writesFor(storageKey)).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(999);
+    expect(writesFor(storageKey)).toBe(0);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(writesFor(storageKey)).toBe(1);
+
+    const stored = JSON.parse(window.localStorage.getItem(storageKey) ?? '{}') as {
+      clientState: { queries: unknown[] };
+    };
+    expect(stored.clientState.queries).toHaveLength(50);
+
+    // Continuous updates over three seconds stay at <= 1 write per second.
+    for (let tick = 0; tick < 30; tick += 1) {
+      queryClient.setQueryData(['restaurants', 'hot'], { tick });
+      await vi.advanceTimersByTimeAsync(100);
+    }
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(writesFor(storageKey)).toBeLessThanOrEqual(1 + 4);
+    expect(writesFor(storageKey)).toBeGreaterThanOrEqual(1 + 3);
+  });
+
+  it('skips writes when the persisted state is unchanged', async () => {
+    queryClient.setQueryData(['restaurants', 'r-1'], { name: 'A' });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(writesFor(storageKey)).toBe(1);
+
+    // Non-persistent (PII) query churn fires cache events but does not change what is stored.
+    queryClient.setQueryDefaults(['bookings'], { meta: { persist: false } });
+    queryClient.setQueryData(['bookings', 'list'], { guest: 'secret' });
+    queryClient.setQueryData(['bookings', 'list'], { guest: 'secret-2' });
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const stored = window.localStorage.getItem(storageKey) ?? '';
+    expect(stored).not.toContain('secret');
+    expect(writesFor(storageKey)).toBe(1);
+  });
+
+  it('flushes a pending write immediately on pagehide', async () => {
+    queryClient.setQueryData(['restaurants', 'r-1'], { name: 'A' });
+    expect(writesFor(storageKey)).toBe(0);
+
+    window.dispatchEvent(new Event('pagehide'));
+    expect(writesFor(storageKey)).toBe(1);
+    expect(window.localStorage.getItem(storageKey)).toContain('"r-1"');
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(writesFor(storageKey)).toBe(1);
+  });
+
+  it('flushes a pending write when the document becomes hidden', () => {
+    queryClient.setQueryData(['restaurants', 'r-1'], { name: 'A' });
+
+    setVisibility('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(writesFor(storageKey)).toBe(0);
+
+    setVisibility('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(writesFor(storageKey)).toBe(1);
+  });
+
+  it('drops pending writes and removes listeners on unsubscribe', async () => {
+    queryClient.setQueryData(['restaurants', 'r-1'], { name: 'A' });
+    unsubscribe();
+
+    window.dispatchEvent(new Event('pagehide'));
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(writesFor(storageKey)).toBe(0);
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+  });
+
+  it('never resurrects a cleared key from a pending write', async () => {
+    queryClient.setQueryData(['restaurants', 'r-1'], { name: 'A' });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(window.localStorage.getItem(storageKey)).not.toBeNull();
+
+    queryClient.setQueryData(['restaurants', 'r-2'], { name: 'B' });
+    clearPersistedQueryCache(storageKey);
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(2000);
+    window.dispatchEvent(new Event('pagehide'));
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+    expect(writesFor(storageKey)).toBe(1);
+
+    // A genuinely new change after the clear is persisted again.
+    queryClient.setQueryData(['restaurants', 'r-3'], { name: 'C' });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(window.localStorage.getItem(storageKey)).toContain('"r-3"');
   });
 });
