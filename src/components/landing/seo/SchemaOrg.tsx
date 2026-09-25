@@ -2,7 +2,6 @@
 
 import { useMemo } from 'react';
 
-import { salesContact } from '@/config/sales-contact';
 import { safeJsonForHtmlScript } from '@/lib/security/script-json';
 
 export function SchemaOrg() {
@@ -17,14 +16,6 @@ export function SchemaOrg() {
           logo: 'https://nabatable.com/logo.png',
           description:
             'The ultimate reservations and capacity growth system for modern food-led UK pubs.',
-          contactPoint: {
-            '@type': 'ContactPoint',
-            telephone: salesContact.phone,
-            email: salesContact.email,
-            contactType: 'sales',
-            areaServed: 'GB',
-            availableLanguage: ['en'],
-          },
           address: {
             '@type': 'PostalAddress',
             addressCountry: 'GB',

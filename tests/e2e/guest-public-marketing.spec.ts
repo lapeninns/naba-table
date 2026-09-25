@@ -26,14 +26,12 @@ test.describe('guest marketing pages', () => {
     await expect(page.getByText('January 29, 2026')).toBeVisible();
   });
 
-  test('contact sales page exposes direct contact actions', async ({ page }) => {
+  test('contact sales page does not expose personal contact details', async ({ page }) => {
     await page.goto('/contact');
 
     await expect(
       page.getByRole('heading', { name: 'Talk through the rollout before you change the floor.' }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: /Email sales/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Call sales/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Email the rollout team/i })).toBeVisible();
+    await expect(page.locator('a[href^="mailto:"], a[href^="tel:"]')).toHaveCount(0);
   });
 });
