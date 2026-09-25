@@ -20,6 +20,7 @@ import {
   type LogoAnalyticsEvent,
   validateLogoFile,
 } from './restaurantLogoModel';
+import { getSafeSettingsErrorMessage } from './shared/settingsErrorCopy';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
@@ -116,8 +117,7 @@ export function RestaurantLogoUploader({
       });
     } catch (error) {
       console.error('[restaurant-logo] upload failed', error);
-      const message = error instanceof Error ? error.message : 'Failed to upload logo';
-      setErrorMessage(message);
+      setErrorMessage(getSafeSettingsErrorMessage(error, 'The logo could not be uploaded.'));
       onPreviewChange?.(undefined);
       emitLogoAnalytics('restaurant_profile_logo_save_failed', {
         restaurant_id: restaurantId,
@@ -146,8 +146,7 @@ export function RestaurantLogoUploader({
         elapsed_ms: Math.max(0, Date.now() - removeStartedAt),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to remove logo';
-      setErrorMessage(message);
+      setErrorMessage(getSafeSettingsErrorMessage(error, 'The logo could not be removed.'));
       onPreviewChange?.(undefined);
       emitLogoAnalytics('restaurant_profile_logo_save_failed', {
         restaurant_id: restaurantId,

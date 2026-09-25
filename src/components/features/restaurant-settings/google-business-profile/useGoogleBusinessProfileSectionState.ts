@@ -23,6 +23,7 @@ import {
 } from './googleBusinessProfileSectionStateDomain';
 import { useGoogleBusinessProfileCallbackStatus } from './useGoogleBusinessProfileCallbackStatus';
 import { useGoogleBusinessProfileSectionNavigation } from './useGoogleBusinessProfileSectionNavigation';
+import { getSafeSettingsErrorMessage } from '../shared/settingsErrorCopy';
 
 import type { PersistentGbpError } from './googleBusinessProfileWorkflow';
 
@@ -110,12 +111,12 @@ export function useGoogleBusinessProfileSectionState({
             toast.success('Google Business Profile disconnected.');
           },
           onError: (error) => {
-            setPersistentError({
-              kind: 'disconnect',
-              title: 'Disconnect failed',
-              message: error.message,
-            });
-            toast.error(error.message);
+            const message = getSafeSettingsErrorMessage(
+              error,
+              'Google Business Profile could not be disconnected.',
+            );
+            setPersistentError({ kind: 'disconnect', title: 'Disconnect failed', message });
+            toast.error(message);
           },
         },
       );
@@ -143,12 +144,9 @@ export function useGoogleBusinessProfileSectionState({
           toast.success('Google Business Profile location linked.');
         },
         onError: (error) => {
-          setPersistentError({
-            kind: 'link',
-            title: 'Location link failed',
-            message: error.message,
-          });
-          toast.error(error.message);
+          const message = getSafeSettingsErrorMessage(error, 'The location could not be linked.');
+          setPersistentError({ kind: 'link', title: 'Location link failed', message });
+          toast.error(message);
         },
       },
     );
@@ -165,12 +163,16 @@ export function useGoogleBusinessProfileSectionState({
         window.location.assign(authorizationUrl);
       },
       onError: (error) => {
+        const message = getSafeSettingsErrorMessage(
+          error,
+          'Google authorization could not be started.',
+        );
         setPersistentError({
           kind: 'authorization',
           title: 'Google authorization failed',
-          message: error.message,
+          message,
         });
-        toast.error(error.message);
+        toast.error(message);
       },
     });
   }, [startAuthorizationMutation]);

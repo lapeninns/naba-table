@@ -10,6 +10,7 @@ import {
   isGbpConnectionStepDone,
   type GbpLocationStep,
 } from './googleBusinessProfileWorkflow';
+import { getSafeSettingsErrorMessage } from '../shared/settingsErrorCopy';
 
 import type {
   GoogleBusinessProfileAvailableLocation,
@@ -157,7 +158,9 @@ export function deriveGoogleBusinessProfileSectionSummary({
     locationStep: getGbpLocationStep(status),
     locationTitle: getLocationTitle(data ?? null),
     locationsArePossiblyStale: Boolean(locationsError) && Boolean(data?.availableLocations.length),
-    locationsErrorMessage: locationsError?.message ?? null,
+    locationsErrorMessage: locationsError
+      ? getSafeSettingsErrorMessage(locationsError, 'Google locations could not be loaded.')
+      : null,
     manageOnGoogleHref: buildGoogleMapsPlaceHref(data?.externalPlaceId ?? null),
     showConnect,
     showPicker,

@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,6 +8,10 @@ import {
   type GbpOperatorState,
 } from '@/components/features/restaurant-settings/google-business-profile/components/GbpOperatorControls';
 import { HttpError } from '@/lib/http/errors';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const SENTINEL = 'SECRET_DB_DETAIL relation "x" does not exist';
 
 const mocks = vi.hoisted(() => ({
   useOpsGbpOperatorState: vi.fn(),
@@ -163,6 +168,25 @@ describe('GbpOperatorControls', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent(/google notification topic conflict/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/different managed topic/i);
+  });
+
+  it('shows fixed copy, never the server message, when a control update fails', async () => {
+    const user = userEvent.setup();
+    const error = new HttpError({ status: 500, message: SENTINEL });
+    const mutateAsync = vi.fn().mockRejectedValue(error);
+    mocks.useOpsGbpOperatorState.mockReturnValue(
+      operatorHook({ setWriteAccessMutation: { isPending: false, mutateAsync, error } }),
+    );
+
+    render(<Controls />);
+    await user.type(screen.getByLabelText(/confirm your password/i), 'correct horse');
+    await user.click(screen.getByRole('button', { name: /turn off google writes/i }));
+
+    const copy = 'Google controls could not be updated. Reason code: HTTP_500.';
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(copy));
+    expect(screen.getByRole('alert')).toHaveTextContent(copy);
+    expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
+    expect(JSON.stringify(vi.mocked(toast.error).mock.calls)).not.toContain('SECRET_DB_DETAIL');
   });
 
   it('fails closed when Google reports unknown pending paths', () => {

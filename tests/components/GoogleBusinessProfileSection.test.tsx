@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,10 +8,20 @@ import {
   buildLocationValue,
 } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 import type { ReactNode } from 'react';
+
+const SENTINEL = 'SECRET_DB_DETAIL relation "x" does not exist';
+
+function expectNoSentinelAnywhere() {
+  expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
+  for (const call of vi.mocked(toast.error).mock.calls) {
+    expect(JSON.stringify(call)).not.toContain('SECRET_DB_DETAIL');
+  }
+}
 
 let mockSearchParams = new URLSearchParams();
 let mockCanManageSettings = true;
@@ -259,6 +270,7 @@ beforeEach(() => {
   disconnectMutation.mutate.mockReset();
   disconnectMutation.isPending = false;
   queryClientMock.invalidateQueries.mockReset();
+  vi.mocked(toast.error).mockReset();
   window.history.replaceState({}, '', '/app/settings/restaurant/google-business-profile');
 });
 
@@ -296,11 +308,15 @@ describe('GoogleBusinessProfileSection', () => {
   });
 
   it('renders error shared chrome with a try-again action', () => {
-    connectionResult.error = new Error('boom');
+    connectionResult.error = new HttpError({ status: 500, message: SENTINEL });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(screen.getByText(/unable to load google business profile/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('Google Business Profile could not be loaded. Reason code: HTTP_500.'),
+    ).toBeInTheDocument();
+    expectNoSentinelAnywhere();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     expectSharedChrome();
   });
@@ -346,14 +362,36 @@ describe('GoogleBusinessProfileSection', () => {
   });
 
   it('pins Google callback errors above the steps', async () => {
-    mockSearchParams = new URLSearchParams('gbp=error&message=OAuth%20failed');
+    mockSearchParams = new URLSearchParams(
+      'gbp=error&message=Google%20authorization%20was%20cancelled%20or%20denied.',
+    );
     connectionResult.data = buildConnection({ status: 'unlinked' });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(await screen.findByText('Google connection failed')).toBeInTheDocument();
-    expect(screen.getByText('OAuth failed')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Google authorization was cancelled or denied. Connect Google to try again.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry connect/i })).toBeInTheDocument();
+  });
+
+  it('never renders free text from the callback message parameter', async () => {
+    mockSearchParams = new URLSearchParams({ gbp: 'error', message: SENTINEL });
+    connectionResult.data = buildConnection({ status: 'unlinked' });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(await screen.findByText('Google connection failed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Google Business Profile connection failed. Connect Google to try again.'),
+    ).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(
+      'Google Business Profile connection failed. Connect Google to try again.',
+    );
+    expectNoSentinelAnywhere();
   });
 
   it('pins authorization mutation errors with a retry action', async () => {
@@ -361,7 +399,7 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = buildConnection({ status: 'unlinked' });
     startAuthorizationMutation.mutate.mockImplementation(
       (_input: unknown, options: { onError: (error: Error) => void }) => {
-        options.onError(new Error('OAuth service down'));
+        options.onError(new HttpError({ status: 502, message: SENTINEL }));
       },
     );
 
@@ -370,7 +408,10 @@ describe('GoogleBusinessProfileSection', () => {
     await user.click(screen.getByRole('button', { name: 'Connect Google' }));
 
     expect(await screen.findByText('Google authorization failed')).toBeInTheDocument();
-    expect(screen.getByText('OAuth service down')).toBeInTheDocument();
+    const copy = 'Google authorization could not be started. Reason code: HTTP_502.';
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(copy);
+    expectNoSentinelAnywhere();
     expect(screen.getByRole('button', { name: /retry connect/i })).toBeInTheDocument();
   });
 
@@ -419,7 +460,7 @@ describe('GoogleBusinessProfileSection', () => {
     locationsResult.data = [LOCATION];
     linkMutation.mutate.mockImplementation(
       (_input: unknown, options: { onError: (error: Error) => void }) => {
-        options.onError(new Error('Google rejected the location link'));
+        options.onError(new HttpError({ status: 500, message: SENTINEL }));
       },
     );
 
@@ -429,13 +470,17 @@ describe('GoogleBusinessProfileSection', () => {
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: 'Link location' }));
 
+    const copy = 'The location could not be linked. Reason code: HTTP_500.';
     expect(await within(dialog).findByText('Location link failed')).toBeInTheDocument();
-    expect(within(dialog).getByText(/google rejected the location link/i)).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(copy);
+    expectNoSentinelAnywhere();
 
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
 
     expect(await screen.findByRole('button', { name: /retry link/i })).toBeInTheDocument();
-    expect(screen.getByText('Google rejected the location link')).toBeInTheDocument();
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(copy);
+    expectNoSentinelAnywhere();
   });
 
   it('renders linked mode with connection, location, review and write controls', () => {
@@ -603,6 +648,31 @@ describe('GoogleBusinessProfileSection', () => {
     );
   });
 
+  it('pins disconnect errors as fixed copy without the server message', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = linkedConnection();
+    disconnectMutation.mutate.mockImplementation(
+      (_input: unknown, options: { onError: (error: Error) => void }) => {
+        options.onError(
+          new HttpError({ status: 403, code: 'PASSWORD_CONFIRMATION_FAILED', message: SENTINEL }),
+        );
+      },
+    );
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getByRole('button', { name: /disconnect/i }));
+    await user.type(screen.getByLabelText(/confirm with your password/i), 'secret-password');
+    await user.click(screen.getAllByRole('button', { name: /^disconnect$/i }).at(-1)!);
+
+    const copy =
+      'Your password was not accepted. Check it and try again. Reason code: PASSWORD_CONFIRMATION_FAILED.';
+    expect(await screen.findByText('Disconnect failed')).toBeInTheDocument();
+    expect(screen.getAllByText(copy).length).toBeGreaterThan(0);
+    expect(toast.error).toHaveBeenCalledWith(copy);
+    expectNoSentinelAnywhere();
+  });
+
   it('disables disconnect dialog controls while the mutation is pending', async () => {
     const user = userEvent.setup();
     connectionResult.data = linkedConnection();
@@ -624,12 +694,15 @@ describe('GoogleBusinessProfileSection', () => {
       connectedGoogleEmail: 'ops@example.com',
       availableLocations: [{ ...LOCATION, title: 'Fallback Main' }],
     });
-    locationsResult.error = new Error('Google location discovery failed');
+    locationsResult.error = new HttpError({ status: 500, message: SENTINEL });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(screen.getByText(/location refresh failed/i)).toBeInTheDocument();
-    expect(screen.getByText(/google location discovery failed/i)).toBeInTheDocument();
+    expect(
+      screen.getByText('Google locations could not be loaded. Reason code: HTTP_500.'),
+    ).toBeInTheDocument();
+    expectNoSentinelAnywhere();
 
     await user.click(screen.getByRole('button', { name: /retry locations/i }));
     expect(locationsResult.refetch).toHaveBeenCalledTimes(1);

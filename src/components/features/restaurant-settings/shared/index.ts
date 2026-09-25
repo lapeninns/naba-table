@@ -13,3 +13,4 @@ export * from './SettingsReviewChangesDialog';
 export * from './SettingsStatusLine';
 export * from './settingsSaveSequence';
 export * from './useSettingsSectionSpy';
+export * from './settingsErrorCopy';

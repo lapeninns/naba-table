@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GbpDriftProvider } from '@/components/features/restaurant-settings/gbp-drift/GbpDriftProvider';
 import { useGbpDrift } from '@/components/features/restaurant-settings/gbp-drift/useGbpDrift';
+import { HttpError } from '@/lib/http/errors';
 
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
@@ -125,6 +127,27 @@ describe('GbpDriftProvider', () => {
         state: 'drifted',
       }),
     ];
+  });
+
+  it('toasts fixed copy, never the server message, when importing from Google fails', async () => {
+    const user = userEvent.setup();
+    publishMutation.mutateAsync.mockRejectedValue(
+      new HttpError({ status: 500, message: 'SECRET_DB_DETAIL relation "x" does not exist' }),
+    );
+    render(
+      <GbpDriftProvider restaurantId="rest-1">
+        <Probe />
+      </GbpDriftProvider>,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Apply name' }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        'Google fields could not be imported. Reason code: HTTP_500.',
+      ),
+    );
+    expect(JSON.stringify(vi.mocked(toast.error).mock.calls)).not.toContain('SECRET_DB_DETAIL');
   });
 
   it('counts comparable drift and ignores core-only fields', async () => {
