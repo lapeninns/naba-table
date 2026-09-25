@@ -251,7 +251,8 @@ export function useRestaurantSettingsNav() {
       '/app/settings/restaurant/tables': () =>
         prefetchIfStale({
           queryClient,
-          queryKey: queryKeys.opsTables.list(id, {}),
+          queryKey: queryKeys.opsTables.list(id),
+          staleTime: OPS_SETTINGS_STALE_TIME.tables,
           queryFn: () => tableInventoryService.list(id),
           enabled: true,
         }),
@@ -260,6 +261,7 @@ export function useRestaurantSettingsNav() {
           queryClient,
           // The Team page loads every invitation once and filters on the device.
           queryKey: queryKeys.team.invitations(id, 'all'),
+          staleTime: OPS_SETTINGS_STALE_TIME.teamInvitations,
           queryFn: () => teamService.listInvites(id, 'all'),
           enabled: true,
         }),

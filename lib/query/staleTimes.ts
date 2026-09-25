@@ -64,4 +64,6 @@ export const OPS_SETTINGS_STALE_TIME = {
   occasions: MINUTE,
   menuHierarchy: MINUTE,
   tables: 30_000,
+  teamInvitations: 30_000,
+  emailTemplates: MINUTE,
 } as const;

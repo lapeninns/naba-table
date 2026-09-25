@@ -1,5 +1,9 @@
 import type { RestaurantFilters } from '@/lib/restaurants/types';
-import type { OpsSmsDeliveryRange, SmsDeliveryChannelFilter, SmsDeliveryStatus } from '@/types/smsDelivery';
+import type {
+  OpsSmsDeliveryRange,
+  SmsDeliveryChannelFilter,
+  SmsDeliveryStatus,
+} from '@/types/smsDelivery';
 
 export const queryKeys = {
   account: {
@@ -110,6 +114,9 @@ export const queryKeys = {
     memberships: () => ['team', 'memberships'] as const,
     invitations: (restaurantId: string, status: string = 'pending') =>
       ['team', 'invitations', restaurantId, status] as const,
+    /** Prefix covering every invitation status list for one restaurant. */
+    invitationsForRestaurant: (restaurantId: string) =>
+      ['team', 'invitations', restaurantId] as const,
   },
 };
 
@@ -150,4 +157,5 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['restaurants']['list']>
   | ReturnType<(typeof queryKeys)['team']['memberships']>
   | ReturnType<(typeof queryKeys)['team']['invitations']>
+  | ReturnType<(typeof queryKeys)['team']['invitationsForRestaurant']>
   | ReturnType<(typeof queryKeys)['manualAssign']['context']>;

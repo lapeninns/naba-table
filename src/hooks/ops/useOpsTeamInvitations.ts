@@ -10,6 +10,7 @@ import {
 
 import { useTeamService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { HttpError } from '@/lib/http/errors';
 import type { CreateInviteInput, TeamInvite, TeamInviteStatus } from '@/services/ops/team';
@@ -32,6 +33,7 @@ export function useOpsTeamInvitations(params: {
       return teamService.listInvites(restaurantId, status);
     },
     enabled: Boolean(restaurantId),
+    staleTime: OPS_SETTINGS_STALE_TIME.teamInvitations,
   });
 }
 
@@ -47,7 +49,7 @@ export function useOpsCreateTeamInvite(): UseMutationResult<
     mutationFn: (input) => teamService.createInvite(input),
     onSuccess: (result) => {
       queryClient.invalidateQueries({
-        queryKey: ['team', 'invitations', result.invite.restaurantId],
+        queryKey: queryKeys.team.invitationsForRestaurant(result.invite.restaurantId),
         exact: false,
       });
     },
@@ -67,7 +69,7 @@ export function useOpsRevokeTeamInvite(): UseMutationResult<
       teamService.revokeInvite({ restaurantId, inviteId }),
     onSuccess: (invite) => {
       queryClient.invalidateQueries({
-        queryKey: ['team', 'invitations', invite.restaurantId],
+        queryKey: queryKeys.team.invitationsForRestaurant(invite.restaurantId),
         exact: false,
       });
     },
