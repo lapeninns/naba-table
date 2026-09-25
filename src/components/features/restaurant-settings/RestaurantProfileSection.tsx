@@ -22,6 +22,7 @@ import { useGbpDriftSectionStatus, useGbpDriftStatus } from './GbpDriftProvider'
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import { PROFILE_LAYOUT_GRID_CLASS, ProfileLoadedView, ProfileShell } from './profile';
 import { SettingsSectionStates, getSettingsSaveReasonCode } from './shared';
+import { SettingsRefreshErrorAlert } from './shared/SettingsRefreshErrorAlert';
 
 const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
 
@@ -119,7 +120,8 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
     <SettingsSectionStates
       restaurantId={restaurantId}
       isLoading={isLoading && !data}
-      error={error}
+      // A failed background refresh keeps the loaded page and its unsaved edits.
+      error={data ? null : error}
       noRestaurant={
         <ProfileShell>
           <OpsEmptyState
@@ -162,6 +164,11 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
             googleHref={`${REVIEW_GBP_HREF}#gbp-connection`}
             gbpDriftCount={profileReviewCount}
             onCompareWithGoogle={gbpDrift?.isLinked ? handleCompareProfileWithGoogle : undefined}
+            notice={
+              error ? (
+                <SettingsRefreshErrorAlert error={error} onRetry={() => void refetch()} />
+              ) : null
+            }
           />
         ) : (
           <ProfileLoadingState />

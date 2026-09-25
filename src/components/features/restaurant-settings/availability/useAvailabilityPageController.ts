@@ -418,13 +418,17 @@ export function useAvailabilityPageController(restaurantId: string | null) {
     },
   ]);
 
-  const loadError =
-    operatingHoursQuery.error ??
-    servicePeriodsQuery.error ??
-    occasionsQuery.error ??
-    turnBandsQuery.error ??
-    profileQuery.error ??
-    null;
+  const settingsQueries = [
+    operatingHoursQuery,
+    servicePeriodsQuery,
+    occasionsQuery,
+    turnBandsQuery,
+    profileQuery,
+  ];
+  // Only a query that never loaded blocks the page; a failed background refresh keeps the
+  // loaded page and its unsaved edits, and is reported as `refreshError` instead.
+  const loadError = settingsQueries.find((query) => query.error && !query.data)?.error ?? null;
+  const refreshError = settingsQueries.find((query) => query.error && query.data)?.error ?? null;
   const retryLoad = useCallback(() => {
     for (const query of [
       operatingHoursQuery,
@@ -467,6 +471,7 @@ export function useAvailabilityPageController(restaurantId: string | null) {
     isSaving: saveSequence.isSaving,
     isLoading: !draft && !loadError,
     loadError,
+    refreshError,
     retryLoad,
     lastSavedAt,
     timezone: profileQuery.data?.timezone ?? 'Europe/London',

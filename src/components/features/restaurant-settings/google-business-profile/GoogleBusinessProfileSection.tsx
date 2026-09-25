@@ -9,6 +9,7 @@ import { useOpsSession } from '@/contexts/ops-session';
 
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
 import { RestaurantSettingsCommandCenter, SettingsSectionStates } from '../shared';
+import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 import { GbpConnectionStepCard } from './components/GbpConnectionStepCard';
 import { GbpLocationChooserDialog } from './components/GbpLocationChooserDialog';
 import { GbpLocationStepCard } from './components/GbpLocationStepCard';
@@ -88,7 +89,8 @@ export function GoogleBusinessProfileSection({
         <SettingsSectionStates
           restaurantId={restaurantId}
           isLoading={state.connectionQuery.isLoading && !state.data}
-          error={state.connectionQuery.error}
+          // A failed background refresh keeps the loaded page and its unsaved review decisions.
+          error={state.data ? null : state.connectionQuery.error}
           noRestaurant={<NoRestaurantGbpSection />}
           loading={<LoadingGbpSection />}
           errorState={(error) => (
@@ -98,6 +100,12 @@ export function GoogleBusinessProfileSection({
           {() =>
             state.data && restaurantId ? (
               <div className="flex min-w-0 flex-col gap-4">
+                {state.connectionQuery.error ? (
+                  <SettingsRefreshErrorAlert
+                    error={state.connectionQuery.error}
+                    onRetry={() => void state.connectionQuery.refetch()}
+                  />
+                ) : null}
                 {state.persistentError ? (
                   <PersistentGbpErrorAlert
                     error={state.persistentError}

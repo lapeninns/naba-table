@@ -25,6 +25,7 @@ import { updateTurnBandsDraft } from '../availabilityScheduleDraftDomain';
 import { extractRequiredOccasionKeys } from '../availabilityScheduleManagerUtils';
 import { getRestaurantSettingsAvailabilityAlias, RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
 import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
+import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
 import { SettingsSaveBar } from '../shared/SettingsSaveBar';
 import { getSettingsSaveReasonCode, pluralise } from '../shared/settingsSaveSequence';
@@ -462,6 +463,9 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       railTitle="Sections on this page"
       railItems={railItems}
     >
+      {controller.refreshError ? (
+        <SettingsRefreshErrorAlert error={controller.refreshError} onRetry={controller.retryLoad} />
+      ) : null}
       {alias && !aliasDismissed ? (
         <Alert variant="info" role="status" className="pr-12">
           <Info aria-hidden />
