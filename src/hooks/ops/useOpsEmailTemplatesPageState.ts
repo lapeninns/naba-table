@@ -87,15 +87,19 @@ function rebaseVariantsOnSaved(
 
 function buildTemplateMap(snapshot: RestaurantEmailTemplatesSnapshot | undefined) {
   return new Map(
-    snapshot?.groups.flatMap((group) => group.templates).map((template) => [template.key, template]) ?? [],
+    snapshot?.groups
+      .flatMap((group) => group.templates)
+      .map((template) => [template.key, template]) ?? [],
   );
 }
 
 export function useOpsEmailTemplatesPageState() {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
-  const restaurantId = activeMembership?.restaurantId ?? activeRestaurantId ?? memberships[0]?.restaurantId ?? null;
-  const restaurantName = activeMembership?.restaurantName ?? memberships[0]?.restaurantName ?? 'Selected restaurant';
+  const restaurantId =
+    activeMembership?.restaurantId ?? activeRestaurantId ?? memberships[0]?.restaurantId ?? null;
+  const restaurantName =
+    activeMembership?.restaurantName ?? memberships[0]?.restaurantName ?? 'Selected restaurant';
 
   const templatesQuery = useOpsRestaurantEmailTemplates(restaurantId);
   const updateMutation = useOpsUpdateRestaurantEmailTemplate(restaurantId);
@@ -104,7 +108,8 @@ export function useOpsEmailTemplatesPageState() {
   const testSendMutation = useOpsSendRestaurantEmailTemplateTest(restaurantId);
   const previewDraft = previewMutation.mutate;
 
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState<RestaurantBookingEmailTemplateKey | null>(null);
+  const [selectedTemplateKey, setSelectedTemplateKey] =
+    useState<RestaurantBookingEmailTemplateKey | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<
     Partial<Record<RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant[]>>
@@ -173,14 +178,17 @@ export function useOpsEmailTemplatesPageState() {
       .filter((group) => group.templates.length > 0);
   }, [deferredSearch, templatesQuery.data]);
 
-  const baseTemplate = selectedTemplateKey ? templateMap.get(selectedTemplateKey) ?? null : null;
+  const baseTemplate = selectedTemplateKey ? (templateMap.get(selectedTemplateKey) ?? null) : null;
   const currentVariants = useMemo(() => {
     if (!selectedTemplateKey || !baseTemplate) return [];
     return drafts[selectedTemplateKey] ?? baseTemplate.variants;
   }, [baseTemplate, drafts, selectedTemplateKey]);
 
   const currentVariant = useMemo(
-    () => currentVariants.find((variant) => variant.id === selectedVariantId) ?? currentVariants[0] ?? null,
+    () =>
+      currentVariants.find((variant) => variant.id === selectedVariantId) ??
+      currentVariants[0] ??
+      null,
     [currentVariants, selectedVariantId],
   );
 
@@ -205,7 +213,9 @@ export function useOpsEmailTemplatesPageState() {
       const template = templateMap.get(key as RestaurantBookingEmailTemplateKey);
       if (!template) return;
 
-      if (normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants)) {
+      if (
+        normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants)
+      ) {
         next.add(key as RestaurantBookingEmailTemplateKey);
       }
     });
@@ -248,7 +258,8 @@ export function useOpsEmailTemplatesPageState() {
     return () => window.clearTimeout(timeoutId);
   }, [currentVariants, previewDraft, restaurantId, selectedTemplateKey, selectedVariantId]);
 
-  const preview = previewMutation.data?.templateKey === selectedTemplateKey ? previewMutation.data : null;
+  const preview =
+    previewMutation.data?.templateKey === selectedTemplateKey ? previewMutation.data : null;
   const activeVariantCount = currentVariants.filter((variant) => variant.isActive).length;
 
   const updateCurrentVariants = (
@@ -281,11 +292,18 @@ export function useOpsEmailTemplatesPageState() {
   };
 
   const handleAddVariant = () => {
-    if (!selectedTemplateKey || !baseTemplate || currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS) {
+    if (
+      !selectedTemplateKey ||
+      !baseTemplate ||
+      currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS
+    ) {
       return;
     }
 
-    const seed = currentVariant ?? currentVariants[currentVariants.length - 1] ?? baseTemplate.defaultVariants[0];
+    const seed =
+      currentVariant ??
+      currentVariants[currentVariants.length - 1] ??
+      baseTemplate.defaultVariants[0];
     const nextVariant: RestaurantEmailTemplateVariant = {
       ...seed,
       id: createVariantId(selectedTemplateKey),
@@ -379,7 +397,9 @@ export function useOpsEmailTemplatesPageState() {
       return;
     }
 
-    const confirmed = window.confirm(`Reset "${template.title}" back to the system default variants?`);
+    const confirmed = window.confirm(
+      `Reset "${template.title}" back to the system default variants?`,
+    );
     if (!confirmed) return;
 
     try {
