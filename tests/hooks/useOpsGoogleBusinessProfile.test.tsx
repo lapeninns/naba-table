@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   useOpsDisconnectGoogleBusinessProfile,
+  useOpsGoogleBusinessProfileConnection,
   useOpsLinkGoogleBusinessProfileLocation,
 } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 import { queryKeys } from '@/lib/query/keys';
@@ -11,6 +12,7 @@ import { queryKeys } from '@/lib/query/keys';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
 const restaurantService = vi.hoisted(() => ({
+  getGoogleBusinessProfileConnection: vi.fn(),
   linkGoogleBusinessProfileLocation: vi.fn(),
   disconnectGoogleBusinessProfileConnection: vi.fn(),
 }));
@@ -78,12 +80,41 @@ function connectionState(): GoogleBusinessProfileConnection {
 
 describe('useOpsGoogleBusinessProfile', () => {
   beforeEach(() => {
+    restaurantService.getGoogleBusinessProfileConnection.mockReset();
+    restaurantService.getGoogleBusinessProfileConnection.mockResolvedValue(connectionState());
     restaurantService.linkGoogleBusinessProfileLocation.mockReset();
     restaurantService.disconnectGoogleBusinessProfileConnection.mockReset();
     restaurantService.linkGoogleBusinessProfileLocation.mockResolvedValue(connectionState());
     restaurantService.disconnectGoogleBusinessProfileConnection.mockResolvedValue(
       connectionState(),
     );
+  });
+
+  it('fetches the connection when enabled (default)', async () => {
+    const queryClient = createTestQueryClient();
+    const { result } = renderHook(() => useOpsGoogleBusinessProfileConnection(restaurantId), {
+      wrapper: createQueryWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(restaurantService.getGoogleBusinessProfileConnection).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves the cached connection without fetching when disabled', () => {
+    const queryClient = createTestQueryClient();
+    const cached = connectionState();
+    // Stale cache entry: an enabled query would refetch it on mount.
+    queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), cached, {
+      updatedAt: 0,
+    });
+
+    const { result } = renderHook(
+      () => useOpsGoogleBusinessProfileConnection(restaurantId, { enabled: false }),
+      { wrapper: createQueryWrapper(queryClient) },
+    );
+
+    expect(result.current.data).toEqual(cached);
+    expect(restaurantService.getGoogleBusinessProfileConnection).not.toHaveBeenCalled();
   });
 
   it('invalidates GBP and dual-sync workspace queries after linking a location', async () => {

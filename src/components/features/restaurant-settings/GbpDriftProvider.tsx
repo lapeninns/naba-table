@@ -17,6 +17,7 @@ import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { GbpDriftProvider as RegistryGbpDriftProvider } from './gbp-drift/GbpDriftProvider';
+import { isGbpDriftRouteView } from './gbp-drift/gbpDriftRoutes';
 import {
   deriveGbpDriftStatus,
   EMPTY_GBP_DRIFT_SECTION_STATUSES,
@@ -59,7 +60,12 @@ export function GbpDriftProvider({
 }: GbpDriftProviderProps) {
   const settingsContext = useRestaurantSettingsContext();
   const restaurantId = explicitRestaurantId ?? settingsContext.restaurantId;
-  const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId);
+  // Only drift-showing routes fetch; the rest read cached Google state for the sidebar badges
+  // and derive a neutral status when nothing is cached (see `fetchDeferred`).
+  const driftEnabled = isGbpDriftRouteView(settingsContext.routeView);
+  const connectionQuery = useOpsGoogleBusinessProfileConnection(restaurantId, {
+    enabled: driftEnabled,
+  });
   const hasMappedGoogleLocation = Boolean(
     connectionQuery.data?.status === 'linked' &&
     connectionQuery.data.externalAccountId &&
@@ -67,6 +73,7 @@ export function GbpDriftProvider({
   );
   const { stateQuery } = useOpsDualSync({
     restaurantId: hasMappedGoogleLocation ? restaurantId : null,
+    stateEnabled: driftEnabled,
   });
 
   const status = useMemo(
@@ -79,8 +86,10 @@ export function GbpDriftProvider({
         dualSyncState: stateQuery.data,
         dualSyncLoading: stateQuery.isLoading,
         dualSyncError: stateQuery.error,
+        fetchDeferred: !driftEnabled,
       }),
     [
+      driftEnabled,
       connectionQuery.data,
       connectionQuery.error,
       connectionQuery.isLoading,
@@ -98,7 +107,9 @@ export function GbpDriftProvider({
 
   return (
     <GbpDriftContext.Provider value={value}>
-      <RegistryGbpDriftProvider restaurantId={restaurantId}>{children}</RegistryGbpDriftProvider>
+      <RegistryGbpDriftProvider restaurantId={restaurantId} enabled={driftEnabled}>
+        {children}
+      </RegistryGbpDriftProvider>
     </GbpDriftContext.Provider>
   );
 }
