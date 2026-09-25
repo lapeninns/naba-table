@@ -10,8 +10,8 @@ import {
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
+import { getRequestUser } from '@/server/auth/request-user';
 import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
-import { getServerComponentSupabaseClient } from '@/server/supabase';
 import {
   fetchUserMembershipsCached,
   type RestaurantMembershipWithDetails,
@@ -66,8 +66,6 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     host: headerStore.get('host'),
   });
 
-  const supabase = await getServerComponentSupabaseClient();
-
   let supabaseUser: OpsUser | null = null;
   let memberships: RestaurantMembershipWithDetails[] = [];
   let qaOpsMemberships: OpsMembership[] | null = null;
@@ -77,10 +75,8 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     qaOpsMemberships = qaOpsFixture.memberships;
   } else {
     try {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      // React cache(): nested layouts (e.g. restaurant settings) reuse this result.
+      const { user, error } = await getRequestUser();
 
       if (error) {
         console.error('[app/layout] failed to load user', error.message);
