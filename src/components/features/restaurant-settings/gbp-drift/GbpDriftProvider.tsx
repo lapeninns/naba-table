@@ -17,6 +17,7 @@ import {
   getGbpDriftFieldViewByKey,
   getTotalGbpDriftCount,
 } from './gbpDriftProviderDomain';
+import { getSafeSettingsErrorMessage } from '../shared/settingsErrorCopy';
 
 import type {
   GbpDriftContextValue,
@@ -127,8 +128,7 @@ export function GbpDriftProvider({
         clearDraftOverrides(request.decisions.map((decision) => decision.fieldKey));
         return response;
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to import Google fields.';
-        toast.error(message);
+        toast.error(getSafeSettingsErrorMessage(error, 'Google fields could not be imported.'));
         return null;
       }
     },

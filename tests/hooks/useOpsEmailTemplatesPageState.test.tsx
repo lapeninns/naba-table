@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HttpError } from '@/lib/http/errors';
 import { useOpsEmailTemplatesPageState } from '@src/hooks/ops/useOpsEmailTemplatesPageState';
 
 import type { RestaurantEmailTemplateVariant } from '@/lib/restaurants/email-templates';
@@ -134,6 +135,12 @@ function makeSnapshot(): RestaurantEmailTemplatesSnapshot {
       },
     ],
   };
+}
+
+const SENTINEL = 'SECRET_DB_DETAIL relation "x" does not exist';
+
+function expectNoSentinelInToasts() {
+  expect(JSON.stringify(toast.error.mock.calls)).not.toContain('SECRET_DB_DETAIL');
 }
 
 function setup() {
@@ -417,7 +424,9 @@ describe('useOpsEmailTemplatesPageState', () => {
   });
 
   it('@contract handleSave surfaces failures and keeps the draft', async () => {
-    templateHooks.updateMutation.mutateAsync.mockRejectedValue(new Error('DB down'));
+    templateHooks.updateMutation.mutateAsync.mockRejectedValue(
+      new HttpError({ status: 500, message: SENTINEL }),
+    );
     const { result } = setup();
 
     act(() =>
@@ -431,7 +440,10 @@ describe('useOpsEmailTemplatesPageState', () => {
       await result.current.handleSave();
     });
 
-    expect(toast.error).toHaveBeenCalledWith('Save failed', { description: 'DB down' });
+    expect(toast.error).toHaveBeenCalledWith('Save failed', {
+      description: 'The template could not be saved. Reason code: HTTP_500.',
+    });
+    expectNoSentinelInToasts();
     expect(result.current.isCurrentDirty).toBe(true);
     expect(result.current.currentVariant?.subject).toBe('Unsaved subject');
   });
@@ -480,14 +492,19 @@ describe('useOpsEmailTemplatesPageState', () => {
 
   it('@contract handleResetTemplate surfaces reset failures', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    templateHooks.resetMutation.mutateAsync.mockRejectedValue(new Error('nope'));
+    templateHooks.resetMutation.mutateAsync.mockRejectedValue(
+      new HttpError({ status: 500, message: SENTINEL }),
+    );
     const { result } = setup();
 
     await act(async () => {
       await result.current.handleResetTemplate('cancelled');
     });
 
-    expect(toast.error).toHaveBeenCalledWith('Reset failed', { description: 'nope' });
+    expect(toast.error).toHaveBeenCalledWith('Reset failed', {
+      description: 'The template could not be reset. Reason code: HTTP_500.',
+    });
+    expectNoSentinelInToasts();
   });
 
   it('@contract handleSendTest validates the address then sends the current variants', async () => {
@@ -516,11 +533,16 @@ describe('useOpsEmailTemplatesPageState', () => {
       description: 'Delivered to ops@example.com via resend.',
     });
 
-    templateHooks.testSendMutation.mutateAsync.mockRejectedValue(new Error('SMTP down'));
+    templateHooks.testSendMutation.mutateAsync.mockRejectedValue(
+      new HttpError({ status: 500, message: SENTINEL }),
+    );
     await act(async () => {
       await result.current.handleSendTest();
     });
-    expect(toast.error).toHaveBeenCalledWith('Test send failed', { description: 'SMTP down' });
+    expect(toast.error).toHaveBeenCalledWith('Test send failed', {
+      description: 'The test email could not be sent. Reason code: HTTP_500.',
+    });
+    expectNoSentinelInToasts();
   });
 
   it('@contract debounces draft previews by 180ms and collapses rapid edits', () => {

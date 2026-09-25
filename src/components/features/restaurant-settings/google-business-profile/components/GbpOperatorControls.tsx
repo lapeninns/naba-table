@@ -13,6 +13,7 @@ import { HttpError } from '@/lib/http/errors';
 
 import { GbpOperatorStateDetails } from './GbpOperatorStateDetails';
 import { GbpTerminalNotices } from './GbpTerminalNotices';
+import { getSafeSettingsErrorMessage } from '../../shared/settingsErrorCopy';
 
 import type { useOpsGbpOperatorState } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 
@@ -23,6 +24,8 @@ export type GbpOperatorControlsProps = {
   readonly onRequestRefresh?: () => void;
   readonly refreshPending?: boolean;
 };
+
+const CONTROL_UPDATE_FAILED = 'Google controls could not be updated.';
 
 /** Admin-gated write state, the password-confirmed switches and terminal provider notices. */
 export function GbpOperatorControls({
@@ -66,7 +69,7 @@ export function GbpOperatorControls({
       }
       setPassword('');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to update Google controls.');
+      toast.error(getSafeSettingsErrorMessage(error, CONTROL_UPDATE_FAILED));
     }
   };
 
@@ -108,7 +111,9 @@ export function GbpOperatorControls({
               ? 'Google notification topic conflict'
               : 'Google control update failed'}
           </AlertTitle>
-          <AlertDescription>{mutationError.message}</AlertDescription>
+          <AlertDescription>
+            {getSafeSettingsErrorMessage(mutationError, CONTROL_UPDATE_FAILED)}
+          </AlertDescription>
         </Alert>
       ) : null}
       <div className="flex max-w-sm flex-col gap-2">

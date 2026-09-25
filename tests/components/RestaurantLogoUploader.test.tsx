@@ -31,6 +31,7 @@ import {
   validateLogoFile,
 } from '@/components/features/restaurant-settings/restaurantLogoModel';
 import { RestaurantLogoUploader } from '@/components/features/restaurant-settings/RestaurantLogoUploader';
+import { HttpError } from '@/lib/http/errors';
 
 describe('RestaurantLogoUploader', () => {
   beforeEach(() => {
@@ -39,6 +40,7 @@ describe('RestaurantLogoUploader', () => {
     analyticsTrackMock.mockReset();
     analyticsEmitMock.mockReset();
     toastMock.success.mockReset();
+    toastMock.error.mockReset();
 
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
@@ -145,6 +147,60 @@ describe('RestaurantLogoUploader', () => {
 
     await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ logoUrl: null }));
     await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Logo removed.'));
+  });
+
+  it('shows fixed copy, never the server message, when the upload fails', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    uploadMutateAsyncMock.mockRejectedValueOnce(
+      new HttpError({ status: 500, message: 'SECRET_DB_DETAIL relation "x" does not exist' }),
+    );
+
+    render(
+      <RestaurantLogoUploader
+        restaurantId="rest-1"
+        restaurantName="Demo Restaurant"
+        logoUrl={null}
+        updateMutation={{ mutateAsync: vi.fn(), isPending: false } as never}
+      />,
+    );
+
+    await user.upload(
+      screen.getByLabelText(/upload restaurant logo/i),
+      new File(['<svg></svg>'], 'logo.svg', { type: 'image/svg+xml' }),
+    );
+
+    expect(
+      await screen.findByText('The logo could not be uploaded. Reason code: HTTP_500.'),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
+  });
+
+  it('shows fixed copy, never the server message, when removing the logo fails', async () => {
+    const user = userEvent.setup();
+    const updateMutateAsync = vi
+      .fn()
+      .mockRejectedValue(
+        new HttpError({ status: 500, message: 'SECRET_DB_DETAIL relation "x" does not exist' }),
+      );
+
+    render(
+      <RestaurantLogoUploader
+        restaurantId="rest-1"
+        restaurantName="Demo Restaurant"
+        logoUrl="https://cdn.example/logo.svg"
+        updateMutation={{ mutateAsync: updateMutateAsync, isPending: false } as never}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Remove logo' }));
+    const dialog = await screen.findByRole('alertdialog', { name: 'Remove logo?' });
+    await user.click(within(dialog).getByRole('button', { name: 'Remove logo' }));
+
+    expect(
+      await screen.findByText('The logo could not be removed. Reason code: HTTP_500.'),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
   });
 
   it('validates logo file constraints and derives preview initials', () => {

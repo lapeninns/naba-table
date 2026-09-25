@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { getSafeSettingsErrorMessage } from '@/components/features/restaurant-settings/shared/settingsErrorCopy';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
   useOpsPreviewRestaurantEmailTemplate,
@@ -325,8 +326,9 @@ export function useOpsEmailTemplatesPageState() {
         description: 'Restaurant-specific copy variants are now live for future sends.',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save template';
-      toast.error('Save failed', { description: message });
+      toast.error('Save failed', {
+        description: getSafeSettingsErrorMessage(error, 'The template could not be saved.'),
+      });
     }
   };
 
@@ -352,8 +354,9 @@ export function useOpsEmailTemplatesPageState() {
         description: `${template.title} is using the default copy again.`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to reset template';
-      toast.error('Reset failed', { description: message });
+      toast.error('Reset failed', {
+        description: getSafeSettingsErrorMessage(error, 'The template could not be reset.'),
+      });
     }
   };
 
@@ -378,8 +381,9 @@ export function useOpsEmailTemplatesPageState() {
         description: `Delivered to ${testEmail.trim()} via ${result.provider}.`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to send test email';
-      toast.error('Test send failed', { description: message });
+      toast.error('Test send failed', {
+        description: getSafeSettingsErrorMessage(error, 'The test email could not be sent.'),
+      });
     }
   };
 

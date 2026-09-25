@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { getSafeSettingsErrorMessage } from '../../shared/settingsErrorCopy';
+
 type GbpErrorSectionProps = {
   error: Error;
   onRetry: () => void;
@@ -42,7 +44,10 @@ export function ErrorGbpSection({ error, onRetry }: GbpErrorSectionProps) {
           <AlertTitle>Unable to load Google Business Profile</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span>
-              <span>{error.message}</span> Your saved settings are unchanged.
+              <span>
+                {getSafeSettingsErrorMessage(error, 'Google Business Profile could not be loaded.')}
+              </span>{' '}
+              Your saved settings are unchanged.
             </span>
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
               Try again

@@ -95,7 +95,7 @@ describe('googleBusinessProfileSectionStateDomain', () => {
     expect(
       deriveGoogleBusinessProfileSectionSummary({
         data,
-        locationsError: new Error('Locations unavailable'),
+        locationsError: new Error('SECRET_DB_DETAIL relation "x" does not exist'),
       }),
     ).toMatchObject({
       accountLabel: 'owner@example.test',
@@ -105,7 +105,7 @@ describe('googleBusinessProfileSectionStateDomain', () => {
       isLinked: true,
       locationTitle: 'Nabatable Main',
       locationsArePossiblyStale: true,
-      locationsErrorMessage: 'Locations unavailable',
+      locationsErrorMessage: 'Google locations could not be loaded. Reason code: unknown_error.',
       manageOnGoogleHref: 'https://www.google.com/maps/search/?api=1&query_place_id=place-1',
       showConnect: false,
       showPicker: false,
