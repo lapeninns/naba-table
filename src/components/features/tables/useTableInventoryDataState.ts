@@ -50,7 +50,7 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
       return zoneService.list(activeRestaurantId, { signal });
     },
     enabled: Boolean(activeRestaurantId) && !isLoading && !summary,
-    staleTime: 60_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.zones,
   });
 
   const zones = useMemo(
