@@ -83,14 +83,42 @@ function comparableFamilyValue(family: FamilyKey, drafts: BusinessContextDrafts)
   return drafts[family];
 }
 
+function serialiseFamily(family: FamilyKey, drafts: BusinessContextDrafts): string {
+  return JSON.stringify(comparableFamilyValue(family, drafts));
+}
+
+/**
+ * Saved-value serialisations per saved drafts object. The editor derives that object once per
+ * baseline snapshot, so each saved section is serialised once rather than on every keystroke.
+ */
+const savedFamilySerialisations = new WeakMap<
+  BusinessContextDrafts,
+  Partial<Record<FamilyKey, string>>
+>();
+
+function serialiseSavedFamily(family: FamilyKey, saved: BusinessContextDrafts): string {
+  let cache = savedFamilySerialisations.get(saved);
+  if (!cache) {
+    cache = {};
+    savedFamilySerialisations.set(saved, cache);
+  }
+  const cached = cache[family];
+  if (cached !== undefined) {
+    return cached;
+  }
+  const serialised = serialiseFamily(family, saved);
+  cache[family] = serialised;
+  return serialised;
+}
+
 export function isBusinessContextFamilyEqual(
   family: FamilyKey,
   left: BusinessContextDrafts,
   right: BusinessContextDrafts,
 ): boolean {
   return (
-    JSON.stringify(comparableFamilyValue(family, left)) ===
-    JSON.stringify(comparableFamilyValue(family, right))
+    left[family] === right[family] ||
+    serialiseFamily(family, left) === serialiseFamily(family, right)
   );
 }
 
@@ -101,7 +129,8 @@ export function computeBusinessContextDirtyState(
   return Object.fromEntries(
     DISCOVERY_SECTION_ORDER.map((family) => [
       family,
-      !isBusinessContextFamilyEqual(family, drafts, saved),
+      drafts[family] !== saved[family] &&
+        serialiseFamily(family, drafts) !== serialiseSavedFamily(family, saved),
     ]),
   ) as DirtyState;
 }
