@@ -62,10 +62,6 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsDashboardData.ts',
       ),
-      '@/hooks/ops/useOpsTableTimeline': path.resolve(
-        rootDir,
-        'src/hooks/ops/useOpsTableTimeline.ts',
-      ),
       '@/hooks/ops/useOpsTeamInvitations': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsTeamInvitations.ts',

@@ -54,9 +54,10 @@ function DualSyncShellStandIn() {
   );
 }
 
-vi.mock('@/components/features/restaurant-settings/dual-sync/DualSyncShell', () => ({
-  DualSyncShell: () => <DualSyncShellStandIn />,
-}));
+vi.mock(
+  '@/components/features/restaurant-settings/google-business-profile/components/GbpSyncWorkspace',
+  () => ({ GbpSyncWorkspace: () => <DualSyncShellStandIn /> }),
+);
 
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
@@ -168,7 +169,7 @@ describe('GoogleBusinessProfileSection load errors', () => {
     expect(screen.getByText('HTTP_503')).toBeInTheDocument();
     expect(screen.queryByText('Service Unavailable')).not.toBeInTheDocument();
     expect(screen.queryByText('Unable to load Google Business Profile')).not.toBeInTheDocument();
-    expect(screen.getByTestId('gbp-connection-card')).toBeInTheDocument();
+    expect(screen.getByTestId('dual-sync-shell')).toBeInTheDocument();
     expect(screen.getByLabelText('Review decision')).toHaveValue('Keep ours');
     expect(screen.getByRole('region', { name: 'Unsaved changes' })).toBeInTheDocument();
 
@@ -182,6 +183,6 @@ describe('GoogleBusinessProfileSection load errors', () => {
 
     expect(screen.getByText('Unable to load Google Business Profile')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
-    expect(screen.queryByTestId('gbp-connection-card')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dual-sync-shell')).not.toBeInTheDocument();
   });
 });

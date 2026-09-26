@@ -126,7 +126,7 @@ export function GbpExactPublishDialog({
           previouslyFocusedRef.current?.focus();
         }}
       >
-        <DialogHeader className="pr-12 sm:pr-0">
+        <DialogHeader className="pr-12 sm:pr-14">
           <DialogTitle ref={titleRef} tabIndex={-1}>
             Confirm exact Google publish
           </DialogTitle>

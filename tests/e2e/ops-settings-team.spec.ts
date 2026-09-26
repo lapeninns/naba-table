@@ -369,7 +369,9 @@ test.describe('ops restaurant settings and team shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/email-templates/);
     await expect(page.getByRole('heading', { level: 1, name: 'Email templates' })).toBeVisible();
-    await expect(page.locator('aside').getByText('Booking confirmed')).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: 'Templates' }).getByText('Booking confirmed').first(),
+    ).toBeVisible();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-settings-email-templates-desktop.png'),

@@ -1,3 +1,9 @@
+import {
+  getDefaultTemplateVariants,
+  getRestaurantBookingEmailTemplateCatalog,
+  getRestaurantBookingEmailTemplateGroups,
+} from '@/lib/restaurants/email-templates';
+
 import type { Page } from '@playwright/test';
 
 /**
@@ -275,6 +281,73 @@ export async function installCommandCenterApiMocks(page: Page) {
       return;
     }
 
+    if (pathname === `/api/ops/restaurants/${restaurantId}/email-templates`) {
+      await route.fulfill({ json: emailTemplatesSnapshot() });
+      return;
+    }
+
+    const preview = pathname.match(
+      new RegExp(`^/api/ops/restaurants/${restaurantId}/email-templates/([a-z_0-9]+)/preview$`),
+    );
+    if (preview) {
+      await route.fulfill({ json: emailTemplatePreview(preview[1]!) });
+      return;
+    }
+
     await route.fulfill({ json: {} });
   });
+}
+
+/** Every booking email on its default copy, as GET /email-templates returns it. */
+function emailTemplatesSnapshot() {
+  const catalog = getRestaurantBookingEmailTemplateCatalog();
+  return {
+    restaurantId,
+    canEdit: true,
+    groups: getRestaurantBookingEmailTemplateGroups().map((group) => ({
+      key: group.key,
+      title: group.title,
+      description: group.description,
+      templates: catalog
+        .filter((definition) => definition.group === group.key)
+        .map((definition) => {
+          const variants = getDefaultTemplateVariants(definition.key);
+          return {
+            key: definition.key,
+            title: definition.title,
+            description: definition.description,
+            groupKey: definition.group,
+            supportsCtaLabel: definition.supportsCtaLabel,
+            availableVariables: [],
+            recommendedVariables: definition.recommendedVariables.map((key) => `{{${key}}}`),
+            authoringHints: [...definition.authoringHints],
+            status: 'default',
+            activeVariantCount: variants.length,
+            variants,
+            defaultVariants: variants,
+          };
+        }),
+    })),
+  };
+}
+
+function emailTemplatePreview(templateKey: string) {
+  return {
+    restaurantId,
+    preview: {
+      templateKey,
+      selectedVariantId: `${templateKey}-default-1`,
+      selectedVariantName: 'Default',
+      subject: 'Your booking at QA App Host Restaurant',
+      preheader: 'Preview text',
+      headline: 'Preview',
+      intro: 'Preview message',
+      cue: '',
+      ask: '',
+      ctaLabel: 'Manage booking',
+      ctaUrl: 'https://example.test/manage',
+      html: '<html><body><p>Preview</p></body></html>',
+      text: 'Preview',
+    },
+  };
 }

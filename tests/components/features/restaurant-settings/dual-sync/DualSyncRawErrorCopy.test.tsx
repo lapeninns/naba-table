@@ -6,7 +6,6 @@ import {
   getDualSyncErrorMessage,
   getDualSyncErrorToastIntent,
 } from '@/components/features/restaurant-settings/dual-sync/dualSyncShellActionDomain';
-import { DualSyncShellErrorState } from '@/components/features/restaurant-settings/dual-sync/DualSyncShellStateViews';
 import { useDualSyncExactPublishActions } from '@/components/features/restaurant-settings/dual-sync/hooks/useDualSyncExactPublishActions';
 import { DualSyncOperationalHealthPanel } from '@/components/features/restaurant-settings/dual-sync/panels/health/DualSyncOperationalHealthPanel';
 import { getDualSyncPendingCandidateCancelErrorToastIntent } from '@/components/features/restaurant-settings/dual-sync/panels/jobs/dualSyncPendingCandidatesDomain';
@@ -72,16 +71,6 @@ describe('dual-sync error copy never shows raw error text', () => {
       'Pending change cancellation failed. Reason code: HTTP_500.',
       'Queue job retry failed. Reason code: HTTP_500.',
     ]);
-  });
-
-  it('@contract renders the shell load error as fixed copy', () => {
-    render(<DualSyncShellErrorState error={sentinelError()} />);
-
-    expect(
-      screen.getByText(/The differences could not be loaded\. Reason code: HTTP_500\./),
-    ).toBeInTheDocument();
-    expect(screen.getByText(/Your saved settings are unchanged/)).toBeInTheDocument();
-    expectNoSentinel();
   });
 
   it('@contract renders every lazy panel load error as fixed copy', () => {

@@ -1,25 +1,13 @@
 'use client';
 
-import { Lock } from 'lucide-react';
-import dynamic from 'next/dynamic';
-import Link from 'next/link';
-
-import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsSession } from '@/contexts/ops-session';
 
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
 import { RestaurantSettingsCommandCenter, SettingsSectionStates } from '../shared';
 import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
-import { GbpConnectionStepCard } from './components/GbpConnectionStepCard';
+import { GbpLinkedView } from './components/GbpLinkedView';
 import { GbpLocationChooserDialog } from './components/GbpLocationChooserDialog';
-import { GbpLocationStepCard } from './components/GbpLocationStepCard';
-import { GbpStepCard } from './components/GbpStepCard';
-import { GbpWriteControls } from './components/GbpWriteControls';
-import {
-  AVAILABILITY_SCHEDULE_HREF,
-  GBP_REVIEW_SECTIONS,
-  PROFILE_CONTACT_HREF,
-} from './googleBusinessProfileWorkflow';
+import { GbpSetupCard } from './components/GbpSetupCard';
 import {
   EmptyGbpConnectionSection,
   ErrorGbpSection,
@@ -30,62 +18,34 @@ import {
 } from './sections';
 import { useGoogleBusinessProfileSectionState } from './useGoogleBusinessProfileSectionState';
 
-const DualSyncShell = dynamic(
-  () => import('../dual-sync/DualSyncShell').then((m) => m.DualSyncShell),
-  {
-    loading: () => <ReviewStepLoading />,
-    ssr: false,
-  },
-);
-
 const ROUTE = RESTAURANT_SETTINGS_ROUTE_MAP['google-business-profile'];
 
 type GoogleBusinessProfileSectionProps = {
   restaurantId: string | null;
-  /** False when the comparison workspace is switched off for this deployment. */
-  hasSyncWorkspace?: boolean;
 };
 
-function ReviewStepLoading() {
-  return (
-    <GbpStepCard step={3} title="Review differences" description="Comparing Nabatable with Google…">
-      <div role="status" aria-busy="true" className="flex flex-col gap-2">
-        <span className="sr-only">Loading the differences</span>
-        <Skeleton className="h-16 w-full" />
-      </div>
-    </GbpStepCard>
-  );
-}
-
-function RelatedSettings() {
-  return (
-    <p className="text-xs leading-5 text-muted-foreground">
-      <span className="font-medium text-foreground">Related settings.</span> Public profile fields
-      (name, address, phone, links) are edited on{' '}
-      <Link href={PROFILE_CONTACT_HREF} className="underline underline-offset-2">
-        Restaurant profile
-      </Link>
-      . Hours and meal windows are edited on{' '}
-      <Link href={AVAILABILITY_SCHEDULE_HREF} className="underline underline-offset-2">
-        Availability &amp; Booking types
-      </Link>
-      .
-    </p>
-  );
-}
-
-export function GoogleBusinessProfileSection({
-  restaurantId,
-  hasSyncWorkspace = true,
-}: GoogleBusinessProfileSectionProps) {
+/**
+ * Google Business Profile settings. Until a listing is linked: the three setup steps. Once
+ * linked: the listing overview, anything limiting publishing, and the Review differences and
+ * Operations tabs.
+ */
+export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessProfileSectionProps) {
   const { permissions } = useOpsSession();
   const state = useGoogleBusinessProfileSectionState({ restaurantId });
   const { summary } = state;
   const canManageSettings = permissions.canManageSettings;
+  // Linked, or linked with Google access expired (the last comparison stays readable).
+  const showLinkedView =
+    summary.hasLinkedLocation && (summary.isLinked || summary.status === 'reauth_required');
 
   return (
     <>
-      <RestaurantSettingsCommandCenter title={ROUTE.title} description={ROUTE.description}>
+      <RestaurantSettingsCommandCenter
+        title={ROUTE.title}
+        description={ROUTE.description}
+        // The setup card and the overview explain the page once it loads.
+        showHeader={!state.data}
+      >
         <SettingsSectionStates
           restaurantId={restaurantId}
           isLoading={state.connectionQuery.isLoading && !state.data}
@@ -115,75 +75,28 @@ export function GoogleBusinessProfileSection({
                   />
                 ) : null}
 
-                <div className="grid min-w-0 gap-4 lg:grid-cols-2 lg:items-start">
-                  <GbpConnectionStepCard
+                {showLinkedView ? (
+                  <GbpLinkedView
+                    restaurantId={restaurantId}
+                    section={state}
+                    canManageSettings={canManageSettings}
+                  />
+                ) : (
+                  <GbpSetupCard
                     data={state.data}
                     accountLabel={summary.accountLabel}
-                    description={summary.connectionDescription}
-                    done={summary.connectionDone}
                     connectError={summary.isLinked ? null : state.data.lastError}
                     onConnect={state.handleConnectGoogle}
                     isConnecting={state.startAuthorizationMutation.isPending}
-                    onRefresh={summary.canRefresh ? state.refreshHandler : null}
-                    isRefreshing={state.connectionQuery.isFetching}
-                    onRequestDisconnect={
-                      summary.canDisconnect ? state.handleRequestDisconnect : null
-                    }
-                    isDisconnecting={state.disconnectMutation.isPending}
-                  />
-                  <GbpLocationStepCard
-                    step={summary.locationStep}
-                    linkedLocation={state.linkedLocation}
-                    hasLinkedLocation={summary.hasLinkedLocation}
-                    needsReconnect={summary.status === 'reauth_required'}
-                    manageHref={summary.manageOnGoogleHref}
                     onChooseLocation={() => state.setLocationChooserOpen(true)}
                     locationsErrorMessage={summary.locationsErrorMessage}
                     onRetryLocations={() => void state.locationsQuery.refetch()}
                     isRetryingLocations={state.locationsQuery.isFetching}
+                    onRequestDisconnect={
+                      summary.canDisconnect ? state.handleRequestDisconnect : null
+                    }
                   />
-                </div>
-
-                {summary.canReview && hasSyncWorkspace ? (
-                  <div id="gbp-sync-review" className="flex min-w-0 scroll-mt-24 flex-col gap-4">
-                    <DualSyncShell
-                      restaurantId={restaurantId}
-                      sections={GBP_REVIEW_SECTIONS}
-                      renderEvidence={(evidence) => (
-                        <GbpWriteControls
-                          restaurantId={restaurantId}
-                          canManageSettings={canManageSettings}
-                          syncControls={evidence.syncControls}
-                          operationalPanels={evidence.operationalPanels}
-                          onRequestRefresh={evidence.onRequestRefresh}
-                          refreshPending={evidence.refreshPending}
-                        />
-                      )}
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <GbpStepCard
-                      step={3}
-                      title="Review differences"
-                      description={
-                        summary.isLinked
-                          ? 'Google is linked, but comparison tools are currently unavailable. Review changes directly in Nabatable and on Google for now.'
-                          : 'Available once a location is linked.'
-                      }
-                    >
-                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Lock className="size-4 shrink-0" aria-hidden />
-                        Nothing to review yet.
-                      </p>
-                    </GbpStepCard>
-                    {summary.isLinked && canManageSettings ? (
-                      <GbpWriteControls restaurantId={restaurantId} canManageSettings />
-                    ) : null}
-                  </>
                 )}
-
-                <RelatedSettings />
               </div>
             ) : (
               <EmptyGbpConnectionSection />

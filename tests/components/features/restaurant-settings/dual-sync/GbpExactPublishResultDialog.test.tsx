@@ -34,7 +34,7 @@ describe('GbpExactPublishResultDialog', () => {
     expect(screen.getByText(/verify the operational notification channel/i)).toBeInTheDocument();
     expect(screen.getByText(/queued is not complete/i).parentElement).toHaveClass(
       'pr-12',
-      'sm:pr-0',
+      'sm:pr-14',
     );
   });
 });
