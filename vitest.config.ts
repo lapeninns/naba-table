@@ -76,6 +76,14 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsTableTimeline.ts',
       ),
+      '@/hooks/ops/useReleaseTableHold': path.resolve(
+        rootDir,
+        'src/hooks/ops/useReleaseTableHold.ts',
+      ),
+      '@/hooks/ops/useOpsSaveAvailability': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsSaveAvailability.ts',
+      ),
       '@/hooks/ops/useOpsEmailQueueFeed': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsEmailQueueFeed.ts',
