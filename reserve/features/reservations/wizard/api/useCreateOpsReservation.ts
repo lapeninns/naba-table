@@ -5,9 +5,17 @@ import { useRef } from 'react';
 
 import { emit } from '@/lib/analytics/emit';
 import { fetchJson } from '@/lib/http/fetchJson';
+import { queryKeys } from '@/lib/query/keys';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
 import { track } from '@shared/lib/analytics';
+
+import {
+  createConflictRetryDelay,
+  reservationDraftFingerprint,
+  shouldRetryCreateConflict,
+} from './createReservationRetry';
 
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
@@ -52,18 +60,39 @@ export function buildOpsBookingPayload(draft: ReservationDraft) {
   } as const;
 }
 
+export type CreateOpsReservationVariables = {
+  draft: ReservationDraft;
+  bookingId?: string;
+  /** Key for this walk-in intent; defaults to one key per draft content (see useCreateReservation). */
+  idempotencyKey?: string;
+};
+
+type IntentKey = { fingerprint: string; key: string };
+
 export function useCreateOpsReservation() {
   const queryClient = useQueryClient();
-  const idempotencyKeyRef = useRef<string | null>(null);
+  const intentKeyRef = useRef<IntentKey | null>(null);
 
-  return useMutation<
-    ReservationSubmissionResult,
-    OpsReservationError,
-    { draft: ReservationDraft; bookingId?: string }
-  >({
+  const resolveIntentKey = ({ draft, bookingId, idempotencyKey }: CreateOpsReservationVariables) => {
+    if (idempotencyKey) return idempotencyKey;
+    const fingerprint = reservationDraftFingerprint(draft, bookingId);
+    if (intentKeyRef.current?.fingerprint !== fingerprint) {
+      intentKeyRef.current = { fingerprint, key: generateIdempotencyKey() };
+    }
+    return intentKeyRef.current.key;
+  };
+
+  return useMutation<ReservationSubmissionResult, OpsReservationError, CreateOpsReservationVariables>({
     networkMode: 'offlineFirst',
     meta: { persist: true },
-    mutationFn: async ({ draft, bookingId }) => {
+    // A transient 409 BOOKING_CONFLICT (retryable) is retried once, with the same key.
+    retry: shouldRetryCreateConflict,
+    retryDelay: createConflictRetryDelay,
+    onMutate: (variables) => {
+      resolveIntentKey(variables);
+    },
+    mutationFn: async (variables) => {
+      const { draft, bookingId } = variables;
       if (bookingId) {
         throw Object.assign(new Error('Editing bookings is not supported in ops wizard'), {
           code: 'UNSUPPORTED_OPERATION',
@@ -72,12 +101,7 @@ export function useCreateOpsReservation() {
 
       const payload = buildOpsBookingPayload(draft);
 
-      const idempotencyKey =
-        idempotencyKeyRef.current ??
-        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      idempotencyKeyRef.current = idempotencyKey;
+      const idempotencyKey = resolveIntentKey(variables);
 
       const response = await fetchJson<{
         booking?: unknown;
@@ -99,16 +123,28 @@ export function useCreateOpsReservation() {
         bookings,
       } satisfies ReservationSubmissionResult;
     },
-    onSuccess: (result) => {
-      idempotencyKeyRef.current = null;
+    onSuccess: (result, { draft }) => {
+      intentKeyRef.current = null;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
+      // A walk-in changes the dashboard summary for its date and the ops booking lists; the
+      // dashboard updates now instead of waiting for realtime. The dashboard keys "today"
+      // as a null date, so that summary is refreshed too.
+      if (draft.restaurantId) {
+        for (const date of [draft.date, null]) {
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.opsDashboard.summary(draft.restaurantId, date),
+            exact: true,
+          });
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.listPrefix() });
     },
     onError: (error) => {
       if (isTerminalCreateError(error)) {
-        idempotencyKeyRef.current = null;
+        intentKeyRef.current = null;
       }
       const payload = {
         code: error?.code ?? 'UNKNOWN',

@@ -4,11 +4,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
 
 import { emit } from '@/lib/analytics/emit';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { apiClient, type ApiError } from '@shared/api/client';
 import { reservationKeys } from '@shared/api/queryKeys';
 import { env } from '@shared/config/env';
 import { track } from '@shared/lib/analytics';
+
+import {
+  createConflictRetryDelay,
+  reservationDraftFingerprint,
+  shouldRetryCreateConflict,
+} from './createReservationRetry';
 
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
@@ -27,15 +34,21 @@ function isTerminalCreateError(error: ApiError | null | undefined): boolean {
   );
 }
 
-function generateClientId(): string {
-  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
+export type CreateReservationVariables = {
+  draft: ReservationDraft;
+  bookingId?: string;
+  /**
+   * Key for this booking intent. When omitted, the hook keeps one key per draft content:
+   * reused across retries and repeat submits of the same draft, replaced when it changes.
+   */
+  idempotencyKey?: string;
+};
+
+type IntentKey = { fingerprint: string; key: string };
 
 export function useCreateReservation() {
   const queryClient = useQueryClient();
-  const idempotencyKeyRef = useRef<string | null>(null);
+  const intentKeyRef = useRef<IntentKey | null>(null);
   // Privacy-safe correlation: attemptId is a random UUID stable across retries
   // of one logical submission; attemptCount distinguishes retries. Both are
   // sent as headers so server booking_create_* events can be joined to the
@@ -43,14 +56,30 @@ export function useCreateReservation() {
   const attemptIdRef = useRef<string | null>(null);
   const attemptCountRef = useRef(0);
 
-  return useMutation<
-    ReservationSubmissionResult,
-    ApiError,
-    { draft: ReservationDraft; bookingId?: string }
-  >({
+  const resolveIntentKey = ({ draft, bookingId, idempotencyKey }: CreateReservationVariables) => {
+    if (idempotencyKey) return idempotencyKey;
+    const fingerprint = reservationDraftFingerprint(draft, bookingId);
+    if (intentKeyRef.current?.fingerprint !== fingerprint) {
+      intentKeyRef.current = { fingerprint, key: generateIdempotencyKey() };
+      attemptIdRef.current = null;
+      attemptCountRef.current = 0;
+    }
+    return intentKeyRef.current.key;
+  };
+
+  return useMutation<ReservationSubmissionResult, ApiError, CreateReservationVariables>({
     networkMode: 'offlineFirst',
     meta: { persist: true },
-    mutationFn: async ({ draft, bookingId }) => {
+    // A transient 409 BOOKING_CONFLICT (retryable) is retried once after its retryAfter,
+    // with the same key: the server either inserts or replays the first attempt's booking.
+    retry: shouldRetryCreateConflict,
+    retryDelay: createConflictRetryDelay,
+    onMutate: (variables) => {
+      // The intent key is fixed per mutate() call, before the first attempt.
+      resolveIntentKey(variables);
+    },
+    mutationFn: async (variables) => {
+      const { draft, bookingId } = variables;
       const payload = {
         restaurantId: draft.restaurantId,
         restaurantSlug: draft.restaurantSlug,
@@ -69,9 +98,10 @@ export function useCreateReservation() {
       const path = bookingId ? `/bookings/${bookingId}` : '/bookings';
       const method = bookingId ? apiClient.put : apiClient.post;
       const submissionTimeoutMs = Math.max(env.API_TIMEOUT_MS * 2, 30_000);
-      const idempotencyKey = idempotencyKeyRef.current ?? generateClientId();
-      idempotencyKeyRef.current = idempotencyKey;
-      const attemptId = attemptIdRef.current ?? generateClientId();
+      // Resolved in onMutate; resolving again here covers a paused mutation resumed from
+      // persistence after a reload, and returns the same key otherwise.
+      const idempotencyKey = resolveIntentKey(variables);
+      const attemptId = attemptIdRef.current ?? generateIdempotencyKey();
       attemptIdRef.current = attemptId;
       attemptCountRef.current += 1;
       const response = await method<{
@@ -95,7 +125,7 @@ export function useCreateReservation() {
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
-      idempotencyKeyRef.current = null;
+      intentKeyRef.current = null;
       attemptIdRef.current = null;
       attemptCountRef.current = 0;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
@@ -107,7 +137,7 @@ export function useCreateReservation() {
       const attemptId = attemptIdRef.current;
       const attempt = attemptCountRef.current;
       if (isTerminalCreateError(error)) {
-        idempotencyKeyRef.current = null;
+        intentKeyRef.current = null;
         attemptIdRef.current = null;
         attemptCountRef.current = 0;
       }
