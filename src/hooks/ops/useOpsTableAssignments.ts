@@ -9,12 +9,13 @@ import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import {
   cancelBookingQueries,
+  captureBookingRollback,
   patchBookingCaches,
   readBookingRow,
-  restoreBookingCaches,
-  snapshotBookingCaches,
+  refreshBookingAfterConflict,
+  rollbackBookingWrite,
   tableIdsOf,
-  type BookingCacheSnapshot,
+  type BookingRollback,
   type TableAssignmentGroups,
 } from './bookingCacheSync';
 import { recordBookingWrite } from './bookingWriteEcho';
@@ -35,7 +36,7 @@ export type TableAssignmentVariables =
     }
   | { kind: 'unassign'; bookingId: string; tableId: string };
 
-type MutationContext = { snapshot: BookingCacheSnapshot; previousStatus: OpsBookingStatus | null };
+type MutationContext = { rollback: BookingRollback; previousStatus: OpsBookingStatus | null };
 
 type TableAssignmentsResponse = { tableAssignments: TableAssignmentGroups };
 
@@ -129,7 +130,7 @@ export function useOpsTableAssignmentActions(params: {
             : bookingService.unassignTable({ bookingId: vars.bookingId, tableId: vars.tableId }),
         onMutate: async (vars) => {
           await cancelBookingQueries(queryClient, vars.bookingId, restaurantId);
-          const snapshot = snapshotBookingCaches(queryClient, vars.bookingId);
+          const rollback = captureBookingRollback(queryClient, vars.bookingId);
           const row = readBookingRow(queryClient, vars.bookingId);
           if (row) {
             const groups =
@@ -146,7 +147,7 @@ export function useOpsTableAssignmentActions(params: {
               { restaurantId },
             );
           }
-          return { snapshot, previousStatus: row?.status ?? null };
+          return { rollback, previousStatus: row?.status ?? null };
         },
         onSuccess: (data, vars, context) => {
           const groups = data.tableAssignments ?? [];
@@ -169,8 +170,17 @@ export function useOpsTableAssignmentActions(params: {
             });
           }
         },
-        onError: (_error, _vars, context) => {
-          if (context) restoreBookingCaches(queryClient, context.snapshot);
+        onError: (_error, vars, context) => {
+          if (!context) return;
+          if (rollbackBookingWrite(queryClient, context.rollback) === 'refresh') {
+            // Queued behind another write on this booking: its outcome is unknown here.
+            void refreshBookingAfterConflict(queryClient, {
+              bookingId: vars.bookingId,
+              restaurantId,
+              currentStatus: null,
+              fetchBooking: () => bookingService.getBooking(vars.bookingId),
+            });
+          }
         },
       };
       return queryClient.getMutationCache().build(queryClient, options).execute(variables);

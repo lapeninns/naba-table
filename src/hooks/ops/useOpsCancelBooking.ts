@@ -9,12 +9,12 @@ import { queryKeys } from '@/lib/query/keys';
 
 import {
   cancelBookingQueries,
+  captureBookingRollback,
   patchBookingCaches,
   readBookingRow,
   refreshBookingAfterConflict,
-  restoreBookingCaches,
-  snapshotBookingCaches,
-  type BookingCacheSnapshot,
+  rollbackBookingWrite,
+  type BookingRollback,
 } from './bookingCacheSync';
 import { recordBookingWrite } from './bookingWriteEcho';
 
@@ -34,7 +34,7 @@ export type CancelBookingOutcome =
   | { status: 'done'; result: CancelBookingResult }
   | { status: 'failed'; error: unknown };
 
-type CancelContext = { snapshot: BookingCacheSnapshot };
+type CancelContext = { rollback: BookingRollback };
 
 const CANCEL_ERROR_COPY: Partial<Record<string, string>> = {
   BOOKING_NOT_CANCELLABLE:
@@ -89,9 +89,9 @@ export function useOpsCancelBooking(options: { feedback?: boolean } = {}) {
         mutationFn: ({ bookingId }) => bookingService.cancelBooking({ id: bookingId }),
         onMutate: async ({ bookingId, restaurantId }) => {
           await cancelBookingQueries(queryClient, bookingId, restaurantId);
-          const snapshot = snapshotBookingCaches(queryClient, bookingId);
+          const rollback = captureBookingRollback(queryClient, bookingId);
           patchBookingCaches(queryClient, bookingId, { status: 'cancelled' }, { restaurantId });
-          return { snapshot };
+          return { rollback };
         },
         onSuccess: (result, { bookingId, restaurantId }) => {
           const status = (result.status || 'cancelled') as OpsBookingStatus;
@@ -110,8 +110,9 @@ export function useOpsCancelBooking(options: { feedback?: boolean } = {}) {
           });
         },
         onError: (error, { bookingId, restaurantId }, context) => {
-          if (context) restoreBookingCaches(queryClient, context.snapshot);
-          if (error instanceof HttpError && error.status === 409) {
+          const rollback = context ? rollbackBookingWrite(queryClient, context.rollback) : 'restored';
+          if (rollback === 'deferred') return;
+          if ((error instanceof HttpError && error.status === 409) || rollback === 'refresh') {
             void refreshBookingAfterConflict(queryClient, {
               bookingId,
               restaurantId,

@@ -17,7 +17,11 @@ import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import { suggestAssignmentTables } from '../tableAssignmentSuggestionDomain';
 import { validateTableSelection } from '../utils';
-import { useTableAssignmentMutations } from './useTableAssignmentMutations';
+import {
+  SMART_ASSIGN_NO_CANDIDATE,
+  SMART_ASSIGN_NO_HOLD,
+  useTableAssignmentMutations,
+} from './useTableAssignmentMutations';
 import { useTableAssignmentRealtimeRefetch } from './useTableAssignmentRealtimeRefetch';
 
 import type { UseTableAssignmentOptions, UseTableAssignmentReturn } from '../types';
@@ -29,6 +33,8 @@ const ASSIGN_ERROR_COPY: Partial<Record<string, string>> = {
   HOLD_CONFLICT: 'One of those tables is held for another booking. Pick another table.',
   ASSIGNMENT_LOCKED: 'Tables are locked for past or completed bookings.',
   IDEMPOTENCY_KEY_REUSED: 'That change was already made with different tables. Refresh and try again.',
+  [SMART_ASSIGN_NO_CANDIDATE]: 'No suitable tables found for this booking.',
+  [SMART_ASSIGN_NO_HOLD]: 'Smart assign could not reserve the suggested tables. Try again.',
 };
 
 export function useTableAssignment({
@@ -196,14 +202,11 @@ export function useTableAssignment({
       await autoAssignMutation.mutateAsync({ bookingId, idempotencyKey: generateIdempotencyKey() });
       return { ok: true };
     } catch (err) {
-      // Smart-assign "no tables" outcomes are client-side errors with safe copy.
-      const message =
-        err instanceof HttpError
-          ? toUserMessage(err, { copy: ASSIGN_ERROR_COPY, fallback: 'Auto-assign failed.' })
-          : err instanceof Error
-            ? err.message
-            : 'Auto-assign failed.';
-      return { ok: false, error: message };
+      // Smart-assign "no tables" outcomes carry codes with fixed copy; no raw text is shown.
+      return {
+        ok: false,
+        error: toUserMessage(err, { copy: ASSIGN_ERROR_COPY, fallback: 'Auto-assign failed.' }),
+      };
     }
   }, [assignedTableIds, autoAssignMutation, bookingId]);
 

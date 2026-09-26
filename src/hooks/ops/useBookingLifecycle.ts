@@ -14,13 +14,13 @@ import { queryKeys } from '@/lib/query/keys';
 import {
   buildTableAssignments,
   cancelBookingQueries,
+  captureBookingRollback,
   patchBookingCaches,
   readBookingRow,
   refreshBookingAfterConflict,
-  restoreBookingCaches,
-  snapshotBookingCaches,
+  rollbackBookingWrite,
   summaryKeysFor,
-  type BookingCacheSnapshot,
+  type BookingRollback,
   type BookingRowPatch,
 } from './bookingCacheSync';
 import { recordBookingWrite } from './bookingWriteEcho';
@@ -57,7 +57,7 @@ export type PendingLifecycleAction = {
 };
 
 type LifecycleContext = {
-  snapshot: BookingCacheSnapshot;
+  rollback: BookingRollback;
   previous: PendingLifecycleSnapshot | null;
   transitionStarted: boolean;
 };
@@ -104,8 +104,34 @@ const ANALYTICS_EVENTS = {
   'undo-no-show': [],
 } as const satisfies Record<BookingLifecycleAction, readonly string[]>;
 
+/** Only BOOKING_STATE_CONFLICT means the booking changed elsewhere (not e.g. LIFECYCLE_DATE_LOCKED). */
 function isStateConflict(error: unknown): error is HttpError {
-  return error instanceof HttpError && error.status === 409;
+  return (
+    error instanceof HttpError && error.status === 409 && error.code === 'BOOKING_STATE_CONFLICT'
+  );
+}
+
+/** Statuses an undo-no-show restores; a 409 carrying one of them is a replay of our own undo. */
+const UNDO_NO_SHOW_RESTORED: ReadonlySet<OpsBookingStatus> = new Set([
+  'pending',
+  'pending_allocation',
+  'confirmed',
+]);
+
+/**
+ * no-show and undo-no-show are not same-state idempotent: a replay after success answers 409
+ * BOOKING_STATE_CONFLICT with the already-applied status (S3a contract). Those are successes.
+ */
+function replayedStatus(
+  action: BookingLifecycleAction,
+  error: unknown,
+): OpsBookingStatus | null {
+  if (!isStateConflict(error)) return null;
+  const current = conflictCurrentStatus(error);
+  if (!current) return null;
+  if (action === 'no-show' && current === 'no_show') return current;
+  if (action === 'undo-no-show' && UNDO_NO_SHOW_RESTORED.has(current)) return current;
+  return null;
 }
 
 function conflictCurrentStatus(error: HttpError): OpsBookingStatus | null {
@@ -281,20 +307,16 @@ export function useBookingLifecycle(options: UseBookingLifecycleOptions = {}) {
           try {
             return await callService(bookingService, vars);
           } catch (error) {
-            // A no-show replay answers 409 with the already-applied status: that is a success.
-            if (
-              vars.action === 'no-show' &&
-              isStateConflict(error) &&
-              conflictCurrentStatus(error) === 'no_show'
-            ) {
-              return { status: 'no_show', checkedInAt: null, checkedOutAt: null, changed: false };
+            const replayed = replayedStatus(vars.action, error);
+            if (replayed) {
+              return { status: replayed, checkedInAt: null, checkedOutAt: null, changed: false };
             }
             throw error;
           }
         },
         onMutate: async (vars) => {
           await cancelBookingQueries(queryClient, vars.bookingId, vars.restaurantId);
-          const snapshot = snapshotBookingCaches(queryClient, vars.bookingId);
+          const rollback = captureBookingRollback(queryClient, vars.bookingId);
           const row = readBookingRow(queryClient, vars.bookingId);
           const previous = row
             ? { status: row.status, startTime: row.startTime, endTime: row.endTime }
@@ -311,7 +333,7 @@ export function useBookingLifecycle(options: UseBookingLifecycleOptions = {}) {
             });
             transitionStarted = Boolean(stateMachine);
           }
-          return { snapshot, previous, transitionStarted };
+          return { rollback, previous, transitionStarted };
         },
         onSuccess: (result, vars, context) => {
           applyCanonicalResult(queryClient, vars, result);
@@ -348,13 +370,15 @@ export function useBookingLifecycle(options: UseBookingLifecycleOptions = {}) {
           }
         },
         onError: (error, vars, context) => {
-          if (context) restoreBookingCaches(queryClient, context.snapshot);
+          const rollback = context ? rollbackBookingWrite(queryClient, context.rollback) : 'restored';
           if (context?.transitionStarted) stateMachine?.rollbackTransition(vars.bookingId);
-          if (isStateConflict(error)) {
+          // A write still queued on this booking settles it; otherwise refresh the one booking
+          // when it changed elsewhere, or when our snapshot held an earlier write's guess.
+          if (rollback !== 'deferred' && (isStateConflict(error) || rollback === 'refresh')) {
             void refreshBookingAfterConflict(queryClient, {
               bookingId: vars.bookingId,
               restaurantId: vars.restaurantId,
-              currentStatus: conflictCurrentStatus(error),
+              currentStatus: isStateConflict(error) ? conflictCurrentStatus(error) : null,
               fetchBooking: () => bookingService.getBooking(vars.bookingId),
             });
           }

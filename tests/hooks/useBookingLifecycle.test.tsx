@@ -379,6 +379,114 @@ describe('useBookingLifecycle', () => {
     expect(bookingService.getBooking).not.toHaveBeenCalled();
   });
 
+  it('@contract treats an undo-no-show replay (409 with the restored status) as success', async () => {
+    const { result, queryClient, notify } = setup();
+    queryClient.setQueryData(
+      summaryKey(),
+      makeSummary([makeRow({ id: 'b1', customerName: 'Ada', status: 'no_show' })]),
+    );
+    bookingService.undoNoShowBooking.mockRejectedValue(
+      new HttpError({
+        message: 'Already restored',
+        status: 409,
+        code: 'BOOKING_STATE_CONFLICT',
+        details: { currentStatus: 'confirmed' },
+      }),
+    );
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.run(vars('undo-no-show'));
+    });
+
+    expect(outcome).toMatchObject({ status: 'done' });
+    expect(summaryRow(queryClient, 'b1')?.status).toBe('confirmed');
+    expect(notify.error).not.toHaveBeenCalled();
+    expect(notify.success).toHaveBeenCalledWith('Undo no-show: Ada');
+    expect(bookingService.getBooking).not.toHaveBeenCalled();
+  });
+
+  it('@contract a 409 that is not a state conflict (date locked) rolls back without a refetch', async () => {
+    bookingService.checkInBooking.mockRejectedValue(
+      new HttpError({ message: 'Locked', status: 409, code: 'LIFECYCLE_DATE_LOCKED' }),
+    );
+    const { result, queryClient, notify } = setup();
+
+    await act(async () => {
+      await result.current.run(vars('check-in'));
+    });
+
+    expect(notify.error).toHaveBeenCalledWith(
+      'This booking can only be updated on its reservation date.',
+    );
+    expect(summaryRow(queryClient, 'b1')?.status).toBe('confirmed');
+    expect(bookingService.getBooking).not.toHaveBeenCalled();
+  });
+
+  it('@contract two queued writes on one booking that both fail end at the server state', async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    bookingService.checkInBooking.mockReturnValueOnce(first.promise);
+    bookingService.checkOutBooking.mockReturnValueOnce(second.promise);
+    bookingService.getBooking.mockResolvedValue(
+      makeListItem({ id: 'b1', status: 'confirmed', checkedInAt: null, checkedOutAt: null }),
+    );
+    const { result, queryClient } = setup({ feedback: false });
+
+    let runs: Promise<unknown>[] = [];
+    act(() => {
+      runs = [
+        result.current.run(vars('check-in', 'b1')),
+        result.current.run(vars('check-out', 'b1')),
+      ];
+    });
+    // The queued check-out already snapshotted (and patched over) the optimistic check-in.
+    await waitFor(() => expect(summaryRow(queryClient, 'b1')?.status).toBe('completed'));
+
+    first.reject(new HttpError({ message: 'Boom', status: 500, code: 'INTERNAL' }));
+    await waitFor(() => expect(bookingService.checkOutBooking).toHaveBeenCalledTimes(1));
+    second.reject(new HttpError({ message: 'Boom', status: 500, code: 'INTERNAL' }));
+    await act(async () => {
+      await Promise.all(runs);
+    });
+
+    await waitFor(() => expect(summaryRow(queryClient, 'b1')?.status).toBe('confirmed'));
+    expect(bookingService.getBooking).toHaveBeenCalledTimes(1);
+    expect(
+      queryClient
+        .getQueryData<InfiniteData<OpsBookingsPage>>(listKey)
+        ?.pages[0].items.find((item) => item.id === 'b1')?.status,
+    ).toBe('confirmed');
+  });
+
+  it('@contract a failure while a later write is queued leaves the booking to that write', async () => {
+    const first = deferred<unknown>();
+    bookingService.checkInBooking.mockReturnValueOnce(first.promise);
+    bookingService.checkOutBooking.mockResolvedValueOnce({
+      status: 'completed',
+      checkedInAt: null,
+      checkedOutAt: `${DATE}T20:00:00.000Z`,
+    });
+    const { result, queryClient } = setup({ feedback: false });
+
+    let runs: Promise<unknown>[] = [];
+    act(() => {
+      runs = [
+        result.current.run(vars('check-in', 'b1')),
+        result.current.run(vars('check-out', 'b1')),
+      ];
+    });
+    await waitFor(() => expect(summaryRow(queryClient, 'b1')?.status).toBe('completed'));
+
+    first.reject(new HttpError({ message: 'Boom', status: 500, code: 'INTERNAL' }));
+    await act(async () => {
+      await Promise.all(runs);
+    });
+
+    expect(summaryRow(queryClient, 'b1')?.status).toBe('completed');
+    expect(bookingService.getBooking).not.toHaveBeenCalled();
+  });
+
   it('@contract queues the action offline instead of calling the server', async () => {
     const enqueue = vi.fn();
     offlineQueue.value = { isOffline: true, enqueue };

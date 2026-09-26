@@ -1,7 +1,7 @@
 import { queryKeys } from '@/lib/query/keys';
 import { patchDashboardSummaryBooking } from '@/utils/ops/dashboardSummary';
 
-import { recordBookingWrite } from './bookingWriteEcho';
+import { countBookingWritesInFlight, recordBookingWrite } from './bookingWriteEcho';
 
 import type {
   AssignmentContext,
@@ -598,24 +598,41 @@ export function summaryKeysFor(queryClient: QueryClient, restaurantId: string): 
  * Writes a canonical `OpsBookingListItem` (e.g. the PATCH response) into the detail, dialog
  * bundle and list caches. Summary rows have a different shape; callers invalidate the affected
  * summary dates instead (see `summaryKeysContaining`).
+ *
+ * `omit` drops fields the response does not carry reliably (an edit's PATCH response has no
+ * table assignments, although the edit may have released or re-assigned tables), so the cached
+ * values are kept until the caller's revalidation replaces them. With `pruneLists`, the row is
+ * removed from list pages whose status filter no longer matches.
+ *
+ * Returns the list query keys that still hold the booking after the write.
  */
-export function writeBookingListItem(queryClient: QueryClient, item: OpsBookingListItem): void {
+export function writeBookingListItem(
+  queryClient: QueryClient,
+  item: OpsBookingListItem,
+  options: { omit?: readonly (keyof OpsBookingListItem)[]; pruneLists?: boolean } = {},
+): QueryKey[] {
+  const patch: Partial<OpsBookingListItem> = { ...item };
+  for (const key of options.omit ?? []) delete patch[key];
   queryClient.setQueryData<OpsBookingListItem>(queryKeys.opsBookings.detail(item.id), (current) =>
-    current ? { ...current, ...item } : item,
+    current ? { ...current, ...patch } : item,
   );
   queryClient.setQueryData<OpsBookingDialogBundle>(queryKeys.opsBookings.dialog(item.id), (current) =>
-    current ? { ...current, booking: { ...current.booking, ...item } } : current,
+    current ? { ...current, booking: { ...current.booking, ...patch } } : current,
   );
+  const holding: QueryKey[] = [];
   for (const [queryKey, data] of queryClient.getQueriesData<ListData>({
     queryKey: queryKeys.opsBookings.listPrefix(),
   })) {
     if (!isInfiniteList(data) && !isListPage(data)) continue;
     if (!findListItem(data, item.id)) continue;
+    const keep = !options.pruneLists || !item.status || listAcceptsStatus(queryKey, item.status);
     queryClient.setQueryData(
       queryKey,
-      mapListItems(data, item.id, (current) => ({ ...current, ...item })),
+      mapListItems(data, item.id, (current) => (keep ? { ...current, ...patch } : null)),
     );
+    if (keep) holding.push(queryKey);
   }
+  return holding;
 }
 
 /**
@@ -676,4 +693,47 @@ export async function refreshBookingAfterConflict(
   } catch {
     // The error toast already told the user; the next realtime event or poll catches up.
   }
+}
+
+// ---------------------------------------------------------------------------
+// Rollback for writes that share a booking scope
+// ---------------------------------------------------------------------------
+
+/**
+ * A booking write's rollback point. TanStack runs `onMutate` as soon as a mutation is created,
+ * before it waits for its scope, so a write queued behind another write on the same booking
+ * snapshots that write's optimistic state. `queuedBehind` records that case: such a snapshot is
+ * not the server state and must not be restored blindly.
+ */
+export type BookingRollback = { snapshot: BookingCacheSnapshot; queuedBehind: boolean };
+
+/** Call from `onMutate`, before the optimistic patch. */
+export function captureBookingRollback(
+  queryClient: QueryClient,
+  bookingId: string,
+): BookingRollback {
+  return {
+    snapshot: snapshotBookingCaches(queryClient, bookingId),
+    // The count includes this mutation, which is already pending when `onMutate` runs.
+    queuedBehind: countBookingWritesInFlight(queryClient, bookingId) > 1,
+  };
+}
+
+/**
+ * Call from `onError`. Returns what happened:
+ * - `deferred`: another write for the booking is still pending or queued; it snapshotted this
+ *   write's optimistic state and settles the booking itself, so nothing is restored now.
+ * - `restored`: the snapshot was the pre-write state and has been put back.
+ * - `refresh`: the snapshot included an earlier write whose outcome is unknown to it; the caller
+ *   must refresh the booking from the server (`refreshBookingAfterConflict`).
+ */
+export function rollbackBookingWrite(
+  queryClient: QueryClient,
+  rollback: BookingRollback,
+): 'deferred' | 'restored' | 'refresh' {
+  const { snapshot, queuedBehind } = rollback;
+  if (countBookingWritesInFlight(queryClient, snapshot.bookingId) > 1) return 'deferred';
+  if (queuedBehind) return 'refresh';
+  restoreBookingCaches(queryClient, snapshot);
+  return 'restored';
 }

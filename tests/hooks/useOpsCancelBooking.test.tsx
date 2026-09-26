@@ -152,6 +152,44 @@ describe('useOpsCancelBooking', () => {
     expect(keys).not.toContainEqual(summaryKey());
   });
 
+  it('@contract a cancel queued behind a failed write on the same booking refreshes instead of restoring a guess', async () => {
+    const { result, queryClient } = setup();
+    // An earlier optimistic write on b1 (e.g. a check-in) still in flight in the booking scope.
+    const earlier = deferred<void>();
+    queryClient.setQueryData(
+      summaryKey(),
+      makeSummary([makeRow({ id: 'b1', customerName: 'Ada', status: 'checked_in' })]),
+    );
+    const earlierRun = queryClient
+      .getMutationCache()
+      .build(queryClient, {
+        scope: { id: 'booking:b1' },
+        mutationFn: () => earlier.promise,
+      })
+      .execute({ bookingId: 'b1' })
+      .catch(() => undefined);
+    bookingService.cancelBooking.mockRejectedValue(
+      new HttpError({ message: 'Boom', status: 503, code: 'SERVICE_UNAVAILABLE' }),
+    );
+    bookingService.getBooking.mockResolvedValue(makeListItem({ id: 'b1', status: 'confirmed' }));
+
+    let outcome: Promise<unknown> = Promise.resolve();
+    act(() => {
+      outcome = result.current.cancel({ bookingId: 'b1', restaurantId: RESTAURANT_ID });
+    });
+    await waitFor(() => expect(summaryRow(queryClient, 'b1')?.status).toBe('cancelled'));
+
+    earlier.reject(new Error('earlier failed'));
+    await act(async () => {
+      await earlierRun;
+      await outcome;
+    });
+
+    // Not the snapshot's 'checked_in' guess: the server's state.
+    await waitFor(() => expect(summaryRow(queryClient, 'b1')?.status).toBe('confirmed'));
+    expect(bookingService.getBooking).toHaveBeenCalledTimes(1);
+  });
+
   it('@contract tolerates a cold cache', async () => {
     bookingService.cancelBooking.mockResolvedValue({ id: 'b9', status: 'cancelled' });
     const { result } = setup();

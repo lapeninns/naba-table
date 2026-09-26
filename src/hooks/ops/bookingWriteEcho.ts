@@ -41,13 +41,19 @@ export function bookingIdFromVariables(variables: unknown): string | null {
   return null;
 }
 
+/**
+ * Mutations for this booking that are pending, including ones queued in its `booking:<id>`
+ * scope. Inside a mutation's own `onMutate`/`onError` the count includes that mutation.
+ */
+export function countBookingWritesInFlight(queryClient: QueryClient, bookingId: string): number {
+  return queryClient.isMutating({
+    predicate: (mutation) => bookingIdFromVariables(mutation.state.variables) === bookingId,
+  });
+}
+
 /** True while any mutation for this booking is pending (the floor-plan `isMutating` pattern). */
 export function isBookingWriteInFlight(queryClient: QueryClient, bookingId: string): boolean {
-  return (
-    queryClient.isMutating({
-      predicate: (mutation) => bookingIdFromVariables(mutation.state.variables) === bookingId,
-    }) > 0
-  );
+  return countBookingWritesInFlight(queryClient, bookingId) > 0;
 }
 
 /** Records a write this client just applied, with the canonical status the server returned. */
@@ -90,8 +96,15 @@ export function bookingIdFromRealtimePayload(table: string, payload: unknown): s
 
 /**
  * True when a realtime event is the echo of this client's own write: a write for the booking is
- * in flight, or one was applied within the echo window and (for `bookings` rows) the row carries
- * the status/updated_at that write produced. Events that cannot be tied to a booking return false.
+ * in flight, or one was applied within the echo window and the event matches it.
+ *
+ * - `bookings` rows match on `updated_at` when both sides know it (a different `updated_at` is
+ *   someone else's change, even with the same status), otherwise on `status`. A write that
+ *   recorded neither (e.g. a table change whose status is unknown) suppresses no `bookings` event.
+ * - Other tables (assignments, allocations, history) carry no version to compare, so any event
+ *   for the booking inside the window is treated as the echo.
+ *
+ * Events that cannot be tied to a booking return false.
  */
 export function isOwnBookingWriteEcho(
   queryClient: QueryClient,
@@ -109,8 +122,8 @@ export function isOwnBookingWriteEcho(
 
   const row = rowOf(payload, 'new');
   const updatedAt = stringField(row, 'updated_at');
-  if (recent.updatedAt && updatedAt && recent.updatedAt === updatedAt) return true;
+  if (recent.updatedAt && updatedAt) return recent.updatedAt === updatedAt;
   const status = stringField(row, 'status');
-  if (recent.status && status && recent.status !== status) return false;
-  return true;
+  if (recent.status && status) return recent.status === status;
+  return false;
 }

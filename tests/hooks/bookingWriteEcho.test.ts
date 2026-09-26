@@ -75,6 +75,49 @@ describe('bookingWriteEcho', () => {
     ).toBe(true);
   });
 
+  it('@contract lets a same-status edit by someone else through when updated_at differs', () => {
+    const queryClient = createTestQueryClient();
+    const now = 1_000_000;
+    recordBookingWrite(
+      queryClient,
+      'b1',
+      { status: 'checked_in', updatedAt: '2026-07-11T18:00:00Z' },
+      now,
+    );
+
+    expect(
+      isOwnBookingWriteEcho(
+        queryClient,
+        'bookings',
+        bookingsPayload('checked_in', '2026-07-11T18:00:02Z'),
+        now + 50,
+      ),
+    ).toBe(false);
+    // Without updated_at on the event, status still identifies the echo.
+    expect(
+      isOwnBookingWriteEcho(queryClient, 'bookings', bookingsPayload('checked_in'), now + 50),
+    ).toBe(true);
+  });
+
+  it('@contract a write with unknown status and version suppresses no bookings-row event', () => {
+    const queryClient = createTestQueryClient();
+    const now = 1_000_000;
+    recordBookingWrite(queryClient, 'b1', { status: null }, now);
+
+    expect(
+      isOwnBookingWriteEcho(queryClient, 'bookings', bookingsPayload('confirmed'), now + 50),
+    ).toBe(false);
+    // The assignment echo of that write is still suppressed.
+    expect(
+      isOwnBookingWriteEcho(
+        queryClient,
+        'booking_table_assignments',
+        { new: { booking_id: 'b1' } },
+        now + 50,
+      ),
+    ).toBe(true);
+  });
+
   it('@contract suppresses events while a write for the booking is in flight', async () => {
     const queryClient = createTestQueryClient();
     let release!: () => void;

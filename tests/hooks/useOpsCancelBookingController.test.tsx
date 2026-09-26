@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HttpError } from '@/lib/http/errors';
 import { useOpsCancelBookingController } from '@src/hooks/ops/useOpsCancelBookingController';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -61,6 +62,39 @@ describe('useOpsCancelBookingController', () => {
 
     expect(result.current.isOpen).toBe(true);
     expect(result.current.booking?.id).toBe('b1');
+  });
+
+  it.each(['BOOKING_NOT_CANCELLABLE', 'BOOKING_NOT_FOUND', 'BOOKING_STATE_CONFLICT'])(
+    '@contract closes when a retry cannot help (%s)',
+    async (code) => {
+      cancelHook.cancel.mockResolvedValue({
+        status: 'failed',
+        error: new HttpError({ message: 'No', status: code === 'BOOKING_NOT_FOUND' ? 404 : 409, code }),
+      });
+      const { result } = setup();
+      act(() => result.current.request(booking));
+
+      await act(async () => {
+        await result.current.confirm();
+      });
+
+      expect(result.current.isOpen).toBe(false);
+    },
+  );
+
+  it('@contract stays open on a retryable server error', async () => {
+    cancelHook.cancel.mockResolvedValue({
+      status: 'failed',
+      error: new HttpError({ message: 'Down', status: 503, code: 'SERVICE_UNAVAILABLE' }),
+    });
+    const { result } = setup();
+    act(() => result.current.request(booking));
+
+    await act(async () => {
+      await result.current.confirm();
+    });
+
+    expect(result.current.isOpen).toBe(true);
   });
 
   it('@contract ignores close requests while the cancel is in flight', () => {

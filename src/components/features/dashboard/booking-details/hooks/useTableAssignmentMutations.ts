@@ -4,6 +4,7 @@ import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-q
 import { useCallback } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import {
   buildTableAssignments,
@@ -30,6 +31,17 @@ export type AutoAssignVariables = {
   /** Idempotency key for confirming the smart-assign hold. */
   idempotencyKey: string;
 };
+
+/**
+ * Client-side smart-assign outcomes. They carry a code and no server text (the quote's `reason`
+ * is a server string and is never shown); the panel maps the codes to fixed copy.
+ */
+export const SMART_ASSIGN_NO_CANDIDATE = 'SMART_ASSIGN_NO_CANDIDATE';
+export const SMART_ASSIGN_NO_HOLD = 'SMART_ASSIGN_NO_HOLD';
+
+function smartAssignError(code: string): HttpError {
+  return new HttpError({ message: code, status: 422, code, hasServerMessage: false });
+}
 
 const OPS_BOOKING_STATUSES = new Set<OpsBookingStatus>([
   'pending',
@@ -182,11 +194,11 @@ export function useTableAssignmentMutations({
         !quoteResult.candidate.tableIds ||
         quoteResult.candidate.tableIds.length === 0
       ) {
-        throw new Error(quoteResult.reason || 'No suitable tables found for this booking');
+        throw smartAssignError(SMART_ASSIGN_NO_CANDIDATE);
       }
 
       if (!quoteResult.holdId) {
-        throw new Error('Smart assign could not reserve the suggested tables. Please try again.');
+        throw smartAssignError(SMART_ASSIGN_NO_HOLD);
       }
 
       return bookingService.confirmHoldAssignment({

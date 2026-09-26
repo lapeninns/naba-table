@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 
 import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDetailsDialog';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { isTableAssignmentAllowed } from '@/lib/ops/table-assignment-policy';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 import { useBookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
@@ -222,7 +223,9 @@ export function BookingDetailsDialogWrapper({
       booking={booking}
       summary={summary}
       isLoading={showSkeleton}
-      errorMessage={isError ? (error?.message ?? 'Unable to load booking.') : null}
+      errorMessage={
+        isError ? toUserMessage(error, { fallback: 'Unable to load booking.' }) : null
+      }
       onRetry={() => refetch()}
       onCheckIn={handleCheckIn}
       onCheckOut={handleCheckOut}

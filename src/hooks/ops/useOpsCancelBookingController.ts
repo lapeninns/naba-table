@@ -2,9 +2,24 @@
 
 import { useCallback, useState } from 'react';
 
+import { HttpError } from '@/lib/http/errors';
+
 import { useOpsCancelBooking } from './useOpsCancelBooking';
 
 import type { BookingDTO } from '@/hooks/useBookings';
+
+/** Failures a retry cannot fix: the booking's state changed, so the dialog closes. */
+const TERMINAL_CANCEL_CODES: ReadonlySet<string> = new Set([
+  'BOOKING_NOT_CANCELLABLE',
+  'BOOKING_NOT_FOUND',
+  'BOOKING_STATE_CONFLICT',
+  'CUTOFF_PASSED',
+]);
+
+function isTerminalCancelError(error: unknown): boolean {
+  if (!(error instanceof HttpError)) return false;
+  return TERMINAL_CANCEL_CODES.has(error.code) || error.retryable === false;
+}
 
 type CancelTarget = Pick<BookingDTO, 'id' | 'customerName' | 'partySize'> & {
   restaurantId?: string | null;
@@ -14,9 +29,10 @@ type CancelTarget = Pick<BookingDTO, 'id' | 'customerName' | 'partySize'> & {
  * The single cancel flow for the ops dashboard and bookings list: which booking the confirm
  * dialog is for, the request, and the dialog's open/pending state.
  *
- * The dialog stays open with a pending state until the request settles. It closes on success and
- * stays open on failure (the error toast explains why), so the user can retry or keep the
- * booking. Closing is ignored while the request is in flight.
+ * The dialog stays open with a pending state until the request settles. It closes on success,
+ * and on failures a retry cannot fix (the booking is no longer cancellable, gone, or changed
+ * elsewhere; the error toast explains why). It stays open on other failures (network, 5xx) so
+ * the user can retry or keep the booking. Closing is ignored while the request is in flight.
  */
 export function useOpsCancelBookingController<TBooking extends CancelTarget>(params: {
   /** Used when the booking row has no restaurant id. */
@@ -44,7 +60,7 @@ export function useOpsCancelBookingController<TBooking extends CancelTarget>(par
     const restaurantId = booking.restaurantId ?? fallbackRestaurantId;
     if (!restaurantId) return;
     const outcome = await cancel({ bookingId: booking.id, restaurantId });
-    if (outcome.status === 'done') {
+    if (outcome.status === 'done' || isTerminalCancelError(outcome.error)) {
       setBooking((current) => (current?.id === booking.id ? null : current));
     }
   }, [booking, cancel, fallbackRestaurantId]);
