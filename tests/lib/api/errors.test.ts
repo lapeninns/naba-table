@@ -163,6 +163,50 @@ describe('lib/api/errors (C1 flat contract)', () => {
   });
 });
 
+describe('internalError with Supabase/PostgREST error objects', () => {
+  beforeEach(() => {
+    loggerErrorMock.mockReset();
+  });
+
+  it('logs the pg code as errorKind and a sanitised message for a plain PostgREST error object', async () => {
+    const postgrestError = {
+      message: 'duplicate key value violates unique constraint "customers_email_key"',
+      code: '23505',
+      details: 'Key (email)=(jane@example.com) already exists.',
+      hint: null,
+    };
+    const response = internalError(postgrestError, { route: 'POST /api/x' });
+    const text = await response.text();
+    expect(text).not.toContain('duplicate key');
+
+    const [, meta] = loggerErrorMock.mock.calls[0] as [string, Record<string, unknown>];
+    expect(meta.errorName).toBe('PostgrestError');
+    expect(meta.errorKind).toBe('23505');
+    expect(meta.errorMessage).toContain('duplicate key value violates unique constraint');
+    // details/hint carry row values (PII); they are never logged.
+    expect(JSON.stringify(meta)).not.toContain('jane@example.com');
+    expect(JSON.stringify(meta)).not.toContain('Key (email)');
+  });
+
+  it('redacts PII in the message of an error object and keeps its own name', () => {
+    internalError(
+      { name: 'AuthApiError', message: 'User jane@example.com not found', code: 'user_not_found' },
+      { route: 'GET /x' },
+    );
+    const [, meta] = loggerErrorMock.mock.calls[0] as [string, Record<string, unknown>];
+    expect(meta.errorName).toBe('AuthApiError');
+    expect(meta.errorKind).toBe('user_not_found');
+    expect(meta.errorMessage).toBe('User [redacted-email] not found');
+  });
+
+  it('still reports a shapeless object as errorName object', () => {
+    internalError({ foo: 1 }, { route: 'GET /x' });
+    const [, meta] = loggerErrorMock.mock.calls[0] as [string, Record<string, unknown>];
+    expect(meta).toMatchObject({ errorName: 'object' });
+    expect(meta.errorMessage).toBeUndefined();
+  });
+});
+
 describe('validationError root issues', () => {
   it('keys a path-less issue under _root', async () => {
     const result = z.string().safeParse(42);

@@ -356,8 +356,10 @@ function planIntentFinalize(
 
 /**
  * Applies the processing outcome only while the row is still this worker's claim: status
- * `processing`, not cancelled, and the same attempt number. A cancel that landed while the email
- * was being processed, or a stale-claim takeover by another drain, wins; the outcome is dropped.
+ * `processing`, not cancelled, and the same claim generation. The generation is bumped by every
+ * claim and never reset, unlike attempts_made, which scheduleEmailIntent's upsert and the requeue
+ * restart at 0 (a re-claim would reuse attempt 1 and let a stale worker finalize it). A cancel
+ * that landed while the email was being processed, or a newer claim, wins; the outcome is dropped.
  */
 async function finalizeIntentResult(
   row: EmailDispatchIntentRow,
@@ -367,14 +369,25 @@ async function finalizeIntentResult(
   const now = new Date().toISOString();
   const plan = planIntentFinalize(row, result, now);
 
-  const { data, error } = await supabase.rpc('finalize_email_dispatch_intent_v1', {
+  const outcome = {
     p_intent_id: row.id,
-    p_attempt: row.attempts_made,
     p_status: plan.status,
     p_last_error: plan.lastError,
     p_next_scheduled_for: plan.nextScheduledFor,
     p_payload_patch: plan.payloadPatch,
-  });
+  };
+  // A claimed row without claim_generation means migration 20260927210000 is not applied yet;
+  // keep finalizing with the older attempt fence rather than stranding the claim.
+  const { data, error } =
+    typeof row.claim_generation === 'number'
+      ? await supabase.rpc('finalize_email_dispatch_intent_v2', {
+          ...outcome,
+          p_claim_generation: row.claim_generation,
+        })
+      : await supabase.rpc('finalize_email_dispatch_intent_v1', {
+          ...outcome,
+          p_attempt: row.attempts_made,
+        });
 
   if (error) {
     throw new Error(error.message);
@@ -391,6 +404,7 @@ async function finalizeIntentResult(
         bookingId: row.booking_id,
         type: row.email_type,
         attemptsMade: row.attempts_made,
+        claimGeneration: row.claim_generation ?? null,
         attemptedStatus: plan.status,
       },
       restaurantId: row.restaurant_id ?? undefined,

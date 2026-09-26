@@ -2531,6 +2531,7 @@ export type Database = {
           backoff_type: string;
           booking_id: string;
           cancelled_at: string | null;
+          claim_generation: number;
           claimed_at: string | null;
           created_at: string;
           dedupe_key: string;
@@ -2553,6 +2554,7 @@ export type Database = {
           backoff_type?: string;
           booking_id: string;
           cancelled_at?: string | null;
+          claim_generation?: number;
           claimed_at?: string | null;
           created_at?: string;
           dedupe_key: string;
@@ -2575,6 +2577,7 @@ export type Database = {
           backoff_type?: string;
           booking_id?: string;
           cancelled_at?: string | null;
+          claim_generation?: number;
           claimed_at?: string | null;
           created_at?: string;
           dedupe_key?: string;
@@ -8100,6 +8103,7 @@ export type Database = {
           backoff_type: string;
           booking_id: string;
           cancelled_at: string | null;
+          claim_generation: number;
           claimed_at: string | null;
           created_at: string;
           dedupe_key: string;
@@ -8133,6 +8137,17 @@ export type Database = {
           p_retry_delivery_log_id?: string | null;
         };
         Returns: boolean;
+      };
+      finalize_email_dispatch_intent_v2: {
+        Args: {
+          p_intent_id: string;
+          p_claim_generation: number;
+          p_status: string;
+          p_last_error?: string | null;
+          p_next_scheduled_for?: string | null;
+          p_payload_patch?: Json;
+        };
+        Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
       };
       finalize_email_dispatch_intent_v1: {
         Args: {

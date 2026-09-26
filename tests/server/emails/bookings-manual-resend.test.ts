@@ -186,6 +186,55 @@ describe('manual resend from the delivery log', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 
+  describe('manage_link resend', () => {
+    it('sends with the retry attempt key, the same key on every retry of that attempt', async () => {
+      const first = resendBookingEmailFromDeliveryLog({
+        booking: buildBooking(),
+        emailType: 'manage_link',
+        templateType: 'manage_link',
+        idempotencyKey: 'booking-email-retry:attempt-3',
+      });
+      await first;
+      await resendBookingEmailFromDeliveryLog({
+        booking: buildBooking(),
+        emailType: 'manage_link',
+        templateType: 'manage_link',
+        idempotencyKey: 'booking-email-retry:attempt-3',
+      });
+
+      expect(sendEmail).toHaveBeenCalledTimes(2);
+      const keys = sendEmail.mock.calls.map(
+        ([params]) => (params as { idempotencyKey: string }).idempotencyKey,
+      );
+      expect(keys).toEqual(['booking-email-retry:attempt-3', 'booking-email-retry:attempt-3']);
+    });
+
+    it('reports a suppressed recipient instead of resolving as sent', async () => {
+      sendEmail.mockRejectedValue(new SuppressedError('suppressed'));
+
+      await expect(
+        resendBookingEmailFromDeliveryLog({
+          booking: buildBooking(),
+          emailType: 'manage_link',
+          templateType: 'manage_link',
+          idempotencyKey: 'k',
+        }),
+      ).rejects.toBeInstanceOf(SuppressedError);
+    });
+
+    it('reports a booking without an email address', async () => {
+      await expect(
+        resendBookingEmailFromDeliveryLog({
+          booking: { ...buildBooking(), customer_email: null } as ReturnType<typeof buildBooking>,
+          emailType: 'manage_link',
+          templateType: 'manage_link',
+          idempotencyKey: 'k',
+        }),
+      ).rejects.toMatchObject({ code: 'MISSING_RECIPIENT' });
+      expect(sendEmail).not.toHaveBeenCalled();
+    });
+  });
+
   describe('queue sends with reportSkips', () => {
     it('rethrows a suppressed recipient instead of resolving as sent', async () => {
       sendEmail.mockRejectedValue(new SuppressedError('suppressed'));

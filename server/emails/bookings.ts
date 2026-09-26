@@ -1307,9 +1307,13 @@ async function resendBookingEmailByDeliveryType(
         ...manual,
       });
     case 'manage_link':
+      // Same contract as every other manual resend: strict (a suppressed or missing recipient
+      // is reported, never recorded as sent) and the claim's per-attempt provider key, so a
+      // takeover of an ambiguous attempt cannot deliver a second link. The nonce only feeds
+      // the fallback key, which is unused whenever the claim supplied one.
       return dispatchEmail('manage_link', booking, {
-        skipRecentDeliveryCheck: true,
-        nonce: `resend:${Date.now()}`,
+        ...manual,
+        nonce: resendOptions.idempotencyKey ?? `resend:${Date.now()}`,
       });
     default:
       if (normalizedTemplateType === 'review_request') {

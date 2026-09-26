@@ -158,4 +158,4 @@ Source of truth: `server/bookings/guest-booking-access.ts` and `server/security/
 - **Retired.** The contact-scoped `sr2` token and `sr_access` cookie, the
   `x-session-recovery-token` header, `GET /api/bookings?email&phone` (410
   `CONTACT_LOOKUP_REMOVED`) and `/api/bookings/confirm` (410). `SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS`
-  is still parsed but no longer sets any lifetime.
+  and `GUEST_LOOKUP_PEPPER` are no longer parsed; a leftover value is ignored.

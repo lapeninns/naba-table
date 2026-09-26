@@ -125,6 +125,29 @@ function describeThrowable(err: unknown): ThrowableLogMeta {
   if (typeof err === 'string') {
     return { errorName: 'string', errorMessage: sanitizeLogText(err) };
   }
+  if (typeof err === 'object' && err !== null) {
+    // Supabase/PostgREST results carry plain `{ message, code, details, hint }` objects, not Error
+    // instances. Log the code and the sanitised message only: `details` and `hint` echo row
+    // values (for example the conflicting email in a unique violation), so they are never logged.
+    const record = err as { name?: unknown; message?: unknown; code?: unknown };
+    const message = typeof record.message === 'string' ? record.message : '';
+    const hasMessage = message.length > 0;
+    const hasCode =
+      (typeof record.code === 'string' && record.code.length > 0) ||
+      typeof record.code === 'number';
+    if (hasMessage || hasCode) {
+      const meta: ThrowableLogMeta = {
+        errorName:
+          typeof record.name === 'string' && record.name.length > 0
+            ? sanitizeLogText(record.name)
+            : 'PostgrestError',
+      };
+      if (hasCode) meta.errorKind = sanitizeLogText(String(record.code));
+      if (hasMessage) meta.errorMessage = sanitizeLogText(message);
+      return meta;
+    }
+    return { errorName: 'object' };
+  }
   return { errorName: err === null ? 'null' : typeof err };
 }
 
