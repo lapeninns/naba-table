@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  apiError,
+  conflict,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { env } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -64,6 +73,38 @@ import { createOpsBookingApiTiming } from '../_shared/performance';
 import type { BookingRecord } from '@/server/bookings';
 import type { Json, Tables } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
+
+const routeLogger = logger.child({ module: 'api.ops.bookings.id' });
+
+const BOOKING_NOT_FOUND_MESSAGE = 'Booking not found';
+
+function bookingNotFound() {
+  return notFound('BOOKING_NOT_FOUND', BOOKING_NOT_FOUND_MESSAGE);
+}
+
+function missingBookingId() {
+  return apiError(400, 'INVALID_BOOKING_ID', 'Booking id is missing.');
+}
+
+function authFailure(error: unknown) {
+  const mapped = mapSupabaseAuthError(error);
+  return apiError(mapped.status, mapped.code, mapped.message);
+}
+
+/** softCancelBooking's BookingNotCancellableError, matched structurally. */
+function readNotCancellable(
+  error: unknown,
+): { currentStatus: Tables<'bookings'>['status'] | null } | null {
+  if (!error || typeof error !== 'object') return null;
+  const record = error as { code?: unknown; currentStatus?: unknown };
+  if (record.code !== 'BOOKING_NOT_CANCELLABLE') return null;
+  const status = typeof record.currentStatus === 'string' ? record.currentStatus : null;
+  return { currentStatus: status as Tables<'bookings'>['status'] | null };
+}
+
+function invalidDateValues() {
+  return apiError(400, 'INVALID_DATE_VALUES', 'Invalid date values');
+}
 
 const overrideSchema = z
   .object({
@@ -194,7 +235,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return missingBookingId();
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -204,16 +245,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   } = await tenantSupabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/bookings][GET] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return authFailure(authError);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthenticated('Unauthorized');
   }
   const userId = user.id;
 
@@ -221,12 +257,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
     authorizedRestaurantIds = await loadAuthorizedRestaurantIds(userId, tenantSupabase);
   } catch (membershipError) {
-    console.error('[ops/bookings][GET] failed to load memberships', membershipError);
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return internalError(membershipError, { route: 'ops.bookings.get', stage: 'memberships' });
   }
 
   if (authorizedRestaurantIds.length === 0) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return bookingNotFound();
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -246,10 +281,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   detailResult ??= { ok: false, status: 404, error: 'Booking not found' };
 
   if (!detailResult.ok) {
-    if (detailResult.status === 500) {
-      return NextResponse.json({ error: detailResult.error }, { status: 500 });
+    if (detailResult.status === 404) {
+      return bookingNotFound();
     }
-    return NextResponse.json({ error: detailResult.error }, { status: detailResult.status });
+    if (detailResult.status >= 500) {
+      return internalError(new Error('Booking detail load failed'), {
+        route: 'ops.bookings.get',
+        bookingId,
+      });
+    }
+    return apiError(
+      detailResult.status,
+      detailResult.code ?? 'BOOKING_DETAIL_UNAVAILABLE',
+      detailResult.error,
+    );
   }
 
   return NextResponse.json(detailResult.payload, {
@@ -265,22 +310,19 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const bookingId = await timing.measure('params', resolveBookingId(params));
 
   if (!bookingId) {
-    return timing.json({ error: 'Missing booking id' }, { status: 400 });
+    return timing.withHeaders(missingBookingId());
   }
 
   let payload: unknown;
   try {
     payload = await timing.measure('parse_body', req.json());
   } catch {
-    return timing.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    return timing.withHeaders(apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.'));
   }
 
   const parsed = dashboardUpdateSchema.safeParse(payload);
   if (!parsed.success) {
-    return timing.json(
-      { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return timing.withHeaders(validationError(parsed.error));
   }
 
   const tenantSupabase = await timing.measure('route_client', getRouteHandlerSupabaseClient());
@@ -290,13 +332,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   } = await timing.measure('auth_get_user', tenantSupabase.auth.getUser());
 
   if (authError) {
-    console.error('[ops/bookings][PATCH] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return timing.json({ error: mapped.message, code: mapped.code }, { status: mapped.status });
+    return timing.withHeaders(authFailure(authError));
   }
 
   if (!user) {
-    return timing.json({ error: 'Unauthorized' }, { status: 401 });
+    return timing.withHeaders(unauthenticated('Unauthorized'));
   }
 
   let memberships: Awaited<ReturnType<typeof fetchUserMemberships>>;
@@ -308,8 +348,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       fetchUserMemberships(user.id, tenantSupabase),
     );
   } catch (membershipError) {
-    console.error('[ops/bookings][PATCH] failed to load memberships', membershipError);
-    return timing.json({ error: 'Unable to verify access' }, { status: 500 });
+    return timing.withHeaders(
+      internalError(membershipError, { route: 'ops.bookings.patch', stage: 'memberships' }),
+    );
   }
 
   const authorizedRestaurantIds = memberships
@@ -320,7 +361,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     );
 
   if (authorizedRestaurantIds.length === 0) {
-    return timing.json({ error: 'Booking not found' }, { status: 404 });
+    return timing.withHeaders(bookingNotFound());
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -335,8 +376,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   );
 
   if (error) {
-    console.error('[ops/bookings][PATCH] failed to load booking', error);
-    return timing.json({ error: 'Unable to load booking' }, { status: 500 });
+    return timing.withHeaders(
+      internalError(error, { route: 'ops.bookings.patch', stage: 'load_booking', bookingId }),
+    );
   }
 
   const existingBooking = existing as
@@ -359,7 +401,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     | null;
 
   if (!existingBooking) {
-    return timing.json({ error: 'Booking not found' }, { status: 404 });
+    return timing.withHeaders(bookingNotFound());
   }
 
   const restaurantRelation = Array.isArray(existingBooking.restaurants)
@@ -375,7 +417,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     startVenue = convertIsoToVenueDateTime(parsed.data.startIso, restaurantTimezone);
   } catch {
-    return timing.json({ error: 'Invalid date values' }, { status: 400 });
+    return timing.withHeaders(invalidDateValues());
   }
 
   const startDate = startVenue.dateTime.toUTC().toJSDate();
@@ -454,7 +496,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         scheduleTimezone,
       );
     } catch {
-      return timing.json({ error: 'Invalid date values' }, { status: 400 });
+      return timing.withHeaders(invalidDateValues());
     }
 
     bookingDate = startVenue.date;
@@ -541,7 +583,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   if (endDate.getTime() <= startDate.getTime()) {
-    return timing.json({ error: 'End time must be after start time' }, { status: 400 });
+    return timing.withHeaders(
+      apiError(400, 'INVALID_TIME_RANGE', 'End time must be after start time'),
+    );
   }
 
   const requiresTableRealignment =
@@ -650,13 +694,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           });
         });
 
-        return timing.json(
-          {
-            error: pastTimeError.message,
-            code: pastTimeError.code,
+        return timing.withHeaders(
+          apiError(422, pastTimeError.code, pastTimeError.message, {
             details: pastTimeError.details,
-          },
-          { status: 422 },
+          }),
         );
       }
       throw pastTimeError;
@@ -732,7 +773,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         },
       );
     } catch (jobError) {
-      console.error('[ops/bookings][PATCH] side effects failed', jobError);
+      routeLogger.warn('patch.side_effects_failed', {
+        bookingId,
+        errorName: jobError instanceof Error ? jobError.name : typeof jobError,
+      });
     }
 
     invalidateOpsDashboardCaches(updated.restaurant_id ?? existingBooking.restaurant_id, {
@@ -779,8 +823,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       realigned: requiresTableRealignment,
     });
   } catch (updateError) {
-    console.error('[ops/bookings][PATCH] update failed', updateError);
-
     captureRestaurantServerEvent('booking_modify_failed', {
       restaurantId: restaurantId || undefined,
       distinctId: user.id,
@@ -797,27 +839,28 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       if (mapped) {
         const status =
           mapped.kind === 'overlap_conflict' || mapped.kind === 'unique_conflict' ? 409 : 422;
-        return timing.json(
-          {
-            error: mapped.userMessage,
-            code:
-              mapped.kind === 'overlap_conflict'
-                ? 'ALLOCATION_CONFLICT'
-                : mapped.kind === 'unique_conflict'
-                  ? 'UNIQUE_CONFLICT'
-                  : mapped.kind === 'fk_conflict'
-                    ? 'FK_CONFLICT'
-                    : mapped.kind === 'check_violation'
-                      ? 'CHECK_VIOLATION'
-                      : 'DB_CONSTRAINT_ERROR',
-            retryable: isRetryableConstraintError(updateError),
-          },
-          { status },
+        return timing.withHeaders(
+          apiError(
+            status,
+            mapped.kind === 'overlap_conflict'
+              ? 'ALLOCATION_CONFLICT'
+              : mapped.kind === 'unique_conflict'
+                ? 'UNIQUE_CONFLICT'
+                : mapped.kind === 'fk_conflict'
+                  ? 'FK_CONFLICT'
+                  : mapped.kind === 'check_violation'
+                    ? 'CHECK_VIOLATION'
+                    : 'DB_CONSTRAINT_ERROR',
+            mapped.userMessage,
+            { retryable: isRetryableConstraintError(updateError) },
+          ),
         );
       }
     }
 
-    return timing.json({ error: 'Unable to update booking' }, { status: 500 });
+    return timing.withHeaders(
+      internalError(updateError, { route: 'ops.bookings.patch', bookingId }),
+    );
   }
 }
 
@@ -981,7 +1024,10 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
         },
       );
     } catch (jobError) {
-      console.error('[ops/bookings][PATCH][unified] side effects failed', jobError);
+      routeLogger.warn('patch.side_effects_failed', {
+        bookingId,
+        errorName: jobError instanceof Error ? jobError.name : typeof jobError,
+      });
     }
 
     if (validationResponse.overridden) {
@@ -1068,7 +1114,6 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
       return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
     }
 
-    console.error('[ops/bookings][PATCH][unified] update failed', error);
     captureRestaurantServerEvent('booking_modify_failed', {
       restaurantId: existingBooking.restaurant_id ?? undefined,
       distinctId: user.id,
@@ -1081,15 +1126,29 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
         : undefined,
       properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
     });
-    return NextResponse.json({ error: 'Unable to update booking' }, { status: 500 });
+    return internalError(error, { route: 'ops.bookings.patch.unified', bookingId });
   }
+}
+
+const CANCELLABLE_STATUSES = new Set<Tables<'bookings'>['status']>([
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'PRIORITY_WAITLIST',
+]);
+
+function bookingNotCancellable(currentStatus: Tables<'bookings'>['status'] | null) {
+  return conflict('BOOKING_NOT_CANCELLABLE', 'This booking can no longer be cancelled.', {
+    retryable: false,
+    details: { currentStatus },
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return missingBookingId();
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -1099,28 +1158,22 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   } = await tenantSupabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/bookings][DELETE] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return authFailure(authError);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthenticated('Unauthorized');
   }
 
   let authorizedRestaurantIds: string[];
   try {
     authorizedRestaurantIds = await loadAuthorizedRestaurantIds(user.id, tenantSupabase);
   } catch (membershipError) {
-    console.error('[ops/bookings][DELETE] failed to load memberships', membershipError);
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return internalError(membershipError, { route: 'ops.bookings.delete', stage: 'memberships' });
   }
 
   if (authorizedRestaurantIds.length === 0) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return bookingNotFound();
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -1132,18 +1185,22 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (error) {
-    console.error('[ops/bookings][DELETE] failed to load booking', error);
-    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
+    return internalError(error, { route: 'ops.bookings.delete', stage: 'load_booking', bookingId });
   }
 
   const existingBooking = existing as Tables<'bookings'> | null;
 
   if (!existingBooking) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return bookingNotFound();
   }
 
   if (existingBooking.status === 'cancelled') {
     return NextResponse.json({ id: bookingId, status: existingBooking.status });
+  }
+
+  // Fast path for the common case; the RPC enforces the same rule under the row lock.
+  if (!CANCELLABLE_STATUSES.has(existingBooking.status)) {
+    return bookingNotCancellable(existingBooking.status);
   }
 
   // Use tenant-scoped client for all cancellation operations
@@ -1188,7 +1245,10 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
         { supabase: tenantClient },
       );
     } catch (jobError) {
-      console.error('[ops/bookings][DELETE] side effects failed', jobError);
+      routeLogger.warn('delete.side_effects_failed', {
+        bookingId,
+        errorName: jobError instanceof Error ? jobError.name : typeof jobError,
+      });
     }
 
     invalidateOpsDashboardCaches(existingBooking.restaurant_id, {
@@ -1197,23 +1257,25 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ id: bookingId, status: cancelled.status });
   } catch (deleteError) {
-    console.error('[ops/bookings][DELETE] cancellation failed', deleteError);
+    const notCancellable = readNotCancellable(deleteError);
+    if (notCancellable) {
+      captureRestaurantServerEvent('booking_cancel_failed', {
+        restaurantId: existingBooking.restaurant_id ?? undefined,
+        distinctId: user.id,
+        props: { bookingId, source: 'ops', method: 'ops', reason: 'not_cancellable' },
+      });
+      return bookingNotCancellable(notCancellable.currentStatus);
+    }
 
     if (typeof deleteError === 'object' && deleteError !== null) {
-      const record = deleteError as { code?: string; message?: string };
+      const record = deleteError as { code?: string };
       if (record.code === '42501') {
         captureRestaurantServerEvent('booking_cancel_failed', {
           restaurantId: existingBooking.restaurant_id ?? undefined,
           distinctId: user.id,
           props: { bookingId, source: 'ops', method: 'ops', reason: 'cutoff_passed' },
         });
-        return NextResponse.json(
-          {
-            error: 'This booking can no longer be cancelled online.',
-            code: 'CUTOFF_PASSED',
-          },
-          { status: 403 },
-        );
+        return apiError(403, 'CUTOFF_PASSED', 'This booking can no longer be cancelled online.');
       }
     }
 
@@ -1229,6 +1291,6 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
         : undefined,
       properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]' },
     });
-    return NextResponse.json({ error: 'Unable to cancel booking' }, { status: 500 });
+    return internalError(deleteError, { route: 'ops.bookings.delete', bookingId });
   }
 }

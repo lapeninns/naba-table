@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { captureServerException } from '@/lib/posthog/server';
+import { logger } from '@/lib/logger';
 import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
 import { prepareCheckOutTransition } from '@/server/ops/booking-lifecycle/actions';
-import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
+import {
+  buildLifecycleSuccessBody,
+  lifecycleValidationErrorResponse,
+  missingBookingIdResponse,
+} from '../_shared/lifecycleResponses';
 import {
   loadLifecycleRouteContext,
   parseOptionalRouteBody,
@@ -28,6 +32,9 @@ type RouteParams = {
   params: Promise<{ id: string | string[] }>;
 };
 
+const LOG_LABEL = 'booking-check-out';
+const checkOutLogger = logger.child({ module: 'api.ops.bookings.check_out' });
+
 export async function POST(req: NextRequest, { params }: RouteParams) {
   return withCsrfProtectedMutation(req, () => postCheckOut(req, { params }));
 }
@@ -35,7 +42,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 async function postCheckOut(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return missingBookingIdResponse();
   }
 
   const parsedBody = await parseOptionalRouteBody(req, bodySchema);
@@ -47,7 +54,7 @@ async function postCheckOut(req: NextRequest, { params }: RouteParams) {
   const contextResult = await loadLifecycleRouteContext({
     req,
     bookingId: id,
-    logLabel: 'booking-check-out',
+    logLabel: LOG_LABEL,
   });
   if (contextResult.response) {
     return contextResult.response;
@@ -71,62 +78,57 @@ async function postCheckOut(req: NextRequest, { params }: RouteParams) {
       performedAt: payload.performedAt ?? null,
     });
   } catch (validationError) {
-    if (validationError instanceof BookingLifecycleError) {
-      const status = validationError.code === 'TIMESTAMP_INVALID' ? 400 : 409;
-      return NextResponse.json({ error: validationError.message }, { status });
-    }
-    console.error('[ops][booking-check-out] unexpected validation error', validationError);
-    captureServerException(validationError, {
-      distinctId: userId,
-      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
-      properties: { bookingId: booking.id, source: 'ops', kind: 'booking-check-out' },
+    return lifecycleValidationErrorResponse(validationError, {
+      route: LOG_LABEL,
+      bookingId: booking.id,
+      restaurantId: booking.restaurant_id,
+      userId,
+      currentStatus: booking.status,
     });
-    return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 
   const persistResult = await persistLifecycleTransition({
     booking,
     transition,
     serviceSupabase,
-    logLabel: 'booking-check-out',
-    failureMessage: 'Unable to check out booking',
+    logLabel: LOG_LABEL,
+    userId,
     releaseAssignments: true,
   });
   if (persistResult.response) {
     return persistResult.response;
   }
 
-  if (persistResult.result.changed) {
-    invalidateOpsDashboardCaches(booking.restaurant_id, {
-      summaryDates: [booking.booking_date],
+  const { result } = persistResult;
+
+  if (!result.changed) {
+    return NextResponse.json(buildLifecycleSuccessBody({ booking, result }));
+  }
+
+  invalidateOpsDashboardCaches(booking.restaurant_id, {
+    summaryDates: [booking.booking_date],
+  });
+
+  // Schedule the review request email after a real check-out. No "update" notification is
+  // sent: check-out is an internal operational action, not a booking modification.
+  try {
+    const { data: fullBooking } = await serviceSupabase
+      .from('bookings')
+      .select('*')
+      .eq('id', booking.id)
+      .maybeSingle();
+
+    if (fullBooking && booking.restaurant_id) {
+      await enqueueCheckOutSideEffects(fullBooking, booking.restaurant_id);
+    }
+  } catch (sideEffectsError) {
+    checkOutLogger.warn('check_out.review_schedule_failed', {
+      bookingId: booking.id,
+      errorName:
+        sideEffectsError instanceof Error ? sideEffectsError.name : typeof sideEffectsError,
     });
   }
 
-  // Schedule review request email after successful check-out
-  // Note: This ONLY schedules the review email - no "update" notification is sent
-  // because check-out is an internal operational action, not a booking modification
-  if (persistResult.result.changed) {
-    try {
-      const { data: fullBooking } = await serviceSupabase
-        .from('bookings')
-        .select('*')
-        .eq('id', booking.id)
-        .maybeSingle();
-
-      if (fullBooking && booking.restaurant_id) {
-        await enqueueCheckOutSideEffects(fullBooking, booking.restaurant_id);
-      }
-    } catch (sideEffectsError) {
-      console.warn('[ops][booking-check-out] failed to schedule review email', {
-        bookingId: booking.id,
-        error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
-      });
-    }
-  }
-
-  return NextResponse.json({
-    status: persistResult.result.status,
-    checkedInAt: persistResult.result.checkedInAt,
-    checkedOutAt: persistResult.result.checkedOutAt,
-  });
+  // The transition released every table in the same transaction.
+  return NextResponse.json(buildLifecycleSuccessBody({ booking, result, assignments: [] }));
 }

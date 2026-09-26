@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { captureServerException } from '@/lib/posthog/server';
+import { internalError } from '@/lib/api/errors';
 import { prepareUndoNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
-import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
 import {
+  buildLifecycleSuccessBody,
+  lifecycleValidationErrorResponse,
+  missingBookingIdResponse,
+} from '../_shared/lifecycleResponses';
+import {
+  loadBookingAssignmentRows,
   loadLifecycleRouteContext,
   parseOptionalRouteBody,
-  persistLifecycleTransition,
+  persistUndoNoShowTransition,
   resolveBookingId,
 } from '../_shared/lifecycleRoute';
 
@@ -18,7 +23,7 @@ import type { NextRequest } from 'next/server';
 
 const bodySchema = z
   .object({
-    reason: z.string().trim().min(1).optional(),
+    reason: z.string().trim().min(1).max(500).optional(),
   })
   .optional()
   .transform((value) => value ?? {});
@@ -27,6 +32,8 @@ type RouteParams = {
   params: Promise<{ id: string | string[] }>;
 };
 
+const LOG_LABEL = 'booking-undo-no-show';
+
 export async function POST(req: NextRequest, { params }: RouteParams) {
   return withCsrfProtectedMutation(req, () => postUndoNoShow(req, { params }));
 }
@@ -34,7 +41,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 async function postUndoNoShow(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return missingBookingIdResponse();
   }
 
   const parsedBody = await parseOptionalRouteBody(req, bodySchema);
@@ -46,7 +53,7 @@ async function postUndoNoShow(req: NextRequest, { params }: RouteParams) {
   const contextResult = await loadLifecycleRouteContext({
     req,
     bookingId: id,
-    logLabel: 'booking-undo-no-show',
+    logLabel: LOG_LABEL,
   });
   if (contextResult.response) {
     return contextResult.response;
@@ -64,8 +71,7 @@ async function postUndoNoShow(req: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (historyError) {
-    console.error('[ops][booking-undo-no-show] failed to read history', historyError.message);
-    return NextResponse.json({ error: 'Unable to load history' }, { status: 500 });
+    return internalError(historyError, { route: LOG_LABEL, stage: 'load_history', bookingId: id });
   }
 
   let transition;
@@ -85,40 +91,55 @@ async function postUndoNoShow(req: NextRequest, { params }: RouteParams) {
       reason: payload.reason ?? null,
     });
   } catch (validationError) {
-    if (validationError instanceof BookingLifecycleError) {
-      const status =
-        validationError.code === 'TIMESTAMP_INVALID' || validationError.code === 'MISSING_HISTORY'
-          ? 400
-          : 409;
-      return NextResponse.json({ error: validationError.message }, { status });
-    }
-    console.error('[ops][booking-undo-no-show] unexpected validation error', validationError);
-    captureServerException(validationError, {
-      distinctId: userId,
-      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
-      properties: { bookingId: booking.id, source: 'ops', kind: 'booking-undo-no-show' },
+    return lifecycleValidationErrorResponse(validationError, {
+      route: LOG_LABEL,
+      bookingId: booking.id,
+      restaurantId: booking.restaurant_id,
+      userId,
+      currentStatus: booking.status,
     });
-    return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 
-  const persistResult = await persistLifecycleTransition({
+  const sourceHistoryId = historyEntry ? Number(historyEntry.id) : Number.NaN;
+  if (!Number.isSafeInteger(sourceHistoryId)) {
+    return internalError(new Error('No-show history id is not an integer'), {
+      route: LOG_LABEL,
+      stage: 'history_id',
+      bookingId: id,
+    });
+  }
+
+  // One transaction: compare-and-set no_show -> previous status, then re-assign the tables
+  // the no-show released if they are all still free (all-or-nothing).
+  const persistResult = await persistUndoNoShowTransition({
     booking,
     transition,
+    sourceHistoryId,
     serviceSupabase,
-    logLabel: 'booking-undo-no-show',
-    failureMessage: 'Unable to undo no-show',
+    logLabel: LOG_LABEL,
+    userId,
   });
   if (persistResult.response) {
     return persistResult.response;
   }
 
+  const { result } = persistResult;
+
   invalidateOpsDashboardCaches(booking.restaurant_id, {
     summaryDates: [booking.booking_date],
   });
 
-  return NextResponse.json({
-    status: persistResult.result.status,
-    checkedInAt: persistResult.result.checkedInAt,
-    checkedOutAt: persistResult.result.checkedOutAt,
-  });
+  // Re-read rather than assume []: a table may have been assigned while the booking was a
+  // no-show.
+  const assignments = await loadBookingAssignmentRows(serviceSupabase, booking.id, LOG_LABEL);
+
+  return NextResponse.json(
+    buildLifecycleSuccessBody({
+      booking,
+      result,
+      // null = committed but could not be re-read; the client refetches instead.
+      assignments: assignments ?? undefined,
+      tableRestoration: result.tableRestoration,
+    }),
+  );
 }

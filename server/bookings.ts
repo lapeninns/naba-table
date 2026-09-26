@@ -426,6 +426,41 @@ export async function addToWaitingList(
   return { id: created.id, position, existing: false };
 }
 
+/**
+ * Raised by `softCancelBooking` when the booking's status forbids cancellation
+ * (checked_in, completed, no_show). The DB enforces it under the booking row lock, so this
+ * also covers a status change between a caller's read and the cancel.
+ */
+export class BookingNotCancellableError extends Error {
+  readonly code = 'BOOKING_NOT_CANCELLABLE';
+  readonly currentStatus: BookingRecord['status'] | null;
+
+  constructor(currentStatus: BookingRecord['status'] | null) {
+    super('This booking can no longer be cancelled.');
+    this.name = 'BookingNotCancellableError';
+    this.currentStatus = currentStatus;
+  }
+}
+
+const NON_CANCELLABLE_STATUSES = new Set<string>(['checked_in', 'completed', 'no_show']);
+
+function readNotCancellableStatus(error: {
+  details?: string | null;
+}): BookingRecord['status'] | null {
+  try {
+    const parsed: unknown = JSON.parse(error.details ?? '');
+    const status =
+      parsed && typeof parsed === 'object'
+        ? (parsed as { currentStatus?: unknown }).currentStatus
+        : null;
+    return typeof status === 'string' && NON_CANCELLABLE_STATUSES.has(status)
+      ? (status as BookingRecord['status'])
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function softCancelBooking(
   client: DbClient,
   bookingId: string,
@@ -437,6 +472,9 @@ export async function softCancelBooking(
   });
 
   if (error) {
+    if (error.code === 'P0004' && error.message === 'booking_not_cancellable') {
+      throw new BookingNotCancellableError(readNotCancellableStatus(error));
+    }
     throw error;
   }
 
