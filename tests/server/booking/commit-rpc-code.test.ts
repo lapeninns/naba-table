@@ -166,4 +166,33 @@ describe('BookingValidationService commit failures carry the RPC code', () => {
     const issue = await commitFailure('CAPACITY_EXCEEDED');
     expect(issue).toMatchObject({ code: 'CAPACITY_EXCEEDED', rpcCode: 'CAPACITY_EXCEEDED' });
   });
+
+  it('never copies raw RPC database text into the client-visible issue detail', async () => {
+    const rawDetails = {
+      sqlstate: '23514',
+      sqlerrm: 'new row for alex@example.com violates check constraint SECRET_DB_DETAIL',
+      timezone: 'Europe/London',
+      availableCovers: 0,
+    };
+    const { service } = makeService({
+      createBooking: vi.fn().mockResolvedValue({
+        success: false,
+        error: 'INTERNAL_ERROR',
+        details: rawDetails,
+        originalResult: { success: false, error: 'INTERNAL_ERROR', details: rawDetails },
+      }),
+    });
+    const thrown = await service.createWithEnforcement(baseInput, context).then(
+      () => null,
+      (reason: unknown) => reason,
+    );
+    expect(thrown).toBeInstanceOf(BookingValidationError);
+    const issue = (thrown as BookingValidationError).response.issues[0];
+    expect(issue?.detail).toEqual({ timezone: 'Europe/London', availableCovers: 0 });
+    const serialized = JSON.stringify((thrown as BookingValidationError).response);
+    expect(serialized).not.toContain('sqlerrm');
+    expect(serialized).not.toContain('sqlstate');
+    expect(serialized).not.toContain('SECRET_DB_DETAIL');
+    expect(serialized).not.toContain('alex@example.com');
+  });
 });

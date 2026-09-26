@@ -8,6 +8,7 @@ import {
   OperatingHoursError,
   assertBookingWithinOperatingWindow,
 } from '@/server/bookings/timeValidation';
+import { safeCapacityErrorDetails } from '@/server/capacity/safe-error-details';
 import { recordObservabilityEvent } from '@/server/observability';
 import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
 
@@ -255,7 +256,9 @@ export class BookingValidationService {
           code === 'CAPACITY_EXCEEDED'
             ? 'No capacity available for the requested time.'
             : 'Unable to complete booking due to capacity constraints.',
-        detail: commitResult.details ?? commitResult.originalResult?.details ?? undefined,
+        detail: safeCapacityErrorDetails(
+          commitResult.details ?? commitResult.originalResult?.details,
+        ),
         overridable: false,
       };
       const rpcCode = capacityRpcErrorCode(commitResult.originalResult);

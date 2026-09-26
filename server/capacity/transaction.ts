@@ -4,6 +4,7 @@ import { recordObservabilityEvent } from '@/server/observability';
 import { isAllocatorServiceFailHard } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import { safeCapacityErrorDetails } from './safe-error-details';
 import {
   CapacityError,
   type BookingResult,
@@ -34,8 +35,10 @@ function safeErrorContext(error: unknown): { errorCode?: string; errorMessage: s
   const raw =
     error instanceof Error
       ? error.message
-      : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
-        ? ((error as { message: string }).message)
+      : error &&
+          typeof error === 'object' &&
+          typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
         : String(error);
   const errorMessage = sanitizeLogText(raw).slice(0, MAX_LOGGED_ERROR_TEXT);
   return code ? { errorCode: code, errorMessage } : { errorMessage };
@@ -306,8 +309,7 @@ export async function createBookingWithCapacityCheck(
           startTime: params.startTime,
           partySize: params.partySize,
           error: result.error ?? 'UNKNOWN',
-          message: result.message ?? undefined,
-          details: result.details ?? undefined,
+          details: safeCapacityErrorDetails(result.details),
         },
       });
     }
@@ -430,8 +432,7 @@ export async function updateBookingWithCapacityCheck(
           startTime: params.startTime,
           partySize: params.partySize,
           error: result.error ?? 'UNKNOWN',
-          message: result.message ?? undefined,
-          details: result.details ?? undefined,
+          details: safeCapacityErrorDetails(result.details),
         },
       });
     }

@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createBookingWithCapacityCheck } from '@/server/capacity/transaction';
+import {
+  createBookingWithCapacityCheck,
+  updateBookingWithCapacityCheck,
+} from '@/server/capacity/transaction';
 
-import type { CreateBookingParams } from '@/server/capacity/types';
+import type { CreateBookingParams, UpdateBookingParams } from '@/server/capacity/types';
 
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 
@@ -135,5 +138,68 @@ describe('capacity transaction security', () => {
     const serialized = JSON.stringify(recordObservabilityEventMock.mock.calls);
     expect(serialized).not.toContain('alex@example.com');
     expect(serialized).not.toContain('SECRET_DB_DETAIL');
+  });
+
+  const internalErrorPayload = {
+    success: false,
+    error: 'INTERNAL_ERROR',
+    message: 'Unexpected error: value alex@example.com violates SECRET_DB_DETAIL',
+    details: {
+      sqlstate: '23514',
+      sqlerrm: 'new row for alex@example.com violates check constraint SECRET_DB_DETAIL',
+      timezone: 'Europe/London',
+      availableCovers: 3,
+    },
+  };
+
+  function failureEvent(eventType: string) {
+    return recordObservabilityEventMock.mock.calls
+      .map(([event]) => event as { eventType: string; context: Record<string, unknown> })
+      .find((event) => event.eventType === eventType);
+  }
+
+  it('never records raw RPC message or sqlerrm on a creation failure', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: internalErrorPayload, error: null });
+
+    await createBookingWithCapacityCheck(bookingParams, { rpc } as never);
+
+    const failure = failureEvent('booking.creation.failure');
+    expect(failure?.context).toMatchObject({
+      error: 'INTERNAL_ERROR',
+      details: { availableCovers: 3, timezone: 'Europe/London' },
+    });
+    expect(failure?.context).not.toHaveProperty('message');
+    const serialized = JSON.stringify(recordObservabilityEventMock.mock.calls);
+    expect(serialized).not.toContain('alex@example.com');
+    expect(serialized).not.toContain('SECRET_DB_DETAIL');
+    expect(serialized).not.toContain('sqlerrm');
+  });
+
+  it('never records raw RPC message or sqlerrm on an update failure', async () => {
+    const updateParams: UpdateBookingParams = {
+      bookingId: '33333333-3333-4333-8333-333333333333',
+      restaurantId: bookingParams.restaurantId,
+      customerId: bookingParams.customerId,
+      bookingDate: bookingParams.bookingDate,
+      startTime: bookingParams.startTime,
+      endTime: bookingParams.endTime,
+      partySize: bookingParams.partySize,
+      bookingType: bookingParams.bookingType,
+      customerName: bookingParams.customerName,
+      customerEmail: bookingParams.customerEmail,
+      customerPhone: bookingParams.customerPhone,
+      seatingPreference: bookingParams.seatingPreference,
+    };
+    const rpc = vi.fn().mockResolvedValue({ data: internalErrorPayload, error: null });
+
+    await updateBookingWithCapacityCheck(updateParams, { rpc } as never);
+
+    const failure = failureEvent('booking.update.failure');
+    expect(failure?.context).toMatchObject({ error: 'INTERNAL_ERROR' });
+    expect(failure?.context).not.toHaveProperty('message');
+    const serialized = JSON.stringify(recordObservabilityEventMock.mock.calls);
+    expect(serialized).not.toContain('alex@example.com');
+    expect(serialized).not.toContain('SECRET_DB_DETAIL');
+    expect(serialized).not.toContain('sqlerrm');
   });
 });
