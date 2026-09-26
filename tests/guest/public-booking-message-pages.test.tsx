@@ -151,11 +151,12 @@ describe('public booking confirmation and recovery surfaces', () => {
         'For safety, booking recovery links expire after a period of time. Your booking may still be valid.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/signin');
-    expect(screen.getByRole('link', { name: 'Manage another booking' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Email me a new link' })).toHaveAttribute(
       'href',
-      '/bookings',
+      '/bookings/find',
     );
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/signin');
+    expect(screen.queryByRole('link', { name: 'Manage another booking' })).not.toBeInTheDocument();
     expect(container.querySelector('main')).not.toBeInTheDocument();
   });
 
