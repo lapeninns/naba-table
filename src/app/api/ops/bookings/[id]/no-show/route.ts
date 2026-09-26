@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { captureServerException } from '@/lib/posthog/server';
 import { prepareNoShowTransition } from '@/server/ops/booking-lifecycle/actions';
-import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
+import {
+  buildLifecycleSuccessBody,
+  lifecycleValidationErrorResponse,
+  missingBookingIdResponse,
+} from '../_shared/lifecycleResponses';
 import {
   loadLifecycleRouteContext,
   parseOptionalRouteBody,
@@ -19,7 +22,7 @@ import type { NextRequest } from 'next/server';
 const bodySchema = z
   .object({
     performedAt: z.string().datetime({ offset: true }).optional(),
-    reason: z.string().trim().min(1).optional(),
+    reason: z.string().trim().min(1).max(500).optional(),
   })
   .optional()
   .transform((value) => value ?? {});
@@ -28,6 +31,8 @@ type RouteParams = {
   params: Promise<{ id: string | string[] }>;
 };
 
+const LOG_LABEL = 'booking-no-show';
+
 export async function POST(req: NextRequest, { params }: RouteParams) {
   return withCsrfProtectedMutation(req, () => postNoShow(req, { params }));
 }
@@ -35,7 +40,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 async function postNoShow(req: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return missingBookingIdResponse();
   }
 
   const parsedBody = await parseOptionalRouteBody(req, bodySchema);
@@ -47,7 +52,7 @@ async function postNoShow(req: NextRequest, { params }: RouteParams) {
   const contextResult = await loadLifecycleRouteContext({
     req,
     bookingId: id,
-    logLabel: 'booking-no-show',
+    logLabel: LOG_LABEL,
   });
   if (contextResult.response) {
     return contextResult.response;
@@ -72,25 +77,23 @@ async function postNoShow(req: NextRequest, { params }: RouteParams) {
       reason: payload.reason ?? null,
     });
   } catch (validationError) {
-    if (validationError instanceof BookingLifecycleError) {
-      const status = validationError.code === 'TIMESTAMP_INVALID' ? 400 : 409;
-      return NextResponse.json({ error: validationError.message }, { status });
-    }
-    console.error('[ops][booking-no-show] unexpected validation error', validationError);
-    captureServerException(validationError, {
-      distinctId: userId,
-      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
-      properties: { bookingId: booking.id, source: 'ops', kind: 'booking-no-show' },
+    return lifecycleValidationErrorResponse(validationError, {
+      route: LOG_LABEL,
+      bookingId: booking.id,
+      restaurantId: booking.restaurant_id,
+      userId,
+      currentStatus: booking.status,
     });
-    return NextResponse.json({ error: 'Unable to process booking' }, { status: 500 });
   }
 
+  // The releasing RPC records the released tables on the no-show history row, which is
+  // what lets undo-no-show restore them.
   const persistResult = await persistLifecycleTransition({
     booking,
     transition,
     serviceSupabase,
-    logLabel: 'booking-no-show',
-    failureMessage: 'Unable to mark booking as no-show',
+    logLabel: LOG_LABEL,
+    userId,
     releaseAssignments: true,
   });
   if (persistResult.response) {
@@ -101,9 +104,7 @@ async function postNoShow(req: NextRequest, { params }: RouteParams) {
     summaryDates: [booking.booking_date],
   });
 
-  return NextResponse.json({
-    status: persistResult.result.status,
-    checkedInAt: persistResult.result.checkedInAt,
-    checkedOutAt: persistResult.result.checkedOutAt,
-  });
+  return NextResponse.json(
+    buildLifecycleSuccessBody({ booking, result: persistResult.result, assignments: [] }),
+  );
 }

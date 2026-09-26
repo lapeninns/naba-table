@@ -60,6 +60,17 @@ async function availableBookingPayload(request: APIRequestContext) {
   throw new Error('No available synthetic lunch slot within the bounded proof window');
 }
 
+/**
+ * Guest writes need the double-submit CSRF pair. The proxy issues `sr-csrf-token` on the
+ * first response, which the request context stores; echo it back as the header.
+ */
+async function csrfHeaders(context: APIRequestContext): Promise<Record<string, string>> {
+  const state = await context.storageState();
+  const token = state.cookies.find((cookie) => cookie.name === 'sr-csrf-token')?.value;
+  if (!token) throw new Error('Staging proxy did not issue the CSRF cookie');
+  return { 'x-csrf-token': token };
+}
+
 async function createBooking(
   request: APIRequestContext,
   idempotencyKey: string,
@@ -74,7 +85,7 @@ async function createBooking(
 }
 
 test.describe('guest booking lifecycle on synthetic tenant', () => {
-  test('creates a booking and treats an idempotent replay as a duplicate @staging @p0', async ({
+  test('creates a booking and answers an idempotent replay exactly like the original @staging @p0', async ({
     request,
   }) => {
     const payload = await availableBookingPayload(request);
@@ -90,23 +101,29 @@ test.describe('guest booking lifecycle on synthetic tenant', () => {
       expect(created.booking?.restaurant_id).toBe(staging.tenantA.id);
       expect(created.duplicate).toBe(false);
 
-      // Reuse the exact object, including the selected date, for the replay.
+      // Reuse the exact object, including the selected date, for the replay. A fresh replay
+      // of the creator's own key answers like the insert (201, same body) and re-issues the
+      // booking cookie; it writes no second booking.
       const replay = await test.step('Replay identical booking request', () =>
         createBooking(request, key, payload));
-      expect(replay.status()).toBe(200);
-      const duplicate = (await replay.json()) as BookingResponse;
-      expect(duplicate.duplicate).toBe(true);
-      expect(duplicate.booking?.id).toBe(bookingId);
+      expect(replay.status()).toBe(201);
+      const replayed = (await replay.json()) as BookingResponse;
+      expect(replayed.duplicate).toBe(false);
+      expect(replayed.booking?.id).toBe(bookingId);
     } finally {
       if (bookingId) {
-        // Creation issued this request context's tenant/contact-bound sr_access
-        // recovery cookie. Cancel only the fixture created above and verify it.
-        const cancelled = await test.step('Cancel created fixture using recovery session', () =>
-          request.delete(`${staging.publicUrl}/api/bookings/${bookingId}`, { timeout: 15_000 }));
+        // Creation issued this request context the booking-scoped creator cookie
+        // (__Host-nt_bk.<id>). Cancel only the fixture created above and verify it.
+        const headers = await csrfHeaders(request);
+        const cancelled = await test.step('Cancel created fixture using the creator cookie', () =>
+          request.delete(`${staging.publicUrl}/api/bookings/${bookingId}`, {
+            headers,
+            timeout: 15_000,
+          }));
         expect(cancelled.status()).toBe(200);
         expect(await cancelled.json()).toMatchObject({ id: bookingId, status: 'cancelled' });
         const readback =
-          await test.step('Verify fixture cancellation through recovery session', () =>
+          await test.step('Verify fixture cancellation through the creator cookie', () =>
             request.get(`${staging.publicUrl}/api/bookings/${bookingId}`, { timeout: 15_000 }));
         expect(readback.status()).toBe(200);
         expect(await readback.json()).toMatchObject({
@@ -137,10 +154,11 @@ test.describe('guest booking lifecycle on synthetic tenant', () => {
     expect(text).not.toContain(staging.guest.phone);
   });
 
-  test('recovery sessions enforce tenant isolation and cancellation stays terminal @staging @p0 @security', async ({
+  test('creator cookies enforce tenant isolation and cancellation stays terminal @staging @p0 @security', async ({
     playwright,
   }) => {
-    // Separate cookie jars are essential: create issues a tenant/contact-bound sr_access cookie.
+    // Separate cookie jars are essential: create issues a booking-scoped creator cookie
+    // (__Host-nt_bk.<id>) to the context that made the booking.
     const contexts = await Promise.all(
       [staging.tenantA, staging.tenantB].map(async () =>
         withStagingProtection(
@@ -177,18 +195,27 @@ test.describe('guest booking lifecycle on synthetic tenant', () => {
         const other = contexts[1 - index]!;
         for (const method of ['get', 'delete'] as const) {
           const denied = await other[method](`/api/bookings/${booking.id}`, {
-            headers: { 'x-restaurant-id': [staging.tenantA, staging.tenantB][index]!.id },
+            headers: {
+              'x-restaurant-id': [staging.tenantA, staging.tenantB][index]!.id,
+              ...(await csrfHeaders(other)),
+            },
           });
           expect(denied.status()).toBe(404);
           expect(await denied.json()).toMatchObject({ code: 'BOOKING_NOT_FOUND' });
         }
-        const cancelled = await booking.context.delete(`/api/bookings/${booking.id}`);
+        const ownHeaders = await csrfHeaders(booking.context);
+        const cancelled = await booking.context.delete(`/api/bookings/${booking.id}`, {
+          headers: ownHeaders,
+        });
         expect(cancelled.status()).toBe(200);
         expect(await cancelled.json()).toMatchObject({ id: booking.id, status: 'cancelled' });
-        const replay = await booking.context.delete(`/api/bookings/${booking.id}`);
+        const replay = await booking.context.delete(`/api/bookings/${booking.id}`, {
+          headers: ownHeaders,
+        });
         expect(replay.status()).toBe(200);
         expect(await replay.json()).toMatchObject({ id: booking.id, status: 'cancelled' });
         const update = await booking.context.put(`/api/bookings/${booking.id}`, {
+          headers: ownHeaders,
           data: bookingPayload({ restaurantId: [staging.tenantA, staging.tenantB][index]!.id }),
         });
         expect(update.status()).toBe(409);
@@ -200,7 +227,9 @@ test.describe('guest booking lifecycle on synthetic tenant', () => {
     } finally {
       // Best-effort cancellation retains audit history, including if an assertion failed.
       for (const booking of bookings) {
-        await booking.context.delete(`/api/bookings/${booking.id}`).catch(() => undefined);
+        await csrfHeaders(booking.context)
+          .then((headers) => booking.context.delete(`/api/bookings/${booking.id}`, { headers }))
+          .catch(() => undefined);
       }
       await Promise.all(contexts.map((context) => context.dispose()));
     }

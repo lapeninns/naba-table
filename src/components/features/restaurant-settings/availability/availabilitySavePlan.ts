@@ -1,61 +1,140 @@
-import { toComparableTime } from '../availabilityScheduleTime';
+import {
+  buildOperatingHoursPayload,
+  extractRequiredOccasionKeys,
+} from '../availabilityScheduleManagerUtils';
+import {
+  buildAvailabilityOccasionSavePlan,
+  buildAvailabilityServicePayload,
+  buildAvailabilityTurnBandsPayload,
+} from '../availabilitySchedulePayloadDomain';
 import {
   getDirtyAvailabilityGroups,
   type AvailabilityPageDraft,
   type AvailabilitySaveGroup,
 } from './availabilityPageDraft';
 
-/** True when any weekday opens later, closes earlier or closes altogether in the draft. */
-export function hasNarrowedWeeklyHours(
-  saved: AvailabilityPageDraft,
-  draft: AvailabilityPageDraft,
-): boolean {
-  return draft.weeklyRows.some((row) => {
-    const before = saved.weeklyRows.find((item) => item.dayOfWeek === row.dayOfWeek);
-    if (!before || before.isClosed) {
-      return false;
-    }
-    if (row.isClosed) {
-      return true;
-    }
-    const openBefore = toComparableTime(before.opensAt);
-    const openAfter = toComparableTime(row.opensAt);
-    const closeBefore = toComparableTime(before.closesAt);
-    const closeAfter = toComparableTime(row.closesAt);
-    return Boolean(
-      (openBefore && openAfter && openAfter > openBefore) ||
-      (closeBefore && closeAfter && closeAfter < closeBefore),
-    );
-  });
-}
+import type { AvailabilityCommandPayload } from '@/services/ops/availability';
+import type { ServicePeriodRow } from '@/services/ops/restaurants';
 
 /**
- * The order the page writes its dirty groups in, so that saved settings stay valid after every
- * step, even if a later step fails:
- * - booking types first, so Lunch and Dinner exist before meal times refer to them;
- * - when a day's hours narrow, meal times before hours, so saved meal times never sit outside
- *   saved hours; otherwise hours first;
- * - booking rules last (they do not depend on the others).
+ * How one "Save" on the Availability page reaches the server:
+ * - `catalog`: booking-type (occasion) writes. Booking types are a global catalog that only
+ *   Nabatable platform admins may change, so they are never part of the restaurant transaction,
+ *   and they are planned only when `canEditCatalog` is true. Creates and updates run before the
+ *   command (meal times and table times may refer to a new type); deletes run after it (the
+ *   server refuses to delete a type that meal times still use, and the command may be what
+ *   removes those meal times).
+ * - `command`: everything the restaurant owns (hours and special dates, meal times, table times,
+ *   the default table time and the booking rules) in ONE request and one database transaction.
+ *   Only the parts that changed are sent, so an unrelated save never rewrites (and re-syncs to
+ *   Google) hours or meal times.
  */
-export function planAvailabilitySave(
-  saved: AvailabilityPageDraft,
-  draft: AvailabilityPageDraft,
-): AvailabilitySaveGroup[] {
-  const dirty = new Set(getDirtyAvailabilityGroups(saved, draft));
-  const order: AvailabilitySaveGroup[] = [];
-  if (dirty.has('types')) {
-    order.push('types');
+export type AvailabilitySavePlan = {
+  /** Dirty groups this save covers, in display order. */
+  groups: AvailabilitySaveGroup[];
+  catalog: { upserts: boolean; deletes: boolean };
+  command: AvailabilityCommandPayload | null;
+  /** Groups the command covers (the catalog part of `types` excepted). */
+  commandGroups: AvailabilitySaveGroup[];
+};
+
+const toInt = (value: string) => Number.parseInt(value, 10);
+
+export function planAvailabilitySave({
+  saved,
+  draft,
+  canEditCatalog,
+  savedServicePeriods,
+  expectedRevision,
+}: {
+  readonly saved: AvailabilityPageDraft;
+  readonly draft: AvailabilityPageDraft;
+  /** Platform admin: may create, edit and delete booking types. */
+  readonly canEditCatalog: boolean;
+  /** Meal times as stored, used to keep table times of types that still have meal times. */
+  readonly savedServicePeriods: readonly ServicePeriodRow[];
+  readonly expectedRevision?: string | null;
+}): AvailabilitySavePlan {
+  const groups = getDirtyAvailabilityGroups(saved, draft);
+  const dirty = new Set(groups);
+  const command: AvailabilityCommandPayload = {};
+  const commandGroups: AvailabilitySaveGroup[] = [];
+
+  if (dirty.has('hours')) {
+    command.hours = buildOperatingHoursPayload(draft.weeklyRows, draft.overrideRows);
+    commandGroups.push('hours');
   }
-  const scheduleOrder: AvailabilitySaveGroup[] = hasNarrowedWeeklyHours(saved, draft)
-    ? ['meals', 'hours']
-    : ['hours', 'meals'];
-  for (const group of scheduleOrder) {
-    if (dirty.has(group)) {
-      order.push(group);
+
+  if (dirty.has('meals')) {
+    const occasionKeys = extractRequiredOccasionKeys(draft.occasions);
+    command.servicePeriods = buildAvailabilityServicePayload({
+      customRows: draft.customRows,
+      dayConfigs: draft.dayConfigs,
+      occasionKeys: {
+        lunch: occasionKeys.lunch ?? 'lunch',
+        dinner: occasionKeys.dinner ?? 'dinner',
+      },
+    });
+    commandGroups.push('meals');
+  }
+
+  let catalog = { upserts: false, deletes: false };
+  if (dirty.has('types')) {
+    if (canEditCatalog) {
+      const occasionPlan = buildAvailabilityOccasionSavePlan({
+        draftOccasions: draft.occasions,
+        originalOccasions: saved.occasions,
+      });
+      catalog = {
+        upserts: occasionPlan.createInputs.length > 0 || occasionPlan.updateInputs.length > 0,
+        deletes: occasionPlan.deleteKeys.length > 0,
+      };
+    }
+    let typesInCommand = false;
+    if (JSON.stringify(draft.turnBands) !== JSON.stringify(saved.turnBands)) {
+      command.turnBands = buildAvailabilityTurnBandsPayload({
+        occasionDrafts: canEditCatalog ? draft.occasions : saved.occasions,
+        servicePeriods: command.servicePeriods ?? savedServicePeriods,
+        turnBandsDraft: draft.turnBands,
+      });
+      typesInCommand = true;
+    }
+    if (
+      draft.rules.reservationDefaultDurationMinutes !==
+      saved.rules.reservationDefaultDurationMinutes
+    ) {
+      command.rules = {
+        ...command.rules,
+        reservationDefaultDurationMinutes: toInt(draft.rules.reservationDefaultDurationMinutes),
+      };
+      typesInCommand = true;
+    }
+    if (typesInCommand) {
+      commandGroups.push('types');
     }
   }
+
   if (dirty.has('rules')) {
-    order.push('rules');
+    const trimmedPolicy = draft.rules.bookingPolicy.trim();
+    command.rules = {
+      ...command.rules,
+      bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
+      reservationIntervalMinutes: toInt(draft.rules.reservationIntervalMinutes),
+      reservationLastSeatingBufferMinutes: toInt(draft.rules.reservationLastSeatingBufferMinutes),
+      reservationLifecycleGraceMinutes: toInt(draft.rules.reservationLifecycleGraceMinutes),
+    };
+    commandGroups.push('rules');
   }
-  return order;
+
+  const hasCommand = commandGroups.length > 0;
+  if (hasCommand && expectedRevision) {
+    command.expectedRevision = expectedRevision;
+  }
+
+  return {
+    groups,
+    catalog,
+    command: hasCommand ? command : null,
+    commandGroups,
+  };
 }

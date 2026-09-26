@@ -1,7 +1,15 @@
+import { NextResponse } from 'next/server';
+
 import { BookingValidationError, createBookingValidationService } from '@/server/booking';
 import { mapValidationFailure, withValidationHeaders } from '@/server/booking/http';
 import { buildUnifiedValidationCapacityExceededResponse } from '@/server/bookings/capacity-failure-response';
+import {
+  buildBookingConflictRetryResponse,
+  detectBookingCommitConflict,
+  withBookingValidationErrorFields,
+} from '@/server/bookings/create-error-responses';
 import { buildBookingValidationCreatePayload } from '@/server/bookings/create-payloads';
+import { buildIdempotencyKeyReusedResponse } from '@/server/bookings/idempotency';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { BookingCreatePayloadBase } from '@/server/bookings/create-payloads';
@@ -20,11 +28,7 @@ export type BookingCreateUnifiedValidationResult =
     }
   | {
       kind: 'response';
-      body: unknown;
-      init: {
-        status: number;
-        headers?: Record<string, string>;
-      };
+      response: NextResponse;
     };
 
 export async function runBookingCreateUnifiedValidation(
@@ -66,6 +70,14 @@ export async function runBookingCreateUnifiedValidation(
     };
   } catch (error) {
     if (error instanceof BookingValidationError) {
+      const commitConflict = detectBookingCommitConflict(error.response.issues);
+      if (commitConflict === 'idempotency_key_reused') {
+        return { kind: 'response', response: buildIdempotencyKeyReusedResponse() };
+      }
+      if (commitConflict === 'booking_conflict') {
+        return { kind: 'response', response: buildBookingConflictRetryResponse() };
+      }
+
       const capacityResponse = await buildUnifiedValidationCapacityExceededResponse({
         response: error.response,
         client: args.client,
@@ -80,16 +92,20 @@ export async function runBookingCreateUnifiedValidation(
       if (capacityResponse) {
         return {
           kind: 'response',
-          body: capacityResponse.body,
-          init: capacityResponse.init,
+          response: NextResponse.json(
+            withBookingValidationErrorFields(capacityResponse.body),
+            capacityResponse.init,
+          ),
         };
       }
 
       const mapped = mapValidationFailure(error.response);
       return {
         kind: 'response',
-        body: mapped.body,
-        init: withValidationHeaders({ status: mapped.status }),
+        response: NextResponse.json(
+          withBookingValidationErrorFields(mapped.body),
+          withValidationHeaders({ status: mapped.status }),
+        ),
       };
     }
 

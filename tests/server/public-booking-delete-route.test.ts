@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const RESTAURANT_ID = vi.hoisted(() => '11111111-1111-4111-8111-111111111111');
 const tenantAuthGetUserMock = vi.hoisted(() => vi.fn());
 const serviceFromMock = vi.hoisted(() => vi.fn());
 const getRestaurantScheduleMock = vi.hoisted(() => vi.fn());
@@ -9,8 +10,7 @@ const clearBookingTableAssignmentsMock = vi.hoisted(() => vi.fn());
 const fetchBookingsForContactMock = vi.hoisted(() => vi.fn());
 const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingCancelledSideEffectsMock = vi.hoisted(() => vi.fn());
-const sessionRecoveryTokenMatchesBookingContactMock = vi.hoisted(() => vi.fn());
-const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
+const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
@@ -56,8 +56,8 @@ vi.mock('@/server/bookings/modification-flow', () => ({
   beginBookingModificationFlow: vi.fn(),
 }));
 
-vi.mock('@/server/customers', () => ({
-  normalizeEmail: vi.fn((value: string | null | undefined) => (value ?? '').trim().toLowerCase()),
+vi.mock('@/server/observability', () => ({
+  recordObservabilityEvent: vi.fn(),
 }));
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
@@ -70,17 +70,12 @@ vi.mock('@/server/restaurants/schedule', () => ({
   getRestaurantSchedule: getRestaurantScheduleMock,
 }));
 
-vi.mock('@/server/security/api-rate-limit', () => ({
-  requireApiRateLimit: vi.fn(async () => null),
-}));
-
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  sessionRecoveryTokenMatchesBookingContact: sessionRecoveryTokenMatchesBookingContactMock,
-  validateSessionRecoveryAccessToken: validateSessionRecoveryAccessTokenMock,
+vi.mock('@/server/security/rate-limit', () => ({
+  consumeRateLimit: consumeRateLimitMock,
 }));
 
 vi.mock('@/server/supabase', () => ({
-  getDefaultRestaurantId: vi.fn(async () => 'rest-1'),
+  getDefaultRestaurantId: vi.fn(async () => RESTAURANT_ID),
   getRouteHandlerSupabaseClient: vi.fn(async () => ({
     auth: {
       getUser: tenantAuthGetUserMock,
@@ -100,10 +95,12 @@ vi.mock('@reserve/shared/validation', () => ({
 
 import { DELETE } from '@/src/app/api/bookings/[id]/route';
 
+import { guestRequestHeaders, guestTokenHeaders } from './helpers/guestBookingAccess';
+
 function makeBooking(overrides: Record<string, unknown> = {}) {
   return {
     id: '65c3207e-318a-4e4b-b82d-1249a720d776',
-    restaurant_id: 'rest-1',
+    restaurant_id: RESTAURANT_ID,
     customer_id: 'cust-1',
     booking_date: '2026-07-01',
     start_time: '19:00',
@@ -140,11 +137,12 @@ function makeBookingLookup(booking: Record<string, unknown> | null) {
   return builder;
 }
 
-function makeDeleteRequest() {
+function makeDeleteRequest(headers: Record<string, string> = guestRequestHeaders()) {
   return new NextRequest(
     'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
     {
       method: 'DELETE',
+      headers,
     },
   );
 }
@@ -177,10 +175,25 @@ describe('public DELETE /api/bookings/[id]', () => {
     logAuditEventMock.mockResolvedValue(undefined);
     enqueueBookingCancelledSideEffectsMock.mockReset();
     enqueueBookingCancelledSideEffectsMock.mockResolvedValue(undefined);
-    sessionRecoveryTokenMatchesBookingContactMock.mockReset();
-    sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(false);
-    validateSessionRecoveryAccessTokenMock.mockReset();
-    validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid' });
+    consumeRateLimitMock.mockReset();
+    consumeRateLimitMock.mockResolvedValue({
+      ok: true,
+      limit: 10,
+      remaining: 9,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
+  });
+
+  it('rejects a cancellation without the CSRF double-submit token', async () => {
+    serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking({ auth_user_id: 'user-1' })));
+
+    const response = await DELETE(makeDeleteRequest({}), {
+      params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(softCancelBookingMock).not.toHaveBeenCalled();
   });
 
   afterEach(() => {
@@ -196,8 +209,8 @@ describe('public DELETE /api/bookings/[id]', () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(body.code).toBe('FORBIDDEN');
+    expect(response.status).toBe(404);
+    expect(body.code).toBe('BOOKING_NOT_FOUND');
     expect(lookup.eq).toHaveBeenCalledWith('id', '65c3207e-318a-4e4b-b82d-1249a720d776');
     expect(softCancelBookingMock).not.toHaveBeenCalled();
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
@@ -215,13 +228,12 @@ describe('public DELETE /api/bookings/[id]', () => {
     expect(body).toEqual({
       id: '65c3207e-318a-4e4b-b82d-1249a720d776',
       status: 'cancelled',
-      bookings: [],
     });
     expect(softCancelBookingMock).toHaveBeenCalledWith(
       expect.anything(),
       '65c3207e-318a-4e4b-b82d-1249a720d776',
       {
-        restaurantId: 'rest-1',
+        restaurantId: RESTAURANT_ID,
       },
     );
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
@@ -242,7 +254,6 @@ describe('public DELETE /api/bookings/[id]', () => {
     expect(body).toEqual({
       id: '65c3207e-318a-4e4b-b82d-1249a720d776',
       status: 'cancelled',
-      bookings: [],
     });
     expect(softCancelBookingMock).not.toHaveBeenCalled();
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
@@ -250,16 +261,7 @@ describe('public DELETE /api/bookings/[id]', () => {
     expect(enqueueBookingCancelledSideEffectsMock).not.toHaveBeenCalled();
   });
 
-  it('applies guest self-service locks to session recovery cancellation', async () => {
-    validateSessionRecoveryAccessTokenMock.mockReturnValue({
-      ok: true,
-      payload: {
-        restaurantId: 'rest-1',
-        email: 'alex@example.com',
-        phone: '+447700900123',
-      },
-    });
-    sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(true);
+  it('applies guest self-service locks to booking-cookie cancellation', async () => {
     serviceFromMock.mockReturnValueOnce(
       makeBookingLookup(
         makeBooking({
@@ -275,9 +277,7 @@ describe('public DELETE /api/bookings/[id]', () => {
         'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
         {
           method: 'DELETE',
-          headers: {
-            'x-session-recovery-token': 'valid-token',
-          },
+          headers: guestTokenHeaders(makeBooking()),
         },
       ),
       {
@@ -292,16 +292,7 @@ describe('public DELETE /api/bookings/[id]', () => {
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
   });
 
-  it('scopes session-recovery cancellation lookups to the token restaurant', async () => {
-    validateSessionRecoveryAccessTokenMock.mockReturnValue({
-      ok: true,
-      payload: {
-        restaurantId: 'rest-1',
-        email: 'alex@example.com',
-        phone: '+447700900123',
-      },
-    });
-    sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(true);
+  it('scopes booking-cookie cancellation lookups to the token restaurant', async () => {
     const lookup = makeBookingLookup(makeBooking({ auth_user_id: null }));
     serviceFromMock.mockReturnValueOnce(lookup);
 
@@ -310,9 +301,7 @@ describe('public DELETE /api/bookings/[id]', () => {
         'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
         {
           method: 'DELETE',
-          headers: {
-            'x-session-recovery-token': 'valid-token',
-          },
+          headers: guestTokenHeaders(makeBooking()),
         },
       ),
       {
@@ -321,13 +310,45 @@ describe('public DELETE /api/bookings/[id]', () => {
     );
 
     expect(lookup.eq).toHaveBeenCalledWith('id', '65c3207e-318a-4e4b-b82d-1249a720d776');
-    expect(lookup.eq).toHaveBeenCalledWith('restaurant_id', 'rest-1');
+    expect(lookup.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID);
     expect(softCancelBookingMock).toHaveBeenCalledWith(
       expect.anything(),
       '65c3207e-318a-4e4b-b82d-1249a720d776',
       {
-        restaurantId: 'rest-1',
+        restaurantId: RESTAURANT_ID,
       },
     );
+  });
+
+  it('answers 409 BOOKING_NOT_CANCELLABLE when the DB guard refuses (checked in meanwhile)', async () => {
+    serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking({ auth_user_id: null })));
+    // Mirrors server/bookings.ts BookingNotCancellableError (S3a), including its code.
+    const refused = Object.assign(new Error('booking_not_cancellable: SECRET_DB_DETAIL'), {
+      name: 'BookingNotCancellableError',
+      code: 'BOOKING_NOT_CANCELLABLE',
+      currentStatus: 'checked_in',
+    });
+    softCancelBookingMock.mockRejectedValueOnce(refused);
+
+    const response = await DELETE(
+      new NextRequest(
+        'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+        { method: 'DELETE', headers: guestTokenHeaders(makeBooking()) },
+      ),
+      { params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      error: 'This booking can no longer be cancelled.',
+      code: 'BOOKING_NOT_CANCELLABLE',
+      message: 'This booking can no longer be cancelled.',
+      retryable: false,
+      details: { currentStatus: 'checked_in' },
+    });
+    expect(JSON.stringify(body)).not.toContain('SECRET_DB_DETAIL');
+    expect(logAuditEventMock).not.toHaveBeenCalled();
+    expect(enqueueBookingCancelledSideEffectsMock).not.toHaveBeenCalled();
   });
 });

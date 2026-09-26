@@ -8,8 +8,9 @@
 
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { publishFailedFieldKeys } from '@/lib/dual-sync/publish-outcome';
 import {
   getDualSyncMetrics,
   getDualSyncPublishJobDetail,
@@ -30,8 +31,10 @@ import {
 } from '@/services/ops/dual-sync';
 
 import {
+  dualSyncMutationKeys,
   dualSyncQueryKeys,
   invalidateDualSyncWorkspaceQueries,
+  invalidateNabatableImportTargets,
   invalidateOpsIntegrationQueries,
 } from './opsIntegrationQueries';
 
@@ -185,17 +188,31 @@ export function useOpsDualSync({
     },
   });
 
+  // Publishes for one restaurant share a scope, so two surfaces (for example the compare dialog
+  // and the Google workspace) cannot publish at once: the second waits for the first.
+  const publishScope = restaurantId
+    ? { id: dualSyncMutationKeys.scopeId(restaurantId) }
+    : undefined;
+
   const publishMutation = useMutation<DualSyncPublishResponse, Error, DualSyncPublishRequest>({
+    mutationKey: restaurantId ? dualSyncMutationKeys.publish(restaurantId) : undefined,
+    scope: publishScope,
     mutationFn: (request) => {
       if (!restaurantId) {
         return Promise.reject(new Error('restaurantId is required to publish dual-sync.'));
       }
       return publishDualSyncDecisions(restaurantId, request);
     },
-    onSuccess: () => {
-      if (restaurantId) {
+    onSettled: (response, error, request) => {
+      if (!restaurantId) {
+        return;
+      }
+      if (!error) {
         invalidateOpsIntegrationQueries(queryClient, restaurantId);
       }
+      // Imports write Nabatable data. On failure the outcome is unknown, so refresh every target.
+      const failed = publishFailedFieldKeys(response);
+      invalidateNabatableImportTargets(queryClient, restaurantId, request.decisions, failed);
     },
   });
 
@@ -226,15 +243,31 @@ export function useOpsDualSync({
   });
 
   const exactPublishMutation = useMutation<GbpPublishResponseV1, Error, GbpExactPublishRequestV1>({
+    mutationKey: restaurantId ? dualSyncMutationKeys.exactPublish(restaurantId) : undefined,
+    scope: publishScope,
     mutationFn: (request) => {
       if (!restaurantId) {
         return Promise.reject(new Error('restaurantId is required to publish exact GBP plan.'));
       }
       return publishGbpExactV1(restaurantId, request);
     },
-    onSuccess: () => {
-      if (restaurantId) invalidateOpsIntegrationQueries(queryClient, restaurantId);
+    onSettled: (_response, error, request) => {
+      if (!restaurantId) {
+        return;
+      }
+      if (!error) {
+        invalidateOpsIntegrationQueries(queryClient, restaurantId);
+      }
+      // The exact response reports outcomes per grant, not per field: refresh every import target.
+      invalidateNabatableImportTargets(queryClient, restaurantId, request.decisions);
     },
+  });
+
+  // Pending publishes from any surface for this restaurant (every hook instance sees them).
+  const pendingPublishCount = useIsMutating({
+    mutationKey: restaurantId
+      ? dualSyncMutationKeys.publishRoot(restaurantId)
+      : ['dual-sync-publish', 'noop'],
   });
 
   const autoExportMutation = useMutation<RunAutoExportResponse, Error, RunAutoExportRequest | void>(
@@ -379,5 +412,7 @@ export function useOpsDualSync({
     metricsQuery,
     publishJobsQuery,
     publishJobDetailQuery,
+    /** True while any publish for this restaurant is in flight or queued, from any surface. */
+    isPublishPending: Boolean(restaurantId) && pendingPublishCount > 0,
   };
 }

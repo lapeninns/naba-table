@@ -229,14 +229,10 @@ const baseEnvSchema = z
     AUTH_AUDIT_HASH_SECRET: z.string().min(1).optional(),
     CRON_SECRET: z.string().min(1).optional(),
     BOOKING_PAST_TIME_GRACE_MINUTES: z.coerce.number().int().min(0).max(60).optional(),
-    GUEST_LOOKUP_PEPPER: z.string().min(1).optional(),
+    // GUEST_LOOKUP_PEPPER and SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS are retired: nothing
+    // reads them since the contact-scoped recovery token was removed. passthrough() keeps a
+    // leftover value harmless; delete it from deployment environments at the next rotation.
     SESSION_RECOVERY_ACCESS_TOKEN_SECRET: z.string().min(1).optional(),
-    SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS: z.coerce
-      .number()
-      .int()
-      .min(60)
-      .max(2_592_000)
-      .optional(),
     NEXT_PUBLIC_SITE_ANALYTICS_WRITE_KEY: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1).optional(),
     NEXT_PUBLIC_POSTHOG_HOST: z.string().url().optional(),

@@ -29,6 +29,11 @@ export type DashboardPendingLifecycleAction = {
   snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
 } | null;
 
+/** In-flight lifecycle actions by booking id (several bookings can be pending at once). */
+export type DashboardPendingLifecycleActions = Readonly<
+  Record<string, NonNullable<DashboardPendingLifecycleAction>>
+>;
+
 export type DashboardTableActionState = {
   type: 'assign' | 'unassign';
   bookingId: string | null;
@@ -55,5 +60,5 @@ export type DashboardBookingActionHandlers = {
     tableId: string,
   ) => Promise<OpsTodayBooking['tableAssignments']>;
   tableActionState?: DashboardTableActionState;
-  pendingLifecycleAction?: DashboardPendingLifecycleAction;
+  pendingLifecycleActions?: DashboardPendingLifecycleActions;
 };

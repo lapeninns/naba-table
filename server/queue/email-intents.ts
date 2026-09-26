@@ -20,6 +20,10 @@ const DEFAULT_BACKOFF = { type: 'exponential', delay: 60_000 } as const;
 const EMAIL_JOB_ID_SEPARATOR = '__';
 const DEFAULT_MAX_JOBS = 25;
 const MAX_JOB_HISTORY = 5_000;
+const INSERT_IF_ABSENT_EMAIL_TYPES: ReadonlySet<EmailJobType> = new Set([
+  'review_request',
+  'manage_link',
+]);
 
 export type EmailDispatchIntentStatus =
   | 'pending'
@@ -289,37 +293,27 @@ async function listStatusRows(
   return (data ?? []) as EmailDispatchIntentRow[];
 }
 
-async function finalizeIntentResult(
+type FinalizeOutcome = 'finalized' | 'superseded';
+
+type FinalizePlan = {
+  status: Exclude<EmailDispatchIntentStatus, 'processing' | 'cancelled'>;
+  lastError: string | null;
+  nextScheduledFor: string | null;
+  payloadPatch: Record<string, Json>;
+};
+
+function planIntentFinalize(
   row: EmailDispatchIntentRow,
   result: ProcessEmailJobResult,
-): Promise<void> {
-  const supabase = getServiceSupabaseClient();
-  const now = new Date().toISOString();
-
+  now: string,
+): FinalizePlan {
   if (result.success) {
-    const nextStatus: EmailDispatchIntentStatus = result.skipped ? 'skipped' : 'sent';
-    const { error } = await supabase
-      .from('email_dispatch_intents')
-      .update({
-        status: nextStatus,
-        processed_at: now,
-        claimed_at: null,
-        last_error: null,
-        updated_at: now,
-        payload: {
-          ...asRecord(row.payload),
-          cronAttemptsMade: row.attempts_made,
-          failedReason: null,
-          failedAt: null,
-        } satisfies Json,
-      })
-      .eq('id', row.id);
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return;
+    return {
+      status: result.skipped ? 'skipped' : 'sent',
+      lastError: null,
+      nextScheduledFor: null,
+      payloadPatch: { cronAttemptsMade: row.attempts_made, failedReason: null, failedAt: null },
+    };
   }
 
   const errorMessage =
@@ -327,28 +321,99 @@ async function finalizeIntentResult(
       ? result.error.trim()
       : 'Unknown processing error';
 
-  if (row.attempts_made >= row.max_attempts) {
-    const { error } = await supabase
-      .from('email_dispatch_intents')
-      .update({
-        status: 'failed',
-        processed_at: now,
-        claimed_at: null,
-        last_error: errorMessage,
-        updated_at: now,
-        payload: {
-          ...asRecord(row.payload),
-          cronAttemptsMade: row.attempts_made,
-          failedReason: errorMessage,
-          failedAt: now,
-        } satisfies Json,
-      })
-      .eq('id', row.id);
+  // Terminal failures (invalid or suppressed recipient, rejected payload) can never succeed on
+  // a retry, so they fail immediately instead of burning the remaining attempts.
+  if (result.terminal === true || row.attempts_made >= row.max_attempts) {
+    return {
+      status: 'failed',
+      lastError: errorMessage,
+      nextScheduledFor: null,
+      payloadPatch: {
+        cronAttemptsMade: row.attempts_made,
+        failedReason: errorMessage,
+        failedAt: now,
+      },
+    };
+  }
 
-    if (error) {
-      throw new Error(error.message);
-    }
+  const retryDelayMs = parseBackoffDelay(
+    { type: row.backoff_type, delay: row.backoff_delay_ms },
+    row.attempts_made,
+  );
+  const nextScheduledFor = new Date(Date.now() + retryDelayMs).toISOString();
+  return {
+    status: 'pending',
+    lastError: errorMessage,
+    nextScheduledFor,
+    payloadPatch: {
+      cronAttemptsMade: row.attempts_made,
+      failedReason: errorMessage,
+      failedAt: now,
+      scheduledFor: nextScheduledFor,
+    },
+  };
+}
 
+/**
+ * Applies the processing outcome only while the row is still this worker's claim: status
+ * `processing`, not cancelled, and the same claim generation. The generation is bumped by every
+ * claim and never reset, unlike attempts_made, which scheduleEmailIntent's upsert and the requeue
+ * restart at 0 (a re-claim would reuse attempt 1 and let a stale worker finalize it). A cancel
+ * that landed while the email was being processed, or a newer claim, wins; the outcome is dropped.
+ */
+async function finalizeIntentResult(
+  row: EmailDispatchIntentRow,
+  result: ProcessEmailJobResult,
+): Promise<FinalizeOutcome> {
+  const supabase = getServiceSupabaseClient();
+  const now = new Date().toISOString();
+  const plan = planIntentFinalize(row, result, now);
+
+  const outcome = {
+    p_intent_id: row.id,
+    p_status: plan.status,
+    p_last_error: plan.lastError,
+    p_next_scheduled_for: plan.nextScheduledFor,
+    p_payload_patch: plan.payloadPatch,
+  };
+  // A claimed row without claim_generation means migration 20260927210000 is not applied yet;
+  // keep finalizing with the older attempt fence rather than stranding the claim.
+  const { data, error } =
+    typeof row.claim_generation === 'number'
+      ? await supabase.rpc('finalize_email_dispatch_intent_v2', {
+          ...outcome,
+          p_claim_generation: row.claim_generation,
+        })
+      : await supabase.rpc('finalize_email_dispatch_intent_v1', {
+          ...outcome,
+          p_attempt: row.attempts_made,
+        });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const finalized = Array.isArray(data) && data.length > 0;
+  if (!finalized) {
+    await recordObservabilityEvent({
+      source: 'queue.email',
+      eventType: 'email_queue.finalize_superseded',
+      severity: 'info',
+      context: {
+        dedupeKey: row.dedupe_key,
+        bookingId: row.booking_id,
+        type: row.email_type,
+        attemptsMade: row.attempts_made,
+        claimGeneration: row.claim_generation ?? null,
+        attemptedStatus: plan.status,
+      },
+      restaurantId: row.restaurant_id ?? undefined,
+      bookingId: row.booking_id,
+    });
+    return 'superseded';
+  }
+
+  if (plan.status === 'failed') {
     await recordObservabilityEvent({
       source: 'queue.email',
       eventType: 'email_queue.intent_failed',
@@ -359,41 +424,15 @@ async function finalizeIntentResult(
         type: row.email_type,
         attemptsMade: row.attempts_made,
         maxAttempts: row.max_attempts,
-        error: errorMessage,
+        terminal: result.terminal === true,
+        error: plan.lastError,
       },
       restaurantId: row.restaurant_id ?? undefined,
       bookingId: row.booking_id,
     });
-
-    return;
   }
 
-  const retryDelayMs = parseBackoffDelay(
-    { type: row.backoff_type, delay: row.backoff_delay_ms },
-    row.attempts_made,
-  );
-  const nextScheduledFor = new Date(Date.now() + retryDelayMs).toISOString();
-  const { error } = await supabase
-    .from('email_dispatch_intents')
-    .update({
-      status: 'pending',
-      scheduled_for: nextScheduledFor,
-      claimed_at: null,
-      last_error: errorMessage,
-      updated_at: now,
-      payload: {
-        ...asRecord(row.payload),
-        cronAttemptsMade: row.attempts_made,
-        failedReason: errorMessage,
-        failedAt: now,
-        scheduledFor: nextScheduledFor,
-      } satisfies Json,
-    })
-    .eq('id', row.id);
-
-  if (error) {
-    throw new Error(error.message);
-  }
+  return 'finalized';
 }
 
 export async function scheduleEmailIntent(
@@ -448,8 +487,10 @@ export async function scheduleEmailIntent(
 
   const { error } = await supabase.from('email_dispatch_intents').upsert(row, {
     onConflict: 'dedupe_key',
-    // Retry scheduling must never reset a claimed, sent or terminal review intent.
-    ignoreDuplicates: payload.type === 'review_request',
+    // Insert-if-absent types: a repeat must never reset a claimed, sent or terminal intent.
+    // Review retries reuse the journey key; manage-link lookups reuse the 15-minute bucket key,
+    // so resetting either would send the guest the same email twice.
+    ignoreDuplicates: INSERT_IF_ABSENT_EMAIL_TYPES.has(payload.type),
   });
 
   if (!error) {
@@ -536,11 +577,41 @@ export async function cancelEmailIntentByDedupeKey(dedupeKey: string): Promise<b
   return Boolean(data?.id);
 }
 
+export type RestaurantQueueCancelResult =
+  | 'cancelled'
+  | 'not_found'
+  | 'in_progress'
+  | 'not_cancellable';
+
+async function loadRestaurantIntentStatus(
+  dedupeKey: string,
+  restaurantId: string,
+): Promise<EmailDispatchIntentStatus | null> {
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase
+    .from('email_dispatch_intents')
+    .select('id, status')
+    .eq('dedupe_key', dedupeKey)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ? (data.status as EmailDispatchIntentStatus) : null;
+}
+
+/**
+ * Operator cancel. Only a pending job can be cancelled: a job in `processing` may already be
+ * handing the email to the provider, so cancelling it would report a cancel that did not happen.
+ */
 export async function cancelEmailIntentForRestaurant(params: {
   dedupeKey: string;
   restaurantId: string;
-}): Promise<'cancelled' | 'not_found'> {
+}): Promise<RestaurantQueueCancelResult> {
   const supabase = getServiceSupabaseClient();
+  const dedupeKey = sanitizeEmailJobId(params.dedupeKey);
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('email_dispatch_intents')
@@ -551,9 +622,9 @@ export async function cancelEmailIntentForRestaurant(params: {
       claimed_at: null,
       updated_at: now,
     })
-    .eq('dedupe_key', sanitizeEmailJobId(params.dedupeKey))
+    .eq('dedupe_key', dedupeKey)
     .eq('restaurant_id', params.restaurantId)
-    .in('status', ['pending', 'processing'])
+    .eq('status', 'pending')
     .is('cancelled_at', null)
     .select('id')
     .maybeSingle();
@@ -562,48 +633,42 @@ export async function cancelEmailIntentForRestaurant(params: {
     throw new Error(error.message);
   }
 
-  return data?.id ? 'cancelled' : 'not_found';
+  if (data?.id) {
+    return 'cancelled';
+  }
+
+  const status = await loadRestaurantIntentStatus(dedupeKey, params.restaurantId);
+  if (status === null) return 'not_found';
+  if (status === 'processing') return 'in_progress';
+  return 'not_cancellable';
 }
 
+/**
+ * Operator requeue of a failed job: one atomic UPDATE guarded by `status = 'failed'`. The
+ * attempt counter restarts so the job gets its full retry budget again instead of failing
+ * permanently on the first transient error.
+ */
 export async function requeueFailedEmailIntentForRestaurant(params: {
   dedupeKey: string;
   restaurantId: string;
 }): Promise<'requeued' | 'not_found' | 'not_requeueable'> {
   const supabase = getServiceSupabaseClient();
   const dedupeKey = sanitizeEmailJobId(params.dedupeKey);
-
-  const { data: existing, error: loadError } = await supabase
-    .from('email_dispatch_intents')
-    .select('id, status')
-    .eq('dedupe_key', dedupeKey)
-    .eq('restaurant_id', params.restaurantId)
-    .maybeSingle();
-
-  if (loadError) {
-    throw new Error(loadError.message);
-  }
-
-  if (!existing) {
-    return 'not_found';
-  }
-
-  if (existing.status !== 'failed') {
-    return 'not_requeueable';
-  }
-
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('email_dispatch_intents')
     .update({
       status: 'pending',
       scheduled_for: now,
+      attempts_made: 0,
       cancelled_at: null,
       processed_at: null,
       claimed_at: null,
       last_error: null,
       updated_at: now,
     })
-    .eq('id', existing.id)
+    .eq('dedupe_key', dedupeKey)
+    .eq('restaurant_id', params.restaurantId)
     .eq('status', 'failed')
     .select('id')
     .maybeSingle();
@@ -612,7 +677,12 @@ export async function requeueFailedEmailIntentForRestaurant(params: {
     throw new Error(error.message);
   }
 
-  return data?.id ? 'requeued' : 'not_found';
+  if (data?.id) {
+    return 'requeued';
+  }
+
+  const status = await loadRestaurantIntentStatus(dedupeKey, params.restaurantId);
+  return status === null ? 'not_found' : 'not_requeueable';
 }
 
 export async function getEmailQueueStatusFromIntents(

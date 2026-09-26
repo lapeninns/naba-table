@@ -5,6 +5,7 @@ import { HttpError } from '@/lib/http/errors';
 import { getDefaultTemplateVariants } from '@/lib/restaurants/email-templates';
 import { useOpsEmailTemplatesEditor } from '@src/hooks/ops/useOpsEmailTemplatesEditor';
 
+import type * as EmailTemplateHooks from '@/hooks/ops/useOpsRestaurantEmailTemplates';
 import type { RestaurantBookingEmailTemplateKey } from '@/lib/restaurants/email-templates';
 import type {
   RestaurantEmailTemplate,
@@ -30,6 +31,7 @@ const data = vi.hoisted(() => ({
   resetMutation: { mutateAsync: vi.fn(), isPending: false },
   testSendMutation: { mutateAsync: vi.fn(), isPending: false },
   previewArgs: [] as Array<{ templateKey: string | null; variantId: string | null }>,
+  previewQuery: { data: undefined, error: null as unknown, refetch: vi.fn() },
 }));
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), message: vi.fn() }));
@@ -39,14 +41,15 @@ vi.mock('@/contexts/ops-session', () => ({
   useOpsActiveMembership: () => session.activeMembership,
 }));
 
-vi.mock('@/hooks/ops/useOpsRestaurantEmailTemplates', () => ({
+vi.mock('@/hooks/ops/useOpsRestaurantEmailTemplates', async (importOriginal) => ({
+  TEST_SEND_ERROR_COPY: (await importOriginal<typeof EmailTemplateHooks>()).TEST_SEND_ERROR_COPY,
   useOpsRestaurantEmailTemplates: () => data.templatesQuery,
   useOpsUpdateRestaurantEmailTemplate: () => data.updateMutation,
   useOpsResetRestaurantEmailTemplate: () => data.resetMutation,
   useOpsSendRestaurantEmailTemplateTest: () => data.testSendMutation,
   useOpsEmailTemplatePreview: (args: { templateKey: string | null; variantId: string | null }) => {
     data.previewArgs.push({ templateKey: args.templateKey, variantId: args.variantId });
-    return { data: undefined };
+    return data.previewQuery;
   },
 }));
 
@@ -112,6 +115,7 @@ beforeEach(() => {
   data.resetMutation = { mutateAsync: vi.fn(), isPending: false };
   data.testSendMutation = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
   data.previewArgs = [];
+  data.previewQuery = { data: undefined, error: null, refetch: vi.fn() };
   Object.values(toast).forEach((fn) => fn.mockReset());
 });
 
@@ -281,7 +285,112 @@ describe('useOpsEmailTemplatesEditor', () => {
         preferredVariantId: second.id,
         variants: [{ ...second, order: 0 }],
       },
+      idempotencyKey: expect.any(String),
     });
+  });
+
+  it('@contract reuses the test-send key when the same send is retried after a failure', async () => {
+    const { result } = setup();
+    data.testSendMutation.mutateAsync
+      .mockRejectedValueOnce(new HttpError({ status: 502, message: 'provider timeout' }))
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({});
+    const keyOfCall = (index: number) =>
+      (data.testSendMutation.mutateAsync.mock.calls[index]![0] as { idempotencyKey: string })
+        .idempotencyKey;
+
+    await act(async () => {
+      expect(await result.current.sendTest('owner@example.com')).toBe(false);
+    });
+    await act(async () => {
+      expect(await result.current.sendTest(' Owner@example.com')).toBe(true);
+    });
+    // Same intent (email, address, draft): the provider deduplicates the retry.
+    expect(keyOfCall(1)).toBe(keyOfCall(0));
+
+    await act(async () => {
+      await result.current.sendTest('owner@example.com');
+    });
+    // A completed send starts a new intent.
+    expect(keyOfCall(2)).not.toBe(keyOfCall(1));
+  });
+
+  it('@contract starts a new test-send key for a different address or draft', async () => {
+    const { result } = setup();
+    data.testSendMutation.mutateAsync.mockRejectedValue(new HttpError({ status: 502 }));
+    const keys = () =>
+      data.testSendMutation.mutateAsync.mock.calls.map(
+        ([variables]) => (variables as { idempotencyKey: string }).idempotencyKey,
+      );
+
+    await act(async () => {
+      await result.current.sendTest('owner@example.com');
+    });
+    await act(async () => {
+      await result.current.sendTest('manager@example.com');
+    });
+    act(() => result.current.editField('subject', 'A new subject'));
+    await act(async () => {
+      await result.current.sendTest('manager@example.com');
+    });
+
+    expect(new Set(keys()).size).toBe(3);
+  });
+
+  it('@contract shows test-send failures through toUserMessage copy, never the raw message', async () => {
+    const { result } = setup();
+    data.testSendMutation.mutateAsync
+      .mockRejectedValueOnce(
+        new HttpError({
+          status: 409,
+          code: 'RECIPIENT_SUPPRESSED',
+          message: 'suppressed in resend_suppressions row 42',
+        }),
+      )
+      .mockRejectedValueOnce(
+        new HttpError({ status: 500, message: 'SECRET_PROVIDER_DETAIL re_live_key' }),
+      );
+
+    await act(async () => {
+      await result.current.sendTest('owner@example.com');
+    });
+    await act(async () => {
+      await result.current.sendTest('owner@example.com');
+    });
+
+    expect(toast.error).toHaveBeenNthCalledWith(1, 'Test not sent', {
+      description: 'That address is blocked after a bounce or complaint. Use a different address.',
+    });
+    expect(toast.error).toHaveBeenNthCalledWith(2, 'Test not sent', {
+      description: 'Something went wrong on our side. Try again.',
+    });
+  });
+
+  it('@contract exposes preview failures as C1 copy with a retry, never promising an automatic refresh', () => {
+    data.previewQuery = {
+      data: undefined,
+      error: new HttpError({
+        status: 429,
+        code: 'RATE_LIMITED',
+        message: 'Rate limit bucket ops:preview:rest-1 exhausted',
+      }),
+      refetch: vi.fn(),
+    };
+    const { result } = setup();
+
+    expect(result.current.previewErrorMessage).toBe(
+      'The preview is paused after too many updates. Wait a moment, then retry the preview.',
+    );
+    expect(result.current.previewErrorMessage).not.toMatch(/automatic|bucket/i);
+
+    act(() => result.current.retryPreview());
+    expect(data.previewQuery.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('@contract has no preview error message while the preview is healthy', () => {
+    const { result } = setup();
+
+    expect(result.current.previewErrorMessage).toBeNull();
   });
 
   it('@contract previews another variant without changing the one being edited', () => {

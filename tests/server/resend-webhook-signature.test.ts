@@ -46,7 +46,10 @@ describe('Resend webhook local signature verification without sending credential
     const { POST } = await import('@/src/app/api/webhook/resend/route');
     const result = await POST(request(payload));
     expect(result.status).toBe(400);
-    expect(await result.json()).toEqual({ error: 'No recipient email found' });
+    expect(await result.json()).toMatchObject({
+      code: 'NO_RECIPIENT',
+      error: 'No recipient email found.',
+    });
   });
 
   it('rejects a tampered body', async () => {

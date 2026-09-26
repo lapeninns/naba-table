@@ -73,3 +73,40 @@ describe('apiClient', () => {
     });
   });
 });
+
+describe('apiClient non-JSON bodies', () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('turns a text/plain 504 page into a coded ApiError, not a SyntaxError', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('An error occurred with your deployment\n\nFUNCTION_INVOCATION_TIMEOUT', {
+        status: 504,
+        headers: { 'content-type': 'text/plain' },
+      }),
+    );
+    const { apiClient } = await import('@reserve/shared/api/client');
+    const error = await apiClient.post('/bookings', {}).catch((caught: unknown) => caught);
+    expect(error).not.toBeInstanceOf(SyntaxError);
+    expect(error).toMatchObject({
+      code: '504',
+      message: 'Request failed with status 504',
+      status: 504,
+    });
+  });
+
+  it('turns an unreadable 200 body into INVALID_RESPONSE', async () => {
+    fetchMock.mockResolvedValueOnce(new Response('<html>oops</html>', { status: 200 }));
+    const { apiClient } = await import('@reserve/shared/api/client');
+    const error = await apiClient.get('/bookings').catch((caught: unknown) => caught);
+    expect(error).not.toBeInstanceOf(SyntaxError);
+    expect(error).toMatchObject({ code: 'INVALID_RESPONSE', status: 200 });
+  });
+});

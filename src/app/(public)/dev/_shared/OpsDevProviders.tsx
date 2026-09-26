@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useMemo, type ReactNode } from 'react';
 
+import { RestaurantServiceAvailabilityBridge } from '@/contexts/availability-service';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
@@ -39,14 +40,18 @@ export function OpsDevProviders({
   return (
     <QueryClientProvider client={queryClient}>
       <OpsServicesProvider factories={factories}>
-        <OpsSessionProvider
-          user={user}
-          memberships={memberships}
-          initialRestaurantId={initialRestaurantId}
-        >
-          {/* Mirrors OpsShell: settings chrome, nav and editors require the unsaved-changes registry. */}
-          <OpsUnsavedChangesProvider>{children}</OpsUnsavedChangesProvider>
-        </OpsSessionProvider>
+        {/* Availability reads and saves through the in-memory RestaurantService (same STALE_WRITE
+            contract as the real command route), so mock-mode QA never calls the real API. */}
+        <RestaurantServiceAvailabilityBridge>
+          <OpsSessionProvider
+            user={user}
+            memberships={memberships}
+            initialRestaurantId={initialRestaurantId}
+          >
+            {/* Mirrors OpsShell: settings chrome, nav and editors require the unsaved-changes registry. */}
+            <OpsUnsavedChangesProvider>{children}</OpsUnsavedChangesProvider>
+          </OpsSessionProvider>
+        </RestaurantServiceAvailabilityBridge>
       </OpsServicesProvider>
     </QueryClientProvider>
   );

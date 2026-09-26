@@ -49,7 +49,9 @@ describe('ops booking history route security', () => {
       data: { user: { id: 'user-1' } },
       error: null,
     });
-    fetchUserMembershipsMock.mockReset().mockResolvedValue([{ restaurant_id: 'rest-1', role: 'owner' }]);
+    fetchUserMembershipsMock
+      .mockReset()
+      .mockResolvedValue([{ restaurant_id: 'rest-1', role: 'owner' }]);
     listBookingHistoryMock.mockReset().mockResolvedValue([]);
     bookingMaybeSingleMock.mockReset().mockResolvedValue({
       data: { id: 'booking-1', restaurant_id: 'rest-1' },
@@ -84,7 +86,11 @@ describe('ops booking history route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Booking not found' });
+    expect(body).toEqual({
+      error: 'Booking not found',
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
+    });
     expect(serviceFromMock).not.toHaveBeenCalled();
     expect(listBookingHistoryMock).not.toHaveBeenCalled();
   });

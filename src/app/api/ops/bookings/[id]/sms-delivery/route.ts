@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 import {
   listSmsDeliveryEventsForBooking,
@@ -11,6 +12,8 @@ import { sanitizeOpsSmsDeliveryEvents } from '@/src/lib/sms-delivery/sanitize';
 
 import type { BookingSmsDeliveryResponse } from '@/types/smsDelivery';
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/bookings/[id]/sms-delivery';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -69,7 +72,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (bookingError) {
-      console.error('[ops][bookings][sms-delivery] failed to load booking', {
+      logger.error('[ops][bookings][sms-delivery] failed to load booking', {
+        route: ROUTE,
         bookingId,
         code: bookingError.code ?? null,
         message: bookingError.message,
@@ -125,7 +129,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       });
     }
 
-    console.error('[ops][bookings][sms-delivery] unexpected error', {
+    logger.error('[ops][bookings][sms-delivery] unexpected error', {
+      route: ROUTE,
       bookingId,
       error: error instanceof Error ? error.message : String(error),
     });

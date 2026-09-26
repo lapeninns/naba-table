@@ -15,6 +15,8 @@ import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
+import { hashEmailTemplatePreviewInput } from '@/services/ops/email-templates';
+import { useEmailTemplatesTransport } from '@src/hooks/ops/emailTemplatesTransport';
 
 import type {
   RestaurantBookingEmailTemplateKey,
@@ -134,8 +136,8 @@ export function useOpsResetRestaurantEmailTemplate(
   });
 }
 
-/** Typing pause before the draft is re-rendered. */
-export const PREVIEW_DEBOUNCE_MS = 400;
+/** Typing pause before the draft is re-rendered (the preview route allows 30 renders a minute). */
+export const PREVIEW_DEBOUNCE_MS = 500;
 
 /**
  * Client-side budget for draft renders. The preview route allows 30 a minute per restaurant;
@@ -184,22 +186,42 @@ async function takePreviewSlot(restaurantId: string, signal: AbortSignal): Promi
   }
 }
 
-/** Short, stable fingerprint of a draft for the preview cache key. */
-function draftFingerprint(value: unknown): string {
-  const text = JSON.stringify(value);
-  let hash = 2166136261;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = Math.imul(hash ^ text.charCodeAt(index), 16777619);
+const PREVIEW_RATE_LIMIT_DEFAULT_WAIT_MS = 10_000;
+const PREVIEW_RATE_LIMIT_MAX_WAIT_MS = 60_000;
+
+function isRateLimited(error: unknown): error is HttpError {
+  return error instanceof HttpError && error.status === 429;
+}
+
+/**
+ * Draft previews are otherwise 4xx-final (validation); a server hiccup is retried once. A 429
+ * (another tab or staff member used the route's budget) is retried exactly once, after the
+ * server's Retry-After, so the last draft still renders without hammering the limit.
+ */
+function shouldRetryPreview(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 1) return false;
+  if (isRateLimited(error)) return true;
+  return !(error instanceof HttpError && error.status < 500);
+}
+
+function previewRetryDelay(failureCount: number, error: unknown): number {
+  if (isRateLimited(error)) {
+    const waitMs =
+      typeof error.retryAfter === 'number' && error.retryAfter > 0
+        ? error.retryAfter * 1000
+        : PREVIEW_RATE_LIMIT_DEFAULT_WAIT_MS;
+    return Math.min(waitMs, PREVIEW_RATE_LIMIT_MAX_WAIT_MS);
   }
-  return `${(hash >>> 0).toString(36)}-${text.length}`;
+  return Math.min(1000 * 2 ** failureCount, 30_000);
 }
 
 /**
  * The server-rendered email for the variant being edited, including unsaved changes.
  *
- * A query, not a mutation: edits are debounced and kept under the route's rate limit, a
- * superseded render is aborted, identical drafts are served from cache, and the last preview of
- * the same email stays visible while the next one renders.
+ * A query, not a mutation per keystroke: edits are debounced (500 ms) and kept under the route's
+ * rate limit, the key is a hash of the draft (an identical draft is served from cache), a
+ * superseded render is aborted through its AbortSignal, and the last preview of the same email
+ * stays visible while the next one renders.
  */
 export function useOpsEmailTemplatePreview({
   restaurantId,
@@ -227,15 +249,21 @@ export function useOpsEmailTemplatePreview({
   const ready = Boolean(
     restaurantId && request.templateKey && request.variantId && request.variants.length > 0,
   );
+  const draftHash = useMemo(
+    () =>
+      hashEmailTemplatePreviewInput({
+        preferredVariantId: request.variantId ?? undefined,
+        variants: [...request.variants],
+      }),
+    [request],
+  );
 
   return useQuery<RestaurantEmailTemplatePreview, HttpError | Error>({
-    queryKey: [
-      ...queryKeys.opsRestaurants.emailTemplates(restaurantId ?? 'none'),
-      'preview',
-      request.templateKey,
-      request.variantId,
-      draftFingerprint(request.variants),
-    ],
+    queryKey: queryKeys.opsEmailTemplates.preview(
+      restaurantId ?? 'none',
+      request.templateKey ?? 'none',
+      draftHash,
+    ),
     queryFn: async ({ signal }) => {
       await takePreviewSlot(restaurantId!, signal);
       return restaurantService.previewEmailTemplate(
@@ -251,28 +279,45 @@ export function useOpsEmailTemplatePreview({
       previous?.templateKey === request.templateKey ? previous : undefined,
     staleTime: 5 * 60_000,
     gcTime: 60_000,
-    // Draft previews are 4xx-final (validation, rate limit); only retry server hiccups once.
-    retry: (failureCount, error) =>
-      failureCount < 1 && !(error instanceof HttpError && error.status < 500),
+    retry: shouldRetryPreview,
+    retryDelay: previewRetryDelay,
     meta: { persist: false },
   });
 }
+
+export type SendTestEmailTemplateVariables = {
+  templateKey: RestaurantBookingEmailTemplateKey;
+  payload: SendTestEmailTemplateInput;
+  /** One key per send intent; a retried intent reuses it, so the provider never sends twice. */
+  idempotencyKey: string;
+};
+
+/** Copy for test-send failures, keyed by the route's C1 error codes (see toUserMessage). */
+export const TEST_SEND_ERROR_COPY = {
+  RECIPIENT_SUPPRESSED:
+    'That address is blocked after a bounce or complaint. Use a different address.',
+  RATE_LIMITED: 'Too many test emails. Wait a minute and try again.',
+  VALIDATION_FAILED: 'Enter a valid email address for the test send.',
+} as const;
 
 export function useOpsSendRestaurantEmailTemplateTest(
   restaurantId?: string | null,
 ): UseMutationResult<
   SendTestEmailTemplateResponse,
   HttpError | Error,
-  { templateKey: RestaurantBookingEmailTemplateKey; payload: SendTestEmailTemplateInput }
+  SendTestEmailTemplateVariables
 > {
-  const restaurantService = useRestaurantService();
+  // The transport carries the Idempotency-Key header, which RestaurantService has no slot for.
+  const transport = useEmailTemplatesTransport();
 
   return useMutation({
-    mutationFn: async ({ templateKey, payload }) => {
+    mutationFn: async ({ templateKey, payload, idempotencyKey }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.sendTestEmailTemplate(restaurantId, templateKey, payload);
+      return transport.sendTestEmailTemplate(restaurantId, templateKey, payload, {
+        idempotencyKey,
+      });
     },
   });
 }

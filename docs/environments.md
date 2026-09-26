@@ -29,6 +29,13 @@
   - Production targets are missing `NEXT_PUBLIC_POSTHOG_KEY` or `NEXT_PUBLIC_POSTHOG_HOST`.
 - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
 
+### Retired variables
+
+- `GUEST_LOOKUP_PEPPER` and `SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS` are no longer read or
+  validated (the contact-scoped recovery token and guest lookup were removed; see
+  `docs/security.md`). A leftover value is ignored. Remove them from hosting environments at the
+  next secret rotation. `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` is still used.
+
 ## Staging quick start
 
 - Local/dev: set `APP_ENV=staging`, `NODE_ENV=development`, `DB_TARGET_ENV=staging`, and point Supabase URL/keys at the shared staging project.

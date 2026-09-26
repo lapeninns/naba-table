@@ -48,11 +48,17 @@ export function MenuDialog({
   const formId = useId();
   const [state, setState] = useState<MenuFormState>(() => menuInitialState(menu, defaultMenuKind));
   const createMenu = useOpsCreateRestaurantMenu(restaurantId);
-  const updateMenu = useOpsUpdateRestaurantMenu({ restaurantId, menuId: menu?.id });
+  const updateMenu = useOpsUpdateRestaurantMenu(restaurantId);
+  const { reset: resetCreate } = createMenu;
+  const { reset: resetUpdate } = updateMenu;
 
   useEffect(() => {
-    if (mode) setState(menuInitialState(menu, defaultMenuKind));
-  }, [defaultMenuKind, menu, mode]);
+    if (!mode) return;
+    setState(menuInitialState(menu, defaultMenuKind));
+    // A new session of the dialog never shows the previous attempt's error.
+    resetCreate();
+    resetUpdate();
+  }, [defaultMenuKind, menu, mode, resetCreate, resetUpdate]);
 
   const initial = useMemo(() => menuInitialState(menu, defaultMenuKind), [defaultMenuKind, menu]);
   const isDirty = Boolean(mode) && JSON.stringify(state) !== JSON.stringify(initial);
@@ -64,7 +70,7 @@ export function MenuDialog({
     const payload = buildMenuPayload(state);
     try {
       if (mode === 'edit' && menu?.id) {
-        await updateMenu.mutateAsync(payload);
+        await updateMenu.mutateAsync({ menuId: menu.id, payload });
       } else {
         await createMenu.mutateAsync(payload);
       }
@@ -121,16 +127,17 @@ export function SectionDialog({
 }) {
   const formId = useId();
   const [state, setState] = useState<SectionFormState>(() => sectionInitialState(section));
-  const createSection = useOpsCreateRestaurantMenuSection({ restaurantId, menuId: menu?.id });
-  const updateSection = useOpsUpdateRestaurantMenuSection({
-    restaurantId,
-    menuId: menu?.id,
-    sectionId: section?.id,
-  });
+  const createSection = useOpsCreateRestaurantMenuSection(restaurantId);
+  const updateSection = useOpsUpdateRestaurantMenuSection(restaurantId);
+  const { reset: resetCreate } = createSection;
+  const { reset: resetUpdate } = updateSection;
 
   useEffect(() => {
-    if (mode) setState(sectionInitialState(section));
-  }, [mode, section]);
+    if (!mode) return;
+    setState(sectionInitialState(section));
+    resetCreate();
+    resetUpdate();
+  }, [mode, section, resetCreate, resetUpdate]);
 
   const initial = useMemo(() => sectionInitialState(section), [section]);
   const isDirty = Boolean(mode) && JSON.stringify(state) !== JSON.stringify(initial);
@@ -139,12 +146,17 @@ export function SectionDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!menu) return;
+    if (!menu?.id) return;
     try {
       if (mode === 'edit' && section?.id) {
-        await updateSection.mutateAsync(buildSectionPayload(state, section.displayOrder));
+        await updateSection.mutateAsync({
+          menuId: menu.id,
+          sectionId: section.id,
+          payload: buildSectionPayload(state),
+        });
       } else {
-        await createSection.mutateAsync(buildSectionPayload(state, menu.sections.length));
+        // The server appends the new section (display order max + 1).
+        await createSection.mutateAsync({ menuId: menu.id, payload: buildSectionPayload(state) });
       }
     } catch {
       return;

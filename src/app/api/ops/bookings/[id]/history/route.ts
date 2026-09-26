@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, internalError, notFound, unauthenticated } from '@/lib/api/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { listBookingHistory } from '@/server/ops/booking-lifecycle/history';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
 
 import type { Tables } from '@/types/supabase';
+
+const ROUTE = '/api/ops/bookings/[id]/history';
 
 type RouteParams = {
   params: Promise<{ id: string | string[] }>;
@@ -25,7 +29,7 @@ async function resolveBookingId(
 export async function GET(request: NextRequest, { params }: RouteParams) {
   const id = await resolveBookingId(params);
   if (!id) {
-    return NextResponse.json({ error: 'Missing booking id' }, { status: 400 });
+    return apiError(400, 'BOOKING_ID_REQUIRED', 'Missing booking id');
   }
 
   const supabase = await getRouteHandlerSupabaseClient();
@@ -35,12 +39,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops][booking-history] failed to resolve auth', authError.message);
-    return NextResponse.json({ error: 'Unable to verify session' }, { status: 401 });
+    logger.error('[ops][booking-history] failed to resolve auth', {
+      route: ROUTE,
+      errorMessage: sanitizeLogText(authError.message),
+    });
+    return unauthenticated('Unable to verify session');
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   let authorizedRestaurantIds: string[];
@@ -53,16 +60,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           typeof restaurantId === 'string' && restaurantId.length > 0,
       );
   } catch (membershipError) {
-    console.error('[ops][booking-history] failed to load memberships', membershipError);
     captureServerException(membershipError, {
       distinctId: user.id,
       properties: { bookingId: id, source: 'ops', kind: 'ops-booking-history' },
     });
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return internalError(membershipError, { route: ROUTE }, 'Unable to verify access');
   }
 
   if (authorizedRestaurantIds.length === 0) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -74,13 +80,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (bookingError) {
-    console.error('[ops][booking-history] failed to load booking', bookingError.message);
-    return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
+    return internalError(
+      bookingError,
+      { route: ROUTE, stage: 'booking_lookup' },
+      'Unable to load booking',
+    );
   }
 
   const bookingRow = booking as Pick<Tables<'bookings'>, 'id' | 'restaurant_id'> | null;
   if (!bookingRow) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   try {
@@ -91,7 +100,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[ops][booking-history] failed to fetch history', error);
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: bookingRow.restaurant_id },
@@ -102,6 +110,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         kind: 'ops-booking-history',
       },
     });
-    return NextResponse.json({ error: 'Unable to load booking history' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to load booking history');
   }
 }

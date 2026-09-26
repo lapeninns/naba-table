@@ -46,10 +46,10 @@ export function getGuestBookingsLandingContent(
     secondaryAction: accessAction,
     existingTitle: 'View existing bookings',
     existingDescription:
-      'Use your reservation email to see upcoming bookings, past visits, and receipts.',
+      'See bookings saved to your guest account. Opening a booking link while signed in saves it there.',
     existingAction: { href: SIGN_IN_FOR_BOOKINGS_PATH, label: 'Sign in to view bookings' },
     messageLinkDescription:
-      'Confirmation links open the matching booking directly. If a link has expired, sign in with the same email address and your bookings will still be available.',
+      'Confirmation links open the matching booking directly. If a link has expired, request a new one: it goes to the email address on your booking.',
   };
 }
 

@@ -9,6 +9,7 @@ import {
   FoodMenusImportReviewDecisionRequestSchema,
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
+import { internalError } from '@/lib/api/errors';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { decideFoodMenusImportReview } from '@/server/google-business-profile/food-menus-sync';
@@ -42,9 +43,16 @@ function decisionErrorResponse(error: unknown): NextResponse {
     }
   }
 
-  const message =
-    error instanceof Error ? error.message : 'Unable to decide Google FoodMenus import review.';
-  return gbpNoStoreJson({ error: message }, { status: 500 });
+  return gbpNoStoreResponse(
+    internalError(
+      error,
+      {
+        route:
+          '/api/ops/restaurants/[id]/google-business-profile/food-menus/import-review/[reviewId]/decision',
+      },
+      'Unable to decide Google FoodMenus import review.',
+    ),
+  );
 }
 
 export async function POST(request: NextRequest, { params }: RouteContext) {

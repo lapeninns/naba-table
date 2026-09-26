@@ -14,6 +14,7 @@ export type MyBookingsPageQueryResult = {
 
 export type MyBookingsPageQueryBuilder = PromiseLike<MyBookingsPageQueryResult> & {
   eq(column: string, value: string): MyBookingsPageQueryBuilder;
+  or(filters: string): MyBookingsPageQueryBuilder;
   in(column: string, values: readonly string[]): MyBookingsPageQueryBuilder;
   gte(column: string, value: string): MyBookingsPageQueryBuilder;
   lt(column: string, value: string): MyBookingsPageQueryBuilder;
@@ -38,24 +39,38 @@ export type MyBookingsPageFetchResult =
       error: unknown;
     };
 
+const EMAIL_FILTER_UNSAFE = /[,()"\\]/;
+
+/**
+ * Bookings owned by the signed-in user: rows bound to `auth_user_id`, plus
+ * rows whose email matches only when `emailMatch` is set (the same predicate
+ * as the booking detail endpoints, see isVerifiedBookingOwner).
+ */
 export async function fetchMyBookingsPage({
   client,
+  userId,
   email,
+  emailMatch = false,
   query,
   todayForTimezone,
 }: {
   client: MyBookingsPageQueryClient;
-  email: string;
+  userId: string;
+  email?: string | null;
+  emailMatch?: boolean;
   query: MyBookingsQuery;
   todayForTimezone?: (timezone: string) => string;
 }): Promise<MyBookingsPageFetchResult> {
   const pageSize = query.pageSize;
   const offset = query.offset;
+  const normalizedEmail = email?.trim().toLowerCase() ?? '';
+  const includeEmailMatch =
+    emailMatch && normalizedEmail.length > 0 && !EMAIL_FILTER_UNSAFE.test(normalizedEmail);
 
-  let bookingsQuery = client
-    .from('bookings')
-    .select(MY_BOOKINGS_SELECT, { count: 'exact' })
-    .eq('customer_email', email);
+  const baseQuery = client.from('bookings').select(MY_BOOKINGS_SELECT, { count: 'exact' });
+  let bookingsQuery = includeEmailMatch
+    ? baseQuery.or(`auth_user_id.eq.${userId},customer_email.eq.${normalizedEmail}`)
+    : baseQuery.eq('auth_user_id', userId);
 
   if (query.status === 'active') {
     bookingsQuery = bookingsQuery.in('status', BOOKING_BLOCKING_STATUSES);

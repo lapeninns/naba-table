@@ -6,6 +6,7 @@ import { parseBookingAttemptHeaders } from '@/server/bookings/attempt-context';
 import { completeBookingCreate } from '@/server/bookings/create-completion';
 import { runBookingCreateEntryGate } from '@/server/bookings/create-entry-gate';
 import { buildBookingCreateFailureResponse } from '@/server/bookings/create-failure-response';
+import { bindCreatedBookingToSessionOwner } from '@/server/bookings/create-owner-binding';
 import { runBookingCreatePersistence } from '@/server/bookings/create-persistence';
 import { runBookingCreatePrecommitContext } from '@/server/bookings/create-precommit-context';
 import {
@@ -15,12 +16,15 @@ import {
 import { stringifyError } from '@/server/bookings/error-formatting';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import type { BookingCreateCookieRequest } from '@/server/bookings/create-response';
+
 export type BookingsPostServiceClientFactory = typeof getServiceSupabaseClient;
 export type BookingsPostEntryGateRunner = typeof runBookingCreateEntryGate;
 export type BookingsPostPrecommitRunner = typeof runBookingCreatePrecommitContext;
 export type BookingsPostPersistenceRunner = typeof runBookingCreatePersistence;
 export type BookingsPostCompletionRunner = typeof completeBookingCreate;
 export type BookingsPostFailureResponseBuilder = typeof buildBookingCreateFailureResponse;
+export type BookingsPostOwnerBinder = typeof bindCreatedBookingToSessionOwner;
 
 export type BookingsPostLogger = {
   error: (...args: unknown[]) => void;
@@ -33,40 +37,45 @@ export function buildBookingCreateInvalidJsonResponse(): NextResponse {
 }
 
 export async function buildBookingsPostHttpResponse({
+  accessSecret,
   autoAssignEnabled,
   bookingPastTimeBlocking,
   bookingPastTimeGraceMinutes,
   bookingValidationUnified,
   clientIp,
   completionRunner = completeBookingCreate,
+  cookieRequest,
   entryGateRunner = runBookingCreateEntryGate,
   failureResponseBuilder = buildBookingCreateFailureResponse,
   headers,
   inlineAutoAssignTimeoutMs,
   logger = console,
+  ownerBinder = bindCreatedBookingToSessionOwner,
   payload,
   persistenceRunner = runBookingCreatePersistence,
   precommitRunner = runBookingCreatePrecommitContext,
-  recoverySecret,
-  recoveryTtlSeconds,
   serviceClientFor = getServiceSupabaseClient,
 }: {
+  /** bk1 key for the creator cookie (`SESSION_RECOVERY_ACCESS_TOKEN_SECRET`). */
+  accessSecret: string | null | undefined;
   autoAssignEnabled: boolean;
   bookingPastTimeBlocking?: boolean;
   bookingPastTimeGraceMinutes?: number;
   bookingValidationUnified: boolean;
   clientIp: string;
   completionRunner?: BookingsPostCompletionRunner;
+  /** The incoming request: existing booking cookies and protocol for the creator cookie. */
+  cookieRequest: BookingCreateCookieRequest;
   entryGateRunner?: BookingsPostEntryGateRunner;
   failureResponseBuilder?: BookingsPostFailureResponseBuilder;
   headers: Pick<Headers, 'get'>;
   inlineAutoAssignTimeoutMs?: number;
   logger?: BookingsPostLogger;
+  /** Binds a fresh insert to a signed-in guest with a confirmed, matching email. */
+  ownerBinder?: BookingsPostOwnerBinder;
   payload: unknown;
   persistenceRunner?: BookingsPostPersistenceRunner;
   precommitRunner?: BookingsPostPrecommitRunner;
-  recoverySecret?: string | null;
-  recoveryTtlSeconds?: number | null;
   serviceClientFor?: BookingsPostServiceClientFactory;
 }): Promise<NextResponse> {
   const parsed = parseBookingCreateRequestPayload(payload);
@@ -129,9 +138,6 @@ export async function buildBookingsPostHttpResponse({
     const persistence = await persistenceRunner({
       client,
       clientIp,
-      onStatusError: (statusError) => {
-        logger.error('[bookings][POST][status-enforce]', stringifyError(statusError));
-      },
       pastTimeBlocking,
       pastTimeGraceMinutes: bookingPastTimeGraceMinutes ?? 5,
       precommit,
@@ -145,9 +151,19 @@ export async function buildBookingsPostHttpResponse({
       return persistence.response;
     }
 
+    // Guest-auth §4.4 / §5.2: "My bookings" and session ownership match `auth_user_id`,
+    // so a signed-in guest's own new booking is bound now. Best-effort; never throws.
+    const ownedBooking = await ownerBinder({
+      booking: persistence.booking,
+      createOrigin: persistence.createOrigin,
+      isOpsWalkIn: entryGate.requestContext.isOpsWalkIn,
+    });
+
     return await completionRunner({
+      accessSecret,
       autoAssignEnabled,
       client,
+      cookieRequest,
       inlineAutoAssignTimeoutMs: inlineAutoAssignTimeoutMs ?? 4000,
       onInlineAutoAssignError: (error) => {
         logger.warn('[bookings][POST][inline-auto-assign] unexpected error', {
@@ -163,18 +179,10 @@ export async function buildBookingsPostHttpResponse({
       onAutoAssignError: (autoError) => {
         logger.error('[bookings][POST][auto-assign]', stringifyError(autoError));
       },
-      onTokenError: (tokenError) => {
-        logger.error('[bookings][POST][confirmation-token]', stringifyError(tokenError));
-      },
-      onRecoveryCookieError: (recoveryTokenError) => {
-        logger.error(
-          '[bookings][POST][session-recovery-token]',
-          stringifyError(recoveryTokenError),
-        );
-      },
-      persistence,
-      recoverySecret,
-      recoveryTtlSeconds,
+      persistence:
+        ownedBooking === persistence.booking
+          ? persistence
+          : { ...persistence, booking: ownedBooking },
       request,
       requestContext: entryGate.requestContext,
       restaurantId,

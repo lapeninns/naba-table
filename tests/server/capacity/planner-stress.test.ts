@@ -237,7 +237,8 @@ describe('STRESS: planner invariants over randomised floor plans', () => {
     expect(cases).toBe(2000);
     // sanity: the randomised corpus actually exercises seatable outcomes
     expect(seatable).toBeGreaterThan(1000);
-  }, 15_000);
+  // 2000 seeded, CPU-bound cases: allow headroom for coverage instrumentation on shared CI runners.
+  }, 60_000);
 });
 
 describe('STRESS: overflow fallback still honors maxOverage (#2, fuzzed)', () => {

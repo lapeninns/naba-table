@@ -2,7 +2,8 @@
 import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 
-
+import { apiError, internalError, unauthenticated } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   recordEmailDeliveryLog,
@@ -17,6 +18,8 @@ import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import type { NextRequest } from 'next/server';
 import type { WebhookEvent } from 'resend';
+
+const ROUTE = '/api/webhook/resend';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -39,12 +42,32 @@ type ResendWebhookEvent = {
     email_id: string;
     to: string[];
     // ... other fields depending on the event type
+    // Resend (SES) bounce classification: 'Permanent' | 'Transient' | 'Undetermined'.
     bounce?: {
-      type: string;
-      message: string;
+      type?: string;
+      subType?: string;
+      message?: string;
     };
   };
 };
+
+const PERMANENT_BOUNCE_TYPES = new Set(['permanent', 'hard']);
+
+function normalizeBounceType(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim().toLowerCase() : null;
+}
+
+/** 'bounce' only for a permanent (hard) bounce, 'complaint' for complaints, otherwise null. */
+function resolveSuppressionReason(event: ResendWebhookEvent): 'bounce' | 'complaint' | null {
+  if (event.type === 'email.complained' || event.type === 'email.complaint') {
+    return 'complaint';
+  }
+  if (event.type === 'email.bounced') {
+    const bounceType = normalizeBounceType(event.data.bounce?.type);
+    return bounceType && PERMANENT_BOUNCE_TYPES.has(bounceType) ? 'bounce' : null;
+  }
+  return null;
+}
 
 function parseContentLength(value: string | null): number | null {
   if (!value) return null;
@@ -93,8 +116,8 @@ export async function POST(req: NextRequest) {
   // 1. --- Webhook Security ---
   const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (!resendWebhookSecret) {
-    console.error('[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook');
-    return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+    logger.error('webhook.resend.secret_missing', { route: ROUTE });
+    return apiError(503, 'WEBHOOK_NOT_CONFIGURED', 'Webhook not configured.', { retryable: true });
   }
 
   const svixId = req.headers.get('svix-id')?.trim();
@@ -102,21 +125,21 @@ export async function POST(req: NextRequest) {
   const svixSignature = req.headers.get('svix-signature')?.trim();
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    console.warn('[webhook][resend] Missing svix verification headers');
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    logger.warn('webhook.resend.missing_signature_headers', { route: ROUTE });
+    return unauthenticated('Unauthorized.');
   }
 
   const contentLength = parseContentLength(req.headers.get('content-length'));
   if (contentLength === null) {
-    return NextResponse.json({ error: 'Content-Length required' }, { status: 411 });
+    return apiError(411, 'LENGTH_REQUIRED', 'Content-Length required.');
   }
   if (contentLength !== null && contentLength > MAX_RESEND_WEBHOOK_BODY_BYTES) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    return apiError(413, 'PAYLOAD_TOO_LARGE', 'Payload too large.');
   }
 
   const payload = await readBodyWithLimit(req, MAX_RESEND_WEBHOOK_BODY_BYTES);
   if (payload === null) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    return apiError(413, 'PAYLOAD_TOO_LARGE', 'Payload too large.');
   }
 
   try {
@@ -131,7 +154,7 @@ export async function POST(req: NextRequest) {
     const primaryRecipient = recipients[0] ?? null;
 
     if (!primaryRecipient) {
-      return NextResponse.json({ error: 'No recipient email found' }, { status: 400 });
+      return apiError(400, 'NO_RECIPIENT', 'No recipient email found.');
     }
 
     const statusMap: Partial<Record<ResendWebhookEvent['type'], EmailDeliveryStatus>> = {
@@ -199,66 +222,71 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. --- Handle Relevant Events ---
-    switch (event.type) {
-      case 'email.bounced':
-      case 'email.complained':
-      case 'email.complaint': {
+    // 2. --- Suppression ---
+    // Only a permanent bounce or a complaint means the address must stop receiving mail.
+    // Transient (mailbox full, greylisting) and undetermined bounces are recorded above but do
+    // not suppress. Every recipient of the message is handled the same way.
+    const suppressionReason = resolveSuppressionReason(event);
+    if (suppressionReason) {
+      let matchedProfiles = 0;
+      let updatedProfiles = 0;
+      for (const recipientEmail of recipients) {
         // Suppress in both stores: the profile-bound flag (registered users) and the
         // email-keyed list (honours every recipient, incl. guests without an account).
-        const suppressionReason = event.type === 'email.bounced' ? 'bounce' : 'complaint';
         const [result] = await Promise.all([
-          suppressProfilesByEmail(primaryRecipient),
-          addEmailToSuppressionList(primaryRecipient, suppressionReason, {
+          suppressProfilesByEmail(recipientEmail),
+          addEmailToSuppressionList(recipientEmail, suppressionReason, {
             via: 'resend-webhook',
             eventType: event.type,
           }),
         ]);
-
-        if (result.updatedProfiles > 0) {
-          await recordObservabilityEvent({
-            source: 'webhook.resend',
-            eventType: 'email_suppression.added',
-            severity: 'warning',
-            context: {
-              reason: event.type,
-              matchedProfiles: result.matchedProfiles,
-              updatedProfiles: result.updatedProfiles,
-            },
-          });
-        }
-        break;
+        matchedProfiles += result.matchedProfiles;
+        updatedProfiles += result.updatedProfiles;
       }
 
-      // Note: Resend doesn't have a native "unsubscribe" event via webhook in the same way.
-      // This would typically be handled by a link in the email that directs to a page in your app,
-      // which then calls an API to set the suppression flag. The 'List-Unsubscribe' header is also key.
-
-      default:
-        // console.log(`[webhook][resend] Received unhandled event type: ${event.type}`);
-        break;
+      if (updatedProfiles > 0) {
+        await recordObservabilityEvent({
+          source: 'webhook.resend',
+          eventType: 'email_suppression.added',
+          severity: 'warning',
+          context: {
+            reason: event.type,
+            recipientCount: recipients.length,
+            matchedProfiles,
+            updatedProfiles,
+          },
+        });
+      }
+    } else if (event.type === 'email.bounced') {
+      await recordObservabilityEvent({
+        source: 'webhook.resend',
+        eventType: 'email_suppression.skipped_non_permanent_bounce',
+        severity: 'info',
+        context: {
+          bounceType: normalizeBounceType(event.data.bounce?.type) ?? 'missing',
+          recipientCount: recipients.length,
+        },
+      });
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     if (error instanceof Error && error.name === 'WebhookVerificationError') {
-      console.warn('[webhook][resend] Invalid signature received');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      logger.warn('webhook.resend.invalid_signature', { route: ROUTE });
+      return unauthenticated('Unauthorized.');
     }
 
-    console.error('[webhook][resend] Error processing webhook:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     await recordObservabilityEvent({
       source: 'webhook.resend',
       eventType: 'webhook.processing_failed',
       severity: 'error',
       context: {
-        error: errorMessage,
+        errorName: error instanceof Error ? error.name : typeof error,
       },
     });
     captureServerException(error, {
       properties: { provider: 'resend', source: 'webhook', path: '/api/webhook/resend' },
     });
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return internalError(error, { route: ROUTE });
   }
 }

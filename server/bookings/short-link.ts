@@ -1,13 +1,12 @@
 import { env } from '@/lib/env';
 import { safeGoogleReviewUrl } from '@/lib/security/safe-url';
-import { buildBookingManageUrl } from '@/server/bookings/manage-url';
+import {
+  buildBookingManageLink,
+  buildBookingManageUrl,
+  type ManageUrlBooking,
+} from '@/server/bookings/manage-url';
 
-type ShortLinkBooking = {
-  id: string;
-  restaurant_id: string | null | undefined;
-  customer_email: string | null | undefined;
-  customer_phone: string | null | undefined;
-};
+type ShortLinkBooking = ManageUrlBooking;
 
 type ShortLinkPurpose = 'booking_manage' | 'review';
 
@@ -32,20 +31,6 @@ function isShortLinksConfigured(): boolean {
     env.cloudflare.bookingShortLinksInternalToken &&
     env.cloudflare.bookingShortLinksBaseUrl,
   );
-}
-
-function isRecoverErrorUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname === '/bookings/recover/error';
-  } catch {
-    return true;
-  }
-}
-
-function buildShortLinkExpiry(): string {
-  const ttlSeconds = env.security.sessionRecoveryAccessTokenTtlSeconds;
-  return new Date(Date.now() + ttlSeconds * 1000).toISOString();
 }
 
 function isValidShortLinkResponse(
@@ -118,6 +103,11 @@ async function requestBookingShortLink(
   }
 }
 
+/**
+ * Shortens the booking's manage link. The short link expires with the link
+ * token it points at. When no link can be minted, the (unshortened) error or
+ * find URL from buildBookingManageUrl is returned instead.
+ */
 export async function createBookingManageShortUrl(
   booking: ShortLinkBooking,
   params: {
@@ -125,19 +115,22 @@ export async function createBookingManageShortUrl(
     fetchImpl?: typeof fetch;
   },
 ): Promise<string> {
-  const longUrl = buildBookingManageUrl(booking);
+  const link = buildBookingManageLink(booking);
+  if (!link) {
+    return buildBookingManageUrl(booking);
+  }
 
-  if (!isShortLinksConfigured() || isRecoverErrorUrl(longUrl)) {
-    return longUrl;
+  if (!isShortLinksConfigured()) {
+    return link.url;
   }
 
   const shortUrl = await requestBookingShortLink(
     {
       purpose: 'booking_manage',
-      destinationUrl: longUrl,
+      destinationUrl: link.url,
       bookingId: booking.id,
       restaurantId: booking.restaurant_id,
-      expiresAt: buildShortLinkExpiry(),
+      expiresAt: link.expiresAt.toISOString(),
       createdBy: params.createdBy,
     },
     {
@@ -145,7 +138,7 @@ export async function createBookingManageShortUrl(
     },
   );
 
-  return shortUrl ?? longUrl;
+  return shortUrl ?? link.url;
 }
 
 export async function createReviewShortUrl(params: {

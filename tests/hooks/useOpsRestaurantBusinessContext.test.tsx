@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HttpError } from '@/lib/http/errors';
 import { createAppQueryClient } from '@/lib/query/client';
 import { queryKeys } from '@/lib/query/keys';
 import { dualSyncQueryKeys } from '@src/hooks/ops/opsIntegrationQueries';
@@ -190,5 +191,36 @@ describe('useOpsUpdateRestaurantBusinessContext', () => {
 
     expect(queryClient.getQueryData(contextKey)).toEqual(snapshot('loaded'));
     expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it('@contract a 409 STALE_WRITE refetches the snapshot once so the next save sends the new revision', async () => {
+    restaurantService.getBusinessContext
+      .mockResolvedValueOnce({ ...snapshot('loaded'), revision: 1 })
+      .mockResolvedValueOnce({ ...snapshot('latest'), revision: 2 });
+    restaurantService.updateBusinessContext
+      .mockRejectedValueOnce(new HttpError({ message: 'stale', status: 409, code: 'STALE_WRITE' }))
+      .mockResolvedValueOnce({ ...snapshot('saved'), revision: 3 });
+
+    const { result } = setup(() => ({
+      query: useOpsRestaurantBusinessContext(restaurantId),
+      save: useOpsUpdateRestaurantBusinessContext(restaurantId),
+    }));
+    await waitFor(() => expect(result.current.query.data).toMatchObject({ revision: 1 }));
+
+    await act(async () => {
+      await expect(
+        result.current.save.mutateAsync({ ...payload, expectedRevision: 1 }),
+      ).rejects.toThrow('stale');
+    });
+    await waitFor(() => expect(result.current.query.data).toMatchObject({ revision: 2 }));
+    expect(restaurantService.getBusinessContext).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await result.current.save.mutateAsync({ ...payload, expectedRevision: 2 });
+    });
+    expect(restaurantService.updateBusinessContext).toHaveBeenLastCalledWith(restaurantId, {
+      ...payload,
+      expectedRevision: 2,
+    });
   });
 });

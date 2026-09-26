@@ -196,7 +196,7 @@ describe('RestaurantBusinessContextSection', () => {
     );
   });
 
-  it('saves each section with changes in turn without losing the ones still waiting', async () => {
+  it('saves every section with changes in one request', async () => {
     const user = userEvent.setup();
     setSnapshot({}, { categories: [GOOGLE_CATEGORY] });
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
@@ -209,18 +209,10 @@ describe('RestaurantBusinessContextSection', () => {
 
     await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
 
-    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(3));
-    // Page order, one family per request, each a full-list replacement. The switch is still
-    // saved through business details, as part of the Where you serve step.
-    expect(mutateAsyncMock.mock.calls.map(([payload]) => Object.keys(payload))).toEqual([
-      ['categories'],
-      ['businessDetails'],
-      ['serviceAreas'],
-    ]);
-    expect(mutateAsyncMock).toHaveBeenNthCalledWith(2, {
-      businessDetails: { openingDate: null, businessStatus: null, isServiceAreaBusiness: true },
-    });
-    expect(mutateAsyncMock).toHaveBeenNthCalledWith(1, {
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(1));
+    // One transactional request with every changed section, each a full-list replacement. The
+    // switch is saved through business details. No revision is sent when the server has none.
+    expect(mutateAsyncMock).toHaveBeenCalledWith({
       categories: [
         {
           id: 'gbp-category-1',
@@ -230,9 +222,7 @@ describe('RestaurantBusinessContextSection', () => {
           moreHoursTypes: [],
         },
       ],
-    });
-    // Sent after two snapshots came back: the new area is still in the draft.
-    expect(mutateAsyncMock).toHaveBeenNthCalledWith(3, {
+      businessDetails: { openingDate: null, businessStatus: null, isServiceAreaBusiness: true },
       serviceAreas: [
         {
           id: undefined,
@@ -258,25 +248,50 @@ describe('RestaurantBusinessContextSection', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('reports what saved, what did not and the reason code when a step fails', async () => {
+  it('sends the loaded revision so a stale save is refused, and explains the conflict', async () => {
     const user = userEvent.setup();
     setSnapshot({}, { categories: [GOOGLE_CATEGORY] });
-    mutateAsyncMock
-      .mockImplementationOnce(async (payload: UpdateRestaurantBusinessContextInput) =>
-        applyToServer(payload),
-      )
-      .mockRejectedValueOnce(
-        new HttpError({ message: 'Too Many Requests', status: 429, code: 'RATE_LIMITED' }),
-      );
+    serverSnapshot = { ...serverSnapshot, revision: 7 } as RestaurantBusinessContextSnapshot;
+    useOpsRestaurantBusinessContextMock.mockReturnValue({
+      data: serverSnapshot,
+      error: null,
+      isLoading: false,
+      refetch: vi.fn(),
+    });
+    mutateAsyncMock.mockRejectedValueOnce(
+      new HttpError({ message: 'Changed', status: 409, code: 'STALE_WRITE' }),
+    );
+    render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
+
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(1));
+    expect(mutateAsyncMock).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 7 }));
+    expect(await within(saveBar()).findByText(/Categories not saved\./)).toBeInTheDocument();
+    expect(saveBar()).toHaveTextContent(
+      'Someone else changed these details. The latest version is loaded; review and save again.',
+    );
+    expect(toastMock.success).not.toHaveBeenCalled();
+  });
+
+  it('keeps every edit and names the unsaved sections when the request fails', async () => {
+    const user = userEvent.setup();
+    setSnapshot({}, { categories: [GOOGLE_CATEGORY] });
+    mutateAsyncMock.mockRejectedValueOnce(
+      new HttpError({ message: 'Too Many Requests', status: 429, code: 'RATE_LIMITED' }),
+    );
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
     await serveCambridge(user);
     await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
 
     expect(
-      await within(saveBar()).findByText('Where you serve not saved. Your edits are still here.'),
+      await within(saveBar()).findByText(
+        'Categories and Where you serve not saved. Your edits are still here.',
+      ),
     ).toBeInTheDocument();
-    expect(saveBar()).toHaveTextContent('Saved: Categories.');
+    // Nothing is half-saved: the one request either applied every section or none.
+    expect(saveBar()).not.toHaveTextContent('Saved:');
     expect(within(saveBar()).getByText('RATE_LIMITED')).toHaveClass('font-mono');
     expect(screen.getByText('Not all changes saved')).toBeInTheDocument();
     expect(within(section('Where you serve')).getByText('Cambridge, UK')).toBeInTheDocument();
@@ -286,14 +301,15 @@ describe('RestaurantBusinessContextSection', () => {
     expect(toastMock.success).not.toHaveBeenCalled();
 
     await user.click(within(saveBar()).getByRole('button', { name: 'Try again' }));
-    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(4));
-    expect(mutateAsyncMock.mock.calls.slice(2).map(([payload]) => Object.keys(payload))).toEqual([
-      ['businessDetails'],
-      ['serviceAreas'],
+    await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(2));
+    expect(Object.keys(mutateAsyncMock.mock.calls[1]?.[0] ?? {}).sort()).toEqual([
+      'businessDetails',
+      'categories',
+      'serviceAreas',
     ]);
     await waitFor(() =>
       expect(toastMock.success).toHaveBeenCalledWith(
-        'Saved Where you serve. Each section replaces its full list.',
+        'Saved Categories and Where you serve. Each section replaces its full list.',
       ),
     );
   });

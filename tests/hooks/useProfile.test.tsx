@@ -1,12 +1,13 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
+import * as profileHooks from '@/hooks/useProfile';
 import {
   coerceProfileUpdatePayload,
   useProfile,
+  useProfileSaveKey,
   useUpdateProfile,
-  useUploadProfileAvatar,
 } from '@/hooks/useProfile';
 import { track } from '@/lib/analytics';
 import { HttpError } from '@/lib/http/errors';
@@ -71,7 +72,7 @@ describe('useUpdateProfile', () => {
 
     const { result, queryClient } = setup(() => useUpdateProfile());
 
-    await result.current.mutateAsync({ name: 'Renamed Guest' });
+    await result.current.mutateAsync({ payload: { name: 'Renamed Guest' }, idempotencyKey: 'key-1' });
 
     expect(fetchJson).toHaveBeenCalledWith(
       '/api/profile',
@@ -79,7 +80,7 @@ describe('useUpdateProfile', () => {
         method: 'PUT',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'Idempotency-Key': expect.any(String),
+          'Idempotency-Key': 'key-1',
         }),
         body: JSON.stringify({ name: 'Renamed Guest' }),
       }),
@@ -103,7 +104,10 @@ describe('useUpdateProfile', () => {
         }),
     );
 
-    const mutation = result.current.mutateAsync({ name: 'Optimistic Name', phone: null });
+    const mutation = result.current.mutateAsync({
+      payload: { name: 'Optimistic Name', phone: null },
+      idempotencyKey: 'key-2',
+    });
 
     await waitFor(() => {
       const cached = queryClient.getQueryData<ProfileResponse>(queryKeys.profile.self());
@@ -125,7 +129,7 @@ describe('useUpdateProfile', () => {
 
     const { result } = setup(() => useUpdateProfile());
 
-    await result.current.mutateAsync({ name: 'Guest Person' });
+    await result.current.mutateAsync({ payload: { name: 'Guest Person' }, idempotencyKey: 'key-3' });
 
     expect(track).toHaveBeenCalledWith(
       'profile_update_duplicate',
@@ -134,39 +138,58 @@ describe('useUpdateProfile', () => {
   });
 });
 
-describe('useUploadProfileAvatar', () => {
-  it('@contract posts the file as multipart form data', async () => {
-    const upload = { path: 'avatars/user-1.png', url: 'https://cdn.example.com/a.png', cacheKey: 'k1' };
-    vi.mocked(fetchJson).mockResolvedValue(upload as never);
+describe('useUpdateProfile idempotency', () => {
+  it('@contract sends the same key when a failed save is retried', async () => {
+    vi.mocked(fetchJson)
+      .mockRejectedValueOnce(new HttpError({ message: 'Server', status: 503, code: 'HTTP_503' }))
+      .mockResolvedValueOnce({ profile, idempotent: true } as never);
 
-    const { result } = setup(() => useUploadProfileAvatar());
-    const file = new File(['binary'], 'avatar.png', { type: 'image/png' });
+    const { result } = setup(() => ({ save: useUpdateProfile(), keys: useProfileSaveKey() }));
+    const payload = { name: 'Guest Person' };
 
-    await expect(result.current.mutateAsync(file)).resolves.toEqual(upload);
+    const firstKey = result.current.keys.keyFor(payload);
+    await expect(
+      result.current.save.mutateAsync({ payload, idempotencyKey: firstKey }),
+    ).rejects.toMatchObject({ status: 503 });
 
-    const [url, init] = vi.mocked(fetchJson).mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('/api/profile/image');
-    expect(init.method).toBe('POST');
-    expect(init.body).toBeInstanceOf(FormData);
-    expect((init.body as FormData).get('file')).toBe(file);
+    const retryKey = result.current.keys.keyFor({ name: 'Guest Person' });
+    expect(retryKey).toBe(firstKey);
+    await result.current.save.mutateAsync({ payload, idempotencyKey: retryKey });
+
+    const sentKeys = vi
+      .mocked(fetchJson)
+      .mock.calls.map(([, init]) => (init?.headers as Record<string, string>)['Idempotency-Key']);
+    expect(sentKeys).toEqual([firstKey, firstKey]);
   });
 
-  it('@contract tracks upload failures with the file metadata', async () => {
-    vi.mocked(fetchJson).mockRejectedValue(
-      new HttpError({ message: 'Too large', status: 413, code: 'PAYLOAD_TOO_LARGE' }),
-    );
+  it('@contract uses a new key once the payload changes or after a successful save', () => {
+    const { result } = setup(() => useProfileSaveKey());
 
-    const { result } = setup(() => useUploadProfileAvatar());
-    const file = new File(['0123456789'], 'avatar.png', { type: 'image/png' });
+    const first = result.current.keyFor({ name: 'Guest Person', phone: null });
+    // Same payload, different key order: same intent, same key.
+    expect(result.current.keyFor({ phone: null, name: 'Guest Person' })).toBe(first);
+    expect(result.current.keyFor({ name: 'Guest Person' })).not.toBe(first);
 
-    await expect(result.current.mutateAsync(file)).rejects.toMatchObject({ status: 413 });
+    const changed = result.current.keyFor({ name: 'Other Name' });
+    expect(changed).not.toBe(first);
 
-    expect(track).toHaveBeenCalledWith('profile_upload_error', {
-      code: 'PAYLOAD_TOO_LARGE',
-      status: 413,
-      size: file.size,
-      type: 'image/png',
-    });
+    act(() => result.current.reset());
+    expect(result.current.keyFor({ name: 'Other Name' })).not.toBe(changed);
+  });
+
+  it('@contract declares inline error handling for the form', async () => {
+    vi.mocked(fetchJson).mockResolvedValue({ profile } as never);
+    const { result, queryClient } = setup(() => useUpdateProfile());
+
+    await result.current.mutateAsync({ payload: { name: 'Guest Person' }, idempotencyKey: 'k' });
+
+    expect(queryClient.getMutationCache().getAll()[0]?.options.meta?.feedback?.error).toBe(false);
+  });
+});
+
+describe('profile avatar upload', () => {
+  it('@contract has no unused avatar upload hook', () => {
+    expect('useUploadProfileAvatar' in profileHooks).toBe(false);
   });
 });
 

@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   previewRestaurantEmailTemplateSchema,
   restaurantEmailTemplateKeySchema,
   type RestaurantEmailTemplatePreviewResponse,
 } from '@/app/api/ops/restaurants/schema';
+import { apiError, validationError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { renderRestaurantBookingEmailPreview } from '@/server/emails/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 
+import { templateRouteFailure, unknownTemplateKey } from '../../_errors';
 import {
   ensureTemplateReadAccess,
   resolveRestaurantId,
@@ -21,14 +23,14 @@ import type { NextRequest } from 'next/server';
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Missing restaurant id.');
   }
 
   const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
     await resolveTemplateKeyParam(params),
   );
   if (!parsedTemplateKey.success) {
-    return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
+    return unknownTemplateKey();
   }
 
   const access = await ensureTemplateReadAccess(restaurantId);
@@ -57,10 +59,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const parsedBody = previewRestaurantEmailTemplateSchema.safeParse(body);
   if (!parsedBody.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsedBody.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsedBody.error);
   }
 
   try {
@@ -96,14 +95,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('[ops][restaurants][email-templates][preview] failed', error);
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-email-template-preview' },
     });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to render preview' },
-      { status: 500 },
+    return templateRouteFailure(
+      error,
+      { operation: 'preview', restaurantId },
+      "The preview couldn't be rendered. Check the template and try again.",
     );
   }
 }

@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { createHash } from "node:crypto";
 
+import { logger } from "@/lib/logger";
 import { buildInviteUrl } from "@/lib/owner/team/invite-links";
 import {
   createEmailIdempotencyKey,
@@ -44,7 +45,15 @@ function buildTeamInviteIdempotencyKey(params: { inviteId: string; email: string
   });
 }
 
-export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; token: string }): Promise<void> {
+export type TeamInviteEmailResult = {
+  /** False when the provider suppressed the recipient, so nothing was delivered. */
+  delivered: boolean;
+};
+
+export async function sendTeamInviteEmail(params: {
+  invite: RestaurantInvite;
+  token: string;
+}): Promise<TeamInviteEmailResult> {
   const { invite, token } = params;
   const inviteUrl = buildInviteUrl(token);
 
@@ -125,10 +134,11 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
     });
   } catch (error) {
     if (isEmailRecipientSuppressedError(error)) {
-      console.warn("[emails][invitations] recipient suppressed; skipping invite email", {
+      logger.warn("team_invite.email_recipient_suppressed", {
+        restaurantId: invite.restaurant_id,
         inviteId: invite.id,
       });
-      return;
+      return { delivered: false };
     }
 
     throw error;
@@ -146,4 +156,6 @@ export async function sendTeamInviteEmail(params: { invite: RestaurantInvite; to
       role: invite.role,
     },
   });
+
+  return { delivered: true };
 }

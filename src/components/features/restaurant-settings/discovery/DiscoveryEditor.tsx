@@ -34,7 +34,11 @@ import {
 import { getDiscoveryDisplayDirtyState } from './serviceLocation';
 import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
 import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
-import { SettingsSaveBar, type SettingsSaveUnit } from '../shared/SettingsSaveBar';
+import {
+  DISCOVERY_SAVE_CONFLICT_MESSAGE,
+  SettingsSaveBar,
+  type SettingsSaveUnit,
+} from '../shared/SettingsSaveBar';
 import { scrollToSettingsSection } from '../shared/SettingsSectionNav';
 import { SettingsStatusLine } from '../shared/SettingsStatusLine';
 import { useSettingsSectionSpy } from '../shared/useSettingsSectionSpy';
@@ -268,6 +272,7 @@ function DiscoveryEditorPage({
         onDiscard={handleDiscard}
         onShowFirstIssue={showFirstIssue}
         onReview={() => setReviewOpen(true)}
+        conflictMessage={DISCOVERY_SAVE_CONFLICT_MESSAGE}
       />
       <SettingsReviewChangesDialog
         open={reviewOpen}

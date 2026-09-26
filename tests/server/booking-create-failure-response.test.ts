@@ -47,8 +47,9 @@ describe('booking create failure response', () => {
     // Response is unchanged by instrumentation.
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: 'Unable to create booking',
-      code: 'INTERNAL_SERVER_ERROR',
+      error: 'Something went wrong on our side. Try again.',
+      message: 'Something went wrong on our side. Try again.',
+      code: 'INTERNAL_ERROR',
     });
 
     expect(capture).toHaveBeenCalledWith({
@@ -137,6 +138,8 @@ describe('booking create failure response', () => {
 
     await expect(response.json()).resolves.toEqual({
       error:
+        'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
+      message:
         'These contact details partially match an existing guest record. Use the same email and phone number as previous bookings, or contact the restaurant.',
       code: 'DUPLICATE_RESOURCE',
     });

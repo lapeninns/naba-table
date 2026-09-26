@@ -43,7 +43,11 @@ describe('GET /api/ops/team/memberships', () => {
     const response = await GET();
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sign in to continue.',
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue.',
+    });
     expect(fetchUserMembershipsMock).not.toHaveBeenCalled();
   });
 
@@ -63,6 +67,7 @@ describe('GET /api/ops/team/memberships', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Authentication required',
       code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
     });
     expect(fetchUserMembershipsMock).not.toHaveBeenCalled();
   });
@@ -120,7 +125,34 @@ describe('GET /api/ops/team/memberships', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Unable to load memberships' });
+    expect(body).toEqual({
+      error: 'Unable to load memberships',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to load memberships',
+    });
     expect(JSON.stringify(body)).not.toContain('memberships table unavailable');
+  });
+});
+
+describe('GET /api/ops/team/memberships unexpected errors (C1)', () => {
+  const SECRET = 'SECRET_DB_DETAIL guest@example.com';
+
+  it('@api @security does not leak the thrown message to the client or logs', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockAuthenticatedSupabase());
+    fetchUserMembershipsMock.mockRejectedValue(new Error(`lookup failed: ${SECRET}`));
+
+    try {
+      const response = await GET();
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(text).not.toContain('guest@example.com');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('guest@example.com');
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { firstString, safeDate } from '@/lib/api/query-params';
 import { generateCSV } from '@/lib/export/csv';
+import { logger, sanitizeLogText } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { formatTimeRange } from '@/lib/utils/datetime';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getTodayBookingsSummary } from '@/server/ops/bookings';
@@ -12,6 +20,8 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/serve
 import { requireMembershipForRestaurant } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/bookings/export';
 
 const exportQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -23,17 +33,13 @@ const exportQuerySchema = z.object({
 
 type ExportQuery = z.infer<typeof exportQuerySchema>;
 
-function parseQuery(request: NextRequest): ExportQuery | null {
+function parseQuery(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const rawDate = firstString(params, 'date');
-  const result = exportQuerySchema.safeParse({
+  return exportQuerySchema.safeParse({
     restaurantId: firstString(params, 'restaurantId'),
     date: rawDate === undefined ? undefined : (safeDate(params, 'date') ?? '__invalid_date__'),
   });
-  if (!result.success) {
-    return null;
-  }
-  return result.data;
 }
 
 function normalizeText(value: unknown): string {
@@ -56,10 +62,11 @@ function buildFilename(restaurantName: string | null | undefined, date: string):
 }
 
 export async function GET(request: NextRequest) {
-  const query = parseQuery(request);
-  if (!query) {
-    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+  const parsedQuery = parseQuery(request);
+  if (!parsedQuery.success) {
+    return validationError(parsedQuery.error, 'Invalid query');
   }
+  const query: ExportQuery = parsedQuery.data;
 
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -68,16 +75,16 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/bookings/export][GET] failed to resolve auth', error.message);
+    logger.error('[ops/bookings/export][GET] failed to resolve auth', {
+      route: ROUTE,
+      errorMessage: sanitizeLogText(error.message),
+    });
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   let membership;
@@ -87,12 +94,15 @@ export async function GET(request: NextRequest) {
       restaurantId: query.restaurantId,
     });
   } catch (membershipError) {
-    console.error('[ops/bookings/export][GET] membership validation failed', membershipError);
+    logger.error('[ops/bookings/export][GET] membership validation failed', {
+      route: ROUTE,
+      errorName: membershipError instanceof Error ? membershipError.name : typeof membershipError,
+    });
     captureServerException(membershipError, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-bookings-export' },
     });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return forbidden();
   }
 
   const rateLimit = await requireApiRateLimit({
@@ -158,12 +168,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (summaryError) {
-    console.error('[ops/bookings/export][GET] failed to build export', summaryError);
     captureServerException(summaryError, {
       distinctId: user.id,
       groups: query.restaurantId ? { restaurant: query.restaurantId } : undefined,
       properties: { restaurantId: query.restaurantId, source: 'ops', kind: 'ops-bookings-export' },
     });
-    return NextResponse.json({ error: 'Unable to export bookings' }, { status: 500 });
+    return internalError(summaryError, { route: ROUTE }, 'Unable to export bookings');
   }
 }

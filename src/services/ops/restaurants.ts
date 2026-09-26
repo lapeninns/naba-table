@@ -712,9 +712,20 @@ export type RestaurantBusinessContextFamily = {
 export type RestaurantBusinessContextSnapshot = {
   core: RestaurantBusinessContextFamily;
   providerSnapshot: RestaurantBusinessContextFamily;
+  /**
+   * Per-restaurant save revision. A save based on this snapshot sends it back as
+   * `expectedRevision`. Absent while the server has no revision support.
+   */
+  revision?: number;
 };
 
-export type UpdateRestaurantBusinessContextInput = Partial<{
+export type UpdateRestaurantBusinessContextInput = {
+  /**
+   * The revision of the snapshot the draft is based on. The server refuses the save with
+   * 409 STALE_WRITE when another write landed since.
+   */
+  expectedRevision?: number;
+} & Partial<{
   businessDetails: {
     openingDate?: string | null;
     businessStatus?: string | null;
@@ -1619,4 +1630,47 @@ export function createBrowserRestaurantService(): RestaurantService {
       );
     },
   } satisfies RestaurantService;
+}
+
+// --- wave 2 (S9): logo endpoints. Standalone helpers, so the RestaurantService interface and
+// its dev mocks stay unchanged. ---
+
+export type RestaurantLogoUploadResult = {
+  path: string;
+  url: string;
+  cacheKey: string;
+  /** The restaurant after logo_url was saved; the canonical value for the details cache. */
+  profile: RestaurantProfile;
+};
+
+type RestaurantLogoUploadResponse = RestaurantResponse & {
+  path: string;
+  url: string;
+  cacheKey: string;
+};
+
+export async function uploadRestaurantLogo(
+  restaurantId: string,
+  file: File,
+): Promise<RestaurantLogoUploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await fetchJson<RestaurantLogoUploadResponse>(
+    `${OPS_RESTAURANTS_BASE}/${restaurantId}/logo`,
+    { method: 'POST', body: formData },
+  );
+  return {
+    path: response.path,
+    url: response.url,
+    cacheKey: response.cacheKey,
+    profile: mapRestaurant(response.restaurant),
+  };
+}
+
+export async function removeRestaurantLogo(restaurantId: string): Promise<RestaurantProfile> {
+  const { restaurant } = await fetchJson<RestaurantResponse>(
+    `${OPS_RESTAURANTS_BASE}/${restaurantId}/logo`,
+    { method: 'DELETE' },
+  );
+  return mapRestaurant(restaurant);
 }

@@ -426,6 +426,41 @@ export async function addToWaitingList(
   return { id: created.id, position, existing: false };
 }
 
+/**
+ * Raised by `softCancelBooking` when the booking's status forbids cancellation
+ * (checked_in, completed, no_show). The DB enforces it under the booking row lock, so this
+ * also covers a status change between a caller's read and the cancel.
+ */
+export class BookingNotCancellableError extends Error {
+  readonly code = 'BOOKING_NOT_CANCELLABLE';
+  readonly currentStatus: BookingRecord['status'] | null;
+
+  constructor(currentStatus: BookingRecord['status'] | null) {
+    super('This booking can no longer be cancelled.');
+    this.name = 'BookingNotCancellableError';
+    this.currentStatus = currentStatus;
+  }
+}
+
+const NON_CANCELLABLE_STATUSES = new Set<string>(['checked_in', 'completed', 'no_show']);
+
+function readNotCancellableStatus(error: {
+  details?: string | null;
+}): BookingRecord['status'] | null {
+  try {
+    const parsed: unknown = JSON.parse(error.details ?? '');
+    const status =
+      parsed && typeof parsed === 'object'
+        ? (parsed as { currentStatus?: unknown }).currentStatus
+        : null;
+    return typeof status === 'string' && NON_CANCELLABLE_STATUSES.has(status)
+      ? (status as BookingRecord['status'])
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function softCancelBooking(
   client: DbClient,
   bookingId: string,
@@ -437,6 +472,9 @@ export async function softCancelBooking(
   });
 
   if (error) {
+    if (error.code === 'P0004' && error.message === 'booking_not_cancellable') {
+      throw new BookingNotCancellableError(readNotCancellableStatus(error));
+    }
     throw error;
   }
 
@@ -539,6 +577,52 @@ export async function updateBookingAndClearAssignmentsAtomically(
   }
   if (!data) {
     throw new Error(`update_booking_and_clear_assignments returned no booking for ${bookingId}`);
+  }
+
+  return data;
+}
+
+type ModifyPendingBookingRpcClient = DbClient & {
+  rpc: (
+    fn: 'modify_pending_booking_and_clear_assignments',
+    args: {
+      p_booking_id: string;
+      p_restaurant_id: string;
+      p_patch: Json;
+      p_expected_status: string;
+    },
+  ) => PromiseLike<{ data: BookingRecord | null; error: { code?: string | null } | null }>;
+};
+
+/**
+ * Pending-path modification (no table found for the new window): applies the patch and
+ * clears the booking's assignments and allocations only while its status is still
+ * `expectedStatus` (pending or pending_allocation). A concurrent status change raises
+ * SQLSTATE P0004 and nothing is written. The patch cannot change status or tenant.
+ * Throws the raw PostgREST error; callers map its `code`.
+ */
+export async function modifyPendingBookingAndClearAssignments(
+  client: DbClient,
+  bookingId: string,
+  payload: UpdateBookingPayload,
+  options: { restaurantId: string; expectedStatus: string },
+): Promise<BookingRecord> {
+  const nextPayload = await normalizeUpdateBookingPayload(payload);
+  const { data, error } = await (client as ModifyPendingBookingRpcClient).rpc(
+    'modify_pending_booking_and_clear_assignments',
+    {
+      p_booking_id: bookingId,
+      p_restaurant_id: options.restaurantId,
+      p_patch: nextPayload as Json,
+      p_expected_status: options.expectedStatus,
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error('modify_pending_booking_and_clear_assignments returned no booking');
   }
 
   return data;

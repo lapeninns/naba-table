@@ -10,13 +10,14 @@ This document lists all active routes in the application after the legacy cleanu
 
 #### Public Routes (No Authentication Required)
 
-| Route                                | Description               | File Path                                                        |
-| ------------------------------------ | ------------------------- | ---------------------------------------------------------------- |
-| `/`                                  | Landing page              | `src/app/page.tsx`                                               |
-| `/auth/signin`                       | Guest sign-in page        | `src/app/auth/signin/page.tsx`                                   |
-| `/restaurants/[slug]/book`           | Restaurant booking wizard | `src/app/(marketing)/restaurants/[slug]/book/page.tsx`           |
-| `/restaurants/[slug]/book/thank-you` | Booking confirmation page | `src/app/(marketing)/restaurants/[slug]/book/thank-you/page.tsx` |
-| `/bookings/[bookingId]/thank-you`    | Booking thank-you page    | `src/app/bookings/[bookingId]/thank-you/page.tsx`                |
+| Route                                | Description                                             | File Path                                                        |
+| ------------------------------------ | ------------------------------------------------------- | ---------------------------------------------------------------- |
+| `/`                                  | Landing page                                            | `src/app/page.tsx`                                               |
+| `/auth/signin`                       | Guest sign-in page                                      | `src/app/auth/signin/page.tsx`                                   |
+| `/restaurants/[slug]/book`           | Restaurant booking wizard                               | `src/app/(marketing)/restaurants/[slug]/book/page.tsx`           |
+| `/restaurants/[slug]/book/thank-you` | Booking confirmation page                               | `src/app/(marketing)/restaurants/[slug]/book/thank-you/page.tsx` |
+| `/bookings/[bookingId]/thank-you`    | Booking thank-you page                                  | `src/app/bookings/[bookingId]/thank-you/page.tsx`                |
+| `/bookings/find`                     | Request a new manage link by email (lost-link recovery) | `src/app/(public)/bookings/find/page.tsx`                        |
 
 #### Protected Routes (Require Guest Authentication)
 
@@ -122,43 +123,67 @@ All routes under `/app/(app)/*` require authentication. Unauthenticated users ar
 
 #### Public APIs
 
-| Route                                   | Description                   |
-| --------------------------------------- | ----------------------------- |
-| `/api/bookings`                         | Booking creation and listing  |
-| `/api/bookings/[id]`                    | Booking details               |
-| `/api/availability`                     | Check restaurant availability |
-| `/api/restaurants/[slug]/schedule`      | Public restaurant schedule    |
-| `/api/restaurants/[slug]/calendar-mask` | Public calendar availability  |
+| Route                                   | Description                                                             |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| `/api/bookings`                         | Booking creation and listing                                            |
+| `/api/bookings/[id]`                    | Booking details                                                         |
+| `/api/bookings/lookup-email`            | `POST`: email a manage link for upcoming bookings; always a neutral 202 |
+| `/api/bookings/confirm`                 | Retired: 410 `CONFIRMATION_ENDPOINT_RETIRED` for GET and POST           |
+| `/api/availability`                     | Check restaurant availability                                           |
+| `/api/restaurants/[slug]/schedule`      | Public restaurant schedule                                              |
+| `/api/restaurants/[slug]/calendar-mask` | Public calendar availability                                            |
 
 #### Protected APIs (Guest)
 
-| Route                | Description             |
-| -------------------- | ----------------------- |
-| `/api/profile`       | User profile management |
-| `/api/profile/image` | Profile image upload    |
+| Route                | Description                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `/api/profile`       | User profile management                                                                                              |
+| `/api/profile/image` | Profile image upload. No app caller since the avatar hook was removed; deletion candidate pending a product decision |
 
 ### Restaurant-Facing APIs (Ops)
 
 All ops APIs require restaurant staff authentication.
 
-| Route                                       | Description                         |
-| ------------------------------------------- | ----------------------------------- |
-| `/api/ops/restaurants`                      | Restaurant listing for current user |
-| `/api/ops/restaurants/[id]`                 | Restaurant details                  |
-| `/api/ops/restaurants/[id]/details`         | Update restaurant details           |
-| `/api/ops/restaurants/[id]/hours`           | Operating hours management          |
-| `/api/ops/restaurants/[id]/logo`            | Logo upload                         |
-| `/api/ops/restaurants/[id]/service-periods` | Service periods                     |
-| `/api/ops/bookings`                         | Bookings management                 |
-| `/api/ops/bookings/[id]`                    | Booking operations                  |
-| `/api/ops/bookings/[id]/check-in`           | Check-in booking                    |
-| `/api/ops/bookings/[id]/check-out`          | Check-out booking                   |
-| `/api/ops/bookings/[id]/no-show`            | Mark as no-show                     |
-| `/api/ops/customers`                        | Customer management                 |
-| `/api/ops/dashboard/*`                      | Dashboard data                      |
-| `/api/ops/tables`                           | Table management                    |
-| `/api/ops/zones`                            | Zone management                     |
-| `/api/ops/team/*`                           | Team management                     |
+| Route                                            | Description                                               |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| `/api/ops/restaurants`                           | Restaurant listing for current user                       |
+| `/api/ops/restaurants/[id]`                      | Restaurant details                                        |
+| `/api/ops/restaurants/[id]/details`              | Update restaurant details                                 |
+| `/api/ops/restaurants/[id]/hours`                | Operating hours management                                |
+| `/api/ops/restaurants/[id]/logo`                 | Logo upload (`POST`) and removal (`DELETE`)               |
+| `/api/ops/restaurants/[id]/service-periods`      | Service periods                                           |
+| `/api/ops/restaurants/[id]/availability`         | Availability snapshot: `GET` and `PUT` in one transaction |
+| `/api/ops/restaurants/[id]/menus/**/order`       | Menu section, item and option reordering                  |
+| `/api/ops/restaurants/[id]/email-templates/**`   | Email templates, preview and test send                    |
+| `/api/ops/occasions`, `/api/ops/occasions/[key]` | Booking type catalog (platform admin writes)              |
+| `/api/ops/bookings`                              | Bookings management                                       |
+| `/api/ops/bookings/[id]`                         | Booking operations                                        |
+| `/api/ops/bookings/[id]/check-in`                | Check-in booking                                          |
+| `/api/ops/bookings/[id]/check-out`               | Check-out booking                                         |
+| `/api/ops/bookings/[id]/no-show`                 | Mark as no-show                                           |
+| `/api/ops/bookings/[id]/undo-no-show`            | Undo a no-show and restore its tables                     |
+| `/api/ops/bookings/[id]/move-tables`             | Atomic table move                                         |
+| `/api/ops/email-delivery/retry`                  | Resend a failed or bounced email                          |
+| `/api/ops/email-queue/[jobId]/cancel`            | Cancel a queued email job                                 |
+| `/api/ops/customers`                             | Customer management                                       |
+| `/api/ops/dashboard/*`                           | Dashboard data                                            |
+| `/api/ops/tables`                                | Table management                                          |
+| `/api/ops/tables/holds/[holdId]`                 | `DELETE`: release a table hold                            |
+| `/api/ops/zones`                                 | Zone management                                           |
+| `/api/ops/team/*`                                | Team management                                           |
+| `/api/ops/team/invitations/[id]/resend`          | Resend a pending invitation                               |
+
+### Onboarding APIs
+
+| Route                                                 | Description                                             |
+| ----------------------------------------------------- | ------------------------------------------------------- |
+| `/api/onboarding/restaurant`                          | Create the restaurant                                   |
+| `/api/onboarding/restaurant/[id]/profile`             | `PATCH` changed profile fields                          |
+| `/api/onboarding/restaurant/[id]/hours`               | Operating hours                                         |
+| `/api/onboarding/restaurant/[id]/service-periods`     | Service periods                                         |
+| `/api/onboarding/restaurant/[id]/layout`              | `PUT` zones and tables in one replace                   |
+| `/api/onboarding/restaurant/[id]/zones`, `.../tables` | Kept for compatibility; the wizard no longer calls them |
+| `/api/onboarding/restaurant/[id]/complete`            | Readiness check before opening the dashboard            |
 
 ### Authentication APIs
 
@@ -166,6 +191,73 @@ All ops APIs require restaurant staff authentication.
 | -------------------- | -------------- |
 | `/api/auth/signin`   | Sign in        |
 | `/api/auth/callback` | OAuth callback |
+
+---
+
+## Mutation API contracts (September 2026)
+
+Every route below returns C1 error bodies (`lib/api/errors.ts`): `{ error, code, message, fields?, retryable?, retryAfter?, details? }`. `error` repeats `message` for older readers. Messages are safe to show and never contain raw database or provider text. Every mutation is CSRF-protected (`withCsrfProtectedMutation`) unless the row says otherwise. A 429 is `RATE_LIMITED` with a `Retry-After` header and `retryable: true`.
+
+### Guest booking access
+
+| Route                        | Method        | Access                           | Contract                                                                                                                                                                                 |
+| ---------------------------- | ------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/bookings/find`             | page          | Public                           | Asks for an email address and a venue, then calls `POST /api/bookings/lookup-email`.                                                                                                     |
+| `/api/bookings/lookup-email` | `POST`        | Public, CSRF token, rate limited | Emails a manage link for the requester's upcoming bookings at one venue, to the address stored on each booking. Always answers a neutral 202, whether or not bookings exist.             |
+| `/api/bookings`              | `GET`         | Guest session                    | Only the signed-in guest's own bookings (`me`). Every other query, including the former contact lookup, returns 410 `CONTACT_LOOKUP_REMOVED`.                                            |
+| `/api/bookings`              | `POST`        | Public                           | Booking create. Idempotent at the database level: a replayed `Idempotency-Key` returns the original booking; the same key with a different payload returns 409 `IDEMPOTENCY_KEY_REUSED`. |
+| `/api/bookings/confirm`      | `GET`, `POST` | Retired                          | Always 410 `CONFIRMATION_ENDPOINT_RETIRED`. Reads no token, returns no booking data and clears the retired `sr_confirm` and `sr_access` cookies.                                         |
+
+### Ops bookings and tables
+
+| Route                                                       | Method   | Access                                    | Contract                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------- | -------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/ops/bookings/[id]/move-tables`                        | `POST`   | Ops, booking-scoped restaurant membership | Body `{ restaurantId?, fromTableIds, toTableIds, idempotencyKey, contextVersion? }`. Moves the booking's tables in one transaction; `fromTableIds` is a compare-and-set guard. The 200 body matches assign-tables (`assignments` and `summary` cover the full resulting set). `contextVersion` is validated but not enforced. |
+| `/api/ops/bookings/[id]/check-in`, `/check-out`, `/no-show` | `POST`   | Ops                                       | A lifecycle transition that no longer applies returns 409 `BOOKING_STATE_CONFLICT` with `details.currentStatus`. Success bodies also carry `booking`, `assignments`, `tablesRestored` and `tableRestoration`.                                                                                                                 |
+| `/api/ops/bookings/[id]/undo-no-show`                       | `POST`   | Ops                                       | Restores the tables released by the no-show when they are still free (`tablesRestored`). Missing history stays 400.                                                                                                                                                                                                           |
+| `/api/ops/bookings/[id]`                                    | `DELETE` | Ops                                       | Cancelling a booking that can no longer be cancelled returns 409 `BOOKING_NOT_CANCELLABLE`. Not yet wrapped in `withCsrfProtectedMutation` (known gap, like its `PATCH`).                                                                                                                                                     |
+| `/api/ops/tables/holds/[holdId]?restaurantId=<uuid>`        | `DELETE` | Ops, any restaurant member                | Releases a table hold. Returns `{ data: { holdId, released: true, alreadyReleased } }`. Errors: 400 `INVALID_RESTAURANT_ID`, 403 `FORBIDDEN`, 404 `HOLD_NOT_FOUND`, 500 `INTERNAL_ERROR`.                                                                                                                                     |
+
+### Restaurant settings
+
+| Route                                                                                        | Method   | Access            | Contract                                                                                                                                                                                             |
+| -------------------------------------------------------------------------------------------- | -------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/ops/restaurants/[id]/availability`                                                     | `GET`    | Restaurant member | Returns `{ data: AvailabilitySnapshot }`, where the snapshot is `{ restaurantId, revision, hours, servicePeriods, turnBands, rules }`.                                                               |
+| `/api/ops/restaurants/[id]/availability`                                                     | `PUT`    | Restaurant admin  | Body `{ hours?, servicePeriods?, turnBands?, rules?, expectedRevision? }`, saved in one transaction. Returns `{ data: AvailabilitySnapshot }`. A stale `expectedRevision` returns 409 `STALE_WRITE`. |
+| `/api/ops/occasions/[key]`                                                                   | `DELETE` | Platform admin    | Atomic. 404 `OCCASION_NOT_FOUND`, 400 `OCCASION_BUILTIN`, 409 `OCCASION_IN_USE` with usage counts.                                                                                                   |
+| `/api/ops/restaurants/[id]`                                                                  | `PATCH`  | Owner or manager  | Profile saves go through one RPC. 400 `VALIDATION_FAILED` with `fields`, 409 `SLUG_TAKEN`.                                                                                                           |
+| `/api/ops/restaurants/[id]/logo`                                                             | `POST`   | Owner or manager  | Uploads a versioned logo, saves `logo_url` and returns `{ path, url, cacheKey, restaurant }`.                                                                                                        |
+| `/api/ops/restaurants/[id]/logo`                                                             | `DELETE` | Owner or manager  | Clears `logo_url` and deletes the replaced stored object.                                                                                                                                            |
+| `/api/ops/restaurants/[id]/business-context`                                                 | `PUT`    | Restaurant admin  | Atomic save with a revision precondition; a concurrent edit returns 409 `STALE_WRITE`.                                                                                                               |
+| `/api/ops/restaurants/[id]/menus/[menuId]/sections/order`                                    | `PATCH`  | Restaurant admin  | Body `{ orderedIds: uuid[] }` (the complete set). Returns `{ data: { order: [{ id, displayOrder }] } }`. A changed set returns 409 `MENU_ORDER_STALE`.                                               |
+| `/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/order`                  | `PATCH`  | Restaurant admin  | As sections/order, for the items in one section.                                                                                                                                                     |
+| `/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/[itemId]/options/order` | `PATCH`  | Restaurant admin  | As sections/order, for the options on one item.                                                                                                                                                      |
+| `/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items`                        | `POST`   | Restaurant admin  | Accepts `idempotencyKey` and `options[]`; a replay returns 200 with the originally created item.                                                                                                     |
+| `/api/ops/restaurants/[id]/menus/[menuId]/sections/[sectionId]/items/[itemId]`               | `PATCH`  | Restaurant admin  | Accepts `attributesMerge` and `extensionsMerge`, so concurrent edits to different keys both survive.                                                                                                 |
+
+### Communications
+
+| Route                                                               | Method | Access            | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------------------------- | ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/ops/email-delivery/retry`                                     | `POST` | Ops, rate limited | Resends a failed or bounced email. Returns the retry `status` and `retryAttempt`. 409 codes: `NOT_RETRYABLE`, `MISSING_BOOKING`, `MISSING_RECIPIENT`, `RETRY_IN_PROGRESS`, `ALREADY_RETRIED`. 404 `NOT_FOUND`. 502 `SEND_FAILED` when the provider refused the send, and 502 `SEND_UNCONFIRMED` when the outcome is unknown; an unconfirmed retry reuses its provider idempotency key and never sends twice within the provider's window. |
+| `/api/ops/email-queue/[jobId]/cancel`                               | `POST` | Ops, rate limited | 409 `JOB_IN_PROGRESS` while a worker holds the job, 409 `JOB_NOT_CANCELLABLE` once it is final.                                                                                                                                                                                                                                                                                                                                           |
+| `/api/ops/restaurants/[id]/email-templates/[templateKey]/test-send` | `POST` | Restaurant admin  | Optional `Idempotency-Key` header (tenant-scoped). 409 `RECIPIENT_SUPPRESSED`, 502 `SEND_FAILED`.                                                                                                                                                                                                                                                                                                                                         |
+| `/api/ops/restaurants/[id]/email-templates/**`                      | all    | Restaurant admin  | 503 `MEMBERSHIP_UNAVAILABLE` when membership cannot be checked.                                                                                                                                                                                                                                                                                                                                                                           |
+
+### Team
+
+| Route                                   | Method | Access                         | Contract                                                                                                                                                                                                        |
+| --------------------------------------- | ------ | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/ops/team/invitations/[id]/resend` | `POST` | Owner or manager, rate limited | Rotates the invitation token and emails a new link; the previous link stops working. Keeps the original expiry. 404 `INVITE_NOT_FOUND`, 409 `INVITE_EXPIRED` or `INVITE_NOT_PENDING`, 502 when the email fails. |
+
+### Onboarding
+
+| Route                                                       | Method  | Access                          | Contract                                                                                                                                                                                |
+| ----------------------------------------------------------- | ------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/onboarding/restaurant/[id]/layout`                    | `PUT`   | Restaurant admin, 20 per minute | Replaces zones and tables in one transaction. Zones and tables missing from the payload are deleted only when they have no bookings or holds; otherwise 409 `ONBOARDING_LAYOUT_LOCKED`. |
+| `/api/onboarding/restaurant/[id]/profile`                   | `PATCH` | Restaurant admin, 10 per minute | Changed fields only. 409 `SLUG_TAKEN`.                                                                                                                                                  |
+| `/api/onboarding/restaurant/[id]/complete`                  | `POST`  | Restaurant admin                | Readiness check only; 409 `ONBOARDING_INCOMPLETE` lists what is missing.                                                                                                                |
+| `/api/onboarding/restaurant/[id]/hours`, `/service-periods` | `PUT`   | Restaurant admin                | Schedule rule violations return 400 `VALIDATION_FAILED` with field paths.                                                                                                               |
 
 ---
 

@@ -13,17 +13,16 @@ import { runtime } from '@shared/config/runtime';
 
 import { useRememberedContacts } from './useRememberedContacts';
 import { clearWizardDraft, loadWizardDraft, saveWizardDraft } from './useWizardDraftStorage';
-import { fetchBookingsByContact } from '../api/fetchBookingsByContact';
 import { fetchRestaurantBySlug } from '../api/fetchRestaurantBySlug';
 import { useCreateOpsReservation } from '../api/useCreateOpsReservation';
 import { useCreateReservation } from '../api/useCreateReservation';
 import { useWizardDependencies } from '../di';
 import { createSelectionSummary } from '../model/selectors';
 import { useWizardStore } from '../model/store';
+import { TIMEOUT_EMAIL_GUIDANCE_ALERT } from '../model/timeoutGuidance';
 import { buildReservationDraft, reservationToApiBooking } from '../model/transformers';
-import { recoverBookingAfterTimeout, type TimeoutRecoveryResult } from '../utils/timeoutRecovery';
 
-import type { AnalyticsTracker } from '../di/types';
+import type { ReservationSubmissionResult } from '../api/types';
 import type {
   BookingDetails,
   BookingWizardMode,
@@ -117,8 +116,16 @@ const isTimeoutError = (error: unknown): error is { code?: string | number | nul
   return code === 'TIMEOUT';
 };
 
-const TIMEOUT_RECOVERY_ATTEMPTS = 3;
-const TIMEOUT_RECOVERY_DELAY_MS = 2_000;
+// After a timeout the same submission is retried with the same Idempotency-Key
+// (kept by the create hook across timeouts): the server replays the original
+// booking and response instead of creating a second one.
+export const TIMEOUT_RETRY_ATTEMPTS = 2;
+export const TIMEOUT_RETRY_DELAY_MS = 2_000;
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 export function getTimeoutContactGuidance(draft: Pick<ReservationDraft, 'email'>): {
   error: string;
@@ -128,7 +135,7 @@ export function getTimeoutContactGuidance(draft: Pick<ReservationDraft, 'email'>
     return {
       error:
         'We could not confirm the booking in time. Please check your email before trying again.',
-      alert: 'If you received a confirmation email you are all set—otherwise retry now.',
+      alert: TIMEOUT_EMAIL_GUIDANCE_ALERT,
     };
   }
   return {
@@ -499,12 +506,8 @@ export function useReservationWizard(
     setPlanAlert(null);
     actions.setSubmitting(true);
 
-    try {
-      const submission = await mutation.mutateAsync({
-        draft,
-        bookingId: state.editingId ?? undefined,
-      });
-
+    const variables = { draft, bookingId: state.editingId ?? undefined };
+    const applySubmission = (submission: ReservationSubmissionResult, recovered: boolean) => {
       const bookings = submission.bookings.map(reservationToApiBooking);
       const booking = submission.booking ? reservationToApiBooking(submission.booking) : null;
 
@@ -519,13 +522,18 @@ export function useReservationWizard(
         start_time: draft.time,
         reference: submission.booking?.reference ?? 'pending',
         context: mode,
-        recovered: false,
+        recovered,
       });
 
       if (mode === 'ops' && redirectOnSuccess) {
         navigator.replace(safeReturnPath);
       }
-    } catch (error) {
+    };
+
+    try {
+      applySubmission(await mutation.mutateAsync(variables), false);
+    } catch (caught) {
+      let error: unknown = caught;
       if (isRequestAbortedError(error)) {
         actions.setLoading(false);
         actions.setSubmitting(false);
@@ -540,38 +548,29 @@ export function useReservationWizard(
           context: mode,
         });
         setPlanAlert('Finalizing your booking… please keep this tab open while we complete it.');
-        try {
-          const recovery = await recoverBookingAfterTimeout({
-            draft,
-            fetchBookings: fetchBookingsByContact,
-            attempts: TIMEOUT_RECOVERY_ATTEMPTS,
-            delayMs: TIMEOUT_RECOVERY_DELAY_MS,
-            logger: (lookupError) => {
-              errorReporter.capture(lookupError, { scope: 'wizard.timeoutRecovery' });
-            },
-          });
-          if (recovery) {
-            hydrateRecoveredBooking({
-              recovery,
-              draft,
-              applyConfirmation: actions.applyConfirmation,
-              analytics,
-              mode,
-              lastAction: state.editingId ? 'update' : 'create',
-            });
+        for (let attempt = 0; attempt < TIMEOUT_RETRY_ATTEMPTS; attempt += 1) {
+          await wait(TIMEOUT_RETRY_DELAY_MS);
+          try {
+            const submission = await mutation.mutateAsync(variables);
+            applySubmission(submission, true);
             actions.setLoading(false);
             actions.setSubmitting(false);
             setPlanAlert(null);
             emit('wizard.timeout.recovered', {
-              bookingId: recovery.booking.id,
+              bookingId: submission.booking?.id ?? null,
               context: mode,
             });
             return;
+          } catch (retryError) {
+            error = retryError;
+            if (!isTimeoutError(retryError)) {
+              break;
+            }
           }
-        } catch (recoveryError) {
-          errorReporter.capture(recoveryError, { scope: 'wizard.timeoutRecovery.unexpected' });
         }
+      }
 
+      if (isTimeoutError(error)) {
         actions.setLoading(false);
         actions.setSubmitting(false);
         actions.goToStep(originStep);
@@ -668,33 +667,4 @@ export function useReservationWizard(
     mode,
     planAlert,
   };
-}
-
-type HydrateRecoveredBookingParams = {
-  recovery: TimeoutRecoveryResult;
-  draft: ReservationDraft;
-  applyConfirmation: ReturnType<typeof useWizardStore>['actions']['applyConfirmation'];
-  analytics: AnalyticsTracker;
-  mode: BookingWizardMode;
-  lastAction: 'create' | 'update';
-};
-
-function hydrateRecoveredBooking(params: HydrateRecoveredBookingParams) {
-  const { recovery, draft, applyConfirmation, analytics, mode, lastAction } = params;
-  const normalizedBookings = recovery.bookings.map(reservationToApiBooking);
-  const normalizedBooking = reservationToApiBooking(recovery.booking);
-
-  applyConfirmation({
-    bookings: normalizedBookings,
-    booking: normalizedBooking,
-    lastAction,
-  });
-
-  analytics.track('booking_created', {
-    party: draft.party,
-    start_time: draft.time,
-    reference: recovery.booking.reference ?? 'pending',
-    context: mode,
-    recovered: true,
-  });
 }

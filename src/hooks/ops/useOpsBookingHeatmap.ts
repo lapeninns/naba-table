@@ -4,8 +4,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { SUMMARY_INVALIDATION_DEBOUNCE_MS } from '@/lib/ops/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
+import { createScopedRealtimeInvalidator } from '@/utils/ops/realtimeInvalidation';
+
+import { isOwnBookingWriteEcho } from './bookingWriteEcho';
 
 import type { OpsBookingHeatmap } from '@/types/ops';
 
@@ -29,7 +33,7 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
     () =>
       restaurantId && startDate && endDate && isUuid(restaurantId)
         ? queryKeys.opsDashboard.heatmap(restaurantId, startDate, endDate)
-        : (['ops', 'dashboard', 'heatmap', 'disabled'] as const),
+        : queryKeys.opsDashboard.heatmapDisabled(),
     [restaurantId, startDate, endDate],
   );
 
@@ -58,8 +62,16 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
     const client = getRealtimeSupabaseClient();
     const channel = client.channel(`ops-heatmap:${restaurantId}:${startDate}:${endDate}`);
 
-    const handleChange = () => {
-      queryClient.invalidateQueries({ queryKey });
+    // Coalesce bursts (a service's worth of bookings changing) into one refetch, and skip the
+    // echoes of this client's own writes, which already refresh the heatmap explicitly.
+    const invalidator = createScopedRealtimeInvalidator({
+      queryClient,
+      queryKey,
+      waitMs: SUMMARY_INVALIDATION_DEBOUNCE_MS,
+    });
+    const handleChange = (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, 'bookings', payload)) return;
+      invalidator.run();
     };
 
     // Listen to bookings table changes for the heatmap date range
@@ -77,6 +89,7 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
     channel.subscribe();
 
     return () => {
+      invalidator.deactivate();
       channel.unsubscribe();
       client.removeChannel(channel);
     };

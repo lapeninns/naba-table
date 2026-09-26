@@ -4,8 +4,12 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useEffect, useMemo, useState } from 'react';
 
 import { useTableInventoryService } from '@/contexts/ops-services';
+import { SUMMARY_INVALIDATION_DEBOUNCE_MS } from '@/lib/ops/realtime';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
+import { createScopedRealtimeInvalidator } from '@/utils/ops/realtimeInvalidation';
+
+import { isOwnBookingWriteEcho } from './bookingWriteEcho';
 
 import type { TableTimelineResponse } from '@/types/ops';
 
@@ -40,7 +44,7 @@ export function useOpsTableTimeline({
             service,
             includeSummary,
           })
-        : (['ops', 'tables', 'timeline', 'disabled'] as const),
+        : queryKeys.opsTables.timelineDisabled(),
     [date, includeSummary, restaurantId, service, zoneId],
   );
   const shouldEnable = Boolean(restaurantId) && enabled;
@@ -79,8 +83,17 @@ export function useOpsTableTimeline({
       config: { broadcast: { self: false } },
     });
 
-    const handleChange = () => {
-      queryClient.invalidateQueries({ queryKey, exact: true });
+    // One multi-table write emits a row event per allocation: coalesce them into one refetch.
+    // This client's own writes already refresh the timeline explicitly, so their echoes
+    // (including id-less DELETEs) are skipped.
+    const invalidator = createScopedRealtimeInvalidator({
+      queryClient,
+      queryKey,
+      waitMs: SUMMARY_INVALIDATION_DEBOUNCE_MS,
+    });
+    const handleChange = (table: 'allocations' | 'table_holds') => (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, table, payload)) return;
+      invalidator.run();
     };
 
     channel.on(
@@ -91,7 +104,7 @@ export function useOpsTableTimeline({
         table: 'allocations',
         filter: `restaurant_id=eq.${restaurantId}`,
       },
-      handleChange,
+      handleChange('allocations'),
     );
 
     channel.on(
@@ -102,7 +115,7 @@ export function useOpsTableTimeline({
         table: 'table_holds',
         filter: `restaurant_id=eq.${restaurantId}`,
       },
-      handleChange,
+      handleChange('table_holds'),
     );
 
     channel.subscribe((status) => {
@@ -116,6 +129,7 @@ export function useOpsTableTimeline({
     });
 
     return () => {
+      invalidator.deactivate();
       setRealtimeHealthy(false);
       client.removeChannel(channel);
     };

@@ -4,6 +4,13 @@ import { HttpError, normalizeError } from './errors';
 
 export type FetchJsonInit = RequestInit & {
   parseJson?: (text: string) => unknown;
+  /**
+   * Whether a 401/419 sends the browser to `/auth/signin` (default `true`, the
+   * ops and account behaviour). Guest booking calls pass `false`: their 401 means
+   * the booking link expired, and the page offers a new link instead of sign-in.
+   * The error is thrown either way.
+   */
+  authRedirect?: boolean;
 };
 
 /** Options for read-only service calls; pass a TanStack Query `signal` so cancelQueries aborts the fetch. */
@@ -22,7 +29,7 @@ function ensureHeaders(initHeaders?: HeadersInit): Headers {
 }
 
 export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit = {}): Promise<T> {
-  const { parseJson = defaultParseJson, ...rest } = init;
+  const { parseJson = defaultParseJson, authRedirect = true, ...rest } = init;
   const headers = ensureHeaders(rest.headers);
   const csrfToken = getBrowserCsrfToken();
   if (csrfToken && !headers.has(CSRF_HEADER_NAME)) {
@@ -35,7 +42,8 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
     credentials: rest.credentials ?? 'include',
   });
 
-  const shouldTriggerAuthRedirect = response.status === 401 || response.status === 419;
+  const shouldTriggerAuthRedirect =
+    authRedirect && (response.status === 401 || response.status === 419);
   if (shouldTriggerAuthRedirect && typeof window !== 'undefined') {
     void import('@/lib/http/sessionRedirect')
       .then((mod) => mod.triggerSessionRedirect())
@@ -50,6 +58,7 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
       throw normalizeError({
         status: response.status,
         statusText: response.statusText,
+        headers: response.headers,
         cause,
       });
     }
@@ -80,6 +89,7 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
       status: response.status,
       statusText: response.statusText,
       body: errorBody,
+      headers: response.headers,
       cause: parseError,
     });
   }

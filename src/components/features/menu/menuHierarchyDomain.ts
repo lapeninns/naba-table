@@ -107,10 +107,11 @@ export function buildMenuPayload(state: MenuFormState): RestaurantMenuInput {
   };
 }
 
-export function buildSectionPayload(
-  state: SectionFormState,
-  displayOrder: number,
-): RestaurantMenuSectionInput {
+/**
+ * Section form payload. No display order: new sections are appended by the server, and an
+ * edit must not write back a snapshot order that would undo a concurrent reorder.
+ */
+export function buildSectionPayload(state: SectionFormState): RestaurantMenuSectionInput {
   return {
     labels: buildLabelList({
       displayName: state.displayName,
@@ -118,7 +119,6 @@ export function buildSectionPayload(
       languageCode: state.languageCode,
       additionalLabels: state.additionalLabels,
     }),
-    displayOrder,
     active: state.active,
     legacyCategory: state.legacyCategory.trim() || state.displayName.trim(),
     legacySubcategory: state.legacySubcategory.trim() || null,

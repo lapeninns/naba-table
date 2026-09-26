@@ -26,6 +26,13 @@ export interface BookingError {
   detail?: Record<string, unknown>;
   severity?: BookingErrorSeverity;
   overridable?: boolean;
+  /**
+   * The original create/update RPC error code for a commit failure (for example
+   * `BOOKING_CONFLICT` or `IDEMPOTENCY_KEY_REUSED`). `code` keeps the collapsed legacy value so
+   * status mapping and existing readers are unchanged; callers that need to tell a transient
+   * race from a full slot read this instead.
+   */
+  rpcCode?: string;
 }
 
 export interface BookingValidationResponse {
@@ -178,6 +185,14 @@ export interface Logger {
   info(message: string, context?: Record<string, unknown>): void;
   warn(message: string, context?: Record<string, unknown>): void;
   error(message: string, context?: Record<string, unknown>): void;
+}
+
+/** The RPC's own error code, carried on commit-failure issues as `BookingError.rpcCode`. */
+export function capacityRpcErrorCode(
+  result: Pick<CapacityBookingResult, 'error'> | null | undefined,
+): string | undefined {
+  const code = result?.error;
+  return typeof code === 'string' && code.length > 0 ? code : undefined;
 }
 
 export function mapCapacityErrorCode(code: CapacityErrorCode | undefined): BookingErrorCode {

@@ -112,3 +112,82 @@ export async function applyBookingStateTransition(input: {
     changed: true,
   };
 }
+
+export type TableRestorationStatus = 'restored' | 'not_needed' | 'unavailable' | 'unknown';
+
+export type UndoNoShowPersistenceResult = BookingStateTransitionPersistenceResult & {
+  tableRestoration: {
+    status: TableRestorationStatus;
+    tableIds: string[];
+  };
+};
+
+const TABLE_RESTORATION_STATUSES: readonly TableRestorationStatus[] = [
+  'restored',
+  'not_needed',
+  'unavailable',
+  'unknown',
+];
+
+function toTableRestorationStatus(value: unknown): TableRestorationStatus {
+  return TABLE_RESTORATION_STATUSES.find((status) => status === value) ?? 'unknown';
+}
+
+/**
+ * Undo a no-show in one transaction (`undo_booking_no_show`): compare-and-set no_show ->
+ * the prepared status, then re-assign the tables the no-show released when they are all
+ * still free. Throws the raw RPC error; callers classify it with `./rpcErrors`.
+ */
+export async function applyUndoNoShowTransition(input: {
+  supabase: DbClient;
+  booking: BookingLifecycleRow & { restaurant_id: string };
+  transition: TransitionResult;
+  sourceHistoryId: number;
+}): Promise<UndoNoShowPersistenceResult> {
+  const { booking, transition, supabase, sourceHistoryId } = input;
+  const historyRecord = transition.history;
+  if (transition.skipUpdate || !historyRecord) {
+    throw new Error('Undo no-show requires a state change with a history payload');
+  }
+
+  const targetStatus = (transition.updates.status ??
+    booking.status) as Tables<'bookings'>['status'];
+  const updatedAt = transition.updates.updated_at ?? new Date().toISOString();
+  const checkedInAt = transition.updates.checked_in_at ?? null;
+  const checkedOutAt = transition.updates.checked_out_at ?? null;
+
+  const { data, error } = await supabase.rpc('undo_booking_no_show', {
+    p_booking_id: booking.id,
+    p_restaurant_id: booking.restaurant_id,
+    p_source_history_id: sourceHistoryId,
+    p_status: targetStatus,
+    p_checked_in_at: checkedInAt,
+    p_checked_out_at: checkedOutAt,
+    p_updated_at: updatedAt,
+    p_history_changed_by: historyRecord.changed_by ?? null,
+    p_history_changed_at: historyRecord.changed_at ?? updatedAt,
+    p_history_reason: historyRecord.reason ?? 'status_change',
+    p_history_metadata: historyRecord.metadata ?? {},
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const row = data?.[0];
+  const restorationStatus = toTableRestorationStatus(row?.table_restoration);
+  return {
+    status: row?.status ?? targetStatus,
+    checkedInAt: row ? row.checked_in_at : checkedInAt,
+    checkedOutAt: row ? row.checked_out_at : checkedOutAt,
+    updatedAt: row?.updated_at ?? updatedAt,
+    changed: true,
+    tableRestoration: {
+      status: restorationStatus,
+      tableIds:
+        restorationStatus === 'unknown' || restorationStatus === 'not_needed'
+          ? []
+          : (row?.released_table_ids ?? []),
+    },
+  };
+}

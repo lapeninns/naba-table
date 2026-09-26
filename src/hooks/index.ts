@@ -12,6 +12,5 @@ export * from './ops/useOpsServicePeriods';
 export * from './ops/useOpsRestaurantLogoUpload';
 export * from './ops/useOccasions';
 export * from './ops/useOpsTeamInvitations';
-export * from './ops/useBookingRealtime';
 export * from './ops/useOpsTableTimeline';
 export * from './ops/useOpsStrategicSettings';

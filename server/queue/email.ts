@@ -7,6 +7,7 @@ import {
   getEmailQueueStatusFromIntents,
   requeueFailedEmailIntentForRestaurant,
   scheduleEmailIntent,
+  type RestaurantQueueCancelResult,
 } from './email-intents';
 export {
   EMAIL_DLQ_NAME,
@@ -78,7 +79,7 @@ export async function removeEmailJob(jobId: string): Promise<boolean> {
 export async function cancelRestaurantEmailQueueJob(params: {
   jobId: string;
   restaurantId: string;
-}): Promise<'cancelled' | 'not_found'> {
+}): Promise<RestaurantQueueCancelResult> {
   return cancelEmailIntentForRestaurant({
     dedupeKey: params.jobId,
     restaurantId: params.restaurantId,

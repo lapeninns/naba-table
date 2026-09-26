@@ -1,8 +1,9 @@
 'use client';
 
-import { Loader2, TriangleAlert } from 'lucide-react';
+import { Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { Iframe } from '@/components/ui/iframe';
 import {
   Select,
@@ -33,7 +34,15 @@ const WIDTH: Record<Device, string> = { desktop: 'max-w-[640px]', mobile: 'max-w
  * instead of growing to its content.
  */
 export function EmailTemplatePreview({ editor }: { editor: OpsEmailTemplatesEditor }) {
-  const { templateKey, variants, variant, previewVariant, previewQuery, restaurantName } = editor;
+  const {
+    templateKey,
+    variants,
+    variant,
+    previewVariant,
+    previewQuery,
+    previewErrorMessage,
+    restaurantName,
+  } = editor;
   const [device, setDevice] = useState<Device>('desktop');
   const [format, setFormat] = useState<Format>('email');
 
@@ -104,18 +113,33 @@ export function EmailTemplatePreview({ editor }: { editor: OpsEmailTemplatesEdit
 
       <div className="grid content-start gap-3 overflow-y-auto bg-muted/60 p-3">
         {previewQuery.isError ? (
-          <p
+          <div
             role="alert"
             className={cn(
-              'mx-auto flex w-full items-start gap-2 rounded-lg border bg-background p-3 text-sm',
+              'mx-auto grid w-full grid-cols-[16px_minmax(0,1fr)] gap-2 rounded-lg border bg-background p-3 text-sm',
               width,
             )}
           >
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-            {preview
-              ? 'The preview is out of date: the latest changes could not be rendered. Your draft is safe; keep editing and it will try again.'
-              : 'The preview could not be rendered. Your draft is safe; keep editing and it will try again.'}
-          </p>
+            <div className="grid justify-items-start gap-2">
+              <p>
+                {preview
+                  ? 'The preview is out of date: the latest changes could not be rendered.'
+                  : 'The preview could not be rendered.'}{' '}
+                {previewErrorMessage}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={previewQuery.isFetching}
+                onClick={editor.retryPreview}
+              >
+                <RefreshCw aria-hidden />
+                Retry preview
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {preview ? (

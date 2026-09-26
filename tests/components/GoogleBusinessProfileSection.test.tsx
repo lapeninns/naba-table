@@ -268,9 +268,11 @@ describe('GoogleBusinessProfileSection', () => {
 
     await user.click(screen.getByRole('button', { name: /check again/i }));
 
-    expect(connectionResult.refetch).toHaveBeenCalledTimes(1);
+    // Invalidation alone refetches the active queries; no extra refetch() doubles the requests.
+    expect(connectionResult.refetch).not.toHaveBeenCalled();
     expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfile('rest-1'),
+      exact: true,
     });
     expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['dual-sync-state', 'rest-1'],

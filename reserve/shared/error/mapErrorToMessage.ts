@@ -1,3 +1,6 @@
+import { HttpError } from '@/lib/http/errors';
+import { toUserMessage } from '@/lib/http/userMessage';
+
 const ERROR_CODE_MESSAGES: Record<string, string> = {
   CAPACITY_EXCEEDED: 'No tables are available at that time. Please choose another slot.',
   CAPACITY_UNAVAILABLE: 'We cannot confirm availability right now. Please try again in a moment.',
@@ -15,8 +18,29 @@ const ERROR_CODE_MESSAGES: Record<string, string> = {
   SERVICE_PERIOD: 'That time is no longer available for bookings.',
   OUTSIDE_WINDOW: 'That time is outside the restaurant operating hours.',
   VALIDATION_FAILED: 'Please check your details and try again.',
+  INVALID_RESPONSE: 'We could not confirm your booking right now. Please try again in a moment.',
+  MISSING_IDEMPOTENCY_KEY: 'This booking request could not be sent. Please try again.',
+  UNSUPPORTED_OPERATION: 'This booking can’t be changed here.',
 };
 
+function mappedCodeMessage(record: Record<string, unknown>): string | undefined {
+  const codeValue = record.code ?? record.errorCode;
+  if (typeof codeValue !== 'string') return undefined;
+  return ERROR_CODE_MESSAGES[codeValue.trim().toUpperCase()];
+}
+
+function firstMessage(record: Record<string, unknown>): string | undefined {
+  for (const value of [record.message, record.error]) {
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  }
+  return undefined;
+}
+
+/**
+ * Guest/ops wizard copy for an error. Order: the wizard's own code copy, then
+ * `toUserMessage` for HTTP, network and unknown errors (never a 5xx, parser or
+ * "Request failed with status N" text), then a 4xx server message, then `fallback`.
+ */
 export function mapErrorToMessage(error: unknown, fallback = 'Something went wrong'): string {
   if (!error) return fallback;
 
@@ -24,39 +48,40 @@ export function mapErrorToMessage(error: unknown, fallback = 'Something went wro
     return error.trim() || fallback;
   }
 
+  if (typeof error !== 'object') return fallback;
+
+  const record = error as Record<string, unknown>;
+  const mapped = mappedCodeMessage(record);
+  if (mapped) return mapped;
+
   if (error instanceof Error) {
-    return error.message?.trim() || fallback;
+    // HttpError: 4xx server message or status copy. TypeError from fetch: network
+    // copy. Anything else (SyntaxError, programming errors): the fallback.
+    return toUserMessage(error, { fallback });
   }
 
-  if (typeof error === 'object' && error !== null) {
-    const record = error as Record<string, unknown>;
-    const codeValue = record.code ?? record.errorCode;
-    if (typeof codeValue === 'string') {
-      const normalizedCode = codeValue.trim().toUpperCase();
-      const mapped = ERROR_CODE_MESSAGES[normalizedCode];
-      if (mapped) {
-        return mapped;
-      }
-    }
+  // A plain ApiError from the reserve client carries its HTTP status.
+  if (typeof record.status === 'number' && record.status >= 400) {
+    const message = firstMessage(record);
+    const httpError = new HttpError({
+      message: message ?? '',
+      status: record.status,
+      code: typeof record.code === 'string' ? record.code : undefined,
+      hasServerMessage: message !== undefined,
+    });
+    return toUserMessage(httpError, { fallback });
+  }
 
-    const maybeMessage = record.message;
-    if (typeof maybeMessage === 'string' && maybeMessage.trim().length > 0) {
-      return maybeMessage.trim();
-    }
+  const message = firstMessage(record);
+  if (message) return message;
 
-    const maybeErrorMessage = record.error;
-    if (typeof maybeErrorMessage === 'string' && maybeErrorMessage.trim().length > 0) {
-      return maybeErrorMessage.trim();
-    }
-
-    const issues = record.issues;
-    if (Array.isArray(issues)) {
-      for (const issue of issues) {
-        if (issue && typeof issue === 'object' && 'message' in issue) {
-          const issueMessage = (issue as { message?: unknown }).message;
-          if (typeof issueMessage === 'string' && issueMessage.trim().length > 0) {
-            return issueMessage.trim();
-          }
+  const issues = record.issues;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (issue && typeof issue === 'object' && 'message' in issue) {
+        const issueMessage = (issue as { message?: unknown }).message;
+        if (typeof issueMessage === 'string' && issueMessage.trim().length > 0) {
+          return issueMessage.trim();
         }
       }
     }

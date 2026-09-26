@@ -37,6 +37,9 @@ describe('createBrowserTeamService', () => {
       if (url === '/api/ops/team/invitations') {
         return jsonResponse({ invite: INVITE });
       }
+      if (url === '/api/ops/team/invitations/invite-1/resend') {
+        return jsonResponse({ invite: INVITE, emailSent: false });
+      }
       if (url.startsWith('/api/ops/team/invitations/invite-1?')) {
         return jsonResponse({ invite: INVITE });
       }
@@ -46,12 +49,18 @@ describe('createBrowserTeamService', () => {
 
     const service = createBrowserTeamService();
     await service.listInvites(INVITE.restaurantId, 'pending');
-    await service.createInvite({
-      restaurantId: INVITE.restaurantId,
-      email: INVITE.email,
-      role: INVITE.role,
-    });
+    // Responses without the flag come from servers that always sent the email.
+    await expect(
+      service.createInvite({
+        restaurantId: INVITE.restaurantId,
+        email: INVITE.email,
+        role: INVITE.role,
+      }),
+    ).resolves.toEqual({ invite: INVITE, emailSent: true });
     await service.revokeInvite({ restaurantId: INVITE.restaurantId, inviteId: 'invite-1' });
+    await expect(
+      service.resendInvite({ restaurantId: INVITE.restaurantId, inviteId: 'invite-1' }),
+    ).resolves.toEqual({ invite: INVITE, emailSent: false });
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -67,6 +76,11 @@ describe('createBrowserTeamService', () => {
       3,
       `/api/ops/team/invitations/invite-1?restaurantId=${INVITE.restaurantId}`,
       expect.objectContaining({ method: 'DELETE' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      '/api/ops/team/invitations/invite-1/resend',
+      expect.objectContaining({ method: 'POST' }),
     );
   });
 });

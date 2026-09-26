@@ -151,12 +151,27 @@ describe('public booking confirmation and recovery surfaces', () => {
         'For safety, booking recovery links expire after a period of time. Your booking may still be valid.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/signin');
-    expect(screen.getByRole('link', { name: 'Manage another booking' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Email me a new link' })).toHaveAttribute(
       'href',
-      '/bookings',
+      '/bookings/find',
     );
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/signin');
+    expect(screen.queryByRole('link', { name: 'Manage another booking' })).not.toBeInTheDocument();
     expect(container.querySelector('main')).not.toBeInTheDocument();
+  });
+
+  it('does not offer a new emailed link when booking links are not configured', async () => {
+    render(
+      await BookingRecoverErrorPage({
+        searchParams: Promise.resolve({ code: 'ACCESS_TOKEN_NOT_CONFIGURED' }),
+      }),
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Booking recovery is temporarily unavailable' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Email me a new link' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/signin');
   });
 
   it('normalizes duplicated recovery codes before rendering reason details', async () => {

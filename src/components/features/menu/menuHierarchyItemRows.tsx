@@ -119,7 +119,7 @@ export function ItemActions({
     item: CanonicalRestaurantMenuItem,
     index: number,
     direction: -1 | 1,
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   onDeleteItem: (item: CanonicalRestaurantMenuItem) => void;
 }) {
   return (
@@ -184,7 +184,7 @@ export type MenuItemRowProps = {
     item: CanonicalRestaurantMenuItem,
     index: number,
     direction: -1 | 1,
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   readonly onDeleteItem: (item: CanonicalRestaurantMenuItem) => void;
 };
 
@@ -342,7 +342,7 @@ export function OptionRow({
     option: CanonicalRestaurantMenuOption,
     index: number,
     direction: -1 | 1,
-  ) => Promise<void>;
+  ) => void | Promise<void>;
   onRemoveOption: (
     item: CanonicalRestaurantMenuItem,
     option: CanonicalRestaurantMenuOption,

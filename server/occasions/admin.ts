@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database, Json } from '@/types/supabase';
@@ -50,7 +51,9 @@ export function toAdminOccasion(row: OccasionRow): AdminOccasion {
   };
 }
 
-export async function fetchAllOccasions(client = getServiceSupabaseClient()): Promise<AdminOccasion[]> {
+export async function fetchAllOccasions(
+  client = getServiceSupabaseClient(),
+): Promise<AdminOccasion[]> {
   const { data, error } = await client
     .from('booking_occasions')
     .select(ACTIVE_COLUMNS)
@@ -66,7 +69,10 @@ export async function fetchAllOccasions(client = getServiceSupabaseClient()): Pr
   return (data ?? []).map(toAdminOccasion);
 }
 
-export async function fetchOccasionByKey(key: string, client = getServiceSupabaseClient()): Promise<OccasionRow | null> {
+export async function fetchOccasionByKey(
+  key: string,
+  client = getServiceSupabaseClient(),
+): Promise<OccasionRow | null> {
   const { data, error } = await client
     .from('booking_occasions')
     .select(ACTIVE_COLUMNS)
@@ -78,7 +84,10 @@ export async function fetchOccasionByKey(key: string, client = getServiceSupabas
   return data as OccasionRow | null;
 }
 
-export async function insertAudit(entry: AuditInsert, client = getServiceSupabaseClient()): Promise<void> {
+export async function insertAudit(
+  entry: AuditInsert,
+  client = getServiceSupabaseClient(),
+): Promise<void> {
   const payload = {
     occasion_key: entry.occasion_key,
     action: entry.action,
@@ -88,36 +97,108 @@ export async function insertAudit(entry: AuditInsert, client = getServiceSupabas
   };
   const { error } = await client.from('booking_occasions_audit').insert(payload);
   if (error) {
-    // Log but do not block request flow.
-    console.warn('[ops/occasions] failed to insert audit log', error);
+    // Log but do not block request flow. The occasion key is catalog data, not PII.
+    logger.warn('ops.occasions.audit_insert_failed', {
+      occasionKey: entry.occasion_key,
+      action: entry.action,
+      errorKind: typeof error.code === 'string' ? error.code : 'unknown',
+    });
   }
 }
 
-export async function countOccasionReferences(key: string, client: SupabaseClient<Database>): Promise<{
-  servicePeriods: number;
-  futureBookings: number;
-}> {
-  const today = new Date();
-  const todayKey = today.toISOString().slice(0, 10);
+export type DeleteOccasionResult =
+  | { status: 'deleted' }
+  | { status: 'not_found' }
+  | { status: 'builtin' }
+  | { status: 'in_use'; futureBookings: number; servicePeriods: number };
 
-  const [{ count: servicePeriods = 0, error: spError }, { count: futureBookings = 0, error: bookingsError }] =
-    await Promise.all([
-      client
-        .from('restaurant_service_periods')
-        .select('id', { head: true, count: 'exact' })
-        .eq('booking_option', key),
-      client
-        .from('bookings')
-        .select('id', { head: true, count: 'exact' })
-        .eq('booking_type', key)
-        .gte('booking_date', todayKey),
-    ]);
+/**
+ * Soft-deletes a booking type in one transaction (`delete_booking_occasion`): the row lock, the
+ * reference counts, the soft delete and the audit row cannot interleave with a meal time or
+ * booking being written with this type. Refusals are results; nothing is written for them.
+ */
+export async function deleteOccasion(
+  key: string,
+  actorId: string,
+  client: SupabaseClient<Database> = getServiceSupabaseClient(),
+): Promise<DeleteOccasionResult> {
+  const { data, error } = await client.rpc('delete_booking_occasion', {
+    p_key: key,
+    p_actor_id: actorId,
+  });
+  if (error) {
+    throw error;
+  }
+  const result = data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  switch (result?.status) {
+    case 'deleted':
+      return { status: 'deleted' };
+    case 'not_found':
+      return { status: 'not_found' };
+    case 'builtin':
+      return { status: 'builtin' };
+    case 'in_use':
+      return {
+        status: 'in_use',
+        futureBookings: Number(result.future_bookings ?? 0),
+        servicePeriods: Number(result.service_periods ?? 0),
+      };
+    default:
+      throw new Error('delete_booking_occasion returned an unexpected result');
+  }
+}
 
-  if (spError) throw spError;
-  if (bookingsError) throw bookingsError;
+export type CreateOccasionInput = {
+  key: string;
+  label: string;
+  shortLabel?: string;
+  description?: string | null;
+  availability?: unknown[];
+  defaultDurationMinutes?: number;
+  displayOrder?: number;
+  isActive?: boolean;
+};
 
-  return {
-    servicePeriods: servicePeriods ?? 0,
-    futureBookings: futureBookings ?? 0,
-  };
+/** A create refused because an active booking type already uses the key. */
+export class OccasionAlreadyExistsError extends Error {
+  constructor() {
+    super('Occasion already exists');
+    this.name = 'OccasionAlreadyExistsError';
+  }
+}
+
+/**
+ * Creates a booking type, or revives a soft-deleted one with the same key, in one transaction
+ * (`create_booking_occasion`): the existence check, display-order choice, write and audit row
+ * cannot interleave with a concurrent create. Throws {@link OccasionAlreadyExistsError} when an
+ * active type already uses the key.
+ */
+export async function createOccasion(
+  input: CreateOccasionInput,
+  actorId: string,
+  client: SupabaseClient<Database> = getServiceSupabaseClient(),
+): Promise<AdminOccasion> {
+  const { data, error } = await client.rpc('create_booking_occasion', {
+    p_actor_id: actorId,
+    p_occasion: {
+      key: input.key,
+      label: input.label,
+      short_label: input.shortLabel ?? null,
+      description: input.description ?? null,
+      availability: (input.availability ?? []) as Json,
+      default_duration_minutes: input.defaultDurationMinutes ?? null,
+      display_order: input.displayOrder ?? null,
+      is_active: input.isActive ?? true,
+    },
+  });
+  if (error) {
+    if (error.code === '23505') {
+      throw new OccasionAlreadyExistsError();
+    }
+    throw error;
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('create_booking_occasion returned no row');
+  }
+  return toAdminOccasion(data as unknown as OccasionRow);
 }

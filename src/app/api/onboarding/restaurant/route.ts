@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import { createRestaurantSchema } from '@/app/api/ops/restaurants/schema';
+import { apiError, conflict, forbidden, unauthenticated, validationError } from '@/lib/api/errors';
+import { onboardingInternalError } from '@/server/onboarding/errors';
 import { createRestaurant } from '@/server/restaurants/create';
+import {
+  RestaurantAccessExistsError,
+  RestaurantCreateValidationError,
+  RestaurantSlugUnavailableError,
+} from '@/server/restaurants/create-errors';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -10,9 +16,16 @@ import { fetchUserMemberships } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
 
+const ROUTE = 'onboarding.restaurant.create';
+const ALREADY_ONBOARDED_MESSAGE =
+  'This account already has a restaurant. Open the dashboard to manage it.';
+
 export async function POST(req: NextRequest) {
   if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
+    return forbidden(
+      'CSRF_INVALID',
+      'Your session token is out of date. Refresh the page and try again.',
+    );
   }
 
   const supabase = await getRouteHandlerSupabaseClient();
@@ -22,11 +35,11 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    return NextResponse.json({ message: 'Unable to verify session' }, { status: 500 });
+    return onboardingInternalError(error, { route: ROUTE });
   }
 
   if (!user) {
-    return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const rateLimit = await requireApiRateLimit({
@@ -45,12 +58,7 @@ export async function POST(req: NextRequest) {
   try {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (membershipError) {
-    console.error('[onboarding][restaurant][POST] membership lookup failed', membershipError);
-    captureServerException(membershipError, {
-      distinctId: user.id,
-      properties: { source: 'api', kind: 'onboarding-restaurant' },
-    });
-    return NextResponse.json({ message: 'Unable to verify onboarding state' }, { status: 500 });
+    return onboardingInternalError(membershipError, { route: ROUTE, userId: user.id });
   }
 
   const hasExistingRestaurant = memberships.some(
@@ -58,25 +66,19 @@ export async function POST(req: NextRequest) {
       typeof membership.restaurant_id === 'string' && membership.restaurant_id.length > 0,
   );
   if (hasExistingRestaurant) {
-    return NextResponse.json(
-      { message: 'Restaurant onboarding has already been completed for this account' },
-      { status: 409 },
-    );
+    return conflict('ONBOARDING_ALREADY_COMPLETED', ALREADY_ONBOARDED_MESSAGE);
   }
 
   let payload: unknown;
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const parsed = createRestaurantSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   try {
@@ -93,13 +95,17 @@ export async function POST(req: NextRequest) {
       { status: 201 },
     );
   } catch (creationError) {
-    console.error('[onboarding][restaurant][POST]', creationError);
-    captureServerException(creationError, {
-      distinctId: user.id,
-      properties: { source: 'api', kind: 'onboarding-restaurant' },
-    });
-    const message =
-      creationError instanceof Error ? creationError.message : 'Unable to create restaurant';
-    return NextResponse.json({ message }, { status: 500 });
+    if (creationError instanceof RestaurantAccessExistsError) {
+      return conflict('ONBOARDING_ALREADY_COMPLETED', ALREADY_ONBOARDED_MESSAGE);
+    }
+    if (creationError instanceof RestaurantSlugUnavailableError) {
+      return conflict('SLUG_TAKEN', 'That web address is taken. Try a different slug.', {
+        fields: { slug: ['That web address is taken. Try a different slug.'] },
+      });
+    }
+    if (creationError instanceof RestaurantCreateValidationError) {
+      return apiError(400, 'VALIDATION_FAILED', creationError.message);
+    }
+    return onboardingInternalError(creationError, { route: ROUTE, userId: user.id });
   }
 }

@@ -25,9 +25,22 @@ vi.mock('@/server/capacity', () => ({
 
 vi.mock('@/server/capacity/holds', () => ({
   AssignTablesRpcError: class AssignTablesRpcError extends Error {
-    code = 'ASSIGNMENT_VALIDATION';
-    details = null;
-    hint = null;
+    code: string;
+    details: string | null;
+    hint: string | null;
+    constructor(
+      params: {
+        message?: string;
+        code?: string;
+        details?: string | null;
+        hint?: string | null;
+      } = {},
+    ) {
+      super(params.message ?? 'rpc error');
+      this.code = params.code ?? 'ASSIGNMENT_VALIDATION';
+      this.details = params.details ?? null;
+      this.hint = params.hint ?? null;
+    }
   },
 }));
 
@@ -39,6 +52,7 @@ vi.mock('@/server/security/csrf', () => ({
   withCsrfProtectedMutation: vi.fn((_req: NextRequest, work: () => Promise<Response>) => work()),
 }));
 
+import { AssignTablesRpcError } from '@/server/capacity/holds';
 import { POST } from '@/src/app/api/ops/bookings/[id]/tables/route';
 
 const BOOKING_ID = '11111111-1111-4111-8111-111111111111';
@@ -177,5 +191,84 @@ describe('POST /api/ops/bookings/[id]/tables', () => {
       serviceClient,
       { idempotencyKey: null },
     );
+  });
+
+  function passingValidation() {
+    evaluateManualSelectionMock.mockResolvedValue({
+      ok: true,
+      summary: {
+        tableCount: 1,
+        totalCapacity: 4,
+        slack: 0,
+        zoneId: null,
+        tableNumbers: ['1'],
+        partySize: 4,
+      },
+      checks: [],
+    });
+  }
+
+  it('maps allocator conflicts to 409 ASSIGNMENT_CONFLICT without Postgres message, details or hint', async () => {
+    passingValidation();
+    assignTableToBookingMock.mockRejectedValue(
+      new AssignTablesRpcError({
+        message: 'Hold conflict prevents assignment for booking 1111',
+        code: 'ASSIGNMENT_CONFLICT',
+        details: 'Hold abcd overlaps requested window',
+        hint: 'Retry after hold expiration or confirm existing hold.',
+      } as never),
+    );
+
+    const response = await POST(makeRequest(), makeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('ASSIGNMENT_CONFLICT');
+    expect(body).not.toHaveProperty('hint');
+    expect(body).not.toHaveProperty('details');
+    expect(JSON.stringify(body)).not.toMatch(/Hold abcd|Retry after hold|booking 1111/);
+  });
+
+  it('maps allocator validation failures to 422 without the raw message', async () => {
+    passingValidation();
+    assignTableToBookingMock.mockRejectedValue(
+      new AssignTablesRpcError({
+        message: 'Table 2222 is not assigned to a zone',
+        code: 'ASSIGNMENT_VALIDATION',
+      } as never),
+    );
+
+    const response = await POST(makeRequest(), makeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.code).toBe('ASSIGNMENT_VALIDATION');
+    expect(JSON.stringify(body)).not.toContain('not assigned to a zone');
+  });
+
+  it('maps unexpected failures to a generic 500', async () => {
+    passingValidation();
+    assignTableToBookingMock.mockRejectedValue(new Error('connection terminated unexpectedly'));
+
+    const response = await POST(makeRequest(), makeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(body)).not.toContain('connection terminated');
+  });
+
+  it('does not leak the reload error text after a successful assignment', async () => {
+    passingValidation();
+    assignTableToBookingMock.mockResolvedValue(undefined);
+    getBookingTableAssignmentsMock.mockRejectedValue(
+      new Error('Failed to load booking table assignments: permission denied for table x'),
+    );
+
+    const response = await POST(makeRequest(), makeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(JSON.stringify(body)).not.toContain('permission denied');
   });
 });

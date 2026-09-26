@@ -9,12 +9,12 @@ import {
 } from '@tanstack/react-query';
 
 import { useRestaurantService } from '@/contexts/ops-services';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import { dualSyncQueryKeys } from './opsIntegrationQueries';
 
-import type { HttpError } from '@/lib/http/errors';
 import type {
   RestaurantBusinessContextSnapshot,
   UpdateRestaurantBusinessContextInput,
@@ -40,12 +40,18 @@ export function useOpsRestaurantBusinessContext(
   });
 }
 
+/**
+ * One Discovery save: every changed section, applied in one transaction, with the
+ * `expectedRevision` precondition (409 STALE_WRITE when another write landed since).
+ */
+export type BusinessContextSaveInput = UpdateRestaurantBusinessContextInput;
+
 export function useOpsUpdateRestaurantBusinessContext(
   restaurantId?: string | null,
 ): UseMutationResult<
   RestaurantBusinessContextSnapshot,
   HttpError | Error,
-  UpdateRestaurantBusinessContextInput
+  BusinessContextSaveInput
 > {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
@@ -53,7 +59,7 @@ export function useOpsUpdateRestaurantBusinessContext(
   return useMutation({
     // Saves for one restaurant run serially so an older response cannot land last.
     scope: restaurantId ? { id: `ops-restaurant-business-context:${restaurantId}` } : undefined,
-    mutationFn: (payload: UpdateRestaurantBusinessContextInput) => {
+    mutationFn: (payload: BusinessContextSaveInput) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
@@ -70,9 +76,24 @@ export function useOpsUpdateRestaurantBusinessContext(
       if (!restaurantId) {
         return;
       }
+      // The canonical snapshot (with its new revision) from the one transactional save.
       queryClient.setQueryData(queryKeys.opsRestaurants.businessContext(restaurantId), snapshot);
       // Dual-sync state compares the live Core snapshot against Google, so drift moves with the save.
       void queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.state(restaurantId) });
+    },
+    onError: (error) => {
+      if (!restaurantId) {
+        return;
+      }
+      // Another write landed since the draft's snapshot. Load the latest one: the editor rebases
+      // the draft onto it (keeping non-conflicting edits), so the next Save carries the current
+      // revision instead of failing with the same stale one forever.
+      if (error instanceof HttpError && error.code === 'STALE_WRITE') {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.opsRestaurants.businessContext(restaurantId),
+          exact: true,
+        });
+      }
     },
   });
 }

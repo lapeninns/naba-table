@@ -69,7 +69,11 @@ describe('GET /api/config/service-policy', () => {
     const response = await GET();
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ error: 'Service policy not configured' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Service policy not configured.',
+      code: 'SERVICE_POLICY_NOT_CONFIGURED',
+      message: 'Service policy not configured.',
+    });
   });
 
   it('@api @security returns a generic 500 on database errors without leaking details', async () => {
@@ -83,7 +87,11 @@ describe('GET /api/config/service-policy', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to load service policy' });
+    expect(body).toEqual({
+      error: 'Failed to load service policy',
+      code: 'INTERNAL_ERROR',
+      message: 'Failed to load service policy',
+    });
     expect(JSON.stringify(body)).not.toContain('permission denied');
   });
 
@@ -94,7 +102,11 @@ describe('GET /api/config/service-policy', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'An unexpected error occurred' });
+    expect(body).toEqual({
+      error: 'An unexpected error occurred',
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
+    });
     expect(JSON.stringify(body)).not.toContain('cookie store unavailable');
   });
 });

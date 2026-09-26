@@ -5,10 +5,14 @@ import { toast } from 'sonner';
 
 import { findFoodMenuItemDriftField } from '@/components/features/restaurant-settings/gbpDriftDomain';
 import { Text } from '@/components/ui/typography';
-import { useOpsPatchRestaurantMenuItem } from '@/hooks/ops/useOpsMenuHierarchy';
+import {
+  useOpsReorderMenuChildren,
+  useOpsUpdateRestaurantMenuItem,
+} from '@/hooks/ops/useOpsMenuHierarchy';
 
 import { primaryLabel } from './menuHierarchyDomain';
 import { MenuItemRow } from './menuHierarchyItemRows';
+import { movedIds } from './menuHierarchyOrder';
 import { QuickEditItemDialog } from './menuHierarchyQuickEditItemDialog';
 import { runMenuMutation, withReasonCode } from './menuMutationFeedback';
 
@@ -49,12 +53,18 @@ export function ItemTable({
   onDeleteItem: (item: CanonicalRestaurantMenuItem) => void;
   onCreateOption: (item: CanonicalRestaurantMenuItem) => void;
 }) {
-  const patchItem = useOpsPatchRestaurantMenuItem(restaurantId);
+  // Separate mutation instances: a toggle in this section never makes quick edit look busy.
+  const toggleItem = useOpsUpdateRestaurantMenuItem(restaurantId);
+  const quickEdit = useOpsUpdateRestaurantMenuItem(restaurantId);
+  const reorder = useOpsReorderMenuChildren(restaurantId);
   const [quickEditItem, setQuickEditItem] = useState<CanonicalRestaurantMenuItem | null>(null);
   // Optimistic shown/hidden values, keyed by item id, until the saved hierarchy catches up.
   const [visibilityOverrides, setVisibilityOverrides] = useState<Record<string, boolean>>({});
   const [togglePendingIds, setTogglePendingIds] = useState<Record<string, true>>({});
-  const [movePending, setMovePending] = useState(false);
+  const quickEditPending =
+    quickEdit.isPending &&
+    Boolean(quickEditItem?.id) &&
+    quickEdit.variables?.itemId === quickEditItem?.id;
 
   const driftFieldFor = (item: CanonicalRestaurantMenuItem) =>
     findFoodMenuItemDriftField(gbpDriftFields, {
@@ -66,33 +76,13 @@ export function ItemTable({
       itemId: item.id,
     });
 
-  const moveItem = async (item: CanonicalRestaurantMenuItem, index: number, direction: -1 | 1) => {
-    const target = section.items[index + direction];
-    if (!menu.id || !section.id || !item.id || !target?.id) return;
-    const menuId = menu.id;
-    const sectionId = section.id;
-    const itemId = item.id;
-    const targetId = target.id;
-    setMovePending(true);
-    await runMenuMutation(
-      () =>
-        Promise.all([
-          patchItem.mutateAsync({
-            menuId,
-            sectionId,
-            itemId,
-            payload: { displayOrder: target.displayOrder },
-          }),
-          patchItem.mutateAsync({
-            menuId,
-            sectionId,
-            itemId: targetId,
-            payload: { displayOrder: item.displayOrder },
-          }),
-        ]),
-      { failure: 'Could not move the item. The order is unchanged.' },
-    );
-    setMovePending(false);
+  const moveItem = (index: number, direction: -1 | 1) => {
+    const orderedIds = movedIds(section.items, index, direction);
+    if (!menu.id || !section.id || !orderedIds) return;
+    reorder.mutate({
+      target: { level: 'items', menuId: menu.id, sectionId: section.id },
+      orderedIds,
+    });
   };
 
   const setItemActive = async (
@@ -107,7 +97,7 @@ export function ItemTable({
     setVisibilityOverrides((current) => ({ ...current, [itemId]: active }));
     setTogglePendingIds((current) => ({ ...current, [itemId]: true }));
     try {
-      await patchItem.mutateAsync({ ...ids, payload: { active } });
+      await toggleItem.mutateAsync({ ...ids, payload: { active } });
       const message = `${name} ${active ? 'shown on' : 'hidden from'} the menu.`;
       toast.success(
         message,
@@ -128,10 +118,15 @@ export function ItemTable({
         ),
       );
     } finally {
-      // Success: the hierarchy has been refetched. Failure: the saved value shows again.
+      // Success: the saved item is already in the cache. Failure: the saved value shows again.
       setVisibilityOverrides((current) => withoutKey(current, itemId));
       setTogglePendingIds((current) => withoutKey(current, itemId));
     }
+  };
+
+  const openQuickEdit = (item: CanonicalRestaurantMenuItem) => {
+    quickEdit.reset();
+    setQuickEditItem(item);
   };
 
   const quickPatchItem = async (
@@ -139,7 +134,7 @@ export function ItemTable({
     payload: RestaurantMenuItemPatch,
   ) => {
     if (!menu.id || !section.id || !item.id) return;
-    await patchItem.mutateAsync({
+    await quickEdit.mutateAsync({
       menuId: menu.id,
       sectionId: section.id,
       itemId: item.id,
@@ -169,12 +164,12 @@ export function ItemTable({
               itemsCount={section.items.length}
               driftField={driftFieldFor(savedItem)}
               togglePending={Boolean(savedItem.id && togglePendingIds[savedItem.id])}
-              moveDisabled={filterActive || movePending}
+              moveDisabled={filterActive || reorder.isPending}
               onToggleActive={(target, active) => void setItemActive(savedItem, active)}
               onEditItem={() => onEditItem(savedItem)}
-              onQuickEditItem={() => setQuickEditItem(savedItem)}
+              onQuickEditItem={() => openQuickEdit(savedItem)}
               onCreateOption={() => onCreateOption(savedItem)}
-              onMoveItem={(_target, index, direction) => moveItem(savedItem, index, direction)}
+              onMoveItem={(_target, index, direction) => moveItem(index, direction)}
               onDeleteItem={() => onDeleteItem(savedItem)}
             />
           );
@@ -184,7 +179,7 @@ export function ItemTable({
         gbpDriftField={quickEditItem ? driftFieldFor(quickEditItem) : null}
         item={quickEditItem}
         open={quickEditItem !== null}
-        pending={patchItem.isPending}
+        pending={quickEditPending}
         onOpenChange={(open) => {
           if (!open) setQuickEditItem(null);
         }}

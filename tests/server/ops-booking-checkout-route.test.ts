@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
-
 const clearBookingTableAssignmentsMock = vi.hoisted(() => vi.fn());
 const enqueueCheckOutSideEffectsMock = vi.hoisted(() => vi.fn());
 const invalidateOpsDashboardCachesMock = vi.hoisted(() => vi.fn());
@@ -35,6 +33,7 @@ vi.mock('@/src/app/api/ops/bookings/[id]/_shared/lifecycleRoute', () => ({
   resolveBookingId: resolveBookingIdMock,
 }));
 
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { POST } from '@/src/app/api/ops/bookings/[id]/check-out/route';
 
 const BOOKING = {
@@ -99,6 +98,15 @@ describe('POST /api/ops/bookings/[id]/check-out', () => {
       status: 'completed',
       checkedInAt: BOOKING.checked_in_at,
       checkedOutAt: BOOKING.checked_out_at,
+      changed: false,
+      booking: {
+        id: BOOKING.id,
+        restaurantId: BOOKING.restaurant_id,
+        status: 'completed',
+        checkedInAt: BOOKING.checked_in_at,
+        checkedOutAt: BOOKING.checked_out_at,
+        updatedAt: null,
+      },
     });
     expect(clearBookingTableAssignmentsMock).not.toHaveBeenCalled();
     expect(enqueueCheckOutSideEffectsMock).not.toHaveBeenCalled();
@@ -141,6 +149,13 @@ describe('POST /api/ops/bookings/[id]/check-out', () => {
     );
 
     expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      status: 'completed',
+      changed: true,
+      booking: { id: BOOKING.id, status: 'completed', updatedAt: '2026-05-16T11:30:00.000Z' },
+      // The atomic transition released every table.
+      assignments: [],
+    });
     expect(persistLifecycleTransitionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         releaseAssignments: true,

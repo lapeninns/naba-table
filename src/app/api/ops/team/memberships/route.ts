@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, internalError, unauthenticated } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
+
+const ROUTE = '/api/ops/team/memberships';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,16 +19,13 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[team/memberships] auth error', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('[team/memberships] auth error', { route: ROUTE, status: mapped.status });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {
@@ -41,10 +42,9 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    console.error('[team/memberships] failed to load memberships', error);
     captureServerException(error, {
       properties: { source: 'ops', kind: 'ops-team-memberships' },
     });
-    return NextResponse.json({ error: 'Unable to load memberships' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to load memberships');
   }
 }

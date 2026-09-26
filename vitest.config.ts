@@ -76,9 +76,21 @@ export default defineConfig({
       ),
       '@/hooks/ops/useOccasions': path.resolve(rootDir, 'src/hooks/ops/useOccasions.ts'),
       '@/hooks/ops/useOpsTurnBands': path.resolve(rootDir, 'src/hooks/ops/useOpsTurnBands.ts'),
+      '@/hooks/ops/useOpsUpdateBooking': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsUpdateBooking.ts',
+      ),
       '@/hooks/ops/useOpsTableTimeline': path.resolve(
         rootDir,
         'src/hooks/ops/useOpsTableTimeline.ts',
+      ),
+      '@/hooks/ops/useReleaseTableHold': path.resolve(
+        rootDir,
+        'src/hooks/ops/useReleaseTableHold.ts',
+      ),
+      '@/hooks/ops/useOpsSaveAvailability': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsSaveAvailability.ts',
       ),
       '@/hooks/ops/useOpsEmailQueueFeed': path.resolve(
         rootDir,

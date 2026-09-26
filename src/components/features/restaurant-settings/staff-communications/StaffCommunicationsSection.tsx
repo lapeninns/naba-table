@@ -25,6 +25,7 @@ import {
   SettingsStatusLine,
   getSettingsSaveReasonCode,
 } from '../shared';
+import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 
 import type { ProfileSubformProps } from '../../../../../components/ops/restaurants/details/shared';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
@@ -79,10 +80,13 @@ function StaffCommunicationsLoadedView({
   restaurantId,
   profile,
   updateMutation,
+  notice,
 }: {
   restaurantId: string;
   profile: RestaurantProfile;
   updateMutation: UpdateMutation;
+  /** Non-blocking notice shown above the form, e.g. a failed background refresh. */
+  notice?: ReactNode;
 }) {
   const draft = useProfileDraft({
     restaurantId,
@@ -114,6 +118,7 @@ function StaffCommunicationsLoadedView({
       }
     >
       <div className="flex min-w-0 max-w-4xl flex-col gap-4">
+        {notice}
         {draft.sectionStatuses.map(({ section, isDirty, visibleIssueCount }) => (
           <ProfileSectionPane
             key={section.id}
@@ -163,7 +168,8 @@ export function StaffCommunicationsSection({ restaurantId }: { restaurantId: str
     <SettingsSectionStates
       restaurantId={restaurantId}
       isLoading={isLoading && !data}
-      error={error}
+      // A failed background refresh keeps the loaded page and its unsaved edits.
+      error={data ? null : error}
       noRestaurant={
         <StaffCommunicationsShell>
           <OpsEmptyState
@@ -198,6 +204,11 @@ export function StaffCommunicationsSection({ restaurantId }: { restaurantId: str
             restaurantId={activeRestaurantId}
             profile={data}
             updateMutation={updateMutation}
+            notice={
+              error ? (
+                <SettingsRefreshErrorAlert error={error} onRetry={() => void refetch()} />
+              ) : null
+            }
           />
         ) : (
           <StaffCommunicationsLoading />

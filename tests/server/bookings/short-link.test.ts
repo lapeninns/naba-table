@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const buildBookingManageUrlMock = vi.hoisted(() => vi.fn());
+const buildBookingManageLinkMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings/manage-url', () => ({
+  buildBookingManageLink: buildBookingManageLinkMock,
   buildBookingManageUrl: buildBookingManageUrlMock,
 }));
 
@@ -14,7 +16,6 @@ vi.mock('@/lib/env', () => ({
       bookingShortLinksInternalToken: 'secret-token',
     },
     security: {
-      sessionRecoveryAccessTokenTtlSeconds: 900,
     },
   },
 }));
@@ -28,10 +29,16 @@ const booking = {
   customer_phone: '+447700900000',
 } as const;
 
+const LINK = {
+  url: 'https://nabatable.com/bookings/recover?access_token=bk1.a.b.c',
+  expiresAt: new Date('2026-06-02T19:30:00.000Z'),
+};
+
 describe('createBookingManageShortUrl', () => {
   beforeEach(() => {
     buildBookingManageUrlMock.mockReset();
-    buildBookingManageUrlMock.mockReturnValue('https://nabatable.com/bookings/recover?token=abc');
+    buildBookingManageLinkMock.mockReset();
+    buildBookingManageLinkMock.mockReturnValue(LINK);
   });
 
   it('returns the long URL when the short-link service rejects the request', async () => {
@@ -40,38 +47,48 @@ describe('createBookingManageShortUrl', () => {
       fetchImpl: vi.fn().mockResolvedValue(new Response('nope', { status: 500 })),
     });
 
-    expect(shortUrl).toBe('https://nabatable.com/bookings/recover?token=abc');
+    expect(shortUrl).toBe(LINK.url);
   });
 
-  it('returns the long URL when the manage URL is already an error route', async () => {
+  it('returns the unshortened error URL when no link can be minted', async () => {
+    buildBookingManageLinkMock.mockReturnValue(null);
     buildBookingManageUrlMock.mockReturnValue(
-      'https://nabatable.com/bookings/recover/error?code=INVALID_ACCESS_TOKEN',
+      'https://nabatable.com/bookings/recover/error?code=MISSING_ACCESS_TOKEN',
     );
+    const fetchImpl = vi.fn();
 
     const shortUrl = await createBookingManageShortUrl(booking as never, {
       createdBy: 'guest_confirmation_sms',
-      fetchImpl: vi.fn(),
+      fetchImpl,
     });
 
-    expect(shortUrl).toBe('https://nabatable.com/bookings/recover/error?code=INVALID_ACCESS_TOKEN');
+    expect(shortUrl).toBe('https://nabatable.com/bookings/recover/error?code=MISSING_ACCESS_TOKEN');
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('returns a Cloudflare short URL when the internal service succeeds', async () => {
+  it('expires the short link with the link token', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          token: 'ABC123',
+          shortUrl: 'https://go.nabatable.com/m/ABC123',
+          expiresAt: LINK.expiresAt.toISOString(),
+        }),
+        { status: 201 },
+      ),
+    );
     const shortUrl = await createBookingManageShortUrl(booking as never, {
       createdBy: 'guest_update_sms',
-      fetchImpl: vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            token: 'ABC123',
-            shortUrl: 'https://go.nabatable.com/m/ABC123',
-            expiresAt: '2026-05-01T00:00:00.000Z',
-          }),
-          { status: 201 },
-        ),
-      ),
+      fetchImpl,
     });
 
     expect(shortUrl).toBe('https://go.nabatable.com/m/ABC123');
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({
+      purpose: 'booking_manage',
+      destinationUrl: LINK.url,
+      expiresAt: '2026-06-02T19:30:00.000Z',
+    });
   });
 });
 

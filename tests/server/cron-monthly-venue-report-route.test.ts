@@ -169,13 +169,19 @@ describe('GET /api/cron/monthly-venue-report', () => {
 
   it('@api returns a generic 500 when the report pipeline fails', async () => {
     pinTime(FIRST_WEDNESDAY);
-    sendMonthlyVenueReportsMock.mockRejectedValue(new Error('resend exploded'));
+    sendMonthlyVenueReportsMock.mockRejectedValue(
+      new Error('SECRET_PROVIDER_DETAIL resend exploded'),
+    );
 
     const response = await GET(cronRequest());
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Monthly venue report cron failed.' });
-    expect(JSON.stringify(body)).not.toContain('resend exploded');
+    expect(body).toEqual({
+      error: 'Monthly venue report cron failed.',
+      code: 'INTERNAL_ERROR',
+      message: 'Monthly venue report cron failed.',
+    });
+    expect(JSON.stringify(body)).not.toContain('SECRET_PROVIDER_DETAIL');
   });
 });

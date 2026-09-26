@@ -1,8 +1,12 @@
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
+import { hashEmailTemplatePreviewInput } from '@/services/ops/email-templates';
+import { EmailTemplatesTransportProvider } from '@src/hooks/ops/emailTemplatesTransport';
 import {
   PREVIEW_DEBOUNCE_MS,
   PREVIEW_RATE_LIMIT,
@@ -12,6 +16,8 @@ import {
   useOpsSendRestaurantEmailTemplateTest,
   useOpsUpdateRestaurantEmailTemplate,
 } from '@src/hooks/ops/useOpsRestaurantEmailTemplates';
+
+import type { ReactNode } from 'react';
 
 const restaurantService = vi.hoisted(() => ({
   getEmailTemplates: vi.fn(),
@@ -24,6 +30,23 @@ const restaurantService = vi.hoisted(() => ({
 vi.mock('@/contexts/ops-services', () => ({
   useRestaurantService: () => restaurantService,
 }));
+
+const transport = vi.hoisted(() => ({
+  previewEmailTemplate: vi.fn(),
+  sendTestEmailTemplate: vi.fn(),
+}));
+
+function transportWrapper(queryClient: QueryClient) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <EmailTemplatesTransportProvider transport={transport}>
+          {children}
+        </EmailTemplatesTransportProvider>
+      </QueryClientProvider>
+    );
+  };
+}
 
 const restaurantId = 'rest-1';
 const templatesKey = queryKeys.opsRestaurants.emailTemplates(restaurantId);
@@ -38,6 +61,7 @@ function setup<T, P = undefined>(hook: (props: P) => T) {
 
 beforeEach(() => {
   for (const mock of Object.values(restaurantService)) mock.mockReset();
+  for (const mock of Object.values(transport)) mock.mockReset();
 });
 
 describe('useOpsRestaurantEmailTemplates', () => {
@@ -250,6 +274,181 @@ describe('useOpsEmailTemplatePreview', () => {
     expect(result.current.isPlaceholderData).toBe(true);
   });
 
+  it('@contract keys the render by a hash of the draft from lib/query/keys and reuses it for an identical draft', async () => {
+    restaurantService.previewEmailTemplate.mockResolvedValue({
+      templateKey: 'confirmation',
+      html: 'x',
+    });
+
+    const { queryClient, rerender } = setup(
+      ({ subject }: { subject: string } = { subject: 'same' }) =>
+        useOpsEmailTemplatePreview({
+          restaurantId: 'rest-cache',
+          templateKey: 'confirmation',
+          variantId: 'v1',
+          variants: [{ id: 'v1', subject }] as never,
+          debounceMs: 0,
+        }),
+    );
+    await waitFor(() => expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1));
+
+    // A new array with identical content is the same draft: no second render.
+    rerender({ subject: 'same' });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    const key = queryKeys.opsEmailTemplates.preview(
+      'rest-cache',
+      'confirmation',
+      hashEmailTemplatePreviewInput({
+        preferredVariantId: 'v1',
+        variants: [{ id: 'v1', subject: 'same' }] as never,
+      }),
+    );
+    expect(queryClient.getQueryData(key)).toEqual({ templateKey: 'confirmation', html: 'x' });
+  });
+
+  it('@contract aborts the render of a superseded draft', async () => {
+    const signals: AbortSignal[] = [];
+    restaurantService.previewEmailTemplate.mockImplementation(
+      (_id, _key, _payload, options: { signal: AbortSignal }) => {
+        signals.push(options.signal);
+        return new Promise(() => {});
+      },
+    );
+
+    const { rerender } = setup(({ id }: { id: string } = { id: 'v1' }) =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-abort',
+        templateKey: 'confirmation',
+        variantId: id,
+        variants: [{ id: 'v1' }, { id: 'v2' }] as never,
+        debounceMs: 0,
+      }),
+    );
+    await waitFor(() => expect(signals).toHaveLength(1));
+
+    rerender({ id: 'v2' });
+
+    await waitFor(() => expect(signals).toHaveLength(2));
+    await waitFor(() => expect(signals[0]!.aborted).toBe(true));
+    expect(signals[1]!.aborted).toBe(false);
+  });
+
+  it('@contract never sends a request per keystroke, so fast typing cannot trigger a 429 storm', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    restaurantService.previewEmailTemplate.mockImplementation(async (_id, _key, payload) => ({
+      templateKey: 'confirmation',
+      html: payload.variants[0].subject,
+    }));
+
+    const { result, rerender } = setup(({ subject }: { subject: string } = { subject: '' }) =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-typing',
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants: [{ id: 'v1', subject }] as never,
+      }),
+    );
+    await waitFor(() => expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1));
+
+    // 60 keystrokes, 100 ms apart: well inside the debounce window each time.
+    const text = 'A long subject line typed quickly by a member of staff......';
+    for (let index = 1; index <= text.length; index += 1) {
+      rerender({ subject: text.slice(0, index) });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+    }
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
+    });
+    await waitFor(() => expect(result.current.data?.html).toBe(text));
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(2);
+  });
+
+  it('@contract retries a rate-limited preview once, after its Retry-After, and recovers', async () => {
+    vi.useFakeTimers();
+    restaurantService.previewEmailTemplate
+      .mockRejectedValueOnce(
+        new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many', retryAfter: 3 }),
+      )
+      .mockResolvedValueOnce({ templateKey: 'confirmation', html: 'recovered' });
+
+    const { result } = setup(() =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-429-recover',
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants,
+        debounceMs: 0,
+      }),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    // No hammering inside the Retry-After window.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_900);
+    });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(2);
+    expect(result.current.data).toEqual({ templateKey: 'confirmation', html: 'recovered' });
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('@contract surfaces a preview that is still rate limited after one retry', async () => {
+    vi.useFakeTimers();
+    restaurantService.previewEmailTemplate.mockRejectedValue(
+      new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many', retryAfter: 1 }),
+    );
+
+    const { result } = setup(() =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-429-fail',
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants,
+        debounceMs: 0,
+      }),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(2);
+    expect(result.current.isError).toBe(true);
+  });
+
+  it('@contract does not retry a rejected draft (4xx)', async () => {
+    restaurantService.previewEmailTemplate.mockRejectedValue(
+      new HttpError({ status: 400, code: 'VALIDATION_FAILED', message: 'Bad draft' }),
+    );
+
+    const { result } = setup(() =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-400',
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants,
+        debounceMs: 0,
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1);
+  });
+
   it('@contract stays idle without a restaurant, email or variants', () => {
     setup(() =>
       useOpsEmailTemplatePreview({
@@ -275,35 +474,43 @@ describe('useOpsEmailTemplatePreview', () => {
 });
 
 describe('useOpsSendRestaurantEmailTemplateTest', () => {
-  it('@contract sends the test email through the service', async () => {
+  it('@contract sends through the transport with the per-intent idempotency key', async () => {
     const response = { provider: 'resend' };
-    restaurantService.sendTestEmailTemplate.mockResolvedValue(response);
+    transport.sendTestEmailTemplate.mockResolvedValue(response);
 
-    const { result } = setup(() => useOpsSendRestaurantEmailTemplateTest(restaurantId));
+    const { result } = renderHook(() => useOpsSendRestaurantEmailTemplateTest(restaurantId), {
+      wrapper: transportWrapper(createTestQueryClient()),
+    });
 
     await expect(
       result.current.mutateAsync({
         templateKey: 'confirmation',
         payload: { toEmail: 'ops@example.com' } as never,
+        idempotencyKey: 'click-key-1',
       }),
     ).resolves.toEqual(response);
 
-    expect(restaurantService.sendTestEmailTemplate).toHaveBeenCalledWith(
+    expect(transport.sendTestEmailTemplate).toHaveBeenCalledWith(
       restaurantId,
       'confirmation',
       { toEmail: 'ops@example.com' },
+      { idempotencyKey: 'click-key-1' },
     );
+    expect(restaurantService.sendTestEmailTemplate).not.toHaveBeenCalled();
   });
 
-  it('@contract fails before the service call without a restaurant id', async () => {
-    const { result } = setup(() => useOpsSendRestaurantEmailTemplateTest(undefined));
+  it('@contract fails before the transport call without a restaurant id', async () => {
+    const { result } = renderHook(() => useOpsSendRestaurantEmailTemplateTest(undefined), {
+      wrapper: transportWrapper(createTestQueryClient()),
+    });
 
     await expect(
       result.current.mutateAsync({
         templateKey: 'confirmation',
         payload: { toEmail: 'ops@example.com' } as never,
+        idempotencyKey: 'k-1',
       }),
     ).rejects.toThrow('Restaurant id is required');
-    expect(restaurantService.sendTestEmailTemplate).not.toHaveBeenCalled();
+    expect(transport.sendTestEmailTemplate).not.toHaveBeenCalled();
   });
 });

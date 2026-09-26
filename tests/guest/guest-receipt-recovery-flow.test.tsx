@@ -1,4 +1,6 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 
 const redirectMock = vi.hoisted(() =>
   vi.fn(() => {
@@ -10,28 +12,48 @@ const cookieGetMock = vi.hoisted(() => vi.fn());
 const cookieGetAllMock = vi.hoisted(() => vi.fn());
 const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
-const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
+const serviceRows = vi.hoisted(() => ({ bookings: [] as Array<Record<string, unknown>> }));
 
 vi.mock('next/navigation', () => ({ redirect: redirectMock }));
 vi.mock('next/headers', () => ({ cookies: cookiesMock }));
 
 vi.mock('@/lib/env', () => ({
   env: {
+    node: { env: 'test' },
     security: {
       sessionRecoveryAccessTokenSecret: 'test-secret',
     },
   },
 }));
 
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  validateSessionRecoveryAccessToken: validateSessionRecoveryAccessTokenMock,
-}));
+vi.mock('@/server/observability', () => ({ recordObservabilityEvent: vi.fn() }));
 
 vi.mock('@/server/supabase', () => ({
   getServerComponentSupabaseClient: getServerComponentSupabaseClientMock,
+  getRouteHandlerSupabaseClient: vi.fn(),
+  getServiceSupabaseClient: () => ({
+    from: () => {
+      const filters: Array<[string, unknown]> = [];
+      const builder = {
+        select: () => builder,
+        eq: (column: string, value: unknown) => {
+          filters.push([column, value]);
+          return builder;
+        },
+        maybeSingle: async () => ({
+          data: serviceRows.bookings.find((row) => filters.every(([c, v]) => row[c] === v)) ?? null,
+          error: null,
+        }),
+      };
+      return builder;
+    },
+  }),
 }));
 
+import { createBookingAccessToken } from '@/server/security/booking-access-token';
 import GuestBookingReceiptPage from '@/src/app/guest/bookings/[bookingId]/receipt/page';
+
+import type { ReactElement } from 'react';
 
 const bookingId = '33333333-3333-4333-8333-333333333333';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
@@ -69,7 +91,7 @@ describe('guest receipt recovery flow', () => {
     cookieGetAllMock.mockReset();
     getServerComponentSupabaseClientMock.mockReset();
     getUserMock.mockReset();
-    validateSessionRecoveryAccessTokenMock.mockReset();
+    serviceRows.bookings = [{ ...booking, auth_user_id: null }];
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -89,7 +111,6 @@ describe('guest receipt recovery flow', () => {
       auth: { getUser: getUserMock },
     });
     getUserMock.mockResolvedValue({ data: { user: null }, error: null });
-    validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: true });
   });
 
   it('routes modern recovery tokens through /bookings/recover before rendering receipts', async () => {
@@ -122,44 +143,98 @@ describe('guest receipt recovery flow', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('allows a valid sr_access cookie to satisfy the unauthenticated receipt gate', async () => {
-    cookieGetMock.mockReturnValue({ name: 'sr_access', value: 'valid-recovery-token' });
-    cookieGetAllMock.mockReturnValue([{ name: 'sr_access', value: 'valid-recovery-token' }]);
+  function bookingCookie(row: Record<string, unknown> = booking) {
+    const minted = createBookingAccessToken({
+      booking: row as Parameters<typeof createBookingAccessToken>[0]['booking'],
+      secret: 'test-secret',
+      source: 'redeem',
+    });
+    if (!minted) throw new Error('expected a token');
+    return { name: `__Host-nt_bk.${bookingId}`, value: minted.token };
+  }
+
+  function useCookies(cookies: Array<{ name: string; value: string }>) {
+    cookieGetMock.mockImplementation((name: string) =>
+      cookies.find((cookie) => cookie.name === name),
+    );
+    cookieGetAllMock.mockReturnValue(cookies);
+  }
+
+  it('lets a valid booking cookie satisfy the unauthenticated receipt gate', async () => {
+    const cookie = bookingCookie();
+    useCookies([cookie]);
 
     await GuestBookingReceiptPage({
       params: Promise.resolve({ bookingId }),
       searchParams: Promise.resolve({}),
     });
 
-    expect(validateSessionRecoveryAccessTokenMock).toHaveBeenCalledWith('valid-recovery-token', {
-      secret: 'test-secret',
-    });
     expect(fetch).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`/api/bookings/${bookingId}$`)),
       expect.objectContaining({
-        headers: expect.objectContaining({
-          cookie: 'sr_access=valid-recovery-token',
-        }),
+        headers: expect.objectContaining({ cookie: `${cookie.name}=${cookie.value}` }),
       }),
     );
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it('redirects invalid recovery cookies to sign-in instead of prefetching', async () => {
-    cookieGetMock.mockReturnValue({ name: 'sr_access', value: 'invalid-recovery-token' });
-    cookieGetAllMock.mockReturnValue([{ name: 'sr_access', value: 'invalid-recovery-token' }]);
-    validateSessionRecoveryAccessTokenMock.mockReturnValue({ ok: false, reason: 'invalid' });
+  it('ignores the retired sr_access cookie and offers a new link before sign-in (§8.3)', async () => {
+    useCookies([{ name: 'sr_access', value: 'sr2.a.b.c' }]);
 
-    await expect(
-      GuestBookingReceiptPage({
-        params: Promise.resolve({ bookingId }),
-        searchParams: Promise.resolve({}),
-      }),
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const element = await GuestBookingReceiptPage({
+      params: Promise.resolve({ bookingId }),
+      searchParams: Promise.resolve({}),
+    });
 
-    expect(redirectMock).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/signin?redirectedFrom='),
-    );
+    expect(redirectMock).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
+    render(element as ReactElement);
+    expect(screen.getByRole('link', { name: 'Email me a new link' })).toHaveAttribute(
+      'href',
+      '/bookings/find',
+    );
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      `/auth/signin?redirectedFrom=${encodeURIComponent(`/guest/bookings/${bookingId}/receipt`)}`,
+    );
+  });
+
+  it('marks a signed-in guest with a revoked cookie as authenticated', async () => {
+    const cookie = bookingCookie();
+    serviceRows.bookings = [{ ...booking, customer_email: 'changed@example.com' }];
+    useCookies([cookie]);
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-2', email: 'someone@example.com' } },
+      error: null,
+    });
+
+    const element = await GuestBookingReceiptPage({
+      params: Promise.resolve({ bookingId }),
+      searchParams: Promise.resolve({}),
+    });
+
+    const props = (element as { props: { reason: string; isAuthenticated: boolean } }).props;
+    expect(props.reason).toBe('revoked');
+    expect(props.isAuthenticated).toBe(true);
+    render(element as ReactElement);
+    expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute(
+      'href',
+      '/guest/bookings',
+    );
+  });
+
+  it('renders the expired-link state for a revoked cookie without prefetching', async () => {
+    const cookie = bookingCookie();
+    serviceRows.bookings = [{ ...booking, customer_email: 'changed@example.com' }];
+    useCookies([cookie]);
+
+    const element = await GuestBookingReceiptPage({
+      params: Promise.resolve({ bookingId }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(redirectMock).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect((element as { props: { reason: string } }).props.reason).toBe('revoked');
   });
 });

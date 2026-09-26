@@ -231,4 +231,74 @@ describe('POST /api/auth/signup onboarding contract', () => {
       data: { intent: 'onboarding_signup' },
     });
   });
+
+  const passwordPayload = {
+    mode: 'password',
+    email: 'owner@example.com',
+    password: 'Correct horse battery staple 1',
+    redirectedFrom: '/onboarding/profile',
+  };
+
+  it('maps provider sign-up failures to safe C1 copy without provider text', async () => {
+    signUpMock.mockResolvedValue({
+      data: { session: null },
+      error: { status: 422, code: 'signup_disabled', message: 'Signups not allowed for otp' },
+    });
+
+    const response = await POST(request(passwordPayload));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('SIGNUP_FAILED');
+    expect(JSON.stringify(body)).not.toContain('otp');
+  });
+
+  it('maps a weak password rejection to a password field error', async () => {
+    signUpMock.mockResolvedValue({
+      data: { session: null },
+      error: { status: 422, code: 'weak_password', message: 'Password is known to be weak' },
+    });
+
+    const response = await POST(request(passwordPayload));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ code: 'WEAK_PASSWORD', fields: { password: expect.any(Array) } });
+  });
+
+  it('never exposes a 5xx provider message', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    signUpMock.mockResolvedValue({
+      data: { session: null },
+      error: { status: 500, message: 'Database error saving new user' },
+    });
+
+    try {
+      const response = await POST(request(passwordPayload));
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body.code).toBe('INTERNAL_ERROR');
+      expect(JSON.stringify(body)).not.toContain('Database error');
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it('reports confirmation_required for password sign-ups without a session', async () => {
+    const response = await POST(request(passwordPayload));
+
+    await expect(response.json()).resolves.toMatchObject({ status: 'confirmation_required' });
+  });
+
+  it('returns the C1 rate-limit contract with Retry-After', async () => {
+    consumeRateLimitMock.mockResolvedValueOnce(buildRateLimitResult({ ok: false, remaining: 0 }));
+
+    const response = await POST(request(passwordPayload));
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toMatchObject({ code: 'RATE_LIMITED', retryable: true });
+    expect(Number(response.headers.get('Retry-After'))).toBeGreaterThan(0);
+  });
 });

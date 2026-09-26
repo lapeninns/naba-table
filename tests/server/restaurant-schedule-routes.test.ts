@@ -122,7 +122,28 @@ describe('ops restaurant schedule setting routes', () => {
     updateServicePeriodsMock.mockResolvedValue([]);
   });
 
-  it('rejects invalid operating-hours payloads before auth or replacement @p1 @api @contract', async () => {
+  it('authorises before reading an operating-hours body @p1 @api @security', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+      },
+    });
+    const request = jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/hours`, {
+      weekly: [{ dayOfWeek: 1, opensAt: '17:00', isClosed: false }],
+      overrides: [],
+    });
+    const jsonSpy = vi.spyOn(request, 'json');
+
+    const response = await putOperatingHours(request, routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toMatchObject({ code: 'UNAUTHENTICATED', error: 'Authentication required' });
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(updateOperatingHoursMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid operating-hours payloads with field errors before replacement @p1 @api @contract', async () => {
     const response = await putOperatingHours(
       jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/hours`, {
         weekly: [{ dayOfWeek: 1, opensAt: '17:00', isClosed: false }],
@@ -133,10 +154,28 @@ describe('ops restaurant schedule setting routes', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Invalid payload');
-    expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
-    expect(requireAdminMembershipMock).not.toHaveBeenCalled();
+    expect(body.code).toBe('VALIDATION_FAILED');
+    expect(body.fields).toHaveProperty('weekly.0');
     expect(updateOperatingHoursMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses a non-admin before parsing the body or reading the occasion catalog @p1 @api @security', async () => {
+    requireAdminMembershipMock.mockRejectedValue(
+      Object.assign(new Error('Membership not found'), { code: 'MEMBERSHIP_NOT_FOUND' }),
+    );
+    const request = jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/service-periods`, [
+      { name: 'Dinner', dayOfWeek: 1, startTime: '17:00', endTime: '22:00', bookingOption: 'x' },
+    ]);
+    const jsonSpy = vi.spyOn(request, 'json');
+
+    const response = await putServicePeriods(request, routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.code).toBe('FORBIDDEN');
+    expect(jsonSpy).not.toHaveBeenCalled();
+    expect(getOccasionCatalogMock).not.toHaveBeenCalled();
+    expect(updateServicePeriodsMock).not.toHaveBeenCalled();
   });
 
   it('saves reversible operating-hours snapshots for active restaurant admins @p1 @api @destructive', async () => {
@@ -217,8 +256,9 @@ describe('ops restaurant schedule setting routes', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ error: 'Authentication required' });
+    expect(body).toMatchObject({ error: 'Authentication required', code: 'UNAUTHENTICATED' });
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
+    expect(getOccasionCatalogMock).not.toHaveBeenCalled();
     expect(updateServicePeriodsMock).not.toHaveBeenCalled();
   });
 
@@ -282,6 +322,29 @@ describe('ops restaurant schedule setting routes', () => {
     ]);
   });
 
+  it('maps a booking type removed during the save (FK 23503 from the replacement) to UNKNOWN_BOOKING_TYPE', async () => {
+    updateServicePeriodsMock.mockRejectedValueOnce(
+      Object.assign(new Error('service period uses a removed booking type'), { code: '23503' }),
+    );
+    const response = await putServicePeriods(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/service-periods`, [
+        {
+          name: 'Dinner',
+          dayOfWeek: 5,
+          startTime: '17:00',
+          endTime: '22:00',
+          bookingOption: 'dinner',
+        },
+      ]),
+      routeContext(),
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(400);
+    expect(JSON.parse(text).code).toBe('UNKNOWN_BOOKING_TYPE');
+    expect(text).not.toContain('removed booking type');
+  });
+
   it('rejects unknown service-period occasions before replacement @p1 @api @contract', async () => {
     const response = await putServicePeriods(
       jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/service-periods`, [
@@ -298,7 +361,10 @@ describe('ops restaurant schedule setting routes', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: 'Unknown occasion "chef_counter"' });
+    expect(body).toMatchObject({
+      code: 'UNKNOWN_BOOKING_TYPE',
+      fields: { '0.bookingOption': ['Unknown booking type'] },
+    });
     expect(updateServicePeriodsMock).not.toHaveBeenCalled();
   });
 

@@ -7,8 +7,12 @@ import { OpsEmailDeliveryClient } from '@/components/features/email-delivery/Ops
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
+import { HttpError } from '@/lib/http/errors';
+import { createMutationFeedbackCache } from '@/lib/query/client';
+import { EmailDeliveryTransportProvider } from '@src/hooks/ops/emailDeliveryTransport';
 
 import type { BookingService } from '@/services/ops/bookings';
+import type { EmailDeliveryTransport } from '@/services/ops/email-delivery';
 import type { OpsEmailDeliveryFeedResponse, OpsEmailDeliverySummary } from '@/types/emailDelivery';
 import type { OpsMembership, OpsUser } from '@/types/ops';
 
@@ -110,11 +114,16 @@ function renderClient(options?: {
   getRestaurantEmailDeliveryFeed?: BookingService['getRestaurantEmailDeliveryFeed'];
   getRestaurantEmailDeliverySummary?: BookingService['getRestaurantEmailDeliverySummary'];
   getRestaurantEmailQueue?: BookingService['getRestaurantEmailQueue'];
-  retryEmailDelivery?: BookingService['retryEmailDelivery'];
+  transport?: Partial<EmailDeliveryTransport>;
 }) {
   const queryClient = new QueryClient({
+    mutationCache: createMutationFeedbackCache({
+      success: (message) => toastSuccessMock(message),
+      error: (message) => toastErrorMock(message),
+    }),
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
+      mutations: { retry: 0 },
     },
   });
 
@@ -139,12 +148,17 @@ function renderClient(options?: {
       jobs: [],
       timestamp: new Date().toISOString(),
     });
-  const retryEmailDelivery =
-    options?.retryEmailDelivery ??
-    vi.fn<BookingService['retryEmailDelivery']>().mockResolvedValue({
+  const transport: EmailDeliveryTransport = {
+    retryEmailDelivery: vi.fn<EmailDeliveryTransport['retryEmailDelivery']>().mockResolvedValue({
       ok: true,
+      status: 'sent',
+      retryAttempt: 1,
       deliveryLogEntry: {},
-    });
+    }),
+    cancelEmailQueueJob: vi.fn<EmailDeliveryTransport['cancelEmailQueueJob']>(),
+    requeueEmailQueueJob: vi.fn<EmailDeliveryTransport['requeueEmailQueueJob']>(),
+    ...options?.transport,
+  };
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -155,14 +169,15 @@ function renderClient(options?: {
               getRestaurantEmailDeliveryFeed,
               getRestaurantEmailDeliverySummary,
               getRestaurantEmailQueue,
-              retryEmailDelivery,
             }) as unknown as BookingService,
           restaurantService: () => createRestaurantService() as never,
         }}
       >
         <OpsSessionProvider user={user} memberships={memberships} initialRestaurantId="rest-1">
           <OpsUnsavedChangesProvider>
-            <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
+            <EmailDeliveryTransportProvider transport={transport}>
+              <OpsEmailDeliveryClient initialRestaurantId="rest-1" initialRange="7d" />
+            </EmailDeliveryTransportProvider>
           </OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
@@ -173,7 +188,8 @@ function renderClient(options?: {
     getRestaurantEmailDeliveryFeed,
     getRestaurantEmailDeliverySummary,
     getRestaurantEmailQueue,
-    retryEmailDelivery,
+    transport,
+    queryClient,
   };
 }
 
@@ -277,15 +293,263 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByText('Scheduled email queue')).toBeInTheDocument();
   });
 
+});
+
+function installMatchMedia() {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+function failedAttemptFeed() {
+  return vi.fn<BookingService['getRestaurantEmailDeliveryFeed']>().mockResolvedValue(
+    makeSuccessResponse({
+      attempts: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          messageId: 'provider-message-id-failed',
+          recipientEmail: 'failed@example.com',
+          bookingId: 'booking-failed',
+          emailType: 'created',
+          templateType: 'booking_confirmation',
+          provider: 'resend',
+          currentStatus: 'failed',
+          currentOccurredAt: '2026-03-20T15:00:00Z',
+          events: [],
+          booking: null,
+        },
+      ],
+      summary: makeSummary(1),
+    }),
+  );
+}
+
+function queueFeed(status: 'delayed' | 'dlq') {
+  return vi.fn<BookingService['getRestaurantEmailQueue']>().mockResolvedValue({
+    ok: true,
+    restaurantId: 'rest-1',
+    pageInfo: { page: 1, pageSize: 25, hasNext: false, total: 1 },
+    summary: { total: 1, waiting: 0, active: 0, delayed: 1, dlq: 0 },
+    jobs: [
+      {
+        id: 'email__reminder_24h__booking-1',
+        status,
+        type: 'reminder_24h',
+        bookingId: 'booking-1',
+        restaurantId: 'rest-1',
+        scheduledFor: '2099-01-01T10:00:00.000Z',
+        failedReason: null,
+        failedAt: null,
+        attemptsMade: 0,
+        booking: {
+          id: 'booking-1',
+          reference: 'REF1',
+          customerName: 'Guest',
+          customerEmail: 'guest@example.com',
+          startAt: null,
+          endAt: null,
+        },
+      },
+    ],
+    timestamp: new Date().toISOString(),
+  } as never);
+}
+
+describe('OpsEmailDeliveryClient mutations', () => {
+  beforeEach(() => {
+    toastSuccessMock.mockReset();
+    toastErrorMock.mockReset();
+    pathnameMock.mockReturnValue('/app/email-delivery');
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=delivery-log'));
+    installMatchMedia();
+  });
+
+  it('resends a failed row, reports "Sent" and refreshes only the delivery data', async () => {
+    const user = userEvent.setup();
+    const getRestaurantEmailDeliveryFeed = failedAttemptFeed();
+    const { transport, queryClient } = renderClient({ getRestaurantEmailDeliveryFeed });
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() => {
+      expect(transport.retryEmailDelivery).toHaveBeenCalledWith({
+        restaurantId: 'rest-1',
+        deliveryLogId: '11111111-1111-4111-8111-111111111111',
+        simulateError: undefined,
+      });
+    });
+    await waitFor(() =>
+      expect(toastSuccessMock).toHaveBeenCalledWith(
+        'Sent: the email was resent to failed@example.com.',
+      ),
+    );
+    expect(invalidateSpy.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
+      ['ops', 'email-delivery', 'rest-1'],
+      ['ops', 'email-delivery-summary', 'rest-1'],
+      ['ops', 'bookings', 'booking-failed', 'email-delivery'],
+    ]);
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+  });
+
+  it('shows safe copy when the resend is refused, never the raw error text', async () => {
+    const user = userEvent.setup();
+    renderClient({
+      getRestaurantEmailDeliveryFeed: failedAttemptFeed(),
+      transport: {
+        retryEmailDelivery: vi.fn().mockRejectedValue(
+          new HttpError({
+            status: 409,
+            code: 'RETRY_IN_PROGRESS',
+            message: 'This email is already being resent.',
+          }),
+        ),
+      },
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() =>
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        'This email is already being resent. Refresh in a moment to see the result.',
+      ),
+    );
+  });
+
+  it('never shows 5xx server text for a failed resend', async () => {
+    const user = userEvent.setup();
+    renderClient({
+      getRestaurantEmailDeliveryFeed: failedAttemptFeed(),
+      transport: {
+        retryEmailDelivery: vi
+          .fn()
+          .mockRejectedValue(new HttpError({ status: 500, message: 'SECRET_DB_DETAIL' })),
+      },
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: /retry email for failed@example.com/i }),
+    );
+    await user.click(screen.getByRole('button', { name: /confirm retry/i }));
+
+    await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
+    expect(JSON.stringify(toastErrorMock.mock.calls)).not.toContain('SECRET_DB_DETAIL');
+  });
+
+  it('asks for confirmation before cancelling a scheduled email', async () => {
+    const user = userEvent.setup();
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+    const cancelEmailQueueJob = vi.fn<EmailDeliveryTransport['cancelEmailQueueJob']>().mockResolvedValue({
+      ok: true,
+      jobId: 'email__reminder_24h__booking-1',
+      action: 'cancelled',
+    });
+    renderClient({ getRestaurantEmailQueue: queueFeed('delayed'), transport: { cancelEmailQueueJob } });
+
+    await user.click(screen.getByRole('tab', { name: /queue/i }));
+    const [cancelButton] = await screen.findAllByRole('button', { name: 'Cancel' });
+    await user.click(cancelButton!);
+
+    expect(await screen.findByRole('alertdialog')).toHaveTextContent('guest@example.com');
+    expect(cancelEmailQueueJob).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Keep scheduled' }));
+    expect(cancelEmailQueueJob).not.toHaveBeenCalled();
+
+    await user.click((await screen.findAllByRole('button', { name: 'Cancel' }))[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Cancel email' }));
+
+    await waitFor(() =>
+      expect(cancelEmailQueueJob).toHaveBeenCalledWith({
+        restaurantId: 'rest-1',
+        jobId: 'email__reminder_24h__booking-1',
+      }),
+    );
+    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith('Scheduled email cancelled.'));
+  });
+
+  it('explains a cancel refused because the email is already sending', async () => {
+    const user = userEvent.setup();
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+    renderClient({
+      getRestaurantEmailQueue: queueFeed('delayed'),
+      transport: {
+        cancelEmailQueueJob: vi.fn().mockRejectedValue(
+          new HttpError({ status: 409, code: 'JOB_IN_PROGRESS', message: 'x' }),
+        ),
+      },
+    });
+
+    await user.click(screen.getByRole('tab', { name: /queue/i }));
+    await user.click((await screen.findAllByRole('button', { name: 'Cancel' }))[0]!);
+    await user.click(await screen.findByRole('button', { name: 'Cancel email' }));
+
+    await waitFor(() =>
+      expect(toastErrorMock).toHaveBeenCalledWith(
+        'This email is being sent right now, so it can no longer be cancelled.',
+      ),
+    );
+  });
+
+  it('requeues a failed job without a dialog', async () => {
+    const user = userEvent.setup();
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
+    const requeueEmailQueueJob = vi.fn<EmailDeliveryTransport['requeueEmailQueueJob']>().mockResolvedValue({
+      ok: true,
+      jobId: 'email__reminder_24h__booking-1',
+      action: 'requeued',
+    });
+    renderClient({ getRestaurantEmailQueue: queueFeed('dlq'), transport: { requeueEmailQueueJob } });
+
+    await user.click(screen.getByRole('tab', { name: /queue/i }));
+    await user.click((await screen.findAllByRole('button', { name: 'Requeue' }))[0]!);
+
+    await waitFor(() =>
+      expect(requeueEmailQueueJob).toHaveBeenCalledWith({
+        restaurantId: 'rest-1',
+        jobId: 'email__reminder_24h__booking-1',
+      }),
+    );
+    await waitFor(() =>
+      expect(toastSuccessMock).toHaveBeenCalledWith('Email requeued. It sends on the next queue run.'),
+    );
+  });
+});
+
+describe('OpsEmailDeliveryClient (legacy retry contract)', () => {
+  beforeEach(() => {
+    pathnameMock.mockReturnValue('/app/email-delivery');
+    searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=delivery-log'));
+    installMatchMedia();
+  });
+
   it('retries a failed row with restaurantId and deliveryLogId', async () => {
     const user = userEvent.setup();
-    const retryEmailDelivery = vi.fn<BookingService['retryEmailDelivery']>().mockResolvedValue({
+    const retryEmailDelivery = vi.fn<EmailDeliveryTransport['retryEmailDelivery']>().mockResolvedValue({
       ok: true,
+      status: 'sent',
+      retryAttempt: 1,
       deliveryLogEntry: {},
     });
 
     renderClient({
-      retryEmailDelivery,
+      transport: { retryEmailDelivery },
       getRestaurantEmailDeliveryFeed: vi
         .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
         .mockResolvedValue(
@@ -316,13 +580,13 @@ describe('OpsEmailDeliveryClient', () => {
     await user.click(screen.getByRole('button', { name: /confirm retry/i }));
 
     await waitFor(() => {
-      expect(retryEmailDelivery).toHaveBeenCalledWith({
-        restaurantId: 'rest-1',
-        deliveryLogId: '11111111-1111-4111-8111-111111111111',
-      });
+      expect(retryEmailDelivery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          restaurantId: 'rest-1',
+          deliveryLogId: '11111111-1111-4111-8111-111111111111',
+        }),
+      );
     });
-    expect(toastSuccessMock).toHaveBeenCalledWith('Retry queued', {
-      description: 'Resending created to failed@example.com.',
-    });
+    expect(toastSuccessMock).not.toHaveBeenCalledWith('Retry queued', expect.anything());
   });
 });

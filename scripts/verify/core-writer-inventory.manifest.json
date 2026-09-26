@@ -14,9 +14,18 @@
       "owner": "restaurant-core",
       "path": "server/restaurants/update.ts",
       "table": "restaurants",
-      "operation": "update",
-      "symbol": "from:restaurants",
-      "classification": "core-writer",
+      "operation": "replace",
+      "symbol": "rpc:update_restaurant_profile_v1",
+      "classification": "core-rpc",
+      "expectedCount": 1
+    },
+    {
+      "owner": "restaurant-core",
+      "path": "server/restaurants/update.ts",
+      "table": "restaurant_business_details",
+      "operation": "replace",
+      "symbol": "rpc:update_restaurant_profile_v1",
+      "classification": "core-rpc",
       "expectedCount": 1
     },
     {
@@ -299,24 +308,6 @@
       "expectedCount": 1
     },
     {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_business_details",
-      "operation": "delete",
-      "symbol": "from:restaurant_business_details",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 1
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_business_details",
-      "operation": "upsert",
-      "symbol": "from:restaurant_business_details",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 1
-    },
-    {
       "owner": "staging-admin",
       "path": "scripts/db/remove-staging-test-phone.sql",
       "table": "restaurant_phone_numbers",
@@ -398,6 +389,33 @@
       "expectedCount": 2
     },
     {
+      "owner": "availability-command",
+      "path": "server/restaurants/availabilityCommand.ts",
+      "table": "restaurant_operating_hours",
+      "operation": "replace",
+      "symbol": "rpc:save_restaurant_availability",
+      "classification": "core-rpc",
+      "expectedCount": 2
+    },
+    {
+      "owner": "availability-command",
+      "path": "server/restaurants/availabilityCommand.ts",
+      "table": "restaurant_service_periods",
+      "operation": "replace",
+      "symbol": "rpc:save_restaurant_availability",
+      "classification": "core-rpc",
+      "expectedCount": 2
+    },
+    {
+      "owner": "availability-command",
+      "path": "server/restaurants/availabilityCommand.ts",
+      "table": "restaurants",
+      "operation": "replace",
+      "symbol": "rpc:save_restaurant_availability",
+      "classification": "core-rpc",
+      "expectedCount": 2
+    },
+    {
       "owner": "business-context",
       "path": "server/restaurants/businessContext.ts",
       "table": "restaurant_business_details",
@@ -449,87 +467,6 @@
       "operation": "replace",
       "symbol": "rpc:replace_restaurant_business_context_core",
       "classification": "core-rpc",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_business_details",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_addresses",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_phone_numbers",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_links",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_categories",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_service_areas",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_hours",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_attributes",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
-      "expectedCount": 2
-    },
-    {
-      "owner": "gbp-read-persistence",
-      "path": "server/google-business-profile/businessInfoSyncPersistence.ts",
-      "table": "restaurant_service_items",
-      "operation": "replace",
-      "symbol": "rpc:replace_gbp_canonical_business_info",
-      "classification": "provider-origin-excluded",
       "expectedCount": 2
     }
   ]

@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs';
-
 import { NextRequest } from 'next/server';
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ensureProfileRowMock = vi.hoisted(() => vi.fn());
@@ -17,6 +16,17 @@ const normalizeProfileRowMock = vi.hoisted(() =>
 );
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const loggerMock = vi.hoisted(() => ({
+  error: vi.fn(),
+  warn: vi.fn(),
+  info: vi.fn(),
+  debug: vi.fn(),
+}));
+
+vi.mock('@/lib/logger', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('@/lib/logger');
+  return { ...actual, logger: loggerMock };
+});
 
 vi.mock('@/lib/profile/server', () => ({
   ensureProfileRow: ensureProfileRowMock,
@@ -72,6 +82,50 @@ describe('PUT /api/profile idempotency', () => {
       },
     });
     getServiceSupabaseClientMock.mockReset();
+    loggerMock.error.mockReset();
+    loggerMock.warn.mockReset();
+  });
+
+  it('logs an unexpected failure without the submitted name or phone', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    getServiceSupabaseClientMock.mockReturnValue({
+      rpc: vi.fn().mockRejectedValue(new Error('socket hang up')),
+    });
+
+    try {
+      const response = await PUT(makeRequest({ name: 'Secret Person', phone: '+44 7700 900123' }));
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body.code).toBe('INTERNAL_ERROR');
+      expect(JSON.stringify(body)).not.toContain('socket hang up');
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'api.internal_error',
+        expect.objectContaining({ route: 'profile.put', fieldNames: ['name', 'phone'] }),
+      );
+      const logged = JSON.stringify([...loggerMock.error.mock.calls, ...consoleSpy.mock.calls]);
+      expect(logged).not.toContain('Secret Person');
+      expect(logged).not.toContain('7700');
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('returns a generic C1 500 when the RPC fails, without database text', async () => {
+    getServiceSupabaseClientMock.mockReturnValue({
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: { code: 'XX000', message: 'relation profile_update_idempotency leaked' },
+      }),
+    });
+
+    const response = await PUT(makeRequest({ name: 'Alex Guest' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({ code: 'INTERNAL_ERROR', message: expect.any(String) });
+    expect(JSON.stringify(body)).not.toContain('leaked');
+    expect(JSON.stringify(loggerMock.error.mock.calls)).not.toContain('leaked');
   });
 
   it('applies profile updates through the atomic RPC', async () => {

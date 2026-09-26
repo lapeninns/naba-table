@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useOpsBooking } from '@/hooks/ops/useOpsBooking';
-import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
-import { getDateInTimezone, getTodayInTimezone } from '@/lib/utils/datetime';
 import { mapOpsBookingListItemToBookingDTO } from '@/utils/ops/mapOpsBookingListItemToBookingDTO';
+
+import { useOpsBooking } from './useOpsBooking';
+import { useOpsCancelBookingController } from './useOpsCancelBookingController';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -13,8 +13,6 @@ export type UseOpsBookingsDialogsParams = {
   bookingById: Map<string, BookingDTO>;
   focusBookingId: string | null;
   activeRestaurantId: string | null;
-  restaurantTimezone: string | null;
-  appliedDate: string | null;
   fallbackRestaurantSlug: string | null;
   clearFocusParam: () => void;
 };
@@ -23,8 +21,6 @@ export function useOpsBookingsDialogs({
   bookingById,
   focusBookingId,
   activeRestaurantId,
-  restaurantTimezone,
-  appliedDate,
   fallbackRestaurantSlug,
   clearFocusParam,
 }: UseOpsBookingsDialogsParams) {
@@ -32,11 +28,11 @@ export function useOpsBookingsDialogs({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editBooking, setEditBooking] = useState<BookingDTO | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [cancelBooking, setCancelBooking] = useState<BookingDTO | null>(null);
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isFocusAutoOpenReady, setIsFocusAutoOpenReady] = useState(false);
 
-  const cancelBookingMutation = useOpsCancelBooking();
+  const cancelController = useOpsCancelBookingController<BookingDTO>({
+    fallbackRestaurantId: activeRestaurantId,
+  });
   const focusedBookingFromList = useMemo(
     () => (focusBookingId ? bookingById.get(focusBookingId) ?? null : null),
     [bookingById, focusBookingId],
@@ -111,58 +107,12 @@ export function useOpsBookingsDialogs({
     }
   }, []);
 
-  const resolveCancelTargetDate = useCallback(
-    (booking: BookingDTO, timezone: string) => {
-      if (booking.startIso) {
-        const startDate = new Date(booking.startIso);
-        if (!Number.isNaN(startDate.getTime())) {
-          return getDateInTimezone(startDate, timezone);
-        }
-      }
-      if (appliedDate) {
-        return appliedDate;
-      }
-      return getTodayInTimezone(timezone);
+  const onCancelRequest = useCallback(
+    (booking: BookingDTO) => {
+      cancelController.request(booking);
     },
-    [appliedDate],
+    [cancelController],
   );
-
-  const onCancelRequest = useCallback((booking: BookingDTO) => {
-    setCancelBooking(booking);
-    setIsCancelOpen(true);
-  }, []);
-
-  const onCancelOpenChange = useCallback((open: boolean) => {
-    setIsCancelOpen(open);
-    if (!open) {
-      setCancelBooking(null);
-    }
-  }, []);
-
-  const onConfirmCancel = useCallback(async () => {
-    if (!cancelBooking) return;
-    const restaurantId = cancelBooking.restaurantId ?? activeRestaurantId;
-    if (!restaurantId) return;
-    const timezone = cancelBooking.restaurantTimezone ?? restaurantTimezone ?? 'UTC';
-    const targetDate = resolveCancelTargetDate(cancelBooking, timezone);
-
-    try {
-      await cancelBookingMutation.mutateAsync({
-        bookingId: cancelBooking.id,
-        restaurantId,
-        targetDate,
-      });
-    } finally {
-      onCancelOpenChange(false);
-    }
-  }, [
-    activeRestaurantId,
-    cancelBooking,
-    cancelBookingMutation,
-    onCancelOpenChange,
-    resolveCancelTargetDate,
-    restaurantTimezone,
-  ]);
 
   return {
     detailsBooking,
@@ -173,11 +123,11 @@ export function useOpsBookingsDialogs({
     isEditOpen,
     onEditOpenChange,
     onEdit,
-    cancelBooking,
-    isCancelOpen,
-    onCancelOpenChange,
+    cancelBooking: cancelController.booking,
+    isCancelOpen: cancelController.isOpen,
+    onCancelOpenChange: cancelController.onOpenChange,
     onCancelRequest,
-    onConfirmCancel,
-    isCancelling: cancelBookingMutation.isPending,
+    onConfirmCancel: cancelController.confirm,
+    isCancelling: cancelController.isPending,
   } as const;
 }

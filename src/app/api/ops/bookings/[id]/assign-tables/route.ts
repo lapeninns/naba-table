@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { apiError, forbidden, internalError, notFound, validationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
   assignTablesDirectly,
@@ -16,6 +18,45 @@ import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from '@
 
 import type { BookingRecord } from '@/server/bookings';
 import type { NextRequest } from 'next/server';
+
+const assignLogger = logger.child({ module: 'api.ops.bookings.assign_tables' });
+
+/** Keys of DirectAssignmentError.details that are built by the app (never DB text). */
+const SAFE_DETAIL_KEYS = [
+  'checks',
+  'conflicts',
+  'missingTableIds',
+  'requestedTableIds',
+  'existingTableIds',
+] as const;
+
+const GENERIC_MESSAGE_BY_STATUS: Record<number, string> = {
+  404: 'That booking or table no longer exists.',
+  409: 'Those tables are no longer available for this booking.',
+  422: 'Those tables cannot be assigned to this booking.',
+};
+
+/**
+ * C1 body for a DirectAssignmentError. Errors wrapped from the atomic RPC carry Postgres
+ * text in `message` and `details.details`/`details.hint`, so those get a generic message
+ * and no details. App-built errors keep their message and whitelisted details.
+ */
+function directAssignmentErrorResponse(error: DirectAssignmentError) {
+  const rawDetails = error.details ?? {};
+  const fromDatabase = 'hint' in rawDetails || 'details' in rawDetails;
+  const safeDetails: Record<string, unknown> = {};
+  if (!fromDatabase) {
+    for (const key of SAFE_DETAIL_KEYS) {
+      if (key in rawDetails) safeDetails[key] = rawDetails[key];
+    }
+  }
+  const message = fromDatabase
+    ? (GENERIC_MESSAGE_BY_STATUS[error.status] ?? 'Those tables cannot be assigned.')
+    : error.message;
+  return apiError(error.status, error.code, message, {
+    details: Object.keys(safeDetails).length > 0 ? safeDetails : undefined,
+  });
+}
 
 const assignSchema = z.object({
   tableIds: z.array(z.string().uuid()).min(1, 'At least one table must be selected'),
@@ -54,7 +95,7 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
+    return apiError(401, 'UNAUTHORIZED', 'Unauthorized');
   }
 
   // === Parse Request Body ===
@@ -62,14 +103,7 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
   const parsed = assignSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: 'Invalid request payload',
-        code: 'INVALID_PAYLOAD',
-        details: parsed.error.flatten(),
-      },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid request payload');
   }
 
   const { tableIds, idempotencyKey, requireAdjacency } = parsed.data;
@@ -82,18 +116,16 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
     .maybeSingle();
 
   if (bookingLookup.error) {
-    return NextResponse.json(
-      { error: 'Failed to load booking', code: 'BOOKING_LOOKUP_FAILED' },
-      { status: 500 },
-    );
+    return internalError(bookingLookup.error, {
+      route: 'ops.bookings.assign_tables',
+      stage: 'load_booking',
+      bookingId,
+    });
   }
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow?.restaurant_id) {
-    return NextResponse.json(
-      { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
-      { status: 404 },
-    );
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   const membership = await supabase
@@ -104,14 +136,15 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
     .maybeSingle();
 
   if (membership.error) {
-    return NextResponse.json(
-      { error: 'Failed to verify access', code: 'ACCESS_LOOKUP_FAILED' },
-      { status: 500 },
-    );
+    return internalError(membership.error, {
+      route: 'ops.bookings.assign_tables',
+      stage: 'membership',
+      bookingId,
+    });
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: 'Access denied', code: 'ACCESS_DENIED' }, { status: 403 });
+    return forbidden('ACCESS_DENIED', 'Access denied');
   }
 
   captureRestaurantServerEvent('table_assignment_started', {
@@ -130,10 +163,7 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
     .maybeSingle();
 
   if (previousError) {
-    console.error('[ops/bookings/assign-tables] failed to load booking before assignment', {
-      bookingId,
-      error: previousError,
-    });
+    assignLogger.warn('assign_tables.previous_load_failed', { bookingId });
   }
 
   try {
@@ -155,10 +185,7 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
           .maybeSingle();
 
         if (currentError) {
-          console.error('[ops/bookings/assign-tables] failed to load booking after assignment', {
-            bookingId,
-            error: currentError,
-          });
+          assignLogger.warn('assign_tables.current_load_failed', { bookingId });
         } else if (currentBooking) {
           const prevStatus = (previousBooking as { status?: string | null }).status ?? null;
           const currStatus = (currentBooking as { status?: string | null }).status ?? null;
@@ -178,7 +205,10 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
           }
         }
       } catch (jobError) {
-        console.error('[ops/bookings/assign-tables] side effects failed', jobError);
+        assignLogger.warn('assign_tables.side_effects_failed', {
+          bookingId,
+          errorName: jobError instanceof Error ? jobError.name : typeof jobError,
+        });
       }
     }
 
@@ -190,38 +220,19 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    if (error instanceof DirectAssignmentError) {
-      console.error('[ops/bookings/assign-tables] validation error', {
-        code: error.code,
-        message: error.message,
-        details: error.details,
+    if (error instanceof DirectAssignmentError && error.status < 500) {
+      assignLogger.info('assign_tables.rejected', {
         bookingId,
-        tableIds,
+        errorKind: error.code,
+        status: error.status,
       });
       captureRestaurantServerEvent('table_assignment_failed', {
         restaurantId: bookingRow.restaurant_id,
         distinctId: user.id,
         props: { bookingId, source: 'ops', code: error.code, reason: 'validation' },
       });
-      return NextResponse.json(
-        {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-        },
-        { status: error.status },
-      );
+      return directAssignmentErrorResponse(error);
     }
-
-    // Log the full error for debugging
-    console.error('[ops/bookings/assign-tables] unexpected error', {
-      error,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      errorStack: error instanceof Error ? error.stack : undefined,
-      bookingId,
-      tableIds,
-      userId: user.id,
-    });
 
     captureRestaurantServerEvent('table_assignment_failed', {
       restaurantId: bookingRow.restaurant_id,
@@ -234,8 +245,7 @@ async function postAssignTables(req: NextRequest, { params }: { params: Promise<
       properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]/assign-tables' },
     });
 
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return NextResponse.json({ error: message, code: 'INTERNAL_ERROR' }, { status: 500 });
+    return internalError(error, { route: 'ops.bookings.assign_tables', bookingId });
   }
 }
 
@@ -262,7 +272,7 @@ async function deleteAssignTables(
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
+    return apiError(401, 'UNAUTHORIZED', 'Unauthorized');
   }
 
   // === Parse Request Body ===
@@ -270,14 +280,7 @@ async function deleteAssignTables(
   const parsed = unassignSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      {
-        error: 'Invalid request payload',
-        code: 'INVALID_PAYLOAD',
-        details: parsed.error.flatten(),
-      },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid request payload');
   }
 
   const { tableIds } = parsed.data;
@@ -290,18 +293,16 @@ async function deleteAssignTables(
     .maybeSingle();
 
   if (bookingLookup.error) {
-    return NextResponse.json(
-      { error: 'Failed to load booking', code: 'BOOKING_LOOKUP_FAILED' },
-      { status: 500 },
-    );
+    return internalError(bookingLookup.error, {
+      route: 'ops.bookings.assign_tables',
+      stage: 'load_booking',
+      bookingId,
+    });
   }
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow?.restaurant_id) {
-    return NextResponse.json(
-      { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
-      { status: 404 },
-    );
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   const membership = await supabase
@@ -312,14 +313,15 @@ async function deleteAssignTables(
     .maybeSingle();
 
   if (membership.error) {
-    return NextResponse.json(
-      { error: 'Failed to verify access', code: 'ACCESS_LOOKUP_FAILED' },
-      { status: 500 },
-    );
+    return internalError(membership.error, {
+      route: 'ops.bookings.assign_tables',
+      stage: 'membership',
+      bookingId,
+    });
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: 'Access denied', code: 'ACCESS_DENIED' }, { status: 403 });
+    return forbidden('ACCESS_DENIED', 'Access denied');
   }
 
   // === Execute Unassignment ===
@@ -334,23 +336,9 @@ async function deleteAssignTables(
 
     return NextResponse.json(result, { status: 200 });
   } catch (error) {
-    if (error instanceof DirectAssignmentError) {
-      return NextResponse.json(
-        {
-          error: error.message,
-          code: error.code,
-          details: error.details,
-        },
-        { status: error.status },
-      );
+    if (error instanceof DirectAssignmentError && error.status < 500) {
+      return directAssignmentErrorResponse(error);
     }
-
-    console.error('[ops/bookings/unassign-tables] unexpected error', {
-      error,
-      bookingId,
-      tableIds,
-      userId: user.id,
-    });
 
     captureServerException(error, {
       distinctId: user.id,
@@ -358,7 +346,6 @@ async function deleteAssignTables(
       properties: { bookingId, source: 'ops', path: '/api/ops/bookings/[id]/assign-tables' },
     });
 
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return NextResponse.json({ error: message, code: 'INTERNAL_ERROR' }, { status: 500 });
+    return internalError(error, { route: 'ops.bookings.unassign_tables', bookingId });
   }
 }

@@ -61,7 +61,12 @@ describe('GET /api/ops/settings/strategic-config', () => {
     const response = await GET(getRequest('?restaurantId=not-a-uuid'));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid query' });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Some fields need attention.',
+    });
+    expect(body.fields).toEqual(expect.any(Object));
     expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
     expect(getStrategicConfigSnapshotMock).not.toHaveBeenCalled();
   });
@@ -72,15 +77,17 @@ describe('GET /api/ops/settings/strategic-config', () => {
     const response = await GET(getRequest(`?restaurantId=${RESTAURANT_ID}`));
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sign in to continue.',
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue.',
+    });
     expect(requireMembershipForRestaurantMock).not.toHaveBeenCalled();
     expect(getStrategicConfigSnapshotMock).not.toHaveBeenCalled();
   });
 
   it('maps supabase auth lookup failures to 401 @p2 @api @security', async () => {
-    getRouteHandlerSupabaseClientMock.mockResolvedValue(
-      mockSupabase(null, { status: 401 }),
-    );
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockSupabase(null, { status: 401 }));
 
     const response = await GET(getRequest(`?restaurantId=${RESTAURANT_ID}`));
 
@@ -88,6 +95,7 @@ describe('GET /api/ops/settings/strategic-config', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Authentication required',
       code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
     });
     expect(getStrategicConfigSnapshotMock).not.toHaveBeenCalled();
   });
@@ -99,7 +107,11 @@ describe('GET /api/ops/settings/strategic-config', () => {
     const response = await GET(getRequest(`?restaurantId=${RESTAURANT_ID}`));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({
+      error: "You don't have permission to do that.",
+      code: 'FORBIDDEN',
+      message: "You don't have permission to do that.",
+    });
     expect(requireMembershipForRestaurantMock).toHaveBeenCalledWith({
       userId: 'user-1',
       restaurantId: RESTAURANT_ID,
@@ -146,6 +158,8 @@ describe('GET /api/ops/settings/strategic-config', () => {
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
       error: 'Unable to load strategic settings',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to load strategic settings',
     });
   });
 });
@@ -160,7 +174,12 @@ describe('POST /api/ops/settings/strategic-config', () => {
     const response = await POST(postRequest('{not-json'));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid request body' });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Some fields need attention.',
+    });
+    expect(body.fields).toEqual(expect.any(Object));
     expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
     expect(clearStrategicCachesMock).not.toHaveBeenCalled();
   });
@@ -171,7 +190,12 @@ describe('POST /api/ops/settings/strategic-config', () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid request body' });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Some fields need attention.',
+    });
+    expect(body.fields).toEqual(expect.any(Object));
     expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
     expect(clearStrategicCachesMock).not.toHaveBeenCalled();
   });
@@ -182,7 +206,11 @@ describe('POST /api/ops/settings/strategic-config', () => {
     const response = await POST(postRequest(validPayload));
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sign in to continue.',
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue.',
+    });
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
     expect(clearStrategicCachesMock).not.toHaveBeenCalled();
   });
@@ -194,7 +222,11 @@ describe('POST /api/ops/settings/strategic-config', () => {
     const response = await POST(postRequest(validPayload));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({
+      error: "You don't have permission to do that.",
+      code: 'FORBIDDEN',
+      message: "You don't have permission to do that.",
+    });
     expect(requireAdminMembershipMock).toHaveBeenCalledWith({
       userId: 'user-3',
       restaurantId: RESTAURANT_ID,
@@ -210,9 +242,36 @@ describe('POST /api/ops/settings/strategic-config', () => {
 
     expect(response.status).toBe(501);
     await expect(response.json()).resolves.toEqual({
-      error:
-        'Strategic configuration is now defined in code/env. Deploy a change to update weights.',
+      error: 'Strategic settings are read-only. Deploy a configuration change to update weights.',
+      code: 'STRATEGIC_CONFIG_READ_ONLY',
+      message: 'Strategic settings are read-only. Deploy a configuration change to update weights.',
     });
     expect(clearStrategicCachesMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('GET /api/ops/settings/strategic-config unexpected errors (C1)', () => {
+  const SECRET = 'SECRET_DB_DETAIL guest@example.com';
+
+  it('does not leak the thrown message to the client or logs @p1 @api @security', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockSupabase({ id: 'user-2' }));
+    requireMembershipForRestaurantMock.mockResolvedValue({ role: 'owner' });
+    getStrategicConfigSnapshotMock.mockImplementation(() => {
+      throw new Error(`config read failed: ${SECRET}`);
+    });
+
+    try {
+      const response = await GET(getRequest(`?restaurantId=${RESTAURANT_ID}`));
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(text).not.toContain('guest@example.com');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('guest@example.com');
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

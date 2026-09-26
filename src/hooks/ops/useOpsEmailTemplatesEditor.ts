@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useState } from 'react';
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -20,17 +28,21 @@ import { getSafeSettingsErrorMessage } from '@/components/features/restaurant-se
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useRegisterOptionalOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import {
+  TEST_SEND_ERROR_COPY,
   useOpsEmailTemplatePreview,
   useOpsResetRestaurantEmailTemplate,
   useOpsRestaurantEmailTemplates,
   useOpsSendRestaurantEmailTemplateTest,
   useOpsUpdateRestaurantEmailTemplate,
 } from '@/hooks/ops/useOpsRestaurantEmailTemplates';
+import { toUserMessage } from '@/lib/http/userMessage';
 import {
   MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
   type RestaurantBookingEmailTemplateKey,
   type RestaurantEmailTemplateVariant,
 } from '@/lib/restaurants/email-templates';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
+import { hashEmailTemplatePreviewInput } from '@/services/ops/email-templates';
 
 import type { RestaurantEmailTemplate } from '@/services/ops/restaurants';
 
@@ -60,6 +72,13 @@ export type SaveOutcome =
 
 type Selection = Partial<Record<RestaurantBookingEmailTemplateKey, string>>;
 
+/** Preview failures by C1 code; none promises an automatic refresh. */
+const PREVIEW_ERROR_COPY = {
+  RATE_LIMITED:
+    'The preview is paused after too many updates. Wait a moment, then retry the preview.',
+  VALIDATION_FAILED: 'The preview needs a valid draft. Check the highlighted fields.',
+};
+
 /**
  * State and actions for the email templates workspace. Drafts live in a reducer
  * (`model/emailTemplateDrafts`) until saved one template at a time; the server data hooks own
@@ -88,6 +107,7 @@ export function useOpsEmailTemplatesEditor() {
   );
   const [saveError, setSaveError] = useState<string | null>(null);
   const [loadedRestaurantId, setLoadedRestaurantId] = useState(restaurantId);
+  const testSendIntentRef = useRef<{ intent: string; key: string } | null>(null);
 
   useEffect(() => {
     if (!activeRestaurantId && memberships[0]) setActiveRestaurantId(memberships[0].restaurantId);
@@ -186,6 +206,15 @@ export function useOpsEmailTemplatesEditor() {
     variantId: previewVariant?.id ?? null,
     variants,
   });
+  const previewErrorMessage = previewQuery.error
+    ? toUserMessage(previewQuery.error, {
+        copy: PREVIEW_ERROR_COPY,
+        fallback: "The preview couldn't be rendered. Your draft is safe; retry the preview.",
+      })
+    : null;
+  const retryPreview = () => {
+    void previewQuery.refetch();
+  };
 
   /* ───────── selection ───────── */
 
@@ -325,24 +354,38 @@ export function useOpsEmailTemplatesEditor() {
 
   const sendTest = async (toEmail: string): Promise<boolean> => {
     if (!templateKey || !variant || !canEdit) return false;
+    const payload = {
+      toEmail: toEmail.trim(),
+      preferredVariantId: variant.id,
+      // Only the open variant: the API validates every variant sent, so an unfinished
+      // sibling would otherwise reject a test the dialog allows.
+      variants: [{ ...variant, order: 0 }],
+    };
+    // One idempotency key per send intent (email, address and draft): sending again after a
+    // failure retries the same intent, so the provider never sends it twice; a new draft, a new
+    // address or a completed send starts a new intent.
+    const intent = `${restaurantId ?? ''}|${templateKey}|${payload.toEmail.toLowerCase()}|${hashEmailTemplatePreviewInput(payload)}`;
+    if (testSendIntentRef.current?.intent !== intent) {
+      testSendIntentRef.current = { intent, key: generateIdempotencyKey() };
+    }
     try {
       await testSendMutation.mutateAsync({
         templateKey,
-        payload: {
-          toEmail: toEmail.trim(),
-          preferredVariantId: variant.id,
-          // Only the open variant: the API validates every variant sent, so an unfinished
-          // sibling would otherwise reject a test the dialog allows.
-          variants: [{ ...variant, order: 0 }],
-        },
+        payload,
+        idempotencyKey: testSendIntentRef.current.key,
       });
+      testSendIntentRef.current = null;
       toast.success('Test handed to the email provider', {
         description: `It is on its way to ${toEmail.trim()}. It usually arrives within a minute; check spam if it does not.`,
       });
       return true;
     } catch (error) {
+      // The key is kept, so sending again retries this intent without a duplicate.
       toast.error('Test not sent', {
-        description: getSafeSettingsErrorMessage(error, 'The test email could not be sent.'),
+        description: toUserMessage(error, {
+          copy: TEST_SEND_ERROR_COPY,
+          fallback: 'The test email could not be sent. Try again.',
+        }),
       });
       return false;
     }
@@ -392,6 +435,8 @@ export function useOpsEmailTemplatesEditor() {
     previewVariant,
     setPreviewVariantId,
     previewQuery,
+    previewErrorMessage,
+    retryPreview,
     sendTest,
     isSendingTest: testSendMutation.isPending,
   };

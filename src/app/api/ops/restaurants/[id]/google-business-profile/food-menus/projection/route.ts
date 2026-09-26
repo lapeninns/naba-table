@@ -9,6 +9,7 @@ import {
   FoodMenusProjectionRequestSchema,
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
+import { internalError } from '@/lib/api/errors';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { prepareFoodMenusProjection } from '@/server/google-business-profile/food-menus-sync';
@@ -87,9 +88,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-projection' },
     });
-    const message =
-      error instanceof Error ? error.message : 'Unable to prepare Google FoodMenus projection.';
-    return gbpNoStoreJson({ error: message }, { status: 500 });
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        {
+          route: '/api/ops/restaurants/[id]/google-business-profile/food-menus/projection',
+          restaurantId,
+        },
+        'Unable to prepare Google FoodMenus projection.',
+      ),
+    );
   }
 }
 

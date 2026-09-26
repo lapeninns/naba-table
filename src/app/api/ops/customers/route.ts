@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getCustomersWithHistory } from '@/server/ops/customers';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -15,6 +23,8 @@ import {
 
 import type { NextRequest } from 'next/server';
 
+const ROUTE = '/api/ops/customers';
+
 export async function GET(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -23,16 +33,16 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/customers][GET] failed to resolve auth', authError.message);
+    logger.error('[ops/customers][GET] failed to resolve auth', {
+      route: ROUTE,
+      errorMessage: sanitizeLogText(authError.message),
+    });
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   const rawParams = {
@@ -49,10 +59,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = parseOpsCustomersQuery(rawParams);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid query', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid query');
   }
 
   const params = parsed.data;
@@ -61,12 +68,11 @@ export async function GET(req: NextRequest) {
   try {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (error) {
-    console.error('[ops/customers][GET] membership lookup failed', error);
     captureServerException(error, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-customers' },
     });
-    return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to verify memberships');
   }
 
   if (memberships.length === 0) {
@@ -91,7 +97,7 @@ export async function GET(req: NextRequest) {
   if (targetRestaurantId) {
     const allowed = membershipIds.includes(targetRestaurantId);
     if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return forbidden();
     }
   } else {
     targetRestaurantId = membershipIds[0] ?? null;
@@ -166,12 +172,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops/customers][GET] query failed', error);
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: targetRestaurantId },
       properties: { restaurantId: targetRestaurantId, source: 'ops', kind: 'ops-customers' },
     });
-    return NextResponse.json({ error: 'Unable to fetch guests' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to fetch guests');
   }
 }

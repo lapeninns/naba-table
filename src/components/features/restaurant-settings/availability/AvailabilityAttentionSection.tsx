@@ -76,7 +76,7 @@ export function AvailabilityAttentionSection({
                 {item.text}
               </p>
               <div className="col-start-2 sm:col-start-3">
-                {item.action.kind === 'google' ? (
+                {item.action.kind === 'none' ? null : item.action.kind === 'google' ? (
                   <Button asChild variant="outline" size="sm" className={TOUCH_TARGET_CLASS}>
                     <Link href={GOOGLE_REVIEW_HREF}>{item.actionLabel}</Link>
                   </Button>

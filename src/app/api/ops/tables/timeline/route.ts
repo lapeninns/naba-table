@@ -1,7 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getTableAvailabilityTimeline } from '@/server/ops/table-timeline';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -20,22 +28,14 @@ const querySchema = z.object({
   includeSummary: z.enum(['0', '1', 'true', 'false']).optional(),
 });
 
-type TimelineQuery = z.infer<typeof querySchema>;
-
-function parseQuery(request: NextRequest): TimelineQuery | null {
-  const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const result = querySchema.safeParse(entries);
-  if (!result.success) {
-    return null;
-  }
-  return result.data;
-}
+const ROUTE = 'ops/tables/timeline';
 
 export async function GET(request: NextRequest) {
-  const query = parseQuery(request);
-  if (!query) {
-    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+  const parsed = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()));
+  if (!parsed.success) {
+    return validationError(parsed.error);
   }
+  const query = parsed.data;
 
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -44,23 +44,32 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/tables/timeline] failed to resolve auth', error.message);
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('ops.tables_timeline.auth_failed', { route: ROUTE, status: mapped.status });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {
     await requireMembershipForRestaurant({ userId: user.id, restaurantId: query.restaurantId });
   } catch (membershipError) {
-    console.error('[ops/tables/timeline] membership validation failed', membershipError);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // MembershipAccessError carries this code when the membership lookup itself failed.
+    if (
+      typeof membershipError === 'object' &&
+      membershipError !== null &&
+      (membershipError as { code?: unknown }).code === 'MEMBERSHIP_VALIDATION_UNAVAILABLE'
+    ) {
+      return apiError(
+        503,
+        'MEMBERSHIP_VALIDATION_UNAVAILABLE',
+        'We couldn’t check your access just now. Try again.',
+        { retryable: true },
+      );
+    }
+    return forbidden();
   }
 
   try {
@@ -77,12 +86,15 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(timeline);
   } catch (timelineError) {
-    console.error('[ops/tables/timeline] failed to build timeline', timelineError);
     captureServerException(timelineError, {
       distinctId: user.id,
       groups: { restaurant: query.restaurantId },
       properties: { restaurantId: query.restaurantId, source: 'ops', kind: 'ops-tables-timeline' },
     });
-    return NextResponse.json({ error: 'Unable to load table timeline' }, { status: 500 });
+    return internalError(timelineError, {
+      route: ROUTE,
+      method: 'GET',
+      restaurantId: query.restaurantId,
+    });
   }
 }

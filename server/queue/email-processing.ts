@@ -1,8 +1,17 @@
 import { z } from 'zod';
 
 import {
+  isEmailRecipientSuppressedError,
+  isResendRejectedMessageError,
+  isResendSendError,
+} from '@/libs/resend';
+import { isManageLinkEligibleBooking } from '@/server/bookings/manage-link-eligibility';
+import {
+  isBookingEmailSkippedError,
   sendBookingCancellationEmail,
   sendBookingConfirmationEmail,
+  sendBookingManageLinkEmail,
+  sendBookingModificationPendingEmail,
   sendBookingRejectedEmail,
   sendBookingReminderEmail,
   sendBookingReviewRequestEmail,
@@ -14,6 +23,7 @@ import { canSendReviewRequest, recordReviewRequestEvent } from '@/server/reviews
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { BookingRecord } from '@/server/bookings';
+import type { BookingEmailSendOptions } from '@/server/emails/bookings';
 import type { EmailJobPayload, EmailJobType } from '@/server/queue/email-contract';
 
 const emailJobTypeSchema = z.enum(EMAIL_JOB_TYPE_VALUES);
@@ -46,6 +56,8 @@ export type ProcessEmailJobResult = {
   jobId: string;
   success: boolean;
   skipped?: boolean;
+  /** A failure that cannot succeed on retry (invalid or suppressed recipient, rejected payload). */
+  terminal?: boolean;
   error?: string;
 };
 
@@ -53,6 +65,14 @@ function isValidEmail(value?: string | null): boolean {
   return Boolean(value && value.trim().length > 3 && value.includes('@'));
 }
 
+class BookingLookupError extends Error {
+  constructor() {
+    super('Booking lookup failed');
+    this.name = 'BookingLookupError';
+  }
+}
+
+/** Returns null only when the booking does not exist; a failed lookup throws (retryable). */
 async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
   const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase
@@ -66,10 +86,38 @@ async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
       bookingId,
       error: error.message,
     });
-    return null;
+    throw new BookingLookupError();
   }
 
   return (data ?? null) as BookingRecord | null;
+}
+
+// Queue sends ask the dispatcher to report deliberate skips (suppressed recipient, no address,
+// recent duplicate) instead of resolving as if the email went out.
+const QUEUE_SEND: BookingEmailSendOptions = { reportSkips: true };
+
+function classifyJobFailure(error: unknown): { error: string; terminal: boolean } {
+  if (error instanceof BookingLookupError) {
+    return { error: 'BOOKING_LOOKUP_FAILED', terminal: false };
+  }
+  if (isEmailRecipientSuppressedError(error)) {
+    return { error: 'RECIPIENT_SUPPRESSED', terminal: true };
+  }
+  // Resend rejected the message itself (400/422 bad recipient or payload): retrying the same
+  // job cannot succeed.
+  if (isResendRejectedMessageError(error)) {
+    return { error: 'INVALID_RECIPIENT', terminal: true };
+  }
+  // A 403 validation_error is a sender configuration problem (unverified domain, testing-mode
+  // recipient restriction): it can be fixed, so it stays retryable.
+  if (
+    isResendSendError(error) &&
+    error.statusCode === 403 &&
+    error.providerErrorName === 'validation_error'
+  ) {
+    return { error: 'PROVIDER_CONFIG_ERROR', terminal: false };
+  }
+  return { error: 'EMAIL_JOB_FAILED', terminal: false };
 }
 
 function shouldSendByStatus(type: EmailJobType, booking: BookingRecord): boolean {
@@ -78,6 +126,9 @@ function shouldSendByStatus(type: EmailJobType, booking: BookingRecord): boolean
 
   switch (type) {
     case 'request_received':
+    case 'modification_pending':
+      // A pending modification that was confirmed or cancelled before the drain reached it is
+      // covered by the confirmation or cancellation email instead.
       return status === 'pending' || status === 'pending_allocation';
     case 'confirmation':
       return status === 'confirmed';
@@ -102,37 +153,53 @@ function shouldSendByStatus(type: EmailJobType, booking: BookingRecord): boolean
     case 'booking_rejected':
     case 'updated':
       return true;
+    case 'manage_link':
+      // Same predicate the lost-link request uses to pick bookings, so a
+      // booking that was eligible when requested is still sent.
+      return isManageLinkEligibleBooking(booking, new Date(now));
     default:
       return false;
   }
 }
 
-async function dispatchEmail(type: EmailJobType, booking: BookingRecord): Promise<void> {
+async function dispatchEmail(
+  type: EmailJobType,
+  booking: BookingRecord,
+  jobId: string,
+): Promise<void> {
   switch (type) {
     case 'request_received':
     case 'confirmation':
-      await sendBookingConfirmationEmail(booking);
+      await sendBookingConfirmationEmail(booking, QUEUE_SEND);
       return;
     case 'reminder_24h':
-      await sendBookingReminderEmail(booking, { variant: 'standard' });
+      await sendBookingReminderEmail(booking, { variant: 'standard', ...QUEUE_SEND });
       return;
     case 'reminder_short':
-      await sendBookingReminderEmail(booking, { variant: 'short' });
+      await sendBookingReminderEmail(booking, { variant: 'short', ...QUEUE_SEND });
       return;
     case 'review_request':
-      await sendBookingReviewRequestEmail(booking);
+      await sendBookingReviewRequestEmail(booking, QUEUE_SEND);
       return;
     case 'updated':
-      await sendBookingUpdateEmail(booking);
+      await sendBookingUpdateEmail(booking, QUEUE_SEND);
+      return;
+    case 'modification_pending':
+      await sendBookingModificationPendingEmail(booking, QUEUE_SEND);
       return;
     case 'cancelled':
-      await sendBookingCancellationEmail(booking);
+      await sendBookingCancellationEmail(booking, QUEUE_SEND);
       return;
     case 'restaurant_cancellation':
-      await sendRestaurantCancellationEmail(booking);
+      await sendRestaurantCancellationEmail(booking, QUEUE_SEND);
       return;
     case 'booking_rejected':
-      await sendBookingRejectedEmail(booking);
+      await sendBookingRejectedEmail(booking, QUEUE_SEND);
+      return;
+    case 'manage_link':
+      // The recipient is always the booking's stored address (never request
+      // input); the job id makes each lost-link send a distinct provider send.
+      await sendBookingManageLinkEmail(booking, { nonce: jobId });
       return;
     default: {
       const exhaustive: never = type;
@@ -181,9 +248,10 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
         return { jobId: job.id, success: true, skipped: true };
       }
 
-      const delivery = await sendBookingReviewRequestEmail(booking);
+      const delivery = await sendBookingReviewRequestEmail(booking, QUEUE_SEND);
       if (!delivery) {
-        return { jobId: job.id, success: true, skipped: true };
+        // Sent, but the delivery-log insert failed: nothing to link the journey event to.
+        return { jobId: job.id, success: true };
       }
       const linkage = await trackingClient
         .from('email_delivery_log')
@@ -218,18 +286,20 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
       return { jobId: job.id, success: true };
     }
 
-    await dispatchEmail(payload.type, booking);
+    await dispatchEmail(payload.type, booking, job.id);
     return { jobId: job.id, success: true };
   } catch (error) {
+    if (isBookingEmailSkippedError(error)) {
+      return { jobId: job.id, success: true, skipped: true };
+    }
     console.warn('[queue][email-processing] job failed', {
       jobId: job.id,
       message: error instanceof Error ? error.message : String(error),
     });
-    return {
-      jobId: job.id,
-      success: false,
-      error: 'EMAIL_JOB_FAILED',
-    };
+    const failure = classifyJobFailure(error);
+    return failure.terminal
+      ? { jobId: job.id, success: false, terminal: true, error: failure.error }
+      : { jobId: job.id, success: false, error: failure.error };
   }
 }
 

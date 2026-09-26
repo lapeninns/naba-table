@@ -6,6 +6,10 @@ import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { POST as postCheckIn } from '@/src/app/api/ops/bookings/[id]/check-in/route';
 import { POST as postCheckOut } from '@/src/app/api/ops/bookings/[id]/check-out/route';
 import { POST as postNoShow } from '@/src/app/api/ops/bookings/[id]/no-show/route';
+import {
+  DELETE as deleteOpsBooking,
+  PATCH as patchOpsBooking,
+} from '@/src/app/api/ops/bookings/[id]/route';
 import { DELETE as deleteBookingTable } from '@/src/app/api/ops/bookings/[id]/tables/[tableId]/route';
 import { POST as postUndoNoShow } from '@/src/app/api/ops/bookings/[id]/undo-no-show/route';
 import { POST as postProfileImage } from '@/src/app/api/profile/image/route';
@@ -115,6 +119,31 @@ describe('CSRF-protected mutations', () => {
 
       const response = await handler(request, {
         params: Promise.resolve({ id: 'booking-1', tableId: 'table-1' }),
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.code).toBe('CSRF_INVALID');
+      expect(jsonSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { method: 'PATCH', handler: patchOpsBooking },
+    { method: 'DELETE', handler: deleteOpsBooking },
+  ] as const)(
+    'rejects $method /api/ops/bookings/[id] without CSRF before reading the body',
+    async ({ method, handler }) => {
+      const request = new NextRequest('https://app.nabatable.com/api/ops/bookings/booking-1', {
+        method,
+        ...(method === 'PATCH'
+          ? { body: JSON.stringify({ startIso: '2026-07-01T18:30:00.000Z', partySize: 2 }) }
+          : {}),
+      });
+      const jsonSpy = vi.spyOn(request, 'json');
+
+      const response = await handler(request, {
+        params: Promise.resolve({ id: 'booking-1' }),
       });
       const body = await response.json();
 

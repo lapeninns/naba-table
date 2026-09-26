@@ -35,6 +35,7 @@ vi.mock('@/server/auth/password-confirmation', () => ({
   verifyUserPasswordConfirmation: vi.fn(),
 }));
 
+import { fieldValidationError, slugTakenError } from '@/server/restaurants/update-errors';
 import { POST, PUT } from '@/src/app/api/ops/restaurants/[id]/details/route';
 
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../../lib/security/csrf';
@@ -137,4 +138,67 @@ describe('ops restaurant details route', () => {
       expect(updateRestaurantDetailsMock).not.toHaveBeenCalled();
     },
   );
+
+  it('returns 409 SLUG_TAKEN with fields for a taken slug', async () => {
+    updateRestaurantDetailsMock.mockRejectedValue(slugTakenError());
+
+    const response = await PUT(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/details`, {
+        timezone: 'Europe/London',
+        slug: 'the-crown',
+      }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'SLUG_TAKEN',
+      fields: { slug: [expect.any(String)] },
+    });
+  });
+
+  it('returns 400 VALIDATION_FAILED with fields for a server-side field refusal', async () => {
+    updateRestaurantDetailsMock.mockRejectedValue(
+      fieldValidationError('timezone', 'Choose a valid timezone.'),
+    );
+
+    const response = await PUT(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/details`, { timezone: 'Not/AZone' }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { timezone: ['Choose a valid timezone.'] },
+    });
+  });
+
+  it('never echoes raw exception text for unexpected failures', async () => {
+    updateRestaurantDetailsMock.mockRejectedValue(
+      new Error('SECRET_DB_DETAIL for owner@example.com'),
+    );
+
+    const response = await PUT(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/details`, { timezone: 'Europe/London' }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain('SECRET_DB_DETAIL');
+    expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+  });
+
+  it('returns C1 field errors for an invalid payload', async () => {
+    const response = await PUT(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/details`, { timezone: '' }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body.code).toBe('VALIDATION_FAILED');
+    expect(body.fields.timezone).toEqual([expect.any(String)]);
+  });
 });

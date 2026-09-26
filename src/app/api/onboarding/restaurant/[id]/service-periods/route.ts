@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, validationError } from '@/lib/api/errors';
+import { findServicePeriodIssues } from '@/lib/onboarding/scheduleRules';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
+import { onboardingInternalError } from '@/server/onboarding/errors';
 import { updateServicePeriods } from '@/server/restaurants/servicePeriods';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -25,9 +27,21 @@ const periodSchema = z.object({
   bookingOption: z.string().trim().min(1).max(MAX_ONBOARDING_BOOKING_OPTION_LENGTH),
 });
 
-const requestSchema = z.object({
-  servicePeriods: z.array(periodSchema).max(MAX_ONBOARDING_SERVICE_PERIODS),
-});
+// Same rules the writer enforces (times, start < end, no same-day overlap), checked here so
+// a fixable mistake is a 400 with field paths instead of a 500 from updateServicePeriods.
+const requestSchema = z
+  .object({
+    servicePeriods: z.array(periodSchema).max(MAX_ONBOARDING_SERVICE_PERIODS),
+  })
+  .superRefine((value, context) => {
+    for (const issue of findServicePeriodIssues(value.servicePeriods)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['servicePeriods', ...issue.path],
+        message: issue.message,
+      });
+    }
+  });
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
   const { id: restaurantId } = await context.params;
@@ -56,15 +70,12 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   try {
@@ -75,14 +86,14 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
     return NextResponse.json({ servicePeriods: periods });
   } catch (updateError) {
-    console.error('[onboarding][service-periods][PATCH]', updateError);
-    captureServerException(updateError, {
-      distinctId: authorization.user.id,
-      groups: { restaurant: restaurantId },
-      properties: { restaurantId, source: 'api', kind: 'onboarding-service-periods' },
-    });
-    const message =
-      updateError instanceof Error ? updateError.message : 'Unable to save service periods';
-    return NextResponse.json({ message }, { status: 500 });
+    return onboardingInternalError(
+      updateError,
+      {
+        route: 'onboarding.restaurant.service-periods',
+        restaurantId,
+        userId: authorization.user.id,
+      },
+      "We couldn't save your service periods. Try again.",
+    );
   }
 }

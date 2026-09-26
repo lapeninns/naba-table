@@ -1,12 +1,10 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { LayoutGrid, LogIn, LogOut, RotateCcw } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
-import { queryKeys } from '@/lib/query/keys';
 
 import {
   buildBookingDialogDescriptionText,
@@ -49,7 +47,6 @@ export function useBookingDialogController({
   onOpenChange,
   isToday = true,
 }: BookingDialogProps) {
-  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const { handleOpenChange, isOpen } = useBookingDialogOpenState({ onOpenChange, open });
 
@@ -146,6 +143,8 @@ export function useBookingDialogController({
     });
 
   const isActionPending = Boolean(pendingLifecycleAction || pendingAction || cancelPending);
+  // Handlers own their feedback (toasts) and cache updates. A rejection must never escape a click
+  // handler as an unhandled promise, so failures are swallowed here after the pending state clears.
   const handleAction = useCallback(
     async (action: BookingActionType) => {
       if (!action) return;
@@ -160,23 +159,26 @@ export function useBookingDialogController({
         } else if (action === 'no-show') {
           await onMarkNoShow?.();
         }
-        if (booking?.id) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
-        }
+      } catch {
+        // Feedback was already shown by the lifecycle hook.
       } finally {
         setPendingAction(null);
       }
     },
-    [booking?.id, onCheckIn, onCheckOut, onMarkNoShow, onUndoNoShow, queryClient],
+    [onCheckIn, onCheckOut, onMarkNoShow, onUndoNoShow],
   );
 
   const handleCancel = useCallback(async () => {
     if (!onCancel) return;
+    let shouldClose = false;
     try {
-      await onCancel();
-    } finally {
-      setConfirmCancel(false);
+      shouldClose = (await onCancel()) !== false;
+    } catch {
+      shouldClose = false;
     }
+    // onCancel resolves true after success or a failure a retry cannot fix. Otherwise keep the
+    // confirmation open so the user can retry or keep the booking.
+    if (shouldClose) setConfirmCancel(false);
   }, [onCancel]);
 
   const primaryAction: BookingDialogPrimaryAction = useMemo(() => {
@@ -243,10 +245,8 @@ export function useBookingDialogController({
   ]);
 
   const handleAssignmentComplete = useCallback(() => {
-    if (!booking?.id) return;
-    queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(booking.id) });
     void onDataRefresh?.();
-  }, [booking?.id, onDataRefresh, queryClient]);
+  }, [onDataRefresh]);
 
   return {
     assignedTableRows,

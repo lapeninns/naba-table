@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, internalError, validationError } from '@/lib/api/errors';
 import { daysBetweenInclusive, firstString, safeDate } from '@/lib/api/query-params';
+import { captureServerException } from '@/lib/posthog/server';
 import { getBookingsHeatmap } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -13,6 +14,8 @@ import {
 
 import type { NextRequest } from 'next/server';
 
+const ROUTE = '/api/ops/dashboard/heatmap';
+
 const heatmapQuerySchema = z.object({
   restaurantId: z.string().uuid(),
   startDate: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/),
@@ -22,24 +25,22 @@ const heatmapQuerySchema = z.object({
 type HeatmapQuery = z.infer<typeof heatmapQuerySchema>;
 const HEATMAP_MAX_WINDOW_DAYS = 93;
 
-function parseQuery(request: NextRequest): HeatmapQuery | null {
+function parseQuery(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const result = heatmapQuerySchema.safeParse({
     restaurantId: firstString(params, 'restaurantId'),
     startDate: safeDate(params, 'startDate'),
     endDate: safeDate(params, 'endDate'),
   });
-  if (!result.success) {
-    return null;
-  }
-  return result.data;
+  return result;
 }
 
 export async function GET(request: NextRequest) {
-  const query = parseQuery(request);
-  if (!query) {
-    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+  const parsedQuery = parseQuery(request);
+  if (!parsedQuery.success) {
+    return validationError(parsedQuery.error, 'Invalid query');
   }
+  const query: HeatmapQuery = parsedQuery.data;
 
   try {
     await requireDashboardAccess(query.restaurantId);
@@ -49,9 +50,10 @@ export async function GET(request: NextRequest) {
 
   const windowDays = daysBetweenInclusive(query.startDate, query.endDate);
   if (!Number.isFinite(windowDays) || windowDays < 1 || windowDays > HEATMAP_MAX_WINDOW_DAYS) {
-    return NextResponse.json(
-      { error: `Heatmap range must be between 1 and ${HEATMAP_MAX_WINDOW_DAYS} days` },
-      { status: 400 },
+    return apiError(
+      400,
+      'VALIDATION_FAILED',
+      `Heatmap range must be between 1 and ${HEATMAP_MAX_WINDOW_DAYS} days`,
     );
   }
 
@@ -75,7 +77,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(heatmap);
   } catch (heatmapError) {
-    console.error('[ops/dashboard][heatmap] failed to load heatmap', heatmapError);
     captureServerException(heatmapError, {
       groups: { restaurant: query.restaurantId },
       properties: {
@@ -84,6 +85,6 @@ export async function GET(request: NextRequest) {
         kind: 'ops-dashboard-heatmap',
       },
     });
-    return NextResponse.json({ error: 'Unable to load heatmap' }, { status: 500 });
+    return internalError(heatmapError, { route: ROUTE }, 'Unable to load heatmap');
   }
 }

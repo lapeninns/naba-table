@@ -1,7 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const confirmHoldMock = vi.hoisted(() => vi.fn());
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
@@ -38,6 +36,7 @@ vi.mock('@/server/supabase', () => ({
   getTenantServiceSupabaseClient: getTenantServiceSupabaseClientMock,
 }));
 
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { AssignTablesRpcError } from '@/server/capacity/holds';
 import { POST } from '@/src/app/api/staff/auto/confirm/route';
 
@@ -54,7 +53,10 @@ function csrfHeaders(): Headers {
   });
 }
 
-function createMaybeSingleQuery(response: { data: unknown; error: { message: string } | null }) {
+function createMaybeSingleQuery(response: {
+  data: unknown;
+  error: { message: string; code?: string } | null;
+}) {
   const query = {
     select: vi.fn(() => query),
     eq: vi.fn(() => query),
@@ -65,20 +67,24 @@ function createMaybeSingleQuery(response: { data: unknown; error: { message: str
 
 function buildRouteClient({
   booking = { id: BOOKING_ID },
+  holdError = null,
+  bookingError = null,
 }: {
   booking?: { id: string } | null;
+  holdError?: { message: string; code?: string } | null;
+  bookingError?: { message: string; code?: string } | null;
 } = {}) {
   const holdQuery = createMaybeSingleQuery({
-    data: { id: HOLD_ID, restaurant_id: RESTAURANT_ID },
-    error: null,
+    data: holdError ? null : { id: HOLD_ID, restaurant_id: RESTAURANT_ID },
+    error: holdError,
   });
   const membershipQuery = createMaybeSingleQuery({
     data: { role: 'host' },
     error: null,
   });
   const bookingQuery = createMaybeSingleQuery({
-    data: booking,
-    error: null,
+    data: bookingError ? null : booking,
+    error: bookingError,
   });
 
   return {
@@ -126,7 +132,11 @@ describe('staff auto-confirm route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Booking not found' });
+    expect(body).toEqual({
+      error: 'Booking not found',
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
+    });
     expect(queries.bookingQuery.eq).toHaveBeenCalledWith('id', BOOKING_ID);
     expect(queries.bookingQuery.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID);
     expect(getTenantServiceSupabaseClientMock).not.toHaveBeenCalled();
@@ -151,6 +161,107 @@ describe('staff auto-confirm route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Booking not found' });
+    expect(body).toEqual({
+      error: 'Booking not found',
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
+    });
+  });
+
+  describe('raw error sweep (C1)', () => {
+    const SECRET = 'SECRET_DB_DETAIL owner@example.com';
+    let consoleError: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleError.mockRestore();
+    });
+
+    async function expectNoSecret(response: Response) {
+      const text = await response.text();
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(text).not.toContain('owner@example.com');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('owner@example.com');
+      return JSON.parse(text) as Record<string, unknown>;
+    }
+
+    it.each([
+      ['hold lookup', { holdError: { message: SECRET, code: '42501' } }],
+      ['booking lookup', { bookingError: { message: SECRET, code: '42501' } }],
+    ])('returns a fixed 500 when the %s fails', async (_label, options) => {
+      const { client } = buildRouteClient(options);
+      getRouteHandlerSupabaseClientMock.mockReset().mockResolvedValue(client);
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(500);
+      const body = await expectNoSecret(response);
+      expect(body).toMatchObject({ code: 'INTERNAL_ERROR', error: 'Unable to confirm hold' });
+      expect(confirmHoldMock).not.toHaveBeenCalled();
+    });
+
+    it('returns a fixed 500 when confirmHold throws unexpectedly', async () => {
+      const { client } = buildRouteClient();
+      getRouteHandlerSupabaseClientMock.mockReset().mockResolvedValue(client);
+      confirmHoldMock.mockRejectedValue(new Error(SECRET));
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(500);
+      const body = await expectNoSecret(response);
+      expect(body).toMatchObject({ code: 'INTERNAL_ERROR', error: 'Unable to confirm hold' });
+    });
+
+    it('keeps the assign-tables status and code but drops RPC message, details and hint', async () => {
+      const { client } = buildRouteClient();
+      getRouteHandlerSupabaseClientMock.mockReset().mockResolvedValue(client);
+      confirmHoldMock.mockRejectedValue(
+        new AssignTablesRpcError({
+          message: SECRET,
+          code: 'HOLD_EMPTY',
+          details: SECRET,
+          hint: SECRET,
+        }),
+      );
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(422);
+      const body = await expectNoSecret(response);
+      expect(body).toMatchObject({ code: 'HOLD_EMPTY' });
+      expect(body).not.toHaveProperty('details');
+      expect(body).not.toHaveProperty('hint');
+    });
+
+    it('keeps 409 for assign-tables conflicts with fixed copy', async () => {
+      const { client } = buildRouteClient();
+      getRouteHandlerSupabaseClientMock.mockReset().mockResolvedValue(client);
+      confirmHoldMock.mockRejectedValue(
+        new AssignTablesRpcError({ message: SECRET, code: 'ASSIGNMENT_CONFLICT', details: SECRET }),
+      );
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(409);
+      const body = await expectNoSecret(response);
+      expect(body).toMatchObject({ code: 'ASSIGNMENT_CONFLICT' });
+    });
+
+    it('keeps 503 for repository failures, marked retryable', async () => {
+      const { client } = buildRouteClient();
+      getRouteHandlerSupabaseClientMock.mockReset().mockResolvedValue(client);
+      confirmHoldMock.mockRejectedValue(
+        new AssignTablesRpcError({ message: SECRET, code: 'ASSIGNMENT_REPOSITORY_ERROR' }),
+      );
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(503);
+      const body = await expectNoSecret(response);
+      expect(body).toMatchObject({ code: 'ASSIGNMENT_REPOSITORY_ERROR', retryable: true });
+    });
   });
 });

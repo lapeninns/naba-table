@@ -2,8 +2,11 @@
 
 import { Download } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
+import { normalizeError, type ErrorLikeBody } from '@/lib/http/errors';
+import { toUserMessage } from '@/lib/http/userMessage';
 
 import type { CustomerListParams } from '@/services/ops/customers';
 
@@ -47,6 +50,25 @@ function extractFilename(headerValue: string | null, fallback: string): string {
   return fallback;
 }
 
+const EXPORT_FAILED_MESSAGE = "Couldn't export guests. Try again.";
+
+/** Builds the C2 HttpError for a failed export from its (JSON, when present) error body. */
+async function exportResponseError(response: Response) {
+  let body: ErrorLikeBody | null = null;
+  try {
+    const parsed: unknown = JSON.parse(await response.text());
+    body = typeof parsed === 'object' && parsed !== null ? (parsed as ErrorLikeBody) : null;
+  } catch {
+    body = null;
+  }
+  return normalizeError({
+    status: response.status,
+    statusText: response.statusText,
+    body,
+    headers: response.headers,
+  });
+}
+
 export function ExportCustomersButton({
   restaurantId,
   restaurantName,
@@ -81,10 +103,11 @@ export function ExportCustomersButton({
         headers: {
           accept: 'text/csv',
         },
+        credentials: 'include',
       });
 
       if (!response.ok) {
-        throw new Error(`Export failed (${response.status})`);
+        throw await exportResponseError(response);
       }
 
       const blob = await response.blob();
@@ -105,7 +128,7 @@ export function ExportCustomersButton({
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('[ExportCustomersButton] Export failed', error);
+      toast.error(toUserMessage(error, { fallback: EXPORT_FAILED_MESSAGE }));
     } finally {
       setIsExporting(false);
     }

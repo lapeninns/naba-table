@@ -2,6 +2,22 @@
 
 export const SESSION_EXPIRED_EVENT = 'session:expired';
 
+/**
+ * The public guest booking pages (`/bookings`, `/bookings/<id>`, `/bookings/find`).
+ * Guests there hold an emailed booking link, not an account: a 401 means the link
+ * cookie expired, and the page offers a new link, so a sign-in redirect is wrong.
+ * `/guest/**` (signed-in guests) and `/app/**` (ops) keep the sign-in redirect.
+ */
+export function isGuestBookingLinkPath(pathname: string): boolean {
+  return pathname === '/bookings' || pathname.startsWith('/bookings/');
+}
+
+/** Whether a 401 from the current page should send the browser to sign-in. */
+export function shouldRedirectToSignInOnUnauthenticated(): boolean {
+  if (typeof window === 'undefined') return true;
+  return !isGuestBookingLinkPath(window.location.pathname);
+}
+
 let redirectInFlight = false;
 let lastPath: string | null = null;
 let lastSignalTs = 0;

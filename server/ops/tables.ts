@@ -564,6 +564,66 @@ export async function updateTable(
   return record;
 }
 
+export type TableMaintenanceWindow = {
+  startIso: string;
+  endIso: string;
+};
+
+export type AtomicTableUpdateInput = {
+  tableId: string;
+  restaurantId: string;
+  patch: TablesUpdate<'table_inventory'>;
+  /** Only with `patch.status === 'out_of_service'`: replaces the table's maintenance window. */
+  maintenance: TableMaintenanceWindow | null;
+  actorId: string | null;
+};
+
+/**
+ * Writes the table row and its maintenance allocation in one transaction
+ * (`update_table_inventory_atomic`, migration 20260927130000). The caller must already have
+ * authorised the actor for `restaurantId`: the client is service-role and the function scopes
+ * every write by restaurant. Throws the Postgres error unchanged so the route can map its code.
+ */
+export async function updateTableAtomically(
+  serviceClient: PublicClient,
+  input: AtomicTableUpdateInput,
+): Promise<void> {
+  const { error } = await serviceClient.rpc('update_table_inventory_atomic', {
+    p_table_id: input.tableId,
+    p_restaurant_id: input.restaurantId,
+    p_patch: input.patch,
+    p_maintenance_start: input.maintenance?.startIso ?? undefined,
+    p_maintenance_end: input.maintenance?.endIso ?? undefined,
+    p_actor_id: input.actorId ?? undefined,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  invalidateRestaurantCapacityCaches(input.restaurantId);
+}
+
+/** One table with its zone, in the shape the list and create responses use. */
+export async function fetchTableRecord(
+  client: PublicClient,
+  restaurantId: string,
+  tableId: string,
+): Promise<TableRecord | null> {
+  const { data, error } = await client
+    .from('table_inventory')
+    .select(TABLE_SELECT)
+    .eq('id', tableId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ? toTableRecord(data as RawTableRecord) : null;
+}
+
 export async function deleteTable(client: PublicClient, tableId: string): Promise<void> {
   const { data, error } = await client
     .from('table_inventory')

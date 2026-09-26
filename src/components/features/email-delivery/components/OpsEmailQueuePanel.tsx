@@ -47,10 +47,13 @@ export type OpsEmailQueuePanelProps = {
   timestamp: string | null;
   onPrevPage: () => void;
   onNextPage: () => void;
-  actionJobId?: string | null;
+  /** Jobs with a cancel or requeue in flight. */
+  pendingJobIds?: ReadonlySet<string>;
   onCancelJob?: (jobId: string) => void;
   onRequeueJob?: (jobId: string) => void;
 };
+
+const EMPTY_JOB_IDS: ReadonlySet<string> = new Set();
 
 export function OpsEmailQueuePanel({
   jobs,
@@ -67,7 +70,7 @@ export function OpsEmailQueuePanel({
   timestamp,
   onPrevPage,
   onNextPage,
-  actionJobId = null,
+  pendingJobIds = EMPTY_JOB_IDS,
   onCancelJob,
   onRequeueJob,
 }: OpsEmailQueuePanelProps) {
@@ -198,7 +201,7 @@ export function OpsEmailQueuePanel({
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={actionJobId === job.id}
+                          disabled={pendingJobIds.has(job.id)}
                           onClick={() => onCancelJob(job.id)}
                         >
                           Cancel
@@ -209,7 +212,7 @@ export function OpsEmailQueuePanel({
                           type="button"
                           size="sm"
                           variant="outline"
-                          disabled={actionJobId === job.id}
+                          disabled={pendingJobIds.has(job.id)}
                           onClick={() => onRequeueJob(job.id)}
                         >
                           Requeue
@@ -315,7 +318,7 @@ export function OpsEmailQueuePanel({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                disabled={actionJobId === job.id}
+                                disabled={pendingJobIds.has(job.id)}
                                 onClick={() => onCancelJob(job.id)}
                               >
                                 Cancel
@@ -326,7 +329,7 @@ export function OpsEmailQueuePanel({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                disabled={actionJobId === job.id}
+                                disabled={pendingJobIds.has(job.id)}
                                 onClick={() => onRequeueJob(job.id)}
                               >
                                 Requeue

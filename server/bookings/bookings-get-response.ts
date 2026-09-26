@@ -1,70 +1,49 @@
-import { NextResponse } from 'next/server';
-
+import { apiError } from '@/lib/api/errors';
 import { stringifyError } from '@/server/bookings/error-formatting';
-import { buildGuestLookupHttpResponse } from '@/server/bookings/guest-lookup-response';
 import { buildAuthenticatedMyBookingsHttpResponse } from '@/server/bookings/my-bookings-auth-response';
 
+import type { NextResponse } from 'next/server';
+
 export type BookingsGetMyBookingsResponseBuilder = typeof buildAuthenticatedMyBookingsHttpResponse;
-export type BookingsGetGuestLookupResponseBuilder = typeof buildGuestLookupHttpResponse;
 export type BookingsGetLogger = (message: string, detail?: unknown) => void;
 
+const CONTACT_LOOKUP_REMOVED_MESSAGE =
+  'Looking up bookings by email or phone is no longer available. Use the link in your booking email, or request a new one.';
+
+/**
+ * GET /api/bookings
+ *
+ * - `?me=1`: the signed-in guest's own bookings (bound to their account).
+ * - anything else: 410 `CONTACT_LOOKUP_REMOVED`. The contact lookup used to
+ *   list bookings for an email + phone pair, which let anyone who knew a
+ *   guest's contact details read and then manage their bookings. It is gone;
+ *   a lost link is re-sent to the stored inbox through
+ *   POST /api/bookings/lookup-email instead. No query runs on this path.
+ */
 export async function buildBookingsGetHttpResponse({
-  clientIp,
-  cookieAccessToken,
-  guestLookupPepper,
-  guestLookupPolicyEnabled,
-  guestLookupResponseBuilder = buildGuestLookupHttpResponse,
-  headers,
   logger = console.error,
   myBookingsResponseBuilder = buildAuthenticatedMyBookingsHttpResponse,
   searchParams,
-  sessionRecoverySecret,
 }: {
-  clientIp: string;
-  cookieAccessToken?: string | null;
-  guestLookupPepper?: string | null;
-  guestLookupPolicyEnabled: boolean;
-  guestLookupResponseBuilder?: BookingsGetGuestLookupResponseBuilder;
-  headers: Headers;
+  searchParams: URLSearchParams;
   logger?: BookingsGetLogger;
   myBookingsResponseBuilder?: BookingsGetMyBookingsResponseBuilder;
-  searchParams: URLSearchParams;
-  sessionRecoverySecret?: string | null;
 }): Promise<NextResponse> {
+  if (searchParams.get('me') !== '1') {
+    const response = apiError(410, 'CONTACT_LOOKUP_REMOVED', CONTACT_LOOKUP_REMOVED_MESSAGE);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  }
+
   try {
-    const requestSource = 'api.bookings';
-    const meParam = searchParams.get('me');
-
-    if (meParam === '1') {
-      return await myBookingsResponseBuilder({
-        onPageFetchError: (error) => {
-          logger('[bookings][GET][me]', error);
-        },
-        searchParams,
-      });
-    }
-
-    return await guestLookupResponseBuilder({
-      clientIp,
-      cookieAccessToken,
-      guestLookupPepper,
-      guestLookupPolicyEnabled,
-      onPolicyLog: (policyLog) => {
-        if (policyLog.kind === 'rpc_failed') {
-          logger('[bookings][GET][guest-lookup] rpc failed', policyLog.message);
-        }
-
-        if (policyLog.kind === 'unexpected_error') {
-          logger('[bookings][GET][guest-lookup] unexpected error', policyLog.message);
-        }
+    return await myBookingsResponseBuilder({
+      onPageFetchError: (error) => {
+        logger('[bookings][GET][me]', stringifyError(error));
       },
-      requestHeaders: headers,
-      requestSource,
       searchParams,
-      sessionRecoverySecret,
     });
   } catch (error: unknown) {
     logger('[bookings][GET]', stringifyError(error));
-    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    return apiError(500, 'INTERNAL_ERROR', 'Something went wrong on our side. Try again.');
   }
 }

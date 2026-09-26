@@ -179,7 +179,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       onUndoNoShow: state.handleUndoNoShow,
       onCheckIn: state.handleCheckIn,
       onCheckOut: state.handleCheckOut,
-      pendingLifecycleAction: state.pendingBookingAction,
+      pendingLifecycleActions: state.pendingLifecycleActions,
     }),
     [
       state.handleAssignTable,
@@ -191,7 +191,7 @@ function OpsDashboardClientContent({ initialDate, initialNowIso }: OpsDashboardC
       state.handleMarkNoShow,
       state.handleUndoNoShow,
       state.handleUnassignTable,
-      state.pendingBookingAction,
+      state.pendingLifecycleActions,
       state.tableActionState,
     ],
   );

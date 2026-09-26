@@ -445,6 +445,48 @@ export function createDevFloorPlanServices(options: DevFloorPlanOptions) {
       };
     };
 
+    override moveBookingTables: BookingService['moveBookingTables'] = async ({
+      bookingId,
+      fromTableIds,
+      toTableIds,
+    }) => {
+      await delay();
+      const booking = findBooking(bookingId);
+      if (state.failNextAssign) {
+        // The move is atomic: a conflict leaves the booking on its original tables.
+        state.failNextAssign = false;
+        throw new HttpError({
+          message: 'Table was just booked',
+          status: 409,
+          code: 'TABLES_UNAVAILABLE',
+          details: { reason: 'CONFLICT', tableIds: toTableIds },
+        });
+      }
+      booking.tables = [
+        ...new Set([...booking.tables.filter((id) => !fromTableIds.includes(id)), ...toTableIds]),
+      ];
+      const capacity = state.tables
+        .filter((t) => booking.tables.includes(t.id))
+        .reduce((s, t) => s + t.capacity, 0);
+      return {
+        success: true,
+        assignments: booking.tables.map((tableId) => ({
+          id: `${bookingId}:${tableId}`,
+          booking_id: bookingId,
+          table_id: tableId,
+          assigned_at: new Date().toISOString(),
+          assigned_by: null,
+        })),
+        booking: { id: bookingId, status: booking.status, party_size: booking.party },
+        summary: {
+          tableCount: booking.tables.length,
+          totalCapacity: capacity,
+          partySize: booking.party,
+          slack: capacity - booking.party,
+        },
+      };
+    };
+
     override unassignTablesDirect: BookingService['unassignTablesDirect'] = async ({
       bookingId,
       tableIds,

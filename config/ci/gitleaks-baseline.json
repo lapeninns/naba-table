@@ -620,6 +620,246 @@
       "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
       "reviewedAt": "2026-09-05",
       "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "startLine": 26,
+      "endLine": 26,
+      "sourceSha256": "b0102d1342c433abbafb6ca51c49b975ea6ee8c5a4f0ba9851909aca1e1145d9",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "startLine": 85,
+      "endLine": 85,
+      "sourceSha256": "b0102d1342c433abbafb6ca51c49b975ea6ee8c5a4f0ba9851909aca1e1145d9",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/components/gbpDriftProviderDomain.test.ts",
+      "startLine": 108,
+      "endLine": 108,
+      "sourceSha256": "b0102d1342c433abbafb6ca51c49b975ea6ee8c5a4f0ba9851909aca1e1145d9",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/hooks/useCreateReservation.idempotency.test.tsx",
+      "startLine": 151,
+      "endLine": 151,
+      "sourceSha256": "498af05278abd0b1bba5ad43f117a61daa9e98733335e203db10c32bd8005cac",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/lib/logger-redaction-booking-links.test.ts",
+      "startLine": 7,
+      "endLine": 7,
+      "sourceSha256": "abb6528267ab05f5cb4b87e0b2155c9d0308787d7a2acf39150e6d33a79790c5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Deliberately fake bk1 booking token in a log-redaction test (segments decode to filler text), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-entry-gate.test.ts",
+      "startLine": 26,
+      "endLine": 26,
+      "sourceSha256": "38bd8eb8c64feb921448cef99703eddaf52e71522c1da57ed2ab65bf47c1eea9",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Literal test idempotency key, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-entry-gate.test.ts",
+      "startLine": 35,
+      "endLine": 35,
+      "sourceSha256": "38bd8eb8c64feb921448cef99703eddaf52e71522c1da57ed2ab65bf47c1eea9",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Literal test idempotency key, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-idempotency-contract.test.ts",
+      "startLine": 14,
+      "endLine": 14,
+      "sourceSha256": "48c9a53efd42cc504d46b3a00dd2616ac87d60c1cab168c6b26a01ec38dc1e4e",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-completion.test.ts",
+      "startLine": 31,
+      "endLine": 31,
+      "sourceSha256": "4fdfd477b950449861fd7353ffcf7e03af5ce5f9c67ae4d6fe1ac13bb7a8aafc",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-completion.test.ts",
+      "startLine": 461,
+      "endLine": 461,
+      "sourceSha256": "4fdfd477b950449861fd7353ffcf7e03af5ce5f9c67ae4d6fe1ac13bb7a8aafc",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-precommit-context.test.ts",
+      "startLine": 33,
+      "endLine": 33,
+      "sourceSha256": "9df7606864d93488acb9ccdd4670fa178a3172ec4583693fb0a738df8c30c45f",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-persistence.test.ts",
+      "startLine": 29,
+      "endLine": 29,
+      "sourceSha256": "0a397737ae3489fb673c80453de7626a39be2eb49069598a6c437162e731bd47",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 67,
+      "endLine": 67,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 124,
+      "endLine": 124,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 138,
+      "endLine": 138,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 173,
+      "endLine": 173,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 186,
+      "endLine": 186,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 205,
+      "endLine": 205,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 215,
+      "endLine": 215,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/dual-sync-publish-orchestrator-idempotency.test.ts",
+      "startLine": 228,
+      "endLine": 228,
+      "sourceSha256": "352d824a2e6658ad071a37cb337a5b0bfbb1e16414390bb9be1681906c7e5ba5",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Test fixture field identifier ('operatingHours.weekly.1'), not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/guest-booking-access-resolver.test.ts",
+      "startLine": 213,
+      "endLine": 213,
+      "sourceSha256": "a9dace11f6ca798a6380131a6e441fd8bcc7b71beab7bbaae0b11cb49b1a058b",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/ops-bookings-create-route.test.ts",
+      "startLine": 334,
+      "endLine": 334,
+      "sourceSha256": "2fbc7c676c7879f677b27eec84430f85ef17144cff0387cebef17ff9a5808c68",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/public-bookings-route.test.ts",
+      "startLine": 728,
+      "endLine": 728,
+      "sourceSha256": "749cd51faf7dc449d193d1439b3946c7a510676cb8083b64d9dfcb2ea0d8cc5f",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/public-bookings-route.test.ts",
+      "startLine": 1263,
+      "endLine": 1263,
+      "sourceSha256": "749cd51faf7dc449d193d1439b3946c7a510676cb8083b64d9dfcb2ea0d8cc5f",
+      "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
     }
   ]
 }

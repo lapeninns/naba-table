@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -10,6 +10,7 @@ import type {
   BookingsPostCompletionRunner,
   BookingsPostEntryGateRunner,
   BookingsPostFailureResponseBuilder,
+  BookingsPostOwnerBinder,
   BookingsPostPersistenceRunner,
   BookingsPostPrecommitRunner,
 } from '@/server/bookings/bookings-post-response';
@@ -47,8 +48,8 @@ function baseArgs(overrides: Partial<Parameters<typeof buildBookingsPostHttpResp
     headers: new Headers(),
     inlineAutoAssignTimeoutMs: 3000,
     payload: validPayload,
-    recoverySecret: 'recovery-secret',
-    recoveryTtlSeconds: 900,
+    accessSecret: 'test-session-recovery-secret',
+    cookieRequest: new NextRequest('https://www.nabatable.com/api/bookings', { method: 'POST' }),
     serviceClientFor: vi.fn(() => ({ from: vi.fn() }) as never),
     ...overrides,
   };
@@ -59,7 +60,11 @@ describe('bookings POST response orchestration', () => {
     const response = buildBookingCreateInvalidJsonResponse();
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid JSON payload' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid JSON payload',
+      code: 'INVALID_JSON',
+      message: 'Invalid JSON payload',
+    });
   });
 
   it('returns validation failures before running create gates', async () => {
@@ -169,13 +174,66 @@ describe('bookings POST response orchestration', () => {
     );
     expect(completionRunner).toHaveBeenCalledWith(
       expect.objectContaining({
+        accessSecret: 'test-session-recovery-secret',
         autoAssignEnabled: true,
         client,
+        cookieRequest: expect.any(NextRequest),
         inlineAutoAssignTimeoutMs: 3000,
         persistence,
         requestContext,
         restaurantId,
         useUnifiedValidation: true,
+      }),
+    );
+  });
+
+  it('binds a fresh insert through the owner binder before completion', async () => {
+    const client = { from: vi.fn() } as never;
+    const entryGateRunner = vi.fn(async () => ({
+      kind: 'continue',
+      restaurantId,
+      requestContext,
+    })) as unknown as BookingsPostEntryGateRunner;
+    const precommitRunner = vi.fn(async () => ({
+      kind: 'continue',
+    })) as unknown as BookingsPostPrecommitRunner;
+    const persistence = {
+      kind: 'created',
+      booking: { id: 'booking-1', auth_user_id: null },
+      customer: { id: 'customer-1' },
+      idempotencyKey: 'idem-1',
+      reusedExisting: false,
+      createOrigin: 'inserted',
+    };
+    const persistenceRunner = vi.fn(
+      async () => persistence,
+    ) as unknown as BookingsPostPersistenceRunner;
+    const boundBooking = { id: 'booking-1', auth_user_id: 'user-1' };
+    const ownerBinder = vi.fn(async () => boundBooking) as unknown as BookingsPostOwnerBinder;
+    const completionRunner = vi.fn(async () =>
+      NextResponse.json({ bookingId: 'booking-1' }, { status: 201 }),
+    ) as unknown as BookingsPostCompletionRunner;
+
+    const response = await buildBookingsPostHttpResponse(
+      baseArgs({
+        completionRunner,
+        entryGateRunner,
+        ownerBinder,
+        persistenceRunner,
+        precommitRunner,
+        serviceClientFor: vi.fn(() => client),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(ownerBinder).toHaveBeenCalledWith({
+      booking: persistence.booking,
+      createOrigin: 'inserted',
+      isOpsWalkIn: false,
+    });
+    expect(completionRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        persistence: { ...persistence, booking: boundBooking },
       }),
     );
   });

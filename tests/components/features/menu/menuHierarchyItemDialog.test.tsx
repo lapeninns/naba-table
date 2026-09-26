@@ -17,13 +17,13 @@ import {
 const hooks = vi.hoisted(() => ({
   createItem: undefined as unknown as MutationStub,
   updateItem: undefined as unknown as MutationStub,
-  patchOption: undefined as unknown as MutationStub,
+  reorder: undefined as unknown as MutationStub,
 }));
 
 vi.mock('@/hooks/ops/useOpsMenuHierarchy', () => ({
   useOpsCreateRestaurantMenuItem: () => hooks.createItem,
   useOpsUpdateRestaurantMenuItem: () => hooks.updateItem,
-  useOpsPatchRestaurantMenuOption: () => hooks.patchOption,
+  useOpsReorderMenuChildren: () => hooks.reorder,
 }));
 
 function renderDialog(overrides: Partial<Parameters<typeof ItemDialog>[0]> = {}) {
@@ -44,7 +44,7 @@ describe('ItemDialog', () => {
   beforeEach(() => {
     hooks.createItem = mutationStub();
     hooks.updateItem = mutationStub();
-    hooks.patchOption = mutationStub();
+    hooks.reorder = mutationStub();
   });
 
   it('@smoke @a11y keeps essentials visible and less-used groups collapsed', () => {
@@ -200,7 +200,7 @@ describe('ItemDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('@contract creating an item saves a payload built from the form and closes', async () => {
+  it('@contract creating an item sends one atomic create with an idempotency key and closes', async () => {
     const user = userEvent.setup();
     const props = renderDialog();
 
@@ -209,23 +209,69 @@ describe('ItemDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save item' }));
 
     await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(1));
-    const payload = hooks.createItem.mutateAsync.mock.calls[0][0];
-    expect(payload.labels[0].displayName).toBe('Focaccia');
-    expect(payload.displayOrder).toBe(1);
+    const variables = hooks.createItem.mutateAsync.mock.calls[0][0];
+    expect(variables).toMatchObject({ menuId: 'menu-1', sectionId: 'section-1' });
+    expect(variables.payload.labels[0].displayName).toBe('Focaccia');
+    // The server appends the item; the client sends no display order.
+    expect(variables.payload).not.toHaveProperty('displayOrder');
+    expect(variables.payload.idempotencyKey).toEqual(expect.any(String));
     expect(hooks.updateItem.mutateAsync).not.toHaveBeenCalled();
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('@contract a retried create reuses the same idempotency key', async () => {
+    const user = userEvent.setup();
+    hooks.createItem.mutateAsync.mockRejectedValueOnce(new Error('network'));
+    renderDialog();
+
+    const [nameInput] = screen.getAllByRole('textbox');
+    await user.type(nameInput, 'Focaccia');
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+    await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+    await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(2));
+
+    const [first, second] = hooks.createItem.mutateAsync.mock.calls.map(
+      ([variables]) => variables.payload.idempotencyKey,
+    );
+    expect(second).toBe(first);
+  });
+
+  it('@contract after a create the dialog hands the saved item to onCreated and stays open', async () => {
+    const user = userEvent.setup();
+    const created = makeItem({ id: 'item-9' });
+    hooks.createItem.mutateAsync.mockResolvedValue(created);
+    const onCreated = vi.fn();
+    const props = renderDialog({ onCreated });
+
+    const [nameInput] = screen.getAllByRole('textbox');
+    await user.type(nameInput, 'Focaccia');
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(created));
+    expect(props.onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
   it('@contract editing an existing item routes through the update mutation', async () => {
     const user = userEvent.setup();
-    renderDialog({ item: makeItem() });
+    renderDialog({ item: makeItem({ displayOrder: 5 }) });
 
     await user.click(screen.getByRole('button', { name: 'Save item' }));
 
     await waitFor(() => expect(hooks.updateItem.mutateAsync).toHaveBeenCalledTimes(1));
-    const payload = hooks.updateItem.mutateAsync.mock.calls[0][0];
-    expect(payload.labels[0].displayName).toBe('Burrata');
+    const variables = hooks.updateItem.mutateAsync.mock.calls[0][0];
+    expect(variables).toMatchObject({ menuId: 'menu-1', sectionId: 'section-1', itemId: 'item-1' });
+    expect(variables.payload.labels[0].displayName).toBe('Burrata');
+    // A snapshot display order would undo a concurrent reorder.
+    expect(variables.payload).not.toHaveProperty('displayOrder');
     expect(hooks.createItem.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('@contract clears a previous save error when the dialog opens', () => {
+    renderDialog();
+
+    expect(hooks.createItem.reset).toHaveBeenCalled();
+    expect(hooks.updateItem.reset).toHaveBeenCalled();
   });
 
   it('@contract blocks submit while pending and without a section', () => {

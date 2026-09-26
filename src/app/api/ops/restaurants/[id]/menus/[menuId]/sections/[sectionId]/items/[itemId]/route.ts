@@ -7,10 +7,11 @@ import {
 import { RestaurantMenuItemPatchSchema } from '@/server/menu-hierarchy/types';
 
 import {
+  invalidJson,
   invalidPayload,
   readJsonBody,
   requireMenusAdmin,
-  resolveRouteParam,
+  resolveMenuParams,
   routeError,
 } from '../../../../../_shared';
 
@@ -25,57 +26,54 @@ type RouteContext = {
   }>;
 };
 
+/**
+ * `attributes` / `extensions` replace stored values; `attributesMerge` / `extensionsMerge`
+ * merge only the keys sent, so partial edits keep concurrent changes to other fields.
+ */
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
-  const [menuId, sectionId, itemId] = await Promise.all([
-    resolveRouteParam(params, 'menuId'),
-    resolveRouteParam(params, 'sectionId'),
-    resolveRouteParam(params, 'itemId'),
-  ]);
-  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
-  if (!sectionId) return NextResponse.json({ error: 'Missing section id' }, { status: 400 });
-  if (!itemId) return NextResponse.json({ error: 'Missing item id' }, { status: 400 });
+  const route = await resolveMenuParams(params, ['menuId', 'sectionId', 'itemId']);
+  if (route.response) return route.response;
 
   const body = await readJsonBody(request);
-  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  if (!body) return invalidJson();
 
   const parsed = RestaurantMenuItemPatchSchema.safeParse(body);
-  if (!parsed.success) return invalidPayload(parsed.error.flatten());
+  if (!parsed.success) return invalidPayload(parsed.error);
 
   try {
     const item = await updateRestaurantMenuItem(
       access.restaurantId,
-      menuId,
-      sectionId,
-      itemId,
+      route.values.menuId,
+      route.values.sectionId,
+      route.values.itemId,
       parsed.data,
     );
     return NextResponse.json({ item });
   } catch (error) {
-    return routeError('PATCH item', error, 'Unable to update menu item');
+    return routeError('PATCH item', error, 'Unable to update the menu item.');
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  const access = await requireMenusAdmin(params, _request);
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
-  const [menuId, sectionId, itemId] = await Promise.all([
-    resolveRouteParam(params, 'menuId'),
-    resolveRouteParam(params, 'sectionId'),
-    resolveRouteParam(params, 'itemId'),
-  ]);
-  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
-  if (!sectionId) return NextResponse.json({ error: 'Missing section id' }, { status: 400 });
-  if (!itemId) return NextResponse.json({ error: 'Missing item id' }, { status: 400 });
+  const route = await resolveMenuParams(params, ['menuId', 'sectionId', 'itemId']);
+  if (route.response) return route.response;
 
   try {
-    await deleteRestaurantMenuItem(access.restaurantId, menuId, sectionId, itemId);
+    await deleteRestaurantMenuItem(
+      access.restaurantId,
+      route.values.menuId,
+      route.values.sectionId,
+      route.values.itemId,
+    );
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return routeError('DELETE item', error, 'Unable to delete menu item');
+    return routeError('DELETE item', error, 'Unable to delete the menu item.');
   }
 }
 

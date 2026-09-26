@@ -19,6 +19,7 @@ vi.mock('@/server/team/access', () => ({
 vi.mock('@/server/restaurants', () => ({
   deleteRestaurant: vi.fn(),
   updateRestaurant: vi.fn(),
+  updateRestaurantProfile: vi.fn(),
 }));
 
 vi.mock('@/server/restaurants/details', () => ({

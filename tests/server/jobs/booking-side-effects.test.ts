@@ -174,16 +174,14 @@ describe('processBookingCreatedSideEffects', () => {
       from: vi.fn(() => ({
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            maybeSingle: vi
-              .fn()
-              .mockResolvedValue({
-                data: {
-                  email_send_review_request: true,
-                  google_review_url: 'https://g.page/r/example/review',
-                  timezone: 'Europe/London',
-                },
-                error: null,
-              }),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                email_send_review_request: true,
+                google_review_url: 'https://g.page/r/example/review',
+                timezone: 'Europe/London',
+              },
+              error: null,
+            }),
           })),
         })),
       })),
@@ -776,6 +774,34 @@ describe('processBookingCreatedSideEffects', () => {
 
     expect(sendGuestBookingCancellationSmsMock).toHaveBeenCalledWith(cancelled, {
       cancelledBy: 'staff',
+    });
+  });
+
+  it('withdraws unsent modification emails, so a modify-then-cancel never sends "changes confirmed"', async () => {
+    emailQueueEnabled.value = true;
+    const previous = { ...pendingBooking, status: 'confirmed' };
+    const cancelled = { ...previous, status: 'cancelled', updated_at: '2026-04-11T15:30:00.000Z' };
+
+    await enqueueBookingCancelledSideEffects(
+      {
+        previous: previous as never,
+        cancelled: cancelled as never,
+        restaurantId: cancelled.restaurant_id,
+        cancelledBy: 'customer',
+      },
+      {} as never,
+    );
+
+    expect(cancelEmailIntentsMock).toHaveBeenCalledWith({
+      bookingId: cancelled.id,
+      types: expect.arrayContaining([
+        'reminder_24h',
+        'reminder_short',
+        'review_request',
+        'updated',
+        'request_received',
+        'modification_pending',
+      ]),
     });
   });
 });

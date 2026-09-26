@@ -753,8 +753,35 @@ describe('database promotion safety workflows', () => {
       SUPABASE_WORKDIR: root,
       SUPABASE_DB_URL: STAGING_DB_URL,
     };
-    const delegate =
-      'pnpm exec tsx scripts/db/migrations/sql-regression.ts --fixtures tests/db/fixtures/synthetic-fixtures.sql tests/db/terminal-booking-table-release.sql tests/db/manual-table-unassignment.sql tests/db/atomic-table-hold-enforcement.sql tests/db/review-scheduling-recovery.sql tests/db/gbp-oauth-terminal-state.sql supabase/tests/mobile_sms_attempt_finalization.sql supabase/tests/whatsapp_review_notification_ledger.sql';
+    const delegate = [
+      'pnpm exec tsx scripts/db/migrations/sql-regression.ts',
+      '--fixtures tests/db/fixtures/synthetic-fixtures.sql',
+      'tests/db/terminal-booking-table-release.sql',
+      'tests/db/manual-table-unassignment.sql',
+      'tests/db/atomic-table-hold-enforcement.sql',
+      'tests/db/review-scheduling-recovery.sql',
+      'tests/db/gbp-oauth-terminal-state.sql',
+      'tests/db/booking-create-idempotency.sql',
+      'tests/db/booking-cancel-guard-and-undo-no-show.sql',
+      'tests/db/atomic-booking-table-move.sql',
+      'tests/db/save-restaurant-availability.sql',
+      'tests/db/atomic-table-inventory-update.sql',
+      'tests/db/menu-mutation-integrity.sql',
+      'tests/db/email-queue-finalize-and-retry-claims.sql',
+      'tests/db/capacity-outbox-claim.sql',
+      'tests/db/booking-email-intent-ensure.sql',
+      'tests/db/booking-modification-table-swap.sql',
+      'tests/db/business-context-atomic-save.sql',
+      'tests/db/atomic-restaurant-profile-update.sql',
+      'tests/db/onboarding-replace-layout.sql',
+      'tests/db/pending-booking-modification-guard.sql',
+      'tests/db/booking-owner-binding-and-capacity-update-errors.sql',
+      'tests/db/email-intent-claim-generation.sql',
+      'tests/db/booking-email-intent-settle-generation.sql',
+      'tests/db/booking-owner-backfill.sql',
+      'supabase/tests/mobile_sms_attempt_finalization.sql',
+      'supabase/tests/whatsapp_review_notification_ledger.sql',
+    ].join(' ');
 
     const whenRendered = runCli(['sql-regression', '--dry-run'], environment);
     expect(whenRendered.status).toBe(0);

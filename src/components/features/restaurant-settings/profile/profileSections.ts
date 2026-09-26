@@ -22,8 +22,14 @@ export type ProfileSectionDefinition = {
   /** Fields in the order they appear on the page. */
   fields: readonly DetailsField[];
   analyticsSection: ProfileAnalyticsSection;
-  /** The partial payload this section sends to `PATCH /api/ops/restaurants/:id`. */
-  buildPayload: (state: FormState) => Partial<RestaurantProfile>;
+  /**
+   * The partial payload this section sends to `PATCH /api/ops/restaurants/:id`. `dirtyFields`
+   * are this section's fields that differ from the saved values.
+   */
+  buildPayload: (
+    state: FormState,
+    dirtyFields: ReadonlySet<DetailsField>,
+  ) => Partial<RestaurantProfile>;
 };
 
 /** A labelled group of fields inside a section, with its own jump-bar anchor. */
@@ -70,19 +76,23 @@ export const PROFILE_SECTION_DEFINITIONS: readonly ProfileSectionDefinition[] = 
     anchorId: 'profile-public-details',
     fields: PROFILE_FIELD_GROUPS.flatMap((group) => group.fields),
     analyticsSection: 'public_details',
-    buildPayload: (state) => {
+    // Only changed fields are sent, so an untouched name, slug or timezone is never resent and
+    // cannot look like an identity or schedule change (or rewrite an unchanged column).
+    buildPayload: (state, dirtyFields) => {
       const payload = sanitizePayload(state);
-      return {
-        name: payload.name,
-        slug: payload.slug,
-        businessDescription: payload.businessDescription,
-        timezone: payload.timezone,
-        contactEmail: payload.contactEmail,
-        contactPhone: payload.contactPhone,
-        address: payload.address,
-        googleMapUrl: payload.googleMapUrl,
-        googleReviewUrl: payload.googleReviewUrl,
-      };
+      const next: Partial<RestaurantProfile> = {};
+      if (dirtyFields.has('name')) next.name = payload.name;
+      if (dirtyFields.has('slug')) next.slug = payload.slug;
+      if (dirtyFields.has('businessDescription')) {
+        next.businessDescription = payload.businessDescription;
+      }
+      if (dirtyFields.has('timezone')) next.timezone = payload.timezone;
+      if (dirtyFields.has('contactEmail')) next.contactEmail = payload.contactEmail;
+      if (dirtyFields.has('contactPhone')) next.contactPhone = payload.contactPhone;
+      if (dirtyFields.has('address')) next.address = payload.address;
+      if (dirtyFields.has('googleMapUrl')) next.googleMapUrl = payload.googleMapUrl;
+      if (dirtyFields.has('googleReviewUrl')) next.googleReviewUrl = payload.googleReviewUrl;
+      return next;
     },
   },
 ];
@@ -105,14 +115,28 @@ export const STAFF_COMMUNICATIONS_SECTION_DEFINITIONS: readonly ProfileSectionDe
       'managerWhatsappEnabled',
     ],
     analyticsSection: 'manager_notifications',
-    buildPayload: (state) => {
+    // Only changed fields are sent: the server derives the WhatsApp consent from the stored
+    // row, so an untouched toggle must not look like a fresh opt-in.
+    buildPayload: (state, dirtyFields) => {
       const payload = sanitizePayload(state);
-      return {
-        managerName: payload.managerName,
-        managerNotificationPhone: payload.managerNotificationPhone,
-        managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
-        managerWhatsappEnabled: payload.managerWhatsappEnabled,
-      };
+      const next: Partial<RestaurantProfile> = {};
+      if (dirtyFields.has('managerName')) next.managerName = payload.managerName;
+      if (dirtyFields.has('managerNotificationPhone')) {
+        next.managerNotificationPhone = payload.managerNotificationPhone;
+      }
+      if (dirtyFields.has('managerDailySummaryEnabled')) {
+        next.managerDailySummaryEnabled = payload.managerDailySummaryEnabled;
+      }
+      // A new alert number always carries the WhatsApp choice: changing the number clears the
+      // toggle in the draft, and re-ticking it returns the draft to the saved value, which is
+      // not "dirty" but is a fresh consent for the new number.
+      if (
+        dirtyFields.has('managerWhatsappEnabled') ||
+        dirtyFields.has('managerNotificationPhone')
+      ) {
+        next.managerWhatsappEnabled = payload.managerWhatsappEnabled;
+      }
+      return next;
     },
   },
 ];

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { apiError, internalError, unauthenticated } from '@/lib/api/errors';
 import { env } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   mapTwilioMessageStatusToDeliveryStatus,
@@ -10,6 +12,8 @@ import { processSmsStatusCallback } from '@/server/notifications/sms-status';
 import { findLatestSmsDeliveryByMessageSid, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/webhook/twilio/sms-status';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -90,32 +94,34 @@ function readSignedLinkageContext(req: NextRequest): SmsLinkageContext | null {
 export async function POST(req: NextRequest) {
   const authToken = env.twilio.authToken;
   if (!authToken) {
-    console.error('[webhook][twilio][sms-status] TWILIO_AUTH_TOKEN missing; refusing webhook');
-    return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+    logger.error('[webhook][twilio][sms-status] TWILIO_AUTH_TOKEN missing; refusing webhook', {
+      route: ROUTE,
+    });
+    return apiError(503, 'WEBHOOK_NOT_CONFIGURED', 'Webhook not configured.', { retryable: true });
   }
 
   const signature = req.headers.get('x-twilio-signature')?.trim() ?? '';
   if (!signature) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthenticated('Unauthorized.');
   }
 
   if (!hasExpectedTwilioContentType(req.headers.get('content-type'))) {
-    return NextResponse.json({ error: 'Unsupported media type' }, { status: 415 });
+    return apiError(415, 'UNSUPPORTED_MEDIA_TYPE', 'Unsupported media type.');
   }
 
   const contentLength = parseContentLength(req.headers.get('content-length'));
   if (contentLength !== null && contentLength > MAX_TWILIO_SMS_STATUS_BODY_BYTES) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    return apiError(413, 'PAYLOAD_TOO_LARGE', 'Payload too large.');
   }
 
   const rawBody = await req.text();
   if (new TextEncoder().encode(rawBody).byteLength > MAX_TWILIO_SMS_STATUS_BODY_BYTES) {
-    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    return apiError(413, 'PAYLOAD_TOO_LARGE', 'Payload too large.');
   }
 
   const form = new URLSearchParams(rawBody);
   if (Array.from(form.keys()).length > MAX_TWILIO_SMS_STATUS_PARAMS) {
-    return NextResponse.json({ error: 'Too many parameters' }, { status: 400 });
+    return apiError(400, 'TOO_MANY_PARAMETERS', 'Too many parameters.');
   }
 
   const validationUrls = buildTwilioSignatureValidationUrls(req);
@@ -129,11 +135,12 @@ export async function POST(req: NextRequest) {
   );
 
   if (!isValid) {
-    console.warn('[webhook][twilio][sms-status] signature validation failed', {
+    logger.warn('[webhook][twilio][sms-status] signature validation failed', {
+      route: ROUTE,
       requestUrl: req.url,
       validationUrls,
     });
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthenticated('Unauthorized.');
   }
 
   const messageSid = form.get('MessageSid')?.trim() ?? form.get('SmsSid')?.trim() ?? '';
@@ -141,7 +148,7 @@ export async function POST(req: NextRequest) {
   const providerStatus = form.get('MessageStatus')?.trim() ?? form.get('SmsStatus')?.trim() ?? '';
 
   if (!messageSid || !recipientPhone || !providerStatus) {
-    return NextResponse.json({ error: 'Missing required Twilio status fields' }, { status: 400 });
+    return apiError(400, 'MISSING_STATUS_FIELDS', 'Missing required Twilio status fields.');
   }
 
   const mappedStatus = mapTwilioMessageStatusToDeliveryStatus(providerStatus);
@@ -150,7 +157,7 @@ export async function POST(req: NextRequest) {
   }
   const attemptId = req.nextUrl.searchParams.get('attempt')?.trim() ?? '';
   if (attemptId && !UUID_PATTERN.test(attemptId)) {
-    return NextResponse.json({ error: 'Invalid attempt correlation' }, { status: 400 });
+    return apiError(400, 'INVALID_ATTEMPT_CORRELATION', 'Invalid attempt correlation.');
   }
 
   const linkage = await findLatestSmsDeliveryByMessageSid({
@@ -190,7 +197,8 @@ export async function POST(req: NextRequest) {
       groups: linkedRestaurantId ? { restaurant: linkedRestaurantId } : undefined,
       properties: { provider: 'twilio', source: 'webhook', path: '/api/webhook/twilio/sms-status' },
     });
-    throw error;
+    // Still a 500, so Twilio treats the callback as failed exactly as before.
+    return internalError(error, { route: ROUTE });
   }
 
   return NextResponse.json({ success: true }, { status: 200 });

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import {
   runBookingCreateInlineAutoAssign,
   scheduleBookingCreateAutoAssignRetry,
@@ -58,16 +59,44 @@ export async function finalizeBookingCreateCommit({
   let finalBooking = booking;
 
   if (reusedExisting) {
+    // Idempotent replay: the booking committed on an earlier request, whose side
+    // effects may have failed or never run. Re-ensure them; they are keyed per
+    // booking and effect type, so nothing is sent twice. Audit, inline
+    // auto-assign and its retry already ran for the original request.
+    try {
+      await sideEffectsDispatcher({
+        booking: finalBooking,
+        client,
+        idempotencyKey,
+        isOpsWalkIn,
+        opsEmailProvidedHeader,
+        replay: true,
+        restaurantId,
+      });
+    } catch (error) {
+      onSideEffectsError?.(error);
+    }
     return { booking: finalBooking };
   }
 
-  await auditDispatcher({
-    actor,
-    booking: finalBooking,
-    client,
-    customer,
-    restaurantId,
-  });
+  // The booking is committed. An audit_logs failure is logged and never turns
+  // it into a 500: the guest still gets the 201, the creator cookie and the
+  // confirmation side effects below.
+  try {
+    await auditDispatcher({
+      actor,
+      booking: finalBooking,
+      client,
+      customer,
+      restaurantId,
+    });
+  } catch (error) {
+    logger.error('bookings.create.audit_failed', {
+      bookingId: finalBooking.id,
+      restaurantId,
+      errorName: error instanceof Error ? error.name : typeof error,
+    });
+  }
 
   try {
     const updatedBooking = await inlineAutoAssignRunner({

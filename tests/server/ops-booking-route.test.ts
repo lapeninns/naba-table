@@ -28,6 +28,8 @@ const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
 const invalidateOpsDashboardCachesMock = vi.hoisted(() => vi.fn());
 const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
 const isUnifiedBookingValidationEnabledMock = vi.hoisted(() => vi.fn());
+const softCancelBookingMock = vi.hoisted(() => vi.fn());
+const enqueueBookingCancelledSideEffectsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/env', () => ({
   env: {
@@ -76,7 +78,13 @@ vi.mock('@/server/bookings/duration', () => ({
   resolveBookingDurationMinutes: resolveBookingDurationMinutesMock,
 }));
 
-vi.mock('@/server/bookings/modification-flow', () => ({
+vi.mock('@/server/emails/bookings', () => ({
+  sendBookingModificationConfirmedEmail: vi.fn(),
+  sendBookingModificationPendingEmail: vi.fn(),
+}));
+
+vi.mock('@/server/bookings/modification-flow', async (importOriginal) => ({
+  ...(await importOriginal<ModificationFlowModule>()),
   beginBookingModificationFlow: beginBookingModificationFlowMock,
 }));
 
@@ -87,13 +95,13 @@ vi.mock('@/server/bookings', async (importOriginal) => {
     buildBookingAuditSnapshot: vi.fn(() => ({})),
     inferMealTypeFromTime: vi.fn(() => 'dinner'),
     logAuditEvent: logAuditEventMock,
-    softCancelBooking: vi.fn(),
+    softCancelBooking: softCancelBookingMock,
     updateBookingRecord: updateBookingRecordMock,
   };
 });
 
 vi.mock('@/server/jobs/booking-side-effects', () => ({
-  enqueueBookingCancelledSideEffects: vi.fn(),
+  enqueueBookingCancelledSideEffects: enqueueBookingCancelledSideEffectsMock,
   enqueueBookingUpdatedSideEffects: enqueueBookingUpdatedSideEffectsMock,
   safeBookingPayload: vi.fn((booking) => booking),
 }));
@@ -109,7 +117,20 @@ vi.mock('@/server/ops/bookings', () => ({
   invalidateOpsDashboardCaches: invalidateOpsDashboardCachesMock,
 }));
 
-import { PATCH } from '@/src/app/api/ops/bookings/[id]/route';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import { BookingNotCancellableError } from '@/server/bookings';
+import { BookingModificationConflictError } from '@/server/bookings/modification-flow';
+import { DELETE, PATCH } from '@/src/app/api/ops/bookings/[id]/route';
+
+import type * as ModificationFlow from '@/server/bookings/modification-flow';
+
+type ModificationFlowModule = typeof ModificationFlow;
+
+const CSRF_TOKEN = 'ops-booking-route-csrf-token';
+const CSRF_HEADERS = {
+  [CSRF_HEADER_NAME]: CSRF_TOKEN,
+  cookie: `${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`,
+};
 
 function buildRouteParams() {
   return {
@@ -230,6 +251,7 @@ describe('ops booking PATCH route timezone handling', () => {
     const response = await PATCH(
       new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
         method: 'PATCH',
+        headers: CSRF_HEADERS,
         body: JSON.stringify({
           startIso: '2026-07-01T18:30:00.000Z',
           endIso: '2026-07-01T20:30:00.000Z',
@@ -278,6 +300,7 @@ describe('ops booking PATCH route timezone handling', () => {
     const response = await PATCH(
       new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
         method: 'PATCH',
+        headers: CSRF_HEADERS,
         body: JSON.stringify({
           startIso: '2026-07-01T18:30:00.000Z',
           partySize: 4,
@@ -340,6 +363,7 @@ describe('ops booking PATCH route timezone handling', () => {
     const response = await PATCH(
       new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
         method: 'PATCH',
+        headers: CSRF_HEADERS,
         body: JSON.stringify({
           startIso: '2026-07-01T18:30:00.000Z',
           partySize: 5,
@@ -364,12 +388,87 @@ describe('ops booking PATCH route timezone handling', () => {
     expect(updateWithEnforcement).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { unified: false, code: 'MODIFICATION_NO_TABLES', retryable: false },
+    { unified: false, code: 'MODIFICATION_UNAVAILABLE', retryable: false },
+    { unified: false, code: 'MODIFICATION_TABLES_UNCONFIRMED', retryable: true },
+    { unified: true, code: 'MODIFICATION_NO_TABLES', retryable: false },
+    { unified: true, code: 'MODIFICATION_UNAVAILABLE', retryable: false },
+    { unified: true, code: 'BOOKING_STATE_CONFLICT', retryable: true },
+  ] as const)(
+    'maps a modification-flow $code (unified: $unified) to a C1 409 and leaves nothing half-applied',
+    async ({ unified, code, retryable }) => {
+      isUnifiedBookingValidationEnabledMock.mockReturnValue(unified);
+      createBookingValidationServiceMock.mockReturnValue({
+        validateUpdate: vi.fn(async () => ({
+          response: { ok: true, issues: [], overridden: false, overrideCodes: [] },
+          metadata: {},
+        })),
+        updateWithEnforcement: vi.fn(),
+      });
+      maybeSingleMock.mockResolvedValue({ data: buildBooking(), error: null });
+      beginBookingModificationFlowMock.mockRejectedValue(
+        new BookingModificationConflictError(code, { reason: 'planner: no candidate tables' }),
+      );
+
+      const response = await PATCH(
+        new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
+          method: 'PATCH',
+          headers: CSRF_HEADERS,
+          body: JSON.stringify({ startIso: '2026-07-01T19:30:00.000Z', partySize: 4 }),
+        }),
+        buildRouteParams(),
+      );
+      const body = await response.json();
+
+      expect(beginBookingModificationFlowMock).toHaveBeenCalled();
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code, retryable });
+      expect(body.message).toContain('The booking has not been changed.');
+      expect(JSON.stringify(body)).not.toContain('planner');
+      expect(logAuditEventMock).not.toHaveBeenCalled();
+      expect(enqueueBookingUpdatedSideEffectsMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('never changes the contact email, so the signed-in owner binding is kept (guest-auth §12.21)', async () => {
+    maybeSingleMock.mockResolvedValue({
+      data: buildBooking({ auth_user_id: 'guest-user-1' }),
+      error: null,
+    });
+    updateBookingRecordMock.mockImplementation(async (_client, _bookingId, payload) =>
+      buildBooking({ ...payload, auth_user_id: 'guest-user-1' }),
+    );
+
+    const response = await PATCH(
+      new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
+        method: 'PATCH',
+        headers: CSRF_HEADERS,
+        body: JSON.stringify({
+          startIso: '2026-07-01T18:30:00.000Z',
+          partySize: 4,
+          notes: 'note only',
+          email: 'attacker@example.com',
+          customerEmail: 'attacker@example.com',
+          customer_email: 'attacker@example.com',
+        }),
+      }),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(200);
+    const payload = updateBookingRecordMock.mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('customer_email');
+    expect(payload).not.toHaveProperty('auth_user_id');
+  });
+
   it('does not look up bookings when the operator has no restaurant memberships', async () => {
     fetchUserMembershipsMock.mockResolvedValue([]);
 
     const response = await PATCH(
       new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
         method: 'PATCH',
+        headers: CSRF_HEADERS,
         body: JSON.stringify({
           startIso: '2026-07-01T18:30:00.000Z',
           partySize: 4,
@@ -380,9 +479,113 @@ describe('ops booking PATCH route timezone handling', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Booking not found' });
+    expect(body).toEqual({
+      error: 'Booking not found',
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
+    });
     expect(fromMock).not.toHaveBeenCalled();
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('ops booking DELETE (cancel) route status guard', () => {
+  function deleteRequest() {
+    return new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
+      method: 'DELETE',
+      headers: CSRF_HEADERS,
+    });
+  }
+
+  beforeEach(() => {
+    tenantAuthGetUserMock.mockReset();
+    tenantAuthGetUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'ops@example.com' } },
+      error: null,
+    });
+    fetchUserMembershipsMock.mockReset();
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: 'rest-1', role: 'owner' }]);
+    maybeSingleMock.mockReset();
+    softCancelBookingMock.mockReset();
+    logAuditEventMock.mockReset();
+    enqueueBookingCancelledSideEffectsMock.mockReset();
+    invalidateOpsDashboardCachesMock.mockReset();
+  });
+
+  it.each(['checked_in', 'completed', 'no_show'])(
+    'rejects cancelling a %s booking with 409 BOOKING_NOT_CANCELLABLE before any write',
+    async (status) => {
+      maybeSingleMock.mockResolvedValue({ data: buildBooking({ status }), error: null });
+
+      const response = await DELETE(deleteRequest(), buildRouteParams());
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({
+        code: 'BOOKING_NOT_CANCELLABLE',
+        retryable: false,
+        details: { currentStatus: status },
+      });
+      expect(softCancelBookingMock).not.toHaveBeenCalled();
+      expect(enqueueBookingCancelledSideEffectsMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it('maps the DB guard (status changed after the read) to 409 BOOKING_NOT_CANCELLABLE', async () => {
+    maybeSingleMock.mockResolvedValue({ data: buildBooking({ status: 'confirmed' }), error: null });
+    softCancelBookingMock.mockRejectedValue(new BookingNotCancellableError('checked_in'));
+
+    const response = await DELETE(deleteRequest(), buildRouteParams());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'BOOKING_NOT_CANCELLABLE',
+      details: { currentStatus: 'checked_in' },
+    });
+    expect(logAuditEventMock).not.toHaveBeenCalled();
+    expect(enqueueBookingCancelledSideEffectsMock).not.toHaveBeenCalled();
+  });
+
+  it('treats an already-cancelled booking as an idempotent 200 without side effects', async () => {
+    maybeSingleMock.mockResolvedValue({ data: buildBooking({ status: 'cancelled' }), error: null });
+
+    const response = await DELETE(deleteRequest(), buildRouteParams());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ id: 'booking-1', status: 'cancelled' });
+    expect(softCancelBookingMock).not.toHaveBeenCalled();
+  });
+
+  it('cancels a confirmed booking and queues side effects', async () => {
+    const booking = buildBooking({ status: 'confirmed' });
+    maybeSingleMock.mockResolvedValue({ data: booking, error: null });
+    softCancelBookingMock.mockResolvedValue({
+      cancelled: true,
+      booking: { ...booking, status: 'cancelled' },
+    });
+
+    const response = await DELETE(deleteRequest(), buildRouteParams());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ id: 'booking-1', status: 'cancelled' });
+    expect(softCancelBookingMock).toHaveBeenCalledWith(expect.anything(), 'booking-1', {
+      restaurantId: 'rest-1',
+    });
+    expect(enqueueBookingCancelledSideEffectsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports unexpected cancellation failures without database text', async () => {
+    maybeSingleMock.mockResolvedValue({ data: buildBooking({ status: 'confirmed' }), error: null });
+    softCancelBookingMock.mockRejectedValue(
+      Object.assign(new Error('deadlock detected on relation bookings'), { code: '40P01' }),
+    );
+
+    const response = await DELETE(deleteRequest(), buildRouteParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(body)).not.toContain('deadlock');
   });
 });

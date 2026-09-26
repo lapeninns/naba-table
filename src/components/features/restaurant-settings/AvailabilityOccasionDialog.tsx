@@ -30,6 +30,11 @@ type AvailabilityOccasionDialogProps = {
   onFormChange: Dispatch<SetStateAction<OccasionFormState>>;
   onOpenChange: (open: boolean) => void;
   onSubmit: () => void;
+  /**
+   * `full`: add or edit the booking type itself (Nabatable platform admins).
+   * `tableTimes`: edit only this restaurant's table times for an existing type.
+   */
+  mode?: 'full' | 'tableTimes';
 };
 
 const disclosureSummaryClass =
@@ -50,6 +55,7 @@ export function AvailabilityOccasionDialog({
   onFormChange,
   onOpenChange,
   onSubmit,
+  mode = 'full',
 }: AvailabilityOccasionDialogProps) {
   const rulesOpen =
     Boolean(formErrors.availability) ||
@@ -57,6 +63,44 @@ export function AvailabilityOccasionDialog({
   const bandError = turnBandErrors?.some((row) => Object.keys(row).length > 0)
     ? 'Each party size needs a whole number of guests and minutes, and each party size must be different.'
     : undefined;
+  if (mode === 'tableTimes') {
+    return (
+      <SettingsDialog
+        open={open}
+        onOpenChange={onOpenChange}
+        size="lg"
+        title={`Table times for ${form.label || 'this booking type'}`}
+        description="How long a table is held for each party size at your restaurant. Changes apply when you save the page."
+        testId="availability-booking-type-dialog"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={onSubmit}>
+              Update table times
+            </Button>
+          </>
+        }
+      >
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-1 text-sm font-medium text-foreground">
+            Table time by party size
+          </legend>
+          <TurnBandsEditor
+            bands={form.turnBands}
+            defaults={editingKey ? (turnBandDefaults?.[editingKey] ?? []) : undefined}
+            errors={turnBandErrors}
+            fallbackLabel={`No party-size table times. Every party gets ${form.defaultDurationMinutes} min.`}
+            onChange={(next) => onFormChange((prev) => ({ ...prev, turnBands: next }))}
+            dense
+          />
+          <FieldErrorText id="availability-occasion-bands-error" message={bandError} />
+        </fieldset>
+      </SettingsDialog>
+    );
+  }
+
   return (
     <SettingsDialog
       open={open}

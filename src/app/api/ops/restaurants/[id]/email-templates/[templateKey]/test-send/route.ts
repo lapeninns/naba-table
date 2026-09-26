@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
 import {
   restaurantEmailTemplateKeySchema,
   sendRestaurantEmailTemplateTestSchema,
   type SendRestaurantEmailTemplateTestResponse,
 } from '@/app/api/ops/restaurants/schema';
+import { apiError, conflict, validationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
+import { isEmailRecipientSuppressedError } from '@/libs/resend';
 import { sendRestaurantBookingEmailTest } from '@/server/emails/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 
+import { unknownTemplateKey } from '../../_errors';
 import {
   ensureTemplateWriteAccess,
   resolveRestaurantId,
@@ -18,17 +22,30 @@ import {
 
 import type { NextRequest } from 'next/server';
 
+const INVALID_IDEMPOTENCY_KEY = Symbol('invalid-idempotency-key');
+const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_.:-]{8,128}$/;
+
+/** The client's per-click key; absent is allowed (every call then sends). */
+function parseIdempotencyKeyHeader(
+  req: NextRequest,
+): string | null | typeof INVALID_IDEMPOTENCY_KEY {
+  const raw = req.headers.get('idempotency-key');
+  if (raw === null) return null;
+  const value = raw.trim();
+  return IDEMPOTENCY_KEY_PATTERN.test(value) ? value : INVALID_IDEMPOTENCY_KEY;
+}
+
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Missing restaurant id.');
   }
 
   const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
     await resolveTemplateKeyParam(params),
   );
   if (!parsedTemplateKey.success) {
-    return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
+    return unknownTemplateKey();
   }
 
   const venueOrResponse = await ensureTemplateWriteAccess(restaurantId, req);
@@ -52,15 +69,17 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Invalid JSON body.');
   }
 
   const parsedBody = sendRestaurantEmailTemplateTestSchema.safeParse(body);
   if (!parsedBody.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsedBody.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsedBody.error);
+  }
+
+  const requestKey = parseIdempotencyKeyHeader(req);
+  if (requestKey === INVALID_IDEMPOTENCY_KEY) {
+    return apiError(400, 'INVALID_IDEMPOTENCY_KEY', 'Invalid Idempotency-Key header.');
   }
 
   try {
@@ -70,6 +89,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       toEmail: parsedBody.data.toEmail,
       draftVariants: parsedBody.data.variants,
       preferredVariantId: parsedBody.data.preferredVariantId,
+      requestKey,
     });
 
     const response: SendRestaurantEmailTemplateTestResponse = {
@@ -96,14 +116,25 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops][restaurants][email-templates][test-send] failed', error);
+    if (isEmailRecipientSuppressedError(error)) {
+      return conflict(
+        'RECIPIENT_SUPPRESSED',
+        'That address is blocked after a bounce or complaint. Use a different address.',
+      );
+    }
+
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-email-template-test-send' },
     });
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unable to send test email' },
-      { status: 500 },
-    );
+    logger.warn('ops.restaurants.email-templates.test_send_failed', {
+      route: 'ops.restaurants.email-templates',
+      operation: 'test-send',
+      restaurantId,
+      errorName: error instanceof Error ? error.name : typeof error,
+    });
+    return apiError(502, 'SEND_FAILED', "The test email couldn't be sent. Try again.", {
+      retryable: true,
+    });
   }
 }

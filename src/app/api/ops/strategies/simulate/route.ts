@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { apiError, forbidden, unauthenticated, validationError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/strategies/simulate';
+
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : typeof err;
+}
 
 const payloadSchema = z.object({
   restaurantId: z.string().uuid(),
@@ -34,22 +42,22 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/strategies/simulate][POST] auth lookup failed', error.message);
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('[ops/strategies/simulate][POST] auth lookup failed', {
+      route: ROUTE,
+      status: mapped.status,
+    });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const parsedPayload = payloadSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedPayload.success) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return validationError(parsedPayload.error);
   }
 
   const { restaurantId, strategies, notes } = parsedPayload.data;
@@ -57,8 +65,11 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
   } catch (accessError) {
-    console.error('[ops/strategies/simulate][POST] membership check failed', accessError);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    logger.warn('[ops/strategies/simulate][POST] membership check failed', {
+      route: ROUTE,
+      errorName: errorName(accessError),
+    });
+    return forbidden();
   }
 
   const timestamp = new Date().toISOString();
@@ -82,5 +93,5 @@ export async function POST(request: NextRequest) {
 }
 
 export function GET() {
-  return NextResponse.json({ error: 'Not implemented' }, { status: 405 });
+  return apiError(405, 'METHOD_NOT_ALLOWED', 'Method not allowed.', { headers: { Allow: 'POST' } });
 }

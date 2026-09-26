@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const envMock = vi.hoisted(() => ({
-  security: {},
+  security: {} as { sessionRecoveryAccessTokenSecret?: string },
 }));
+const enqueueEmailJobMock = vi.hoisted(() => vi.fn());
 const policyState = vi.hoisted(() => ({
   bookingPastTimeBlocking: false,
   bookingValidationUnified: false,
@@ -32,6 +33,9 @@ const extractClientIpMock = vi.hoisted(() => vi.fn());
 const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
 const mapValidationFailureMock = vi.hoisted(() => vi.fn());
 const assertBookingNotInPastMock = vi.hoisted(() => vi.fn());
+const getUserMock = vi.hoisted(() => vi.fn());
+const bookingUpdateMock = vi.hoisted(() => vi.fn());
+const bookingUpdateFiltersMock = vi.hoisted(() => vi.fn());
 
 const BookingValidationErrorMock = vi.hoisted(
   () =>
@@ -53,6 +57,20 @@ function createQueryBuilder() {
     maybeSingle: maybeSingleMock,
     order: vi.fn(() => builder),
     limit: vi.fn(() => builder),
+    update: vi.fn((patch: Record<string, unknown>) => {
+      bookingUpdateMock(patch);
+      const chain = {
+        eq: vi.fn((column: string, value: unknown) => {
+          bookingUpdateFiltersMock('eq', column, value);
+          return chain;
+        }),
+        is: vi.fn(async (column: string, value: unknown) => {
+          bookingUpdateFiltersMock('is', column, value);
+          return { error: null };
+        }),
+      };
+      return chain;
+    }),
   };
 
   return builder;
@@ -67,14 +85,13 @@ vi.mock('@/server/runtime-policy', () => ({
   getInlineAutoAssignTimeoutMs: vi.fn(() => 4_000),
   isAutoAssignOnBookingEnabled: vi.fn(() => false),
   isBookingPastTimeBlockingEnabled: vi.fn(() => policyState.bookingPastTimeBlocking),
-  isGuestLookupPolicyEnabled: vi.fn(() => false),
   isUnifiedBookingValidationEnabled: vi.fn(() => policyState.bookingValidationUnified),
 }));
 
 vi.mock('@/server/supabase', () => ({
   getDefaultRestaurantId: getDefaultRestaurantIdMock,
   getRouteHandlerSupabaseClient: vi.fn(async () => ({
-    auth: { getUser: vi.fn() },
+    auth: { getUser: getUserMock },
   })),
   getServiceSupabaseClient: vi.fn(() => ({
     from: fromMock,
@@ -115,6 +132,7 @@ vi.mock('@/server/capacity', () => ({
 }));
 
 vi.mock('@/server/customers', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('@/server/customers')>();
   return {
     ...actual,
@@ -126,6 +144,10 @@ vi.mock('@/server/customers', async (importOriginal) => {
 vi.mock('@/server/jobs/booking-side-effects', () => ({
   enqueueBookingCreatedSideEffects: enqueueBookingCreatedSideEffectsMock,
   safeBookingPayload: vi.fn((booking) => booking),
+}));
+
+vi.mock('@/server/queue/email', () => ({
+  enqueueEmailJob: enqueueEmailJobMock,
 }));
 
 vi.mock('@/server/observability', () => ({
@@ -141,14 +163,6 @@ vi.mock('@/server/security/request', () => ({
   extractClientIp: extractClientIpMock,
 }));
 
-vi.mock('@/server/security/guest-lookup', () => ({
-  computeGuestLookupHash: vi.fn(() => 'lookup-hash'),
-}));
-
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  validateSessionRecoveryAccessToken: vi.fn(),
-}));
-
 vi.mock('@/server/booking', () => ({
   createBookingValidationService: createBookingValidationServiceMock,
   BookingValidationError: BookingValidationErrorMock,
@@ -162,36 +176,6 @@ vi.mock('@/server/booking/http', () => ({
 vi.mock('@/server/bookings/confirmation-token', () => ({
   generateConfirmationToken: vi.fn(() => 'confirm-token'),
   computeTokenExpiry: vi.fn(() => new Date('2026-04-14T12:00:00.000Z').toISOString()),
-  getStoredBookingConfirmationTokenState: vi.fn((booking) => ({
-    confirmationToken: booking.confirmation_token ?? null,
-    confirmationTokenExpiresAt:
-      typeof booking.confirmation_token_expires_at === 'string'
-        ? booking.confirmation_token_expires_at
-        : null,
-  })),
-  buildBookingConfirmationTokenAttachment: vi.fn(
-    ({
-      bookingId,
-      confirmationToken,
-      confirmationTokenExpiresAt,
-    }: {
-      bookingId: string;
-      confirmationToken: string | null;
-      confirmationTokenExpiresAt: string | null;
-    }) =>
-      confirmationToken && confirmationTokenExpiresAt
-        ? null
-        : {
-            bookingId,
-            confirmationToken: confirmationToken ?? 'confirm-token',
-            confirmationTokenExpiresAt:
-              confirmationTokenExpiresAt ?? new Date('2026-04-14T12:00:00.000Z').toISOString(),
-          },
-  ),
-  attachTokenToBooking: vi.fn(async () => undefined),
-  resolveBookingCreateConfirmationToken: vi.fn(async ({ booking }) => {
-    return booking.confirmation_token ?? 'confirm-token';
-  }),
 }));
 
 vi.mock('@reserve/shared/validation', () => ({
@@ -310,34 +294,20 @@ describe('public POST /api/bookings capacity handling', () => {
     createBookingValidationServiceMock.mockReset();
     mapValidationFailureMock.mockReset();
     assertBookingNotInPastMock.mockReset();
+    enqueueEmailJobMock.mockReset();
+    enqueueEmailJobMock.mockResolvedValue(undefined);
+    envMock.security = {};
+    getUserMock.mockReset();
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+    bookingUpdateMock.mockReset();
+    bookingUpdateFiltersMock.mockReset();
   });
 
-  it('returns contact-query access diagnostics for public guest lookup', async () => {
-    consumeRateLimitMock.mockResolvedValueOnce({
-      ok: true,
-      limit: 20,
-      remaining: 19,
-      resetAt: Date.now() + 60_000,
-      source: 'memory',
-    });
-    fetchBookingsForContactMock.mockResolvedValueOnce([
-      {
-        id: 'booking-1',
-        restaurant_id: '11111111-1111-4111-8111-111111111111',
-        booking_date: '2026-07-01',
-        start_time: '19:00',
-        end_time: '20:30',
-        reference: 'NB123456',
-        party_size: 4,
-        booking_type: 'dinner',
-        seating_preference: 'any',
-        status: 'confirmed',
-        customer_name: 'Alex Guest',
-        customer_email: 'alex@example.com',
-        customer_phone: '+447700900123',
-      },
-    ]);
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
+  it('refuses the removed contact-query lookup with 410 and runs no query', async () => {
     const response = await GET(
       new NextRequest(
         'https://www.nabatable.com/api/bookings?email=alex@example.com&phone=%2B447700900123&restaurantId=11111111-1111-4111-8111-111111111111',
@@ -345,40 +315,14 @@ describe('public POST /api/bookings capacity handling', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      bookings: [
-        expect.objectContaining({
-          id: '',
-          restaurant_id: '',
-          start_time: '',
-          reference: null,
-          customer_name: 'A***',
-          customer_email: 'a***@e***.com',
-          customer_phone: '***0123',
-        }),
-      ],
-      access: {
-        mode: 'contact_query',
-        token: {
-          provided: false,
-          valid: false,
-          reason: null,
-          restaurantId: null,
-        },
-        restaurantId: '11111111-1111-4111-8111-111111111111',
-        restaurantSource: 'query',
-        lookupStrategy: 'legacy',
-        policyEnabled: false,
-        rateSource: 'memory',
-      },
-    });
-    expect(fetchBookingsForContactMock).toHaveBeenCalledWith(
-      { kind: 'tenant-client' },
-      '11111111-1111-4111-8111-111111111111',
-      'alex@example.com',
-      '+447700900123',
-    );
+    expect(response.status).toBe(410);
+    expect(body).toMatchObject({ code: 'CONTACT_LOOKUP_REMOVED' });
+    expect(body.error).toBe(body.message);
+    expect(JSON.stringify(body)).not.toContain('alex@example.com');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(consumeRateLimitMock).not.toHaveBeenCalled();
   });
 
   it('returns booking-create rate limit response and records observability', async () => {
@@ -546,7 +490,8 @@ describe('public POST /api/bookings capacity handling', () => {
       { time: '18:30', available: true, utilizationPercent: 80 },
       { time: '20:00', available: true, utilizationPercent: 70 },
     ]);
-    expect(upsertCustomerMock).toHaveBeenCalledOnce();
+    // A full slot is rejected before the customer row is written.
+    expect(upsertCustomerMock).not.toHaveBeenCalled();
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
     expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
   });
@@ -750,16 +695,588 @@ describe('public POST /api/bookings capacity handling', () => {
     recoverBuilder.maybeSingle.mockResolvedValueOnce({ data: recoveredBooking, error: null });
     fromMock.mockReturnValueOnce(recoverBuilder);
 
+    envMock.security = { sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret' };
+    // The matched booking is still upcoming, so the lost-link email is worth sending.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-01T10:05:00.000Z'));
     const response = await POST(buildRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.duplicate).toBe(true);
-    expect(body.booking.id).toBe('booking-1');
+    // A booking matched by the derived key is not the requester's to hold: no DTO, no cookie.
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({ code: 'BOOKING_NOT_COMPLETED', retryable: false });
+    expect(body.booking).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain('NB123456');
+    expect(response.headers.getSetCookie().some((c) => c.includes('nt_bk.'))).toBe(false);
+    expect(enqueueEmailJobMock).toHaveBeenCalledWith(
+      { bookingId: 'booking-1', restaurantId: recoveredBooking.restaurant_id, type: 'manage_link' },
+      { jobId: expect.stringMatching(/^manage_link:booking-1:\d+$/) },
+    );
     expect(recoverBuilder.eq).toHaveBeenCalledWith('restaurant_id', recoveredBooking.restaurant_id);
     expect(recoverBuilder.eq).toHaveBeenCalledWith('customer_id', 'cust-1');
     expect(recoverBuilder.eq).toHaveBeenCalledWith('idempotency_key', expect.any(String));
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
-    expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    // A replay re-ensures the idempotent side effects (S2b), flagged as a replay.
+    expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+    expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ replay: true }),
+      expect.anything(),
+    );
+  });
+
+  describe('Idempotency-Key replays', () => {
+    const IDEMPOTENCY_KEY = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    const storedBooking = {
+      id: '7d3c1a52-9e0b-4f6e-8a41-2b5c9d0e7f13',
+      restaurant_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: 'cust-1',
+      booking_date: '2026-07-01',
+      start_time: '19:00:00',
+      end_time: '20:30:00',
+      start_at: null,
+      end_at: null,
+      reference: 'NB654321',
+      party_size: 4,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      status: 'pending',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+      notes: null,
+      marketing_opt_in: true,
+      client_request_id: IDEMPOTENCY_KEY,
+      idempotency_key: IDEMPOTENCY_KEY,
+      pending_ref: null,
+      confirmation_token: 'confirm-token',
+      confirmation_token_expires_at: '2026-07-01T12:00:00.000Z',
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    };
+
+    // Replays land inside the 15-minute creator window of storedBooking.created_at.
+    const REPLAY_NOW = new Date('2026-07-01T10:05:00.000Z');
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(REPLAY_NOW);
+      envMock.security = { sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret' };
+    });
+
+    function creatorCookies(response: Response): string[] {
+      return response.headers
+        .getSetCookie()
+        .filter((cookie) => cookie.startsWith(`__Host-nt_bk.${storedBooking.id}=`));
+    }
+
+    function keyedRequest(overrides: Record<string, unknown> = {}) {
+      const request = buildRequest(overrides);
+      request.headers.set('Idempotency-Key', IDEMPOTENCY_KEY);
+      return request;
+    }
+
+    function availableSlot() {
+      checkSlotAvailabilityMock.mockResolvedValue({
+        available: true,
+        metadata: { servicePeriod: 'Dinner', maxCovers: 20, bookedCovers: 0 },
+      });
+    }
+
+    it('replays the same key with the same body and status as the original, writing no booking', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: false,
+        booking: storedBooking,
+      });
+      const original = await POST(keyedRequest());
+      const originalBody = await original.json();
+      expect(original.status).toBe(201);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: IDEMPOTENCY_KEY,
+          details: expect.objectContaining({ initial_status: 'pending' }),
+        }),
+      );
+      expect(updateBookingRecordMock).not.toHaveBeenCalled();
+      expect(creatorCookies(original)).toHaveLength(1);
+
+      upsertCustomerMock.mockClear();
+      enqueueBookingCreatedSideEffectsMock.mockClear();
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({ data: storedBooking, error: null });
+      fromMock.mockReturnValueOnce(keyBuilder);
+
+      const replay = await POST(keyedRequest());
+
+      expect(replay.status).toBe(original.status);
+      await expect(replay.json()).resolves.toEqual(originalBody);
+      expect(keyBuilder.eq).toHaveBeenCalledWith('idempotency_key', IDEMPOTENCY_KEY);
+      expect(keyBuilder.eq).not.toHaveBeenCalledWith('customer_id', expect.anything());
+      // No booking or customer write on the replay...
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
+      expect(upsertCustomerMock).not.toHaveBeenCalled();
+      expect(insertBookingRecordMock).not.toHaveBeenCalled();
+      expect(updateBookingRecordMock).not.toHaveBeenCalled();
+      // ...but the idempotent side effects are re-ensured (S2b), flagged as a replay.
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ replay: true }),
+        expect.anything(),
+      );
+      // The creator keeps (or regains) the booking cookie.
+      expect(creatorCookies(replay)).toHaveLength(1);
+    });
+
+    it('refuses the same key replayed after the 15-minute window: 409, no cookie, no DTO', async () => {
+      vi.setSystemTime(new Date('2026-07-01T10:16:00.000Z'));
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({ data: storedBooking, error: null });
+      fromMock.mockReturnValueOnce(keyBuilder);
+
+      const replay = await POST(keyedRequest());
+      const body = await replay.json();
+
+      expect(replay.status).toBe(409);
+      expect(body).toMatchObject({ code: 'BOOKING_NOT_COMPLETED' });
+      expect(body.booking).toBeUndefined();
+      expect(creatorCookies(replay)).toHaveLength(0);
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+    });
+
+    it('answers a lost race (RPC duplicate for our key) exactly like the original insert', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: true,
+        booking: storedBooking,
+      });
+
+      const response = await POST(keyedRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(body.duplicate).toBe(false);
+      expect(body.booking.reference).toBe('NB654321');
+      expect(creatorCookies(response)).toHaveLength(1);
+      // The winner's insert already dispatched; ours only re-ensures, flagged as a replay.
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ replay: true }),
+        expect.anything(),
+      );
+    });
+
+    it('refuses a derived (non-uuid) key sent as the header, even inside the window', async () => {
+      const derivedKey = 'a'.repeat(32);
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { ...storedBooking, idempotency_key: derivedKey, client_request_id: null },
+        error: null,
+      });
+      fromMock.mockReturnValueOnce(keyBuilder);
+      const request = buildRequest();
+      request.headers.set('Idempotency-Key', derivedKey);
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'BOOKING_NOT_COMPLETED' });
+      expect(body.booking).toBeUndefined();
+      expect(creatorCookies(response)).toHaveLength(0);
+    });
+
+    it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({ data: storedBooking, error: null });
+      fromMock.mockReturnValueOnce(keyBuilder);
+
+      const response = await POST(keyedRequest({ party: 6 }));
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', retryable: false });
+      expect(body.error).toBe(body.message);
+      expect(JSON.stringify(body)).not.toContain('NB654321');
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+      expect(upsertCustomerMock).not.toHaveBeenCalled();
+    });
+
+    it('maps the RPC IDEMPOTENCY_KEY_REUSED result (concurrent different payload) to 409', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: false,
+        duplicate: false,
+        error: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'This request key was already used for a different booking.',
+        details: { idempotencyConflict: true },
+        retryable: false,
+      });
+
+      const response = await POST(keyedRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    });
+
+    it('never records the raw key in observability events', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: false,
+        booking: null,
+      });
+
+      await POST(keyedRequest());
+
+      expect(recordObservabilityEventMock).toHaveBeenCalled();
+      expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(
+        IDEMPOTENCY_KEY,
+      );
+    });
+  });
+
+  describe('key-less create, cancel, rebook the same slot', () => {
+    type Row = Record<string, unknown>;
+
+    function bookingRow(overrides: Row): Row {
+      return {
+        restaurant_id: '11111111-1111-4111-8111-111111111111',
+        customer_id: 'cust-1',
+        booking_date: '2026-07-01',
+        start_time: '19:00:00',
+        end_time: '20:30:00',
+        start_at: null,
+        end_at: null,
+        party_size: 4,
+        booking_type: 'dinner',
+        seating_preference: 'any',
+        status: 'pending',
+        customer_name: 'Alex Guest',
+        customer_email: 'alex@example.com',
+        customer_phone: '+447700900123',
+        notes: null,
+        marketing_opt_in: true,
+        client_request_id: '11111111-1111-4111-8111-333333333333',
+        pending_ref: null,
+        confirmation_token: null,
+        confirmation_token_expires_at: null,
+        created_at: '2026-07-01T10:00:00.000Z',
+        updated_at: '2026-07-01T10:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    /** PostgREST-shaped reads over an in-memory bookings table (eq, not in, order, limit). */
+    function bookingsTable(rows: Row[]) {
+      return () => {
+        const filters: Array<(row: Row) => boolean> = [];
+        let limitCount: number | null = null;
+        const builder = {
+          select: vi.fn(() => builder),
+          eq: vi.fn((column: string, value: unknown) => {
+            filters.push(
+              (row) =>
+                String(row[column] ?? '').slice(0, String(value).length) === String(value) &&
+                row[column] !== null,
+            );
+            return builder;
+          }),
+          not: vi.fn((column: string, operator: string, value: string) => {
+            const excluded = value.replace(/[()]/g, '').split(',');
+            filters.push((row) => !(operator === 'in' && excluded.includes(String(row[column]))));
+            return builder;
+          }),
+          order: vi.fn(() => builder),
+          limit: vi.fn((count: number) => {
+            limitCount = count;
+            return builder;
+          }),
+          maybeSingle: vi.fn(async () => {
+            let matched = rows.filter((row) => filters.every((filter) => filter(row)));
+            if (limitCount !== null) matched = matched.slice(0, limitCount);
+            if (matched.length > 1) return { data: null, error: new Error('multiple rows') };
+            return { data: matched[0] ?? null, error: null };
+          }),
+        };
+        return builder;
+      };
+    }
+
+    /** Mirrors the RPC contract proven in tests/db/booking-create-idempotency.sql. */
+    function rpcOver(rows: Row[]) {
+      let sequence = 0;
+      return async (params: {
+        restaurantId: string;
+        customerId: string;
+        bookingDate: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        idempotencyKey: string | null;
+        details?: Record<string, unknown> | null;
+      }) => {
+        const derived = params.details?.idempotency_key_kind === 'derived';
+        const existing = rows.find(
+          (row) =>
+            row.restaurant_id === params.restaurantId &&
+            params.idempotencyKey !== null &&
+            row.idempotency_key === params.idempotencyKey,
+        );
+        if (existing) {
+          if (!(derived && ['cancelled', 'no_show'].includes(String(existing.status)))) {
+            return existing.party_size === params.partySize
+              ? { success: true, duplicate: true, booking: existing }
+              : {
+                  success: false,
+                  duplicate: false,
+                  error: 'IDEMPOTENCY_KEY_REUSED',
+                  details: { idempotencyConflict: true },
+                  retryable: false,
+                };
+          }
+          existing.idempotency_key = null;
+        }
+        sequence += 1;
+        const inserted = bookingRow({
+          id: `booking-rebook-${sequence}`,
+          reference: `NBREB${sequence}`,
+          party_size: params.partySize,
+          idempotency_key: params.idempotencyKey,
+        });
+        rows.push(inserted);
+        return { success: true, duplicate: false, booking: inserted };
+      };
+    }
+
+    beforeEach(() => {
+      checkSlotAvailabilityMock.mockResolvedValue({
+        available: true,
+        metadata: { servicePeriod: 'Dinner', maxCovers: 20, bookedCovers: 0 },
+      });
+    });
+
+    it.each([
+      ['the same party size', 4],
+      ['a different party size', 2],
+    ])('inserts a NEW booking (201) after a cancel, with %s', async (_label, rebookParty) => {
+      const rows: Row[] = [];
+      const table = bookingsTable(rows);
+      fromMock.mockImplementation((name: string) =>
+        name === 'bookings' ? table() : createQueryBuilder(),
+      );
+      createBookingWithCapacityCheckMock.mockImplementation(rpcOver(rows));
+
+      const first = await POST(buildRequest());
+      const firstBody = await first.json();
+      expect(first.status).toBe(201);
+      const firstCall = createBookingWithCapacityCheckMock.mock.calls[0]?.[0];
+      expect(firstCall.details).toMatchObject({ idempotency_key_kind: 'derived' });
+      expect(firstCall.idempotencyKey).toMatch(/^[0-9a-f]{32}$/);
+
+      const firstRow = rows.find((row) => row.id === firstBody.booking.id);
+      expect(firstRow).toBeDefined();
+      if (firstRow) firstRow.status = 'cancelled';
+
+      const rebook = await POST(buildRequest({ party: rebookParty }));
+      const rebookBody = await rebook.json();
+
+      expect(rebook.status).toBe(201);
+      expect(rebookBody.duplicate).toBe(false);
+      expect(rebookBody.code).toBeUndefined();
+      expect(rebookBody.booking.id).not.toBe(firstBody.booking.id);
+      expect(rebookBody.booking.party_size).toBe(rebookParty);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(2);
+      expect(rows.filter((row) => row.status !== 'cancelled')).toHaveLength(1);
+    });
+
+    it('still matches the live booking for a key-less double submit (no second insert)', async () => {
+      const rows: Row[] = [];
+      const table = bookingsTable(rows);
+      fromMock.mockImplementation((name: string) =>
+        name === 'bookings' ? table() : createQueryBuilder(),
+      );
+      createBookingWithCapacityCheckMock.mockImplementation(rpcOver(rows));
+
+      const first = await POST(buildRequest());
+      const firstBody = await first.json();
+      const second = await POST(buildRequest());
+      const secondBody = await second.json();
+
+      // The derived-key match is not proof of being the creator: neutral 409, no DTO.
+      expect(first.status).toBe(201);
+      expect(firstBody.booking.id).toEqual(expect.any(String));
+      expect(second.status).toBe(409);
+      expect(secondBody).toMatchObject({ code: 'BOOKING_NOT_COMPLETED' });
+      expect(secondBody.booking).toBeUndefined();
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
+      expect(rows).toHaveLength(1);
+    });
+  });
+  describe('binding a new booking to the signed-in guest who made it', () => {
+    const USER_ID = '5b0f2c1e-3d4a-4b6c-9e8f-0a1b2c3d4e5f';
+    const insertedBooking = {
+      id: '2a9d6c4e-1b3f-4e5a-8c7d-9f0e1d2c3b4a',
+      restaurant_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: 'cust-1',
+      booking_date: '2026-07-01',
+      start_time: '19:00:00',
+      end_time: '20:30:00',
+      start_at: null,
+      end_at: null,
+      reference: 'NB777777',
+      party_size: 4,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      status: 'pending',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+      notes: null,
+      marketing_opt_in: true,
+      client_request_id: null,
+      idempotency_key: 'created-key',
+      pending_ref: null,
+      auth_user_id: null,
+      confirmation_token: null,
+      confirmation_token_expires_at: null,
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    };
+
+    function insertSucceeds() {
+      checkSlotAvailabilityMock.mockResolvedValue({
+        available: true,
+        metadata: { servicePeriod: 'Dinner', maxCovers: 20, bookedCovers: 0 },
+      });
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: false,
+        booking: insertedBooking,
+      });
+    }
+
+    function signedIn(user: { email: string | null; email_confirmed_at: string | null }) {
+      getUserMock.mockResolvedValue({ data: { user: { id: USER_ID, ...user } }, error: null });
+    }
+
+    it('binds the booking when the signed-in user has a confirmed, matching email', async () => {
+      insertSucceeds();
+      signedIn({ email: ' Alex@Example.com ', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).toHaveBeenCalledTimes(1);
+      expect(bookingUpdateMock).toHaveBeenCalledWith({ auth_user_id: USER_ID });
+      expect(bookingUpdateFiltersMock).toHaveBeenCalledWith('eq', 'id', insertedBooking.id);
+      expect(bookingUpdateFiltersMock).toHaveBeenCalledWith(
+        'eq',
+        'restaurant_id',
+        insertedBooking.restaurant_id,
+      );
+      expect(bookingUpdateFiltersMock).toHaveBeenCalledWith('is', 'auth_user_id', null);
+      // The create still sends no binding to the RPC; the claim is the only writer here.
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledWith(
+        expect.objectContaining({ authUserId: null }),
+      );
+    });
+
+    it('does not bind when the signed-in email is unconfirmed', async () => {
+      insertSucceeds();
+      signedIn({ email: 'alex@example.com', email_confirmed_at: null });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('does not bind when the signed-in email differs from the booking email', async () => {
+      insertSucceeds();
+      signedIn({ email: 'staff@example.com', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('leaves an anonymous create unchanged and logs nothing', async () => {
+      const { AuthSessionMissingError } = await import('@supabase/supabase-js');
+      const { logger } = await import('@/lib/logger');
+      const warnSpy = vi.spyOn(logger, 'warn');
+      insertSucceeds();
+      getUserMock.mockResolvedValue({ data: { user: null }, error: new AuthSessionMissingError() });
+
+      const response = await POST(buildRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(body.booking.id).toBe(insertedBooking.id);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        'bookings.create.owner_binding.session_failed',
+        expect.anything(),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('still returns 201 when resolving the session fails, and logs no PII', async () => {
+      const { logger } = await import('@/lib/logger');
+      const warnSpy = vi.spyOn(logger, 'warn');
+      insertSucceeds();
+      getUserMock.mockResolvedValue({
+        data: { user: null },
+        error: Object.assign(new Error('auth unavailable for alex@example.com'), { status: 503 }),
+      });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith('bookings.create.owner_binding.session_failed', {
+        status: 503,
+      });
+      expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('alex@example.com');
+      warnSpy.mockRestore();
+    });
+
+    it('still returns 201 when getUser throws', async () => {
+      insertSucceeds();
+      getUserMock.mockRejectedValue(new Error('network down'));
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('never binds or changes anything on an Idempotency-Key replay', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-01T10:05:00.000Z'));
+      envMock.security = { sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret' };
+      const key = '0f8fad5b-d9cb-469f-a165-70867728950e';
+      signedIn({ email: 'alex@example.com', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { ...insertedBooking, client_request_id: key, idempotency_key: key },
+        error: null,
+      });
+      fromMock.mockReturnValueOnce(keyBuilder);
+      const request = buildRequest();
+      request.headers.set('Idempotency-Key', key);
+
+      const replay = await POST(request);
+
+      expect(replay.status).toBe(201);
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+      expect(getUserMock).not.toHaveBeenCalled();
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
   });
 });

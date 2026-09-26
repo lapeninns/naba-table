@@ -83,6 +83,14 @@ describe('vercel cron configuration', () => {
     );
   });
 
+  it('schedules the capacity outbox drain exactly once', () => {
+    const config = readVercelConfig();
+    const matchingCrons =
+      config.crons?.filter((cron) => cron.path === '/api/cron/capacity-outbox') ?? [];
+
+    expect(matchingCrons).toEqual([{ path: '/api/cron/capacity-outbox', schedule: '*/5 * * * *' }]);
+  });
+
   it.each(ACTIVE_DUAL_SYNC_CRONS)('schedules $path exactly once at $schedule', (expected) => {
     const config = readVercelConfig();
     const matchingCrons = config.crons?.filter((cron) => cron.path === expected.path) ?? [];

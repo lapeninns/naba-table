@@ -75,10 +75,10 @@ describe('DELETE /api/ops/tables/[id]', () => {
     const response = await DELETE(request(), routeContext());
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Cannot delete table with active or future booking assignments',
-      message: 'Please reassign, complete, or cancel affected bookings first',
-    });
+    const body = await response.json();
+    expect(body).toMatchObject({ code: 'TABLE_HAS_BOOKINGS' });
+    expect(body.error).toBe(body.message);
+    expect(JSON.stringify(body)).not.toContain('booking assignments');
     expect(serviceClient.rpc).toHaveBeenCalledWith('delete_table_inventory_guarded', {
       p_table_id: TABLE_ID,
       p_current_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),

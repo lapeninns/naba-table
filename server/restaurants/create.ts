@@ -1,5 +1,12 @@
+import { randomInt } from 'node:crypto';
+
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
+import {
+  RestaurantAccessExistsError,
+  RestaurantCreateValidationError,
+  RestaurantSlugUnavailableError,
+} from '@/server/restaurants/create-errors';
 import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
@@ -35,13 +42,15 @@ type CreateRestaurantWithOwnerArgs = {
   p_user_id: string;
 };
 
+type RpcError = { message: string; code?: string; details?: string | null };
+
 type CreateRestaurantWithOwnerRpcClient = DbClient & {
   rpc: (
     fn: 'create_restaurant_with_owner',
     args: CreateRestaurantWithOwnerArgs,
   ) => Promise<{
     data: RestaurantRow | null;
-    error: { message: string } | null;
+    error: RpcError | null;
   }>;
 };
 
@@ -106,30 +115,32 @@ function generateSlug(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-async function ensureUniqueSlug(slug: string, client: DbClient): Promise<string> {
-  let candidateSlug = slug;
-  let attempt = 0;
+const SLUG_FALLBACK = 'restaurant';
+/** The first candidate is the requested slug; later ones add a random suffix. */
+const MAX_SLUG_ATTEMPTS = 4;
+const SLUG_SUFFIX_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
-  while (attempt < 10) {
-    const { data, error } = await client
-      .from('restaurants')
-      .select('id')
-      .eq('slug', candidateSlug)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error(`Failed to check slug uniqueness: ${error.message}`);
-    }
-
-    if (!data) {
-      return candidateSlug;
-    }
-
-    attempt += 1;
-    candidateSlug = `${slug}-${attempt}`;
+function randomSlugSuffix(): string {
+  // randomInt draws without modulo bias.
+  let suffix = '';
+  for (let index = 0; index < 4; index += 1) {
+    suffix += SLUG_SUFFIX_ALPHABET[randomInt(SLUG_SUFFIX_ALPHABET.length)];
   }
+  return suffix;
+}
 
-  throw new Error('Unable to generate unique slug after multiple attempts');
+function slugCandidate(base: string, attempt: number): string {
+  return attempt === 0 ? base : `${base}-${randomSlugSuffix()}`;
+}
+
+function isSlugUniqueViolation(error: RpcError): boolean {
+  if (error.code !== '23505') return false;
+  const text = `${error.message} ${error.details ?? ''}`;
+  return text.includes('restaurants_slug_key') || /\(slug\)=/.test(text);
+}
+
+function isExistingMembershipViolation(error: RpcError): boolean {
+  return error.code === '23505' && error.message.includes('User already has restaurant access');
 }
 
 export async function createRestaurant(
@@ -137,9 +148,13 @@ export async function createRestaurant(
   userId: string,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<CreatedRestaurant> {
-  const slug = input.slug || generateSlug(input.name);
-  const uniqueSlug = await ensureUniqueSlug(slug, client);
-  const timezone = assertValidTimezone(input.timezone);
+  const baseSlug = input.slug || generateSlug(input.name) || SLUG_FALLBACK;
+  let timezone: string;
+  try {
+    timezone = assertValidTimezone(input.timezone);
+  } catch {
+    throw new RestaurantCreateValidationError('Choose a valid timezone.');
+  }
   const intervalMinutes =
     input.reservationIntervalMinutes !== undefined
       ? input.reservationIntervalMinutes
@@ -155,7 +170,9 @@ export async function createRestaurant(
       : 30;
 
   if (!Number.isInteger(intervalMinutes) || intervalMinutes < 1 || intervalMinutes > 180) {
-    throw new Error('Reservation interval must be an integer between 1 and 180 minutes.');
+    throw new RestaurantCreateValidationError(
+      'Reservation interval must be an integer between 1 and 180 minutes.',
+    );
   }
 
   if (
@@ -163,7 +180,9 @@ export async function createRestaurant(
     defaultDurationMinutes < 15 ||
     defaultDurationMinutes > 300
   ) {
-    throw new Error('Reservation duration must be an integer between 15 and 300 minutes.');
+    throw new RestaurantCreateValidationError(
+      'Reservation duration must be an integer between 15 and 300 minutes.',
+    );
   }
 
   if (
@@ -172,7 +191,9 @@ export async function createRestaurant(
       lastSeatingBufferMinutes < 15 ||
       lastSeatingBufferMinutes > 300)
   ) {
-    throw new Error('Last seating buffer must be an integer between 15 and 300 minutes.');
+    throw new RestaurantCreateValidationError(
+      'Last seating buffer must be an integer between 15 and 300 minutes.',
+    );
   }
 
   if (
@@ -180,7 +201,9 @@ export async function createRestaurant(
     lifecycleGraceMinutes < 0 ||
     lifecycleGraceMinutes > 120
   ) {
-    throw new Error('Lifecycle grace period must be an integer between 0 and 120 minutes.');
+    throw new RestaurantCreateValidationError(
+      'Lifecycle grace period must be an integer between 0 and 120 minutes.',
+    );
   }
 
   const managerNotificationPhone = input.managerNotificationPhone?.trim() || null;
@@ -189,40 +212,58 @@ export async function createRestaurant(
   const googleReviewUrl = safeGoogleReviewUrl(input.googleReviewUrl);
 
   if (managerDailySummaryEnabled && !managerNotificationPhone) {
-    throw new Error(
+    throw new RestaurantCreateValidationError(
       'A manager notification phone is required when daily SMS summaries are enabled.',
     );
   }
 
-  const { data: restaurant, error: restaurantError } = await (
-    client as CreateRestaurantWithOwnerRpcClient
-  ).rpc('create_restaurant_with_owner', {
-    p_address: input.address ?? null,
-    p_booking_policy: input.bookingPolicy ?? null,
-    p_capacity: input.capacity ?? null,
-    p_contact_email: input.contactEmail ?? null,
-    p_contact_phone: input.contactPhone ?? null,
-    p_email_send_reminder_24h: input.emailSendReminder24h ?? true,
-    p_email_send_reminder_short: input.emailSendReminderShort ?? true,
-    p_email_send_review_request: input.emailSendReviewRequest ?? true,
-    p_google_map_url: googleMapUrl,
-    p_google_review_url: googleReviewUrl,
-    p_logo_url: input.logoUrl ?? null,
-    p_manager_daily_summary_enabled: managerDailySummaryEnabled,
-    p_manager_notification_phone: managerNotificationPhone,
-    p_name: input.name,
-    p_reservation_default_duration_minutes: defaultDurationMinutes,
-    p_reservation_interval_minutes: intervalMinutes,
-    p_reservation_last_seating_buffer_minutes: lastSeatingBufferMinutes ?? null,
-    p_reservation_lifecycle_grace_minutes: lifecycleGraceMinutes,
-    p_slug: uniqueSlug,
-    p_timezone: timezone,
-    p_user_id: userId,
-  });
+  // The slug is claimed by the unique index inside the atomic RPC; on a slug collision retry
+  // with a suffixed candidate instead of probing with SELECTs first (one round trip when free).
+  let restaurant: RestaurantRow | null = null;
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt += 1) {
+    const slug = slugCandidate(baseSlug, attempt);
+    const result = await (client as CreateRestaurantWithOwnerRpcClient).rpc(
+      'create_restaurant_with_owner',
+      {
+        p_address: input.address ?? null,
+        p_booking_policy: input.bookingPolicy ?? null,
+        p_capacity: input.capacity ?? null,
+        p_contact_email: input.contactEmail ?? null,
+        p_contact_phone: input.contactPhone ?? null,
+        p_email_send_reminder_24h: input.emailSendReminder24h ?? true,
+        p_email_send_reminder_short: input.emailSendReminderShort ?? true,
+        p_email_send_review_request: input.emailSendReviewRequest ?? true,
+        p_google_map_url: googleMapUrl,
+        p_google_review_url: googleReviewUrl,
+        p_logo_url: input.logoUrl ?? null,
+        p_manager_daily_summary_enabled: managerDailySummaryEnabled,
+        p_manager_notification_phone: managerNotificationPhone,
+        p_name: input.name,
+        p_reservation_default_duration_minutes: defaultDurationMinutes,
+        p_reservation_interval_minutes: intervalMinutes,
+        p_reservation_last_seating_buffer_minutes: lastSeatingBufferMinutes ?? null,
+        p_reservation_lifecycle_grace_minutes: lifecycleGraceMinutes,
+        p_slug: slug,
+        p_timezone: timezone,
+        p_user_id: userId,
+      },
+    );
 
-  if (restaurantError) {
-    console.error('[createRestaurant] Atomic creation failed', restaurantError);
-    throw new Error(`Failed to create restaurant: ${restaurantError.message}`);
+    if (!result.error) {
+      restaurant = result.data;
+      break;
+    }
+    if (isExistingMembershipViolation(result.error)) {
+      throw new RestaurantAccessExistsError();
+    }
+    if (isSlugUniqueViolation(result.error)) {
+      if (attempt === MAX_SLUG_ATTEMPTS - 1) {
+        throw new RestaurantSlugUnavailableError();
+      }
+      continue;
+    }
+    console.error('[createRestaurant] Atomic creation failed', { code: result.error.code });
+    throw new Error(`Failed to create restaurant: ${result.error.message}`);
   }
 
   if (!restaurant) {

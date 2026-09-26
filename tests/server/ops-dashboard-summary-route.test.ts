@@ -55,6 +55,9 @@ describe('GET /api/ops/dashboard/summary', () => {
     expect(response.headers.get('Retry-After')).toBe('30');
     await expect(response.json()).resolves.toEqual({
       error: 'Membership verification is temporarily unavailable',
+      message: 'Membership verification is temporarily unavailable',
+      retryable: true,
+      retryAfter: 30,
       code: 'MEMBERSHIP_VALIDATION_UNAVAILABLE',
     });
     expect(getTodayBookingsSummary).not.toHaveBeenCalled();
@@ -104,7 +107,11 @@ describe('GET /api/ops/dashboard/summary', () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid query' });
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Invalid query',
+      code: 'VALIDATION_FAILED',
+      fields: { date: expect.any(Array) },
+    });
     expect(requireSession).not.toHaveBeenCalled();
     expect(getTodayBookingsSummary).not.toHaveBeenCalled();
   });

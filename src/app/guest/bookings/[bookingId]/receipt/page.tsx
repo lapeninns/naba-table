@@ -2,10 +2,12 @@ import { HydrationBoundary, QueryClient, dehydrate } from '@tanstack/react-query
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { env } from '@/lib/env';
+import { BookingAccessExpiredState } from '@/components/features/booking/manage/BookingAccessExpiredState';
 import { getTrustedSiteOrigin } from '@/lib/site-url';
-import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
-import { validateSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+import {
+  resolveGuestBookingPageGate,
+  type GuestBookingPageSearchParams,
+} from '@/server/bookings/guest-booking-page-gate';
 import { getServerComponentSupabaseClient } from '@/server/supabase';
 import { reservationAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
@@ -17,7 +19,7 @@ import type { Metadata } from 'next';
 export const dynamic = 'force-dynamic';
 
 type RouteParams = Promise<{ bookingId: string }>;
-type SearchParams = Promise<{ access_token?: string; accessToken?: string; token?: string }>;
+type SearchParams = Promise<GuestBookingPageSearchParams>;
 
 const shortenId = (value: string): string => (value.length > 8 ? value.slice(0, 8) : value);
 
@@ -61,8 +63,7 @@ async function prefetchReservation(
     const normalizedReservation = reservationAdapter(payload.booking);
     queryClient.setQueryData(reservationKeys.detail(reservationId), normalizedReservation);
     return normalizedReservation;
-  } catch (error) {
-    console.error('[receipt][prefetch]', error);
+  } catch {
     return null;
   }
 }
@@ -84,40 +85,34 @@ export default async function GuestBookingReceiptPage({
   searchParams: SearchParams;
 }) {
   const { bookingId } = await params;
-  const normalized = bookingId?.trim();
-  const resolvedSearchParams = (await searchParams) ?? {};
-  const accessToken = resolvedSearchParams.access_token ?? resolvedSearchParams.accessToken ?? null;
-  const legacyToken = resolvedSearchParams.token ?? null;
+  const normalized = bookingId?.trim() ?? '';
+  const ownPath = `/guest/bookings/${normalized}/receipt`;
+  const cookieStore = await cookies();
 
-  if (!normalized) {
-    redirect('/guest/bookings');
+  const gate = await resolveGuestBookingPageGate({
+    bookingId: normalized,
+    ownPath,
+    searchParams: (await searchParams) ?? {},
+    cookies: cookieStore,
+  });
+
+  if (gate.kind === 'redirect') {
+    redirect(gate.location);
   }
-
-  if (legacyToken && !accessToken) {
-    redirect('/bookings/recover/error?code=LEGACY_TOKEN_DEPRECATED');
-  }
-
-  if (accessToken) {
-    const recoverUrl = new URL('/bookings/recover', resolveOrigin());
-    recoverUrl.searchParams.set('access_token', accessToken);
-    recoverUrl.searchParams.set('next', `/guest/bookings/${normalized}/receipt`);
-    redirect(`${recoverUrl.pathname}${recoverUrl.search}`);
+  if (gate.kind === 'denied') {
+    return (
+      <BookingAccessExpiredState
+        reason={gate.reason}
+        isAuthenticated={gate.isAuthenticated}
+        signInHref={gate.signInHref}
+      />
+    );
   }
 
   const supabase = await getServerComponentSupabaseClient();
-  const [userResponse, cookieStore] = await Promise.all([supabase.auth.getUser(), cookies()]);
-  const user = userResponse.data.user;
-  const recoveryCookie = cookieStore.get('sr_access')?.value ?? null;
-  const recoverySecret = env.security.sessionRecoveryAccessTokenSecret;
-  const hasRecoveryCookie =
-    Boolean(recoveryCookie) &&
-    Boolean(recoverySecret) &&
-    validateSessionRecoveryAccessToken(recoveryCookie!, { secret: recoverySecret! }).ok;
-
-  // Require either auth or an established recovery cookie for receipt access.
-  if (!user && !hasRecoveryCookie) {
-    redirect(withRedirectedFrom('/auth/signin', `/guest/bookings/${normalized}/receipt`));
-  }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const queryClient = new QueryClient();
   const reservation = await prefetchReservation(queryClient, normalized, cookieStore);

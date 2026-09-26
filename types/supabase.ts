@@ -2531,6 +2531,7 @@ export type Database = {
           backoff_type: string;
           booking_id: string;
           cancelled_at: string | null;
+          claim_generation: number;
           claimed_at: string | null;
           created_at: string;
           dedupe_key: string;
@@ -2553,6 +2554,7 @@ export type Database = {
           backoff_type?: string;
           booking_id: string;
           cancelled_at?: string | null;
+          claim_generation?: number;
           claimed_at?: string | null;
           created_at?: string;
           dedupe_key: string;
@@ -2575,6 +2577,7 @@ export type Database = {
           backoff_type?: string;
           booking_id?: string;
           cancelled_at?: string | null;
+          claim_generation?: number;
           claimed_at?: string | null;
           created_at?: string;
           dedupe_key?: string;
@@ -8084,6 +8087,14 @@ export type Database = {
           table_id: string;
         }[];
       };
+      claim_booking_email_intent: {
+        Args: { p_dedupe_key: string; p_restaurant_id: string };
+        Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
+      };
+      claim_capacity_outbox_batch: {
+        Args: { p_limit?: number; p_lease_seconds?: number; p_max_attempts?: number };
+        Returns: Database['public']['Tables']['capacity_outbox']['Row'][];
+      };
       claim_due_email_dispatch_intents: {
         Args: { p_email_types?: string[] | null; p_max_count?: number | null };
         Returns: {
@@ -8092,6 +8103,7 @@ export type Database = {
           backoff_type: string;
           booking_id: string;
           cancelled_at: string | null;
+          claim_generation: number;
           claimed_at: string | null;
           created_at: string;
           dedupe_key: string;
@@ -8107,6 +8119,46 @@ export type Database = {
           status: string;
           updated_at: string;
         }[];
+      };
+      claim_email_delivery_retry_v1: {
+        Args: {
+          p_delivery_log_id: string;
+          p_restaurant_id: string;
+          p_stale_after_seconds?: number;
+        };
+        Returns: Json;
+      };
+      complete_email_delivery_retry_v1: {
+        Args: {
+          p_delivery_log_id: string;
+          p_restaurant_id: string;
+          p_retry_attempt: number;
+          p_outcome: string;
+          p_retry_delivery_log_id?: string | null;
+        };
+        Returns: boolean;
+      };
+      finalize_email_dispatch_intent_v2: {
+        Args: {
+          p_intent_id: string;
+          p_claim_generation: number;
+          p_status: string;
+          p_last_error?: string | null;
+          p_next_scheduled_for?: string | null;
+          p_payload_patch?: Json;
+        };
+        Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
+      };
+      finalize_email_dispatch_intent_v1: {
+        Args: {
+          p_intent_id: string;
+          p_attempt: number;
+          p_status: string;
+          p_last_error?: string | null;
+          p_next_scheduled_for?: string | null;
+          p_payload_patch?: Json;
+        };
+        Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
       };
       assign_tables_atomic_v2:
         | {
@@ -8235,6 +8287,10 @@ export type Database = {
           table_id: string;
         }[];
       };
+      create_booking_occasion: {
+        Args: { p_actor_id: string | null; p_occasion: Json };
+        Returns: Json;
+      };
       create_booking_with_capacity_check: {
         Args: {
           p_auth_user_id?: string;
@@ -8259,9 +8315,25 @@ export type Database = {
         };
         Returns: Json;
       };
+      delete_booking_occasion: {
+        Args: { p_actor_id: string | null; p_key: string };
+        Returns: Json;
+      };
       delete_table_inventory_guarded: {
         Args: { p_current_date: string; p_table_id: string };
         Returns: boolean;
+      };
+      ensure_booking_email_intent: {
+        Args: {
+          p_booking_id: string;
+          p_dedupe_key: string;
+          p_email_type: string;
+          p_max_attempts?: number;
+          p_restaurant_id: string;
+          p_scheduled_for?: string | null;
+          p_supersede_types?: string[] | null;
+        };
+        Returns: { created: boolean; intent_id: string; intent_status: string }[];
       };
       import_restaurant_menu_bundle: {
         Args: {
@@ -8283,6 +8355,78 @@ export type Database = {
         };
         Returns: Json;
       };
+      // --- wave 2 (S7 menu): 20260927140000_menu_mutation_integrity ---
+      create_restaurant_menu_item_v1: {
+        Args: {
+          p_extensions?: Json;
+          p_idempotency_key?: string | null;
+          p_item: Json;
+          p_menu_id: string;
+          p_options?: Json;
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      create_restaurant_menu_item_option_v1: {
+        Args: {
+          p_item_id: string;
+          p_menu_id: string;
+          p_option: Json;
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      create_restaurant_menu_section_v1: {
+        Args: { p_menu_id: string; p_restaurant_id: string; p_section: Json };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_item_options_v1: {
+        Args: {
+          p_item_id: string;
+          p_menu_id: string;
+          p_ordered_ids: string[];
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_items_v1: {
+        Args: {
+          p_menu_id: string;
+          p_ordered_ids: string[];
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_sections_v1: {
+        Args: { p_menu_id: string; p_ordered_ids: string[]; p_restaurant_id: string };
+        Returns: Json;
+      };
+      restaurant_menu_item_snapshot_v1: {
+        Args: { p_item_id: string; p_restaurant_id: string };
+        Returns: Json;
+      };
+      restaurant_menu_order_matches_v1: {
+        Args: { p_existing: string[]; p_ordered: string[] };
+        Returns: boolean;
+      };
+      update_restaurant_menu_item_v1: {
+        Args: {
+          p_attributes_merge?: Json | null;
+          p_extensions?: Json | null;
+          p_extensions_merge?: Json | null;
+          p_item_id: string;
+          p_menu_id: string;
+          p_restaurant_id: string;
+          p_section_id: string;
+          p_set?: Json;
+        };
+        Returns: Json;
+      };
+      // --- end wave 2 (S7 menu) ---
       current_restaurant_id: { Args: never; Returns: string };
       generate_booking_reference: { Args: never; Returns: string };
       get_or_create_booking_slot: {
@@ -8303,6 +8447,34 @@ export type Database = {
           p_table_id: string;
         };
         Returns: boolean;
+      };
+      move_booking_tables: {
+        Args: {
+          p_booking_id: string;
+          p_restaurant_id: string;
+          p_from_table_ids: string[];
+          p_to_table_ids: string[];
+          p_idempotency_key: string;
+          p_moved_by?: string | null;
+        };
+        Returns: {
+          replayed: boolean;
+          booking_status: Database['public']['Enums']['booking_status'];
+          booking_party_size: number;
+          booking_updated_at: string;
+          booking_date: string | null;
+          assignments: Json;
+          table_count: number;
+          total_capacity: number;
+        }[];
+      };
+      onboarding_replace_layout: {
+        Args: {
+          p_restaurant_id: string;
+          p_tables: Json;
+          p_zones: Json;
+        };
+        Returns: Json;
       };
       ops_email_delivery_attempts_feed: {
         Args: {
@@ -8472,6 +8644,96 @@ export type Database = {
         Returns: number;
       };
       require_restaurant_context: { Args: never; Returns: string };
+      modify_pending_booking_and_clear_assignments: {
+        Args: {
+          p_booking_id: string;
+          p_expected_status: string;
+          p_patch: Json;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['bookings']['Row'];
+      };
+      modify_booking_with_table_swap: {
+        Args: {
+          p_booking_id: string;
+          p_expected_status: string | null;
+          p_history_metadata?: Json;
+          p_history_reason?: string;
+          p_hold_id: string;
+          p_idempotency_key: string;
+          p_patch: Json;
+          p_require_adjacency?: boolean;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['bookings']['Row'];
+      };
+      settle_booking_email_intent: {
+        Args: {
+          p_error_code?: string | null;
+          p_expected_attempts: number;
+          p_intent_id: string;
+          p_outcome: string;
+          p_restaurant_id: string;
+          p_retry_delay_seconds?: number;
+        };
+        Returns: string | null;
+      };
+      get_restaurant_business_context_revision_v1: {
+        Args: { p_restaurant_id: string };
+        Returns: number;
+      };
+      replace_restaurant_business_context_v2: {
+        Args: {
+          p_attributes?: Json | null;
+          p_business_details?: Json | null;
+          p_categories?: Json | null;
+          p_change_log_rows?: Json | null;
+          p_expected_revision?: number | null;
+          p_links?: Json | null;
+          p_restaurant_id: string;
+          p_service_areas?: Json | null;
+          p_service_items?: Json | null;
+        };
+        Returns: Json;
+      };
+      replace_restaurant_service_periods: {
+        Args: { p_restaurant_id: string; p_rows: Json };
+        Returns: undefined;
+      };
+      replace_restaurant_turn_bands: {
+        Args: { p_restaurant_id: string; p_rows: Json };
+        Returns: undefined;
+      };
+      settle_booking_email_intent_v2: {
+        Args: {
+          p_claim_generation: number;
+          p_error_code?: string | null;
+          p_intent_id: string;
+          p_outcome: string;
+          p_restaurant_id: string;
+          p_retry_delay_seconds?: number;
+        };
+        Returns: string | null;
+      };
+      restaurant_availability_revision: {
+        Args: { p_restaurant_id: string };
+        Returns: string;
+      };
+      restaurant_availability_snapshot: {
+        Args: { p_restaurant_id: string };
+        Returns: Json;
+      };
+      save_restaurant_availability: {
+        Args: {
+          p_expected_revision?: string | null;
+          p_operating_hours?: Json | null;
+          p_restaurant_id: string;
+          p_rules?: Json | null;
+          p_service_periods?: Json | null;
+          p_turn_bands?: Json | null;
+        };
+        Returns: Json;
+      };
       set_hold_conflict_enforcement: {
         Args: { enabled: boolean };
         Returns: boolean;
@@ -8540,6 +8802,29 @@ export type Database = {
           table_id: string;
         }[];
       };
+      undo_booking_no_show: {
+        Args: {
+          p_booking_id: string;
+          p_restaurant_id: string;
+          p_source_history_id: number;
+          p_status: Database['public']['Enums']['booking_status'];
+          p_checked_in_at: string | null;
+          p_checked_out_at: string | null;
+          p_updated_at: string;
+          p_history_changed_by: string | null;
+          p_history_changed_at: string;
+          p_history_reason: string;
+          p_history_metadata?: Json;
+        };
+        Returns: {
+          status: Database['public']['Enums']['booking_status'];
+          checked_in_at: string | null;
+          checked_out_at: string | null;
+          updated_at: string;
+          table_restoration: string;
+          released_table_ids: string[];
+        }[];
+      };
       update_booking_with_capacity_check: {
         Args: {
           p_auth_user_id?: string;
@@ -8564,8 +8849,30 @@ export type Database = {
         };
         Returns: Json;
       };
+      update_restaurant_profile_v1: {
+        Args: {
+          p_actor_id?: string | null;
+          p_business_description?: string | null;
+          p_patch?: Json;
+          p_restaurant_id: string;
+          p_set_business_description?: boolean;
+          p_whatsapp_intent?: string | null;
+        };
+        Returns: Json;
+      };
       user_restaurants: { Args: never; Returns: string[] };
       user_restaurants_admin: { Args: never; Returns: string[] };
+      update_table_inventory_atomic: {
+        Args: {
+          p_table_id: string;
+          p_restaurant_id: string;
+          p_patch?: Json;
+          p_maintenance_start?: string;
+          p_maintenance_end?: string;
+          p_actor_id?: string;
+        };
+        Returns: Database['public']['Tables']['table_inventory']['Row'];
+      };
       validate_booking_capacity_after_assignment: {
         Args: { p_booking_id: string };
         Returns: undefined;

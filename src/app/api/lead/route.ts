@@ -1,20 +1,13 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, internalError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
 
-function stringifyError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return String(error);
-  }
-}
+const ROUTE = '/api/lead';
 
 type LeadPayload = {
   email: string;
@@ -42,10 +35,16 @@ export async function POST(req: NextRequest) {
     return rateLimit;
   }
 
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    // Malformed JSON used to escape as an unhandled 500; it is a client error.
+    return apiError(400, 'INVALID_REQUEST_BODY', 'Invalid request body.');
+  }
 
   if (!isLeadPayload(body)) {
-    return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    return apiError(400, 'EMAIL_REQUIRED', 'Email is required.');
   }
 
   try {
@@ -53,20 +52,18 @@ export async function POST(req: NextRequest) {
     const { error } = await supabase.from('leads').insert({ email: body.email });
 
     if (error) {
-      console.error('[lead] Unable to store lead', {
-        code: error.code,
-        message: stringifyError(error),
-      });
-      return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
+      return internalError(
+        error,
+        { route: ROUTE, stage: 'insert', errorKind: error.code },
+        'Unable to store lead',
+      );
     }
 
     return NextResponse.json({});
   } catch (error: unknown) {
-    const message = stringifyError(error);
-    console.error('[lead] Unexpected lead storage failure', { message });
     captureServerException(error, {
       properties: { source: 'api', kind: 'lead' },
     });
-    return NextResponse.json({ error: 'Unable to store lead' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to store lead');
   }
 }

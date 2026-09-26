@@ -3,21 +3,11 @@
 import {
   Check,
   CircleAlert,
-  CircleCheck,
   ExternalLink,
   Info,
-  Loader2,
   ShieldAlert,
 } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type FormEvent,
-  type ReactNode,
-} from 'react';
+
 
 import { GbpDriftFieldBadge } from '@/components/features/restaurant-settings/gbp-drift/GbpDriftFieldBadge';
 import { useOptionalGbpDrift } from '@/components/features/restaurant-settings/gbp-drift/useGbpDrift';
@@ -26,36 +16,21 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Text } from '@/components/ui/typography';
-import { useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { getProfileFieldKey } from '@/lib/dual-sync/field-key-meta';
 import { cn } from '@/lib/utils';
 
-import {
-  buildProfileCompletionAnalytics,
-  filterErrors,
-  mapInitialValues,
-  mapRestaurantProfileValues,
-  pickDraftValues,
-  pickState,
-  validateRestaurantDetails,
-  type DetailsField,
-  type FormErrors,
-  type FormState,
-  type GbpComparableField,
-  type GbpFieldStatus,
-  type RestaurantDetailsDraftValues,
-  type RestaurantDetailsFormValues,
+import type {
+  DetailsField,
+  FormErrors,
+  FormState,
+  GbpComparableField,
+  GbpFieldStatus,
 } from '../restaurantDetailsFormModel';
-
 import type { ProfileFieldVerification } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileVerification';
-import type { RestaurantProfile } from '@/services/ops/restaurants';
+import type { ReactNode } from 'react';
 
-type SubformStatus = {
-  tone: 'success' | 'error';
-  message: string;
-} | null;
 export type ProfileAnalyticsSection =
   | 'public_details'
   | 'brand_identity'
@@ -297,19 +272,6 @@ export function ExternalUrlButton({ href, label }: { href: string | null; label:
   );
 }
 
-export type RestaurantDetailsSubformProps = {
-  restaurantId: string | null;
-  initialValues: RestaurantDetailsFormValues;
-  formId?: string;
-  actionPlacement?: 'inline' | 'stickyBar';
-  onDirtyChange?: (dirty: boolean) => void;
-  onDraftChange?: (draft: RestaurantDetailsDraftValues, dirty: boolean) => void;
-  onResetDraftChange?: (resetDraft: (() => void) | null) => void;
-  /** Reports the section's pending save so a shared save bar can show "Saving…". */
-  onSubmittingChange?: (submitting: boolean) => void;
-  gbpFieldVerifications?: Partial<Record<GbpComparableField, ProfileFieldVerification>>;
-};
-
 /**
  * Props of the four Restaurant profile subforms. They render one page-wide draft owned by
  * the Profile page, which also validates and saves it; the subforms only report edits.
@@ -338,250 +300,6 @@ export function emitProfileAnalytics(
   void emit(eventName, props);
 }
 
-export function useRestaurantDetailsSubform({
-  initialValues,
-  fields,
-  analyticsSection,
-  onDirtyChange,
-  onDraftChange,
-  onSubmittingChange,
-  restaurantId,
-}: {
-  initialValues: RestaurantDetailsFormValues;
-  fields: readonly DetailsField[];
-  analyticsSection: ProfileAnalyticsSection;
-  onDirtyChange?: (dirty: boolean) => void;
-  onDraftChange?: (draft: RestaurantDetailsDraftValues, dirty: boolean) => void;
-  onSubmittingChange?: (submitting: boolean) => void;
-  restaurantId: string | null;
-}) {
-  const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
-  const isSubmitting = updateMutation.isPending;
-
-  useEffect(() => {
-    onSubmittingChange?.(isSubmitting);
-  }, [isSubmitting, onSubmittingChange]);
-  const [state, setState] = useState<FormState>(() => mapInitialValues(initialValues));
-  const [savedState, setSavedState] = useState<FormState>(() => mapInitialValues(initialValues));
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [status, setStatus] = useState<SubformStatus>(null);
-  const editStartedAtRef = useRef<number | null>(null);
-  const initialFormState = useMemo(() => mapInitialValues(initialValues), [initialValues]);
-  const serializedInitialValues = useMemo(
-    () => JSON.stringify(pickState(savedState, fields)),
-    [fields, savedState],
-  );
-  const serializedCurrentState = useMemo(
-    () => JSON.stringify(pickState(state, fields)),
-    [fields, state],
-  );
-  const isDirty = serializedCurrentState !== serializedInitialValues;
-
-  useEffect(() => {
-    if (isDirty) {
-      return;
-    }
-    setSavedState(initialFormState);
-    setState(initialFormState);
-    setErrors({});
-  }, [initialFormState, isDirty]);
-
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-    if (isDirty && editStartedAtRef.current === null) {
-      editStartedAtRef.current = Date.now();
-    }
-    if (!isDirty) {
-      editStartedAtRef.current = null;
-    }
-  }, [isDirty, onDirtyChange]);
-
-  useEffect(() => {
-    onDraftChange?.(isDirty ? pickDraftValues(state, fields) : {}, isDirty);
-  }, [fields, isDirty, onDraftChange, state]);
-
-  const handleChange = (field: keyof FormState, value: string) => {
-    setState((prev) => ({ ...prev, [field]: value }));
-    setStatus(null);
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  const handleToggle = (
-    field: keyof Pick<FormState, 'managerDailySummaryEnabled' | 'managerWhatsappEnabled'>,
-    value: boolean,
-  ) => {
-    setState((prev) => ({ ...prev, [field]: value }));
-    setStatus(null);
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  const resetDraft = useCallback(() => {
-    setState(savedState);
-    setErrors({});
-    setStatus(null);
-  }, [savedState]);
-
-  const submitPartial = async (
-    event: FormEvent,
-    payloadBuilder: (nextState: FormState) => Partial<RestaurantProfile>,
-    errorLogLabel: string,
-    _successMessage: string,
-  ) => {
-    event.preventDefault();
-    const nextErrors = filterErrors(validateRestaurantDetails(state), fields);
-    if (Object.values(nextErrors).some(Boolean)) {
-      setErrors(nextErrors);
-      setStatus({ tone: 'error', message: 'Fix the highlighted fields before saving.' });
-      emitProfileAnalytics('restaurant_profile_validation_error', {
-        restaurant_id: restaurantId,
-        section: analyticsSection,
-        field_count: Object.keys(nextErrors).length,
-        fields: Object.keys(nextErrors),
-      });
-      return;
-    }
-
-    try {
-      const updatedProfile = await updateMutation.mutateAsync(payloadBuilder(state));
-      const updatedValues = mapRestaurantProfileValues(updatedProfile);
-      const nextSavedState = mapInitialValues(updatedValues);
-      const elapsedMs =
-        editStartedAtRef.current === null
-          ? null
-          : Math.max(0, Date.now() - editStartedAtRef.current);
-      const changedFields = fields.filter((field) => savedState[field] !== state[field]);
-      setSavedState(nextSavedState);
-      setState(nextSavedState);
-      setErrors({});
-      setStatus({
-        tone: 'success',
-        message: 'Saved just now.',
-      });
-      emitProfileAnalytics('restaurant_profile_section_saved', {
-        restaurant_id: restaurantId,
-        section: analyticsSection,
-        changed_field_count: changedFields.length,
-        changed_fields: changedFields,
-        elapsed_ms: elapsedMs,
-        saved_at: updatedProfile.updatedAt ?? null,
-        ...buildProfileCompletionAnalytics(updatedValues),
-      });
-    } catch (error) {
-      console.error(`[${errorLogLabel}] submit failed`, error);
-      setStatus({ tone: 'error', message: 'Unable to save this section. Try again.' });
-      emitProfileAnalytics('restaurant_profile_section_save_failed', {
-        restaurant_id: restaurantId,
-        section: analyticsSection,
-        field_count: fields.length,
-        code: error instanceof Error ? error.name : 'unknown',
-      });
-    }
-  };
-
-  return {
-    state,
-    errors,
-    status,
-    isSubmitting,
-    isDirty,
-    handleChange,
-    handleToggle,
-    resetDraft,
-    submitPartial,
-  };
-}
-
-export function SubformActions({
-  actionPlacement = 'inline',
-  isSubmitting,
-  isDirty,
-  onReset,
-  submitLabel,
-  status,
-  saveScopeMessage,
-}: {
-  actionPlacement?: 'inline' | 'stickyBar';
-  isSubmitting: boolean;
-  isDirty: boolean;
-  onReset: () => void;
-  submitLabel: string;
-  status: SubformStatus;
-  saveScopeMessage?: string;
-}) {
-  const statusMessage = status ? (
-    <p
-      role={status.tone === 'error' ? 'alert' : 'status'}
-      className={cn(
-        'flex items-start gap-1.5 text-sm',
-        status.tone === 'error' ? 'text-destructive' : 'text-success-text',
-      )}
-    >
-      {status.tone === 'error' ? (
-        <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-      ) : (
-        <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
-      )}
-      <span>{status.message}</span>
-    </p>
-  ) : null;
-
-  // In sticky-bar mode the profile save bar owns Discard and Save; only the result of the
-  // last save is shown here, beside the fields it belongs to.
-  if (actionPlacement === 'stickyBar') {
-    return statusMessage;
-  }
-
-  return (
-    <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 flex-col gap-1 text-sm">
-        <p className="text-muted-foreground">
-          {isDirty ? 'Unsaved changes in this section.' : 'No changes to save.'}
-        </p>
-        <Text variant="caption">{saveScopeMessage ?? 'Saves this section only.'}</Text>
-        {statusMessage}
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onReset}
-          disabled={isSubmitting || !isDirty}
-        >
-          Discard changes
-        </Button>
-        <Button
-          type="submit"
-          disabled={isSubmitting || !isDirty}
-          aria-busy={isSubmitting || undefined}
-        >
-          {isSubmitting ? (
-            <Loader2
-              data-icon="inline-start"
-              className="animate-spin motion-reduce:animate-none"
-              aria-hidden
-            />
-          ) : null}
-          {isSubmitting ? 'Saving…' : submitLabel}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-export function useResetDraftRegistration(
-  onResetDraftChange: RestaurantDetailsSubformProps['onResetDraftChange'],
-  resetDraft: () => void,
-) {
-  useEffect(() => {
-    onResetDraftChange?.(resetDraft);
-    return () => onResetDraftChange?.(null);
-  }, [onResetDraftChange, resetDraft]);
-}
-
 export const BRAND_FIELDS = [
   'name',
   'businessDescription',
@@ -601,10 +319,4 @@ export const NOTIFICATION_FIELDS = [
   'managerWhatsappEnabled',
 ] as const satisfies readonly DetailsField[];
 export const ADVANCED_FIELDS = ['slug'] as const satisfies readonly DetailsField[];
-export const BOOKING_RULE_FIELDS = [
-  'bookingPolicy',
-  'reservationIntervalMinutes',
-  'reservationDefaultDurationMinutes',
-  'reservationLastSeatingBufferMinutes',
-  'reservationLifecycleGraceMinutes',
-] as const satisfies readonly DetailsField[];
+

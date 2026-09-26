@@ -211,4 +211,57 @@ describe('useCreateReservation', () => {
       }),
     );
   });
+
+  it('never sends contact details in edit mode (masked token GET values would fail validation)', async () => {
+    const wrapper = createQueryWrapper(createTestQueryClient());
+    const draft: ReservationDraft = {
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-fox',
+      date: '2026-02-10',
+      time: '19:30',
+      party: 3,
+      bookingType: 'dinner',
+      notes: null,
+      name: 'Guest Booker',
+      // What a token-access GET returns: email masked to '' and phone to '***1234'.
+      email: '',
+      phone: '***1234',
+      marketingOptIn: false,
+      whatsappOptIn: false,
+    };
+    vi.mocked(apiClient.put).mockResolvedValue({ booking: null, bookings: [] });
+
+    const { result } = renderHook(() => useCreateReservation(), { wrapper });
+    await result.current.mutateAsync({ draft, bookingId: 'booking-2' });
+
+    const payload = vi.mocked(apiClient.put).mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(payload).toMatchObject({ date: '2026-02-10', time: '19:30', party: 3 });
+    expect(payload).not.toHaveProperty('email');
+    expect(payload).not.toHaveProperty('phone');
+  });
+
+  it('still sends contact details for a new booking', async () => {
+    const wrapper = createQueryWrapper(createTestQueryClient());
+    const draft: ReservationDraft = {
+      restaurantId: 'rest-1',
+      restaurantSlug: 'the-fox',
+      date: '2026-02-11',
+      time: '19:00',
+      party: 2,
+      bookingType: 'dinner',
+      notes: null,
+      name: 'Guest Booker',
+      email: 'guest@example.com',
+      phone: '+441234567890',
+      marketingOptIn: false,
+      whatsappOptIn: false,
+    };
+    vi.mocked(apiClient.post).mockResolvedValue({ booking: null, bookings: [] });
+
+    const { result } = renderHook(() => useCreateReservation(), { wrapper });
+    await result.current.mutateAsync({ draft });
+
+    const payload = vi.mocked(apiClient.post).mock.calls.at(-1)?.[1] as Record<string, unknown>;
+    expect(payload).toMatchObject({ email: 'guest@example.com', phone: '+441234567890' });
+  });
 });

@@ -24,6 +24,7 @@ export async function resolveBookingCreateCustomerContext(args: {
   bookingDate: string;
   startTime: string;
   endTime: string;
+  partySize: number;
   headerIdempotencyKey?: string | null;
   customerUpserter?: BookingCreateCustomerUpserter;
   idempotencyKeyBuilder?: BookingCreateIdempotencyKeyBuilder;
@@ -46,6 +47,7 @@ export async function resolveBookingCreateCustomerContext(args: {
     bookingDate: args.bookingDate,
     startTime: args.startTime,
     endTime: args.endTime,
+    partySize: args.partySize,
   });
 
   return {

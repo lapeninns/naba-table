@@ -179,10 +179,6 @@ export function getAutoAssignStartCutoffMinutes(): number {
   return 10;
 }
 
-export function isGuestLookupPolicyEnabled(): boolean {
-  return false;
-}
-
 export function isBookingPastTimeBlockingEnabled(): boolean {
   return true;
 }

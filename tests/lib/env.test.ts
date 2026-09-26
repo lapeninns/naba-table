@@ -393,3 +393,28 @@ describe('Google Business Profile environment aliases', () => {
 });
 
 export {};
+
+describe('retired guest-lookup and session-recovery TTL settings', () => {
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  it('no longer exposes GUEST_LOOKUP_PEPPER or SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS', () => {
+    process.env.GUEST_LOOKUP_PEPPER = 'legacy-pepper';
+    process.env.SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS = '900';
+    resetEnvCache();
+
+    expect(Object.keys(env.security)).not.toContain('guestLookupPepper');
+    expect(Object.keys(env.security)).not.toContain('sessionRecoveryAccessTokenTtlSeconds');
+  });
+
+  it('ignores a leftover out-of-range TTL instead of failing env validation', () => {
+    const result = envSchemas.test.safeParse({
+      ...directTestEnv,
+      SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS: '5',
+      GUEST_LOOKUP_PEPPER: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
+});

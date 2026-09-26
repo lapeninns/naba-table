@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  apiError,
+  conflict,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError as validationErrorResponse,
+} from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { enqueueCheckOutSideEffects } from '@/server/jobs/booking-side-effects';
 import {
@@ -9,17 +18,22 @@ import {
   prepareNoShowTransition,
 } from '@/server/ops/booking-lifecycle/actions';
 import { isBookingLifecycleAllowedToday } from '@/server/ops/booking-lifecycle/availability';
-import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { invalidateOpsDashboardCaches } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
 
+import {
+  lifecycleValidationErrorResponse,
+  missingBookingIdResponse,
+} from '../_shared/lifecycleResponses';
 import { persistLifecycleTransition, resolveBookingId } from '../_shared/lifecycleRoute';
 
 import type { Tables } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
+
+const statusLogger = logger.child({ module: 'api.ops.bookings.status' });
 
 const bodySchema = z.object({
   status: z.enum(['completed', 'no_show']),
@@ -54,9 +68,7 @@ async function patchBookingStatus(
 ): Promise<NextResponse> {
   const id = await resolveBookingId(params);
   if (!id) {
-    return withStatusDeprecation(
-      NextResponse.json({ error: 'Missing booking id' }, { status: 400 }),
-    );
+    return withStatusDeprecation(missingBookingIdResponse());
   }
 
   let payload: z.infer<typeof bodySchema>;
@@ -64,11 +76,11 @@ async function patchBookingStatus(
     payload = bodySchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return withStatusDeprecation(
-        NextResponse.json({ error: 'Invalid payload', details: error.flatten() }, { status: 400 }),
-      );
+      return withStatusDeprecation(validationErrorResponse(error));
     }
-    return withStatusDeprecation(NextResponse.json({ error: 'Invalid payload' }, { status: 400 }));
+    return withStatusDeprecation(
+      apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.'),
+    );
   }
 
   const tenantSupabase = await getRouteHandlerSupabaseClient();
@@ -78,14 +90,12 @@ async function patchBookingStatus(
   } = await tenantSupabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops][booking-status] failed to resolve auth', authError.message);
-    return withStatusDeprecation(
-      NextResponse.json({ error: 'Unable to verify session' }, { status: 401 }),
-    );
+    statusLogger.warn('status.auth_failed', { bookingId: id });
+    return withStatusDeprecation(unauthenticated('Unable to verify session'));
   }
 
   if (!user) {
-    return withStatusDeprecation(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }));
+    return withStatusDeprecation(unauthenticated('Unauthorized'));
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -99,18 +109,19 @@ async function patchBookingStatus(
     .maybeSingle();
 
   if (bookingError) {
-    console.error('[ops][booking-status] failed to load booking', bookingError.message);
     return withStatusDeprecation(
-      NextResponse.json({ error: 'Unable to load booking' }, { status: 500 }),
+      internalError(bookingError, {
+        route: 'booking-status',
+        stage: 'load_booking',
+        bookingId: id,
+      }),
     );
   }
 
   const bookingRow = booking as Tables<'bookings'> | null;
 
   if (!bookingRow) {
-    return withStatusDeprecation(
-      NextResponse.json({ error: 'Booking not found' }, { status: 404 }),
-    );
+    return withStatusDeprecation(notFound('BOOKING_NOT_FOUND', 'Booking not found'));
   }
 
   try {
@@ -119,18 +130,15 @@ async function patchBookingStatus(
       (membership) => membership.restaurant_id === bookingRow.restaurant_id,
     );
     if (!hasAccess) {
-      return withStatusDeprecation(
-        NextResponse.json({ error: 'Booking not found' }, { status: 404 }),
-      );
+      return withStatusDeprecation(notFound('BOOKING_NOT_FOUND', 'Booking not found'));
     }
   } catch (error) {
-    console.error('[ops][booking-status] membership lookup failed', error);
     captureServerException(error, {
       distinctId: user.id,
       properties: { bookingId: id, source: 'ops', kind: 'ops-booking-status' },
     });
     return withStatusDeprecation(
-      NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 }),
+      internalError(error, { route: 'booking-status', stage: 'memberships', bookingId: id }),
     );
   }
 
@@ -141,9 +149,12 @@ async function patchBookingStatus(
     .maybeSingle();
 
   if (restaurantError) {
-    console.error('[ops][booking-status] failed to load restaurant', restaurantError.message);
     return withStatusDeprecation(
-      NextResponse.json({ error: 'Unable to verify booking' }, { status: 500 }),
+      internalError(restaurantError, {
+        route: 'booking-status',
+        stage: 'load_restaurant',
+        bookingId: id,
+      }),
     );
   }
 
@@ -161,9 +172,9 @@ async function patchBookingStatus(
     })
   ) {
     return withStatusDeprecation(
-      NextResponse.json(
-        { error: 'Lifecycle actions are only available on the reservation date' },
-        { status: 409 },
+      conflict(
+        'LIFECYCLE_DATE_LOCKED',
+        'Lifecycle actions are only available on the reservation date',
       ),
     );
   }
@@ -188,7 +199,9 @@ async function patchBookingStatus(
         transition,
         serviceSupabase,
         logLabel: 'booking-status',
-        failureMessage: 'Unable to update booking',
+        userId: user.id,
+        releaseAssignments:
+          transition.updates.status === 'no_show' || transition.updates.status === 'completed',
       });
 
       if (persistResult.response) {
@@ -228,7 +241,10 @@ async function patchBookingStatus(
       }
       if (!persisted.result) {
         return withStatusDeprecation(
-          NextResponse.json({ error: 'Unable to update booking' }, { status: 500 }),
+          internalError(new Error('Transition returned no result'), {
+            route: 'booking-status',
+            bookingId: id,
+          }),
         );
       }
       finalStatus = persisted.result.status as Tables<'bookings'>['status'];
@@ -267,7 +283,10 @@ async function patchBookingStatus(
       }
       if (!checkInResult.result) {
         return withStatusDeprecation(
-          NextResponse.json({ error: 'Unable to update booking' }, { status: 500 }),
+          internalError(new Error('Transition returned no result'), {
+            route: 'booking-status',
+            bookingId: id,
+          }),
         );
       }
       bookingRow.status = checkInResult.result.status as Tables<'bookings'>['status'];
@@ -295,7 +314,10 @@ async function patchBookingStatus(
     }
     if (!checkOutResult.result) {
       return withStatusDeprecation(
-        NextResponse.json({ error: 'Unable to update booking' }, { status: 500 }),
+        internalError(new Error('Transition returned no result'), {
+          route: 'booking-status',
+          bookingId: id,
+        }),
       );
     }
     finalStatus = checkOutResult.result.status as Tables<'bookings'>['status'];
@@ -317,9 +339,10 @@ async function patchBookingStatus(
           await enqueueCheckOutSideEffects(fullBooking, bookingRow.restaurant_id);
         }
       } catch (sideEffectsError) {
-        console.warn('[ops][booking-status] failed to schedule review email', {
+        statusLogger.warn('status.review_schedule_failed', {
           bookingId: bookingRow.id,
-          error: sideEffectsError instanceof Error ? sideEffectsError.message : sideEffectsError,
+          errorName:
+            sideEffectsError instanceof Error ? sideEffectsError.name : typeof sideEffectsError,
         });
       }
     }
@@ -330,25 +353,14 @@ async function patchBookingStatus(
       }),
     );
   } catch (validationError) {
-    if (validationError instanceof BookingLifecycleError) {
-      const statusCode = validationError.code === 'TIMESTAMP_INVALID' ? 400 : 409;
-      return withStatusDeprecation(
-        NextResponse.json({ error: validationError.message }, { status: statusCode }),
-      );
-    }
-    console.error('[ops][booking-status] unexpected validation error', validationError);
-    captureServerException(validationError, {
-      distinctId: user.id,
-      groups: bookingRow?.restaurant_id ? { restaurant: bookingRow.restaurant_id } : undefined,
-      properties: {
-        bookingId: id,
-        restaurantId: bookingRow?.restaurant_id,
-        source: 'ops',
-        kind: 'ops-booking-status',
-      },
-    });
     return withStatusDeprecation(
-      NextResponse.json({ error: 'Unable to update booking' }, { status: 500 }),
+      lifecycleValidationErrorResponse(validationError, {
+        route: 'booking-status',
+        bookingId: id,
+        restaurantId: bookingRow.restaurant_id,
+        userId: user.id,
+        currentStatus: bookingRow.status,
+      }),
     );
   }
 }

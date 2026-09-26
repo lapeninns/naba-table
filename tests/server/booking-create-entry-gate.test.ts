@@ -104,6 +104,7 @@ describe('runBookingCreateEntryGate', () => {
     await expect(result.response.json()).resolves.toEqual({
       error: 'Restaurant not found',
       code: 'RESTAURANT_NOT_FOUND',
+      message: 'Restaurant not found',
     });
     expect(result.response.status).toBe(404);
     expect(rateLimiter).not.toHaveBeenCalled();
@@ -146,7 +147,10 @@ describe('runBookingCreateEntryGate', () => {
 
     await expect(result.response.json()).resolves.toMatchObject({
       error: 'Too many booking requests. Please try again in a moment.',
+      message: 'Too many booking requests. Please try again in a moment.',
       code: 'RATE_LIMITED',
+      retryable: true,
+      retryAfter: expect.any(Number),
     });
     expect(result.response.status).toBe(429);
     expect(result.response.headers.get('Retry-After')).toBeTruthy();

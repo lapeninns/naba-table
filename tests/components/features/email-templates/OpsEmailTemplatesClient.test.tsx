@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OpsEmailTemplatesClient } from '@/components/features/email-templates/OpsEmailTemplatesClient';
+import { HttpError } from '@/lib/http/errors';
 import { getDefaultTemplateVariants } from '@/lib/restaurants/email-templates';
 
 import type { RestaurantBookingEmailTemplateKey } from '@/lib/restaurants/email-templates';
@@ -17,6 +18,8 @@ const data = vi.hoisted(() => ({
   update: vi.fn(),
   reset: vi.fn(),
   sendTest: vi.fn(),
+  previewError: null as unknown,
+  previewRefetch: vi.fn(),
 }));
 
 vi.mock('@/contexts/ops-session', () => ({
@@ -43,7 +46,9 @@ vi.mock('@/hooks/ops/useOpsRestaurantEmailTemplates', () => ({
     },
     isFetching: false,
     isPlaceholderData: false,
-    isError: false,
+    isError: data.previewError !== null,
+    error: data.previewError,
+    refetch: data.previewRefetch,
   }),
 }));
 
@@ -93,6 +98,8 @@ beforeEach(() => {
   data.update.mockReset();
   data.reset.mockReset().mockResolvedValue({});
   data.sendTest.mockReset().mockResolvedValue({});
+  data.previewError = null;
+  data.previewRefetch.mockReset();
 });
 
 describe('OpsEmailTemplatesClient', () => {
@@ -197,6 +204,45 @@ describe('OpsEmailTemplatesClient', () => {
     expect(data.reset).toHaveBeenCalledWith({ templateKey: 'cancelled' });
   });
 
+  it('confirms a reset in the shadcn AlertDialog, never window.confirm, and cancelling keeps the copy', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const user = userEvent.setup();
+    render(<OpsEmailTemplatesClient />);
+    await user.click(
+      within(screen.getByRole('navigation', { name: 'Templates' })).getByRole('button', {
+        name: /Cancelled/,
+      }),
+    );
+
+    await user.click(screen.getByRole('button', { name: 'More template actions' }));
+    await user.click(await screen.findByRole('menuitem', { name: /Reset to Nabatable defaults/ }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Keep my copy' }));
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(data.reset).not.toHaveBeenCalled();
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a failed preview with safe copy and a Retry preview button', async () => {
+    data.previewError = new HttpError({
+      status: 429,
+      code: 'RATE_LIMITED',
+      message: 'bucket ops:preview exhausted',
+    });
+    const user = userEvent.setup();
+    render(<OpsEmailTemplatesClient />);
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Wait a moment, then retry the preview.');
+    expect(alert).not.toHaveTextContent('bucket');
+    expect(alert).not.toHaveTextContent(/keep editing and it will try again/i);
+
+    await user.click(within(alert).getByRole('button', { name: 'Retry preview' }));
+    expect(data.previewRefetch).toHaveBeenCalledTimes(1);
+  });
+
   it('checks the address before sending a test', async () => {
     const user = userEvent.setup();
     render(<OpsEmailTemplatesClient />);
@@ -216,6 +262,7 @@ describe('OpsEmailTemplatesClient', () => {
       expect.objectContaining({
         templateKey: 'confirmation',
         payload: expect.objectContaining({ toEmail: 'owner@example.com' }),
+        idempotencyKey: expect.any(String),
       }),
     );
   });

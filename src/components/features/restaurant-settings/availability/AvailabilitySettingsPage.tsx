@@ -17,6 +17,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOpsSession } from '@/contexts/ops-session';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
@@ -24,23 +25,6 @@ import { AvailabilityOccasionsEditor } from '../AvailabilityOccasionsEditor';
 import { updateTurnBandsDraft } from '../availabilityScheduleDraftDomain';
 import { extractRequiredOccasionKeys } from '../availabilityScheduleManagerUtils';
 import { getRestaurantSettingsAvailabilityAlias, RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
-import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
-import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
-import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
-import { SettingsSaveBar } from '../shared/SettingsSaveBar';
-import { getSettingsSaveReasonCode, pluralise } from '../shared/settingsSaveSequence';
-import {
-  scrollToSettingsSection,
-  type RestaurantSettingsCommandRailItem,
-} from '../shared/SettingsSectionNav';
-import { SettingsStatusLine } from '../shared/SettingsStatusLine';
-import { useSettingsSectionSpy } from '../shared/useSettingsSectionSpy';
-import { DAYS_OF_WEEK, type OverrideRow } from '../types';
-import {
-  buildAvailabilityAttention,
-  type AvailabilityAttentionAction,
-} from './availabilityAttention';
-import { AvailabilityAttentionSection } from './AvailabilityAttentionSection';
 import {
   AVAILABILITY_SAVE_GROUP_NAMES,
   MEAL_KEYS,
@@ -64,6 +48,28 @@ import {
   previewAvailabilityDate,
   type AvailabilityPreviewSource,
 } from './availabilityPreviewModel';
+import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
+import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
+import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
+import { AVAILABILITY_SAVE_CONFLICT_MESSAGE, SettingsSaveBar } from '../shared/SettingsSaveBar';
+import {
+  formatSettingsSectionList,
+  getSettingsSaveReasonCode,
+  pluralise,
+} from '../shared/settingsSaveSequence';
+import {
+  scrollToSettingsSection,
+  type RestaurantSettingsCommandRailItem,
+} from '../shared/SettingsSectionNav';
+import { SettingsStatusLine } from '../shared/SettingsStatusLine';
+import { useSettingsSectionSpy } from '../shared/useSettingsSectionSpy';
+import { DAYS_OF_WEEK, type OverrideRow } from '../types';
+import {
+  buildAvailabilityAttention,
+  type AvailabilityAttentionAction,
+} from './availabilityAttention';
+import { AvailabilityAttentionSection } from './AvailabilityAttentionSection';
+import { describeAvailabilitySaveFailure } from './availabilitySaveErrorCopy';
 import { BookingPreviewPanel } from './BookingPreviewPanel';
 import { BOOKING_RULES_SECTION_ID, BookingRulesSection } from './BookingRulesSection';
 import { CopyWeekdayDialog } from './CopyWeekdayDialog';
@@ -73,7 +79,10 @@ import {
   SpecialDateDialog,
   SpecialDatesSection,
 } from './SpecialDatesSection';
-import { useAvailabilityPageController } from './useAvailabilityPageController';
+import {
+  useAvailabilityPageController,
+  type AvailabilityRebaseNotice,
+} from './useAvailabilityPageController';
 import {
   WEEKLY_HOURS_SECTION_ID,
   WeeklyHoursSection,
@@ -114,7 +123,11 @@ function focusField(id: string) {
 }
 
 export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: string | null }) {
-  const controller = useAvailabilityPageController(restaurantId);
+  const { permissions } = useOpsSession();
+  const controller = useAvailabilityPageController(restaurantId, {
+    canEditCatalog: permissions.isPlatformAdmin,
+  });
+  const saveFailureCopy = describeAvailabilitySaveFailure(controller.saveFailure?.reasonCode);
   const pathname = usePathname();
   const alias = getRestaurantSettingsAvailabilityAlias(pathname);
   const [aliasDismissed, setAliasDismissed] = useState(false);
@@ -183,8 +196,16 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       errors,
       offeredCount: (dayOfWeek, meal) => counts.get(`${dayOfWeek}-${meal}`) ?? 0,
       googleDriftCount: controller.googleDrift.fields.length,
+      canEditCatalog: controller.canEditCatalog,
     });
-  }, [controller.googleDrift.fields.length, draft, errors, previewSources, today]);
+  }, [
+    controller.canEditCatalog,
+    controller.googleDrift.fields.length,
+    draft,
+    errors,
+    previewSources,
+    today,
+  ]);
 
   const weekdays: WeekdayView[] = useMemo(() => {
     if (!draft || !saved) return [];
@@ -306,6 +327,7 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
           setEditRequest({ key: action.key, nonce: Date.now() });
           break;
         case 'google':
+        case 'none':
           break;
       }
     },
@@ -466,6 +488,19 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       {controller.refreshError ? (
         <SettingsRefreshErrorAlert error={controller.refreshError} onRetry={controller.retryLoad} />
       ) : null}
+      {controller.saveFailure && saveFailureCopy ? (
+        <Alert variant="destructive" role="alert" data-testid="availability-save-failure">
+          <AlertTriangle aria-hidden />
+          <AlertTitle>{controller.saveFailure.failedSection} not saved</AlertTitle>
+          <AlertDescription>{saveFailureCopy}</AlertDescription>
+        </Alert>
+      ) : null}
+      {controller.rebaseNotice ? (
+        <AvailabilityRebaseAlert
+          notice={controller.rebaseNotice}
+          onDismiss={controller.dismissRebaseNotice}
+        />
+      ) : null}
       {alias && !aliasDismissed ? (
         <Alert variant="info" role="status" className="pr-12">
           <Info aria-hidden />
@@ -599,6 +634,7 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
                 turnBands={draft.turnBands}
                 turnBandDefaults={controller.turnBandDefaults}
                 editRequest={editRequest}
+                canEditCatalog={controller.canEditCatalog}
                 onChange={(occasions) => updateDraft((current) => ({ ...current, occasions }))}
                 onTurnBandsChange={(key, bands) =>
                   updateDraft((current) => ({
@@ -697,8 +733,57 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
         onDiscard={controller.discard}
         onShowFirstIssue={showFirstIssue}
         onReview={() => setReviewOpen(true)}
+        conflictMessage={AVAILABILITY_SAVE_CONFLICT_MESSAGE}
+        onReloadLatest={controller.reloadLatest}
+        isReloadingLatest={controller.isReloadingLatest}
       />
     </RestaurantSettingsCommandCenter>
+  );
+}
+
+/**
+ * Newer saved settings were loaded under unsaved edits (another manager, a Google import, or after
+ * a refused save). Staff edits are kept; sections both sides changed are named, because saving
+ * replaces the other change there.
+ */
+function AvailabilityRebaseAlert({
+  notice,
+  onDismiss,
+}: {
+  notice: AvailabilityRebaseNotice;
+  onDismiss: () => void;
+}) {
+  const names = (groups: readonly AvailabilitySaveGroup[]) =>
+    formatSettingsSectionList(groups.map((group) => AVAILABILITY_SAVE_GROUP_NAMES[group]));
+  const hasConflicts = notice.conflicts.length > 0;
+  return (
+    <Alert
+      variant={hasConflicts ? 'warning' : 'info'}
+      role="status"
+      className="pr-12"
+      data-testid="availability-rebase-notice"
+    >
+      {hasConflicts ? <AlertTriangle aria-hidden /> : <Info aria-hidden />}
+      <AlertTitle>Someone else saved changes while you were editing</AlertTitle>
+      <AlertDescription>
+        {notice.changed.length > 0
+          ? `Loaded the latest ${names(notice.changed)}. `
+          : 'Loaded the latest saved settings. '}
+        {hasConflicts
+          ? `You also changed ${names(notice.conflicts)}: your edits are kept and will replace theirs when you save. Review changes before saving.`
+          : 'Your edits are kept. Review them, then save again.'}
+      </AlertDescription>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="absolute right-2 top-2"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+      >
+        <X aria-hidden />
+      </Button>
+    </Alert>
   );
 }
 

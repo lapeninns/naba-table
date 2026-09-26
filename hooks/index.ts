@@ -10,7 +10,3 @@ export * from './useOnlineStatus';
 export * from './useSupabaseSession';
 export * from './useProfile';
 export * from './use-mobile';
-export * from './ops/useCreateRestaurant';
-export * from './ops/useDeleteRestaurant';
-export * from './ops/useRestaurants';
-export * from './ops/useUpdateRestaurant';

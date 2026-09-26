@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
+import { apiError, internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 
-import { GuardError, requireRestaurantMember, requireSession } from "@/server/auth/guards";
+import type { NextResponse } from 'next/server';
 
 export async function requireDashboardAccess(restaurantId: string): Promise<void> {
   const { supabase, user } = await requireSession();
@@ -13,25 +15,21 @@ export async function requireDashboardAccess(restaurantId: string): Promise<void
 
 export function buildDashboardAccessErrorResponse(scope: string, error: unknown): NextResponse {
   if (error instanceof GuardError) {
-    console.error(`[ops/dashboard][${scope}] access validation failed`, error.details ?? error.message);
-    return NextResponse.json(
-      {
-        error: error.message,
-        code: error.code,
-      },
-      {
-        status: error.status,
-        headers: error.status === 503 ? { "Retry-After": "30" } : undefined,
-      },
-    );
+    // Guard messages are authored copy; guard details can carry provider text, so only
+    // the status and code are logged.
+    logger.warn(`[ops/dashboard][${scope}] access validation failed`, {
+      status: error.status,
+      errorKind: error.code,
+    });
+    const retryable = error.status === 503;
+    return apiError(error.status, error.code, error.message, {
+      ...(retryable ? { retryable: true, retryAfter: 30, headers: { 'Retry-After': '30' } } : {}),
+    });
   }
 
-  console.error(`[ops/dashboard][${scope}] unexpected access validation failure`, error);
-  return NextResponse.json(
-    {
-      error: "Unable to verify access",
-      code: "ACCESS_VALIDATION_FAILED",
-    },
-    { status: 500 },
+  return internalError(
+    error,
+    { route: `ops/dashboard/${scope}`, phase: 'access-validation' },
+    'Unable to verify access',
   );
 }

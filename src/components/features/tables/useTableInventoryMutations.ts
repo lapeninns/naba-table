@@ -113,6 +113,19 @@ function patchTable(
   );
 }
 
+/**
+ * A table save refused because another table already uses the number: shown on the number field.
+ * A bare 409 (a server without C1 codes) is treated the same way; any other 409, such as
+ * MAINTENANCE_CONFLICT, is a different problem and goes to the error toast.
+ */
+function isTableNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof HttpError &&
+    error.status === 409 &&
+    (error.code === 'TABLE_NUMBER_TAKEN' || error.code === 'HTTP_409')
+  );
+}
+
 function isUpdateForZone(variables: unknown, zoneId: string) {
   return (
     typeof variables === 'object' &&
@@ -255,18 +268,31 @@ export function useTableInventoryMutations({
     undoToastIds.current.add(toastId);
   };
 
-  /** Refetches one restaurant's tables, timeline, capacities and zones, and no one else's. */
+  /**
+   * Refetches one restaurant's table queries and no one else's: the inventory and floor-plan list
+   * (both read `opsTables.list`), the timeline, allowed capacities and zones all sit under the
+   * restaurant prefix.
+   */
   const invalidateRestaurantTables = (target: MutationTarget | undefined) => {
     const targetRestaurantId = target?.restaurantId;
     if (!targetRestaurantId) return;
-    for (const queryKey of [
-      queryKeys.opsTables.list(targetRestaurantId),
-      queryKeys.opsTables.timeline(targetRestaurantId),
-      queryKeys.opsTables.allowedCapacities(targetRestaurantId),
-      queryKeys.opsTables.zones(targetRestaurantId),
-    ]) {
-      void queryClient.invalidateQueries({ queryKey });
-    }
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.opsTables.restaurantPrefix(targetRestaurantId),
+    });
+  };
+
+  /**
+   * The dashboard summary embeds each assigned table's number, capacity and section
+   * (`getTodayBookingsSummary`), so a rename, capacity change or delete makes every summary date
+   * stale. Creates, quick fixes (status/active) and zone edits change nothing it shows, and the
+   * heatmaps only count bookings, so those are left alone.
+   */
+  const invalidateTableLabelDependents = (target: MutationTarget | undefined) => {
+    const targetRestaurantId = target?.restaurantId;
+    if (!targetRestaurantId) return;
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.opsDashboard.summaryPrefix(targetRestaurantId),
+    });
   };
 
   /**
@@ -296,7 +322,7 @@ export function useTableInventoryMutations({
     });
 
   const handleTableSaveError = (error: unknown, tableNumber: string) => {
-    if (error instanceof HttpError && error.status === 409) {
+    if (isTableNumberConflict(error)) {
       onTableNumberConflict(tableNumber);
       return;
     }
@@ -347,6 +373,7 @@ export function useTableInventoryMutations({
     onMutate: captureTarget,
     onSuccess: (table, _variables, context) => {
       invalidateRestaurantTables(context.target);
+      invalidateTableLabelDependents(context.target);
       toast.success(`Table ${table.tableNumber} saved.`);
       onTableSaved(table, false);
     },
@@ -426,6 +453,7 @@ export function useTableInventoryMutations({
     onMutate: captureTarget,
     onSuccess: (_result, variables, context) => {
       invalidateRestaurantTables(context.target);
+      invalidateTableLabelDependents(context.target);
       toast.success(`Table ${variables.table.tableNumber} deleted.`);
       onTableDeleted(variables.table);
     },

@@ -3,6 +3,7 @@ import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQue
 import { describe, expect, it, vi } from 'vitest';
 
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
+import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 import { reservationKeys } from '@shared/api/queryKeys';
@@ -40,7 +41,7 @@ describe('useUpdateBooking', () => {
       pageInfo: { page: 1, pageSize: 10, total: 1, hasNext: false },
     };
 
-    queryClient.setQueryData(queryKeys.bookings.all, page);
+    queryClient.setQueryData(queryKeys.bookings.list(), page);
     queryClient.setQueryData(queryKeys.bookings.detail(booking.id), booking);
     vi.mocked(fetchJson).mockResolvedValue(updated as never);
 
@@ -63,6 +64,7 @@ describe('useUpdateBooking', () => {
         partySize: updated.partySize,
         notes: updated.notes,
       }),
+      authRedirect: true,
     });
 
     expect(queryClient.getQueryData(queryKeys.bookings.detail(booking.id))).toEqual(updated);
@@ -121,6 +123,30 @@ describe('useUpdateBooking', () => {
       startAt: '2026-07-02T18:30:00.000Z',
       endAt: '2026-07-02T20:00:00.000Z',
       partySize: 4,
+    });
+  });
+});
+
+describe('useUpdateBooking guest error copy', () => {
+  it('maps guest access codes to guest copy and keeps the code', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const { result } = renderHook(() => useUpdateBooking(), { wrapper });
+
+    vi.mocked(fetchJson).mockRejectedValueOnce(
+      new HttpError({
+        message: 'Invalid or missing CSRF token',
+        status: 403,
+        code: 'CSRF_INVALID',
+      }),
+    );
+
+    await expect(
+      result.current.mutateAsync({ id: 'b-1', startIso: '2026-10-10T18:00:00.000Z', partySize: 2 }),
+    ).rejects.toMatchObject({
+      code: 'CSRF_INVALID',
+      status: 403,
+      message: 'Your session expired. Refresh the page and try again.',
     });
   });
 });

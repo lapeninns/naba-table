@@ -3,6 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const emitHoldConfirmedMock = vi.hoisted(() => vi.fn(async () => undefined));
 const recordObservabilityEventMock = vi.hoisted(() => vi.fn(async () => undefined));
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
+const loggerMock = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
 
 vi.mock('@/server/capacity/telemetry', () => ({
   emitHoldConfirmed: emitHoldConfirmedMock,
@@ -16,6 +22,8 @@ vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: getServiceSupabaseClientMock,
 }));
 
+vi.mock('@/lib/logger', () => ({ logger: loggerMock }));
+
 import { enqueueOutboxEvent, processOutboxBatch } from '@/server/outbox';
 
 const NOW = '2026-07-15T12:00:00.000Z';
@@ -23,8 +31,9 @@ const NOW = '2026-07-15T12:00:00.000Z';
 type QueryCall = { method: string; args: unknown[] };
 type RecordedQuery = { table: string; calls: QueryCall[] };
 type Resolver = (query: RecordedQuery) => { data?: unknown; error?: unknown };
+type RpcResolver = (name: string, args: unknown) => { data?: unknown; error?: unknown };
 
-function createSupabaseStub(resolve: Resolver) {
+function createSupabaseStub(resolve: Resolver, resolveRpc?: RpcResolver) {
   const queries: RecordedQuery[] = [];
   const from = vi.fn((table: string) => {
     const query: RecordedQuery = { table, calls: [] };
@@ -45,12 +54,13 @@ function createSupabaseStub(resolve: Resolver) {
         .then(onFulfilled, onRejected);
     return builder;
   });
-  return { client: { from } as never, from, queries };
+  const rpc = vi.fn(async (name: string, args: unknown) =>
+    resolveRpc ? resolveRpc(name, args) : { data: null, error: null },
+  );
+  return { client: { from, rpc } as never, from, rpc, queries };
 }
 
 const firstMethod = (query: RecordedQuery) => query.calls[0]?.method;
-const argsOf = (query: RecordedQuery, method: string) =>
-  query.calls.find((call) => call.method === method)?.args;
 const updatesOf = (queries: RecordedQuery[]) =>
   queries
     .filter((q) => firstMethod(q) === 'update')
@@ -58,55 +68,68 @@ const updatesOf = (queries: RecordedQuery[]) =>
       payload: q.calls[0]!.args[0] as Record<string, unknown>,
       id: q.calls.find((c) => c.method === 'eq' && c.args[0] === 'id')?.args[1],
       statusGuard: q.calls.find((c) => c.method === 'eq' && c.args[0] === 'status')?.args[1],
+      attemptGuard: q.calls.find((c) => c.method === 'eq' && c.args[0] === 'attempt_count')
+        ?.args[1],
     }));
 
-function outboxRow(overrides: Record<string, unknown> = {}) {
+/** A row as returned by claim_capacity_outbox_batch: already leased, attempt counted. */
+function claimedRow(overrides: Record<string, unknown> = {}) {
   return {
     id: 'evt-1',
     event_type: 'capacity.hold.confirmed',
-    status: 'pending',
-    attempt_count: 0,
-    next_attempt_at: null,
+    status: 'processing',
+    attempt_count: 1,
+    next_attempt_at: '2026-07-15T12:05:00.000Z',
     restaurant_id: 'rest-1',
     booking_id: 'book-1',
     idempotency_key: null,
+    dedupe_key: null,
     payload: { holdId: 'h1' },
     created_at: '2026-07-15T11:59:00.000Z',
+    updated_at: NOW,
     ...overrides,
   };
 }
 
 function createProcessingClient(options: {
   rows?: unknown[] | null;
-  selectError?: unknown;
-  failClaimForId?: string;
+  claimError?: unknown;
+  lostLeaseIds?: string[];
+  /** attempt_count the row has in the DB now (another worker re-claimed it). */
+  currentAttempts?: Record<string, number>;
 }) {
-  return createSupabaseStub((query) => {
-    if (firstMethod(query) === 'select') {
-      return { data: options.rows ?? [], error: options.selectError ?? null };
-    }
-    if (firstMethod(query) === 'update') {
-      const payload = query.calls[0]!.args[0] as { status?: string };
-      const id = query.calls.find((c) => c.method === 'eq' && c.args[0] === 'id')?.args[1];
-      if (payload.status === 'processing' && options.failClaimForId === id) {
-        throw new Error('claim lost to a concurrent worker');
+  return createSupabaseStub(
+    (query) => {
+      if (firstMethod(query) === 'update') {
+        const id = query.calls.find((c) => c.method === 'eq' && c.args[0] === 'id')?.args[1];
+        const attemptGuard = query.calls.find(
+          (c) => c.method === 'eq' && c.args[0] === 'attempt_count',
+        )?.args[1];
+        const current = typeof id === 'string' ? options.currentAttempts?.[id] : undefined;
+        const lost =
+          (typeof id === 'string' && options.lostLeaseIds?.includes(id)) ||
+          (current !== undefined && attemptGuard !== current);
+        return { data: lost ? [] : [{ id }], error: null };
       }
       return { error: null };
-    }
-    return { error: null };
-  });
+    },
+    (name) => {
+      if (name !== 'claim_capacity_outbox_batch') return { data: null, error: null };
+      return { data: options.rows ?? [], error: options.claimError ?? null };
+    },
+  );
 }
 
 describe('enqueueOutboxEvent', () => {
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    Object.values(loggerMock).forEach((fn) => fn.mockReset());
   });
 
-  it('@contract enqueues a pending row with zeroed retry state and null defaults for optional ids', async () => {
+  it('@contract enqueues a pending row with zeroed retry state and reports it', async () => {
     const stub = createSupabaseStub(() => ({ error: null }));
 
-    await enqueueOutboxEvent({
+    const first = await enqueueOutboxEvent({
       eventType: 'capacity.hold.confirmed',
       restaurantId: 'rest-1',
       bookingId: 'book-1',
@@ -121,6 +144,7 @@ describe('enqueueOutboxEvent', () => {
       client: stub.client,
     });
 
+    expect(first).toEqual({ status: 'enqueued' });
     expect(stub.from).toHaveBeenCalledWith('capacity_outbox');
     expect(stub.queries[0]!.calls[0]).toEqual({
       method: 'insert',
@@ -145,36 +169,47 @@ describe('enqueueOutboxEvent', () => {
       dedupe_key: null,
     });
     expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
-    expect(console.warn).not.toHaveBeenCalled();
+    expect(loggerMock.warn).not.toHaveBeenCalled();
   });
 
-  it('@contract a duplicate enqueue (unique violation 23505) is silently idempotent', async () => {
+  it('@contract a duplicate enqueue (unique violation 23505) is idempotent and says so', async () => {
     const stub = createSupabaseStub(() => ({
       error: { code: '23505', message: 'duplicate key value violates unique constraint' },
     }));
 
     await expect(
       enqueueOutboxEvent({ eventType: 'x', payload: {}, client: stub.client }),
-    ).resolves.toBeUndefined();
-    expect(console.warn).not.toHaveBeenCalled();
+    ).resolves.toEqual({ status: 'duplicate' });
+    expect(loggerMock.warn).not.toHaveBeenCalled();
   });
 
-  it('@contract enqueue is best-effort: unexpected failures log a warning instead of throwing', async () => {
+  it('@contract failures are logged without raw provider text and returned, never thrown', async () => {
     const insertError = createSupabaseStub(() => ({
-      error: { code: '42501', message: 'permission denied' },
+      error: { code: '42501', message: 'permission denied for guest@example.com' },
     }));
     await expect(
-      enqueueOutboxEvent({ eventType: 'x', payload: {}, client: insertError.client }),
-    ).resolves.toBeUndefined();
-    expect(console.warn).toHaveBeenCalledTimes(1);
+      enqueueOutboxEvent({
+        eventType: 'x',
+        bookingId: 'book-1',
+        payload: {},
+        client: insertError.client,
+      }),
+    ).resolves.toEqual({ status: 'failed', errorCode: '42501' });
+    expect(loggerMock.warn).toHaveBeenCalledWith('[outbox] enqueue failed', {
+      eventType: 'x',
+      bookingId: 'book-1',
+      restaurantId: null,
+      errorCode: '42501',
+    });
 
     const thrown = createSupabaseStub(() => {
       throw new Error('network down');
     });
     await expect(
       enqueueOutboxEvent({ eventType: 'x', payload: {}, client: thrown.client }),
-    ).resolves.toBeUndefined();
-    expect(console.warn).toHaveBeenCalledTimes(2);
+    ).resolves.toEqual({ status: 'failed', errorCode: 'UNKNOWN' });
+    expect(loggerMock.warn).toHaveBeenCalledTimes(2);
+    expect(JSON.stringify(loggerMock.warn.mock.calls)).not.toContain('guest@example.com');
   });
 
   it('@contract falls back to the service-role client when none is provided', async () => {
@@ -191,36 +226,45 @@ describe('enqueueOutboxEvent', () => {
 describe('processOutboxBatch', () => {
   beforeEach(() => {
     getServiceSupabaseClientMock.mockReset();
+    emitHoldConfirmedMock.mockReset();
+    emitHoldConfirmedMock.mockResolvedValue(undefined);
+    recordObservabilityEventMock.mockReset();
+    recordObservabilityEventMock.mockResolvedValue(undefined);
+    Object.values(loggerMock).forEach((fn) => fn.mockReset());
     vi.useFakeTimers();
     vi.setSystemTime(new Date(NOW));
     vi.spyOn(Math, 'random').mockReturnValue(0); // deterministic backoff jitter
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  it('@worker @contract claims due events in order and completes hold confirmations', async () => {
-    const stub = createProcessingClient({ rows: [outboxRow()] });
+  it('@worker @contract claims atomically through the leased claim RPC and settles with a status guard', async () => {
+    const stub = createProcessingClient({ rows: [claimedRow()] });
 
     const summary = await processOutboxBatch({ client: stub.client });
 
-    const selectQuery = stub.queries.find((q) => firstMethod(q) === 'select')!;
-    expect(argsOf(selectQuery, 'in')).toEqual(['status', ['pending', 'processing']]);
-    expect(argsOf(selectQuery, 'or')).toEqual([
-      `next_attempt_at.is.null,next_attempt_at.lte.${NOW}`,
-    ]);
-    expect(argsOf(selectQuery, 'limit')).toEqual([100]); // default batch size
+    expect(stub.rpc).toHaveBeenCalledTimes(1);
+    expect(stub.rpc).toHaveBeenCalledWith('claim_capacity_outbox_batch', {
+      p_limit: 100,
+      p_lease_seconds: 300,
+      p_max_attempts: 10,
+    });
+    // No app-side SELECT-then-UPDATE claim any more.
+    expect(stub.queries.some((q) => firstMethod(q) === 'select')).toBe(false);
+    expect(updatesOf(stub.queries).some((u) => u.payload.status === 'processing')).toBe(false);
 
     expect(emitHoldConfirmedMock).toHaveBeenCalledWith({ holdId: 'h1' });
-
-    const updates = updatesOf(stub.queries);
-    expect(updates).toEqual([
-      { payload: { status: 'processing' }, id: 'evt-1', statusGuard: 'pending' },
-      { payload: { status: 'done' }, id: 'evt-1', statusGuard: undefined },
+    expect(updatesOf(stub.queries)).toEqual([
+      {
+        payload: { status: 'done', next_attempt_at: null, updated_at: NOW },
+        id: 'evt-1',
+        statusGuard: 'processing',
+        attemptGuard: 1,
+      },
     ]);
-
     expect(summary).toEqual({ processed: 1, failed: 0, dead: 0, pending: 0 });
     expect(recordObservabilityEventMock).toHaveBeenCalledWith({
       source: 'outbox',
@@ -233,7 +277,7 @@ describe('processOutboxBatch', () => {
   it('@worker @contract @observability routes assignment sync events to observability with tenant ids', async () => {
     const stub = createProcessingClient({
       rows: [
-        outboxRow({
+        claimedRow({
           id: 'evt-2',
           event_type: 'capacity.assignment.sync',
           payload: { assignmentId: 'a1' },
@@ -241,11 +285,13 @@ describe('processOutboxBatch', () => {
       ],
     });
 
-    const summary = await processOutboxBatch({ client: stub.client, limit: 7 });
+    const summary = await processOutboxBatch({ client: stub.client, limit: 7, leaseSeconds: 60 });
 
-    const selectQuery = stub.queries.find((q) => firstMethod(q) === 'select')!;
-    expect(argsOf(selectQuery, 'limit')).toEqual([7]);
-
+    expect(stub.rpc).toHaveBeenCalledWith('claim_capacity_outbox_batch', {
+      p_limit: 7,
+      p_lease_seconds: 60,
+      p_max_attempts: 10,
+    });
     expect(recordObservabilityEventMock).toHaveBeenCalledWith({
       source: 'capacity.sync',
       eventType: 'capacity.assignment.synchronized',
@@ -259,14 +305,14 @@ describe('processOutboxBatch', () => {
 
   it('@worker @contract unknown event types are completed rather than retried (poison-pill guard)', async () => {
     const stub = createProcessingClient({
-      rows: [outboxRow({ id: 'evt-3', event_type: 'mystery.event' })],
+      rows: [claimedRow({ id: 'evt-3', event_type: 'mystery.event' })],
     });
 
     const summary = await processOutboxBatch({ client: stub.client });
 
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(loggerMock.warn).toHaveBeenCalledWith(
       '[outbox] unknown event type',
-      expect.objectContaining({ type: 'mystery.event', id: 'evt-3' }),
+      expect.objectContaining({ eventType: 'mystery.event', outboxId: 'evt-3' }),
     );
     expect(updatesOf(stub.queries).at(-1)).toMatchObject({
       payload: { status: 'done' },
@@ -282,23 +328,28 @@ describe('processOutboxBatch', () => {
     });
     const stub = createProcessingClient({
       rows: [
-        outboxRow({ id: 'evt-ok', payload: { holdId: 'good' } }),
-        outboxRow({ id: 'evt-bad', payload: { holdId: 'bad' }, attempt_count: 0 }),
+        claimedRow({ id: 'evt-ok', payload: { holdId: 'good' } }),
+        claimedRow({ id: 'evt-bad', payload: { holdId: 'bad' }, attempt_count: 1 }),
       ],
     });
 
     const summary = await processOutboxBatch({ client: stub.client });
 
     expect(summary).toEqual({ processed: 1, failed: 1, dead: 0, pending: 1 });
-
-    const retry = updatesOf(stub.queries).find((u) => u.id === 'evt-bad' && u.payload.status === 'pending')!;
-    // attempts=1 -> 2^1 * 250ms = 500ms after the frozen clock (jitter pinned to 0).
-    expect(retry.payload).toEqual({
-      status: 'pending',
-      attempt_count: 1,
-      next_attempt_at: '2026-07-15T12:00:00.500Z',
+    const retry = updatesOf(stub.queries).find(
+      (u) => u.id === 'evt-bad' && u.payload.status === 'pending',
+    )!;
+    // The claim counted attempt 1 -> 2^1 * 250ms = 500ms after the frozen clock.
+    expect(retry).toEqual({
+      payload: {
+        status: 'pending',
+        next_attempt_at: '2026-07-15T12:00:00.500Z',
+        updated_at: NOW,
+      },
+      id: 'evt-bad',
+      statusGuard: 'processing',
+      attemptGuard: 1,
     });
-
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'outbox.batch', severity: 'warning' }),
     );
@@ -306,61 +357,80 @@ describe('processOutboxBatch', () => {
 
   it('@worker @contract retry backoff caps at 30 seconds', async () => {
     emitHoldConfirmedMock.mockRejectedValue(new Error('still down'));
-    const stub = createProcessingClient({
-      rows: [outboxRow({ id: 'evt-8', attempt_count: 8 })],
-    });
+    const stub = createProcessingClient({ rows: [claimedRow({ id: 'evt-8', attempt_count: 9 })] });
 
     await processOutboxBatch({ client: stub.client });
 
-    const retry = updatesOf(stub.queries).find((u) => u.id === 'evt-8' && u.payload.status === 'pending')!;
-    // attempts=9 -> exponent clamps at 8 -> 64s uncapped -> pinned to the 30s max.
-    expect(retry.payload).toEqual({
-      status: 'pending',
-      attempt_count: 9,
-      next_attempt_at: '2026-07-15T12:00:30.000Z',
-    });
+    const retry = updatesOf(stub.queries).find(
+      (u) => u.id === 'evt-8' && u.payload.status === 'pending',
+    )!;
+    expect(retry.payload.next_attempt_at).toBe('2026-07-15T12:00:30.000Z');
   });
 
-  it('@worker @contract the tenth failure dead-letters the event', async () => {
+  it('@worker @contract the tenth attempt dead-letters the event', async () => {
     emitHoldConfirmedMock.mockRejectedValue(new Error('permanently broken'));
     const stub = createProcessingClient({
-      rows: [outboxRow({ id: 'evt-dead', attempt_count: 9 })],
+      rows: [claimedRow({ id: 'evt-dead', attempt_count: 10 })],
     });
 
     const summary = await processOutboxBatch({ client: stub.client });
 
     expect(summary).toEqual({ processed: 0, failed: 0, dead: 1, pending: 1 });
     expect(updatesOf(stub.queries).at(-1)).toMatchObject({
-      payload: { status: 'dead', attempt_count: 10, next_attempt_at: null },
+      payload: { status: 'dead', next_attempt_at: null },
       id: 'evt-dead',
+      statusGuard: 'processing',
     });
   });
 
-  it('@worker @contract losing the claim race to a concurrent worker does not stop processing', async () => {
-    // Pinned semantics: the claim update is fire-and-forget — when another worker
-    // steals the row (claim update throws), THIS worker still runs the handler.
-    // The status guard (eq status) is what keeps the window small, not a hard lock.
+  it('@worker @contract a settle that matches no row (lease lost) is reported, not counted as processed', async () => {
     const stub = createProcessingClient({
-      rows: [outboxRow({ id: 'evt-raced' }), outboxRow({ id: 'evt-second', payload: { holdId: 'h2' } })],
-      failClaimForId: 'evt-raced',
+      rows: [
+        claimedRow({ id: 'evt-lost' }),
+        claimedRow({ id: 'evt-kept', payload: { holdId: 'h2' } }),
+      ],
+      lostLeaseIds: ['evt-lost'],
     });
 
     const summary = await processOutboxBatch({ client: stub.client });
 
-    expect(emitHoldConfirmedMock).toHaveBeenCalledTimes(2);
-    expect(emitHoldConfirmedMock).toHaveBeenNthCalledWith(1, { holdId: 'h1' });
-    expect(emitHoldConfirmedMock).toHaveBeenNthCalledWith(2, { holdId: 'h2' });
-    expect(summary).toEqual({ processed: 2, failed: 0, dead: 0, pending: 0 });
+    expect(summary).toEqual({ processed: 1, failed: 0, dead: 0, pending: 1 });
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[outbox] lease lost before settle',
+      expect.objectContaining({ outboxId: 'evt-lost' }),
+    );
   });
 
-  it('@worker @contract select failures and an empty queue both return zeros without batch telemetry', async () => {
-    const failing = createProcessingClient({ rows: null, selectError: { message: 'boom' } });
+  it('@worker @contract a stale worker cannot settle a row another worker re-claimed (attempt fencing)', async () => {
+    // This worker claimed evt-stale as attempt 1; its lease expired and another
+    // worker re-claimed it (attempt_count is now 2) while the row is still processing.
+    const stub = createProcessingClient({
+      rows: [claimedRow({ id: 'evt-stale', attempt_count: 1 })],
+      currentAttempts: { 'evt-stale': 2 },
+    });
+
+    const summary = await processOutboxBatch({ client: stub.client });
+
+    expect(updatesOf(stub.queries)).toEqual([
+      expect.objectContaining({ id: 'evt-stale', statusGuard: 'processing', attemptGuard: 1 }),
+    ]);
+    expect(summary).toEqual({ processed: 0, failed: 0, dead: 0, pending: 1 });
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[outbox] lease lost before settle',
+      expect.objectContaining({ outboxId: 'evt-stale' }),
+    );
+  });
+
+  it('@worker @contract a claim failure is logged and reported, an empty queue returns zeros', async () => {
+    const failing = createProcessingClient({ rows: null, claimError: { code: '57014' } });
     await expect(processOutboxBatch({ client: failing.client })).resolves.toEqual({
       processed: 0,
       failed: 0,
       dead: 0,
       pending: 0,
+      error: 'CLAIM_FAILED',
     });
+    expect(loggerMock.error).toHaveBeenCalledWith('[outbox] claim failed', { errorCode: '57014' });
 
     const empty = createProcessingClient({ rows: [] });
     await expect(processOutboxBatch({ client: empty.client })).resolves.toEqual({
@@ -375,7 +445,7 @@ describe('processOutboxBatch', () => {
 
   it('@worker @contract batch telemetry failures never break the returned summary', async () => {
     recordObservabilityEventMock.mockRejectedValue(new Error('telemetry offline'));
-    const stub = createProcessingClient({ rows: [outboxRow()] });
+    const stub = createProcessingClient({ rows: [claimedRow()] });
 
     await expect(processOutboxBatch({ client: stub.client })).resolves.toEqual({
       processed: 1,

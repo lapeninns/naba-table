@@ -38,7 +38,6 @@ vi.mock('@/server/bookings', () => ({
 }));
 
 vi.mock('@/server/bookings/confirmation-token', () => ({
-  attachTokenToBooking: vi.fn(),
   computeTokenExpiry: vi.fn(() => '2026-05-16T12:00:00.000Z'),
   generateConfirmationToken: vi.fn(() => 'token'),
 }));
@@ -79,8 +78,8 @@ vi.mock('@/server/restaurants/schedule', () => ({
   getRestaurantSchedule: vi.fn(),
 }));
 
-vi.mock('@/server/security/guest-lookup', () => ({
-  computeGuestLookupHash: vi.fn(() => 'lookup-hash'),
+vi.mock('@/server/queue/email', () => ({
+  enqueueEmailJob: vi.fn(),
 }));
 
 vi.mock('@/server/security/rate-limit', () => ({
@@ -90,11 +89,6 @@ vi.mock('@/server/security/rate-limit', () => ({
 vi.mock('@/server/security/request', () => ({
   anonymizeIp: vi.fn(() => '127.0.0.0/24'),
   extractClientIp: vi.fn(() => '127.0.0.1'),
-}));
-
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  createSessionRecoveryAccessToken: vi.fn(),
-  validateSessionRecoveryAccessToken: vi.fn(),
 }));
 
 vi.mock('@/server/supabase', () => ({
@@ -149,6 +143,7 @@ function createBookingQuery(response: {
 }) {
   const query = {
     eq: vi.fn(() => query),
+    or: vi.fn(() => query),
     gte: vi.fn(() => query),
     in: vi.fn(() => query),
     lt: vi.fn(() => query),
@@ -179,7 +174,7 @@ describe('guest booking list route', () => {
     });
   });
 
-  it('requires an authenticated guest email @p0 @api @security', async () => {
+  it('requires an authenticated guest @p0 @api @security', async () => {
     getUserMock.mockResolvedValue({
       data: { user: null },
       error: null,
@@ -189,11 +184,15 @@ describe('guest booking list route', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ error: 'Unauthorized' });
+    expect(body.code).toBe('UNAUTHENTICATED');
     expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
   });
 
-  it('lists only bookings matching the authenticated guest email @p0 @api @security', async () => {
+  it('lists only bookings bound to the authenticated guest account @p0 @api @security', async () => {
+    getUserMock.mockResolvedValue({
+      data: { user: { ...USER, email_confirmed_at: '2026-01-01T00:00:00.000Z' } },
+      error: null,
+    });
     const query = createBookingQuery({ data: [makeBooking()], count: 1 });
     fromMock.mockReturnValue(query);
     getServiceSupabaseClientMock.mockReturnValue({ from: fromMock });
@@ -205,7 +204,11 @@ describe('guest booking list route', () => {
 
     expect(response.status).toBe(200);
     expect(fromMock).toHaveBeenCalledWith('bookings');
-    expect(query.eq).toHaveBeenCalledWith('customer_email', 'guest@example.com');
+    expect(query.eq).toHaveBeenCalledWith('auth_user_id', 'guest-user-1');
+    // Email matching is gated off (SESSION_EMAIL_MATCH_ENABLED=false), even for a
+    // confirmed email: an email-matched row is not listed.
+    expect(query.eq).not.toHaveBeenCalledWith('customer_email', expect.anything());
+    expect(query.or).not.toHaveBeenCalled();
     expect(query.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID);
     expect(query.eq).toHaveBeenCalledWith('status', 'confirmed');
     expect(query.order).toHaveBeenCalledWith('booking_date', { ascending: false });
@@ -230,6 +233,19 @@ describe('guest booking list route', () => {
         total: 1,
       },
     });
+  });
+
+  it('answers the removed contact lookup with 410 and no query @p0 @api @security', async () => {
+    const response = await GET(
+      request(`?email=guest%40example.com&phone=07700900123&restaurantId=${RESTAURANT_ID}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(body.code).toBe('CONTACT_LOOKUP_REMOVED');
+    expect(body).not.toHaveProperty('bookings');
+    expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
+    expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
   });
 
   it('rejects invalid booking list query params before service queries @p0 @api @contract', async () => {

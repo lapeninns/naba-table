@@ -1,267 +1,85 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { toast } from 'sonner';
+import { useCallback, useMemo } from 'react';
 
-import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
-import { track } from '@/lib/analytics';
-import { HttpError } from '@/lib/http/errors';
+import { useBookingLifecycle } from './useBookingLifecycle';
 
 import type { BookingAction } from '@/components/features/booking-state-machine';
 
 export type UseOpsBookingsLifecycleHandlersParams = {
   restaurantId: string | null;
   targetDate: string | null;
-  isOnline: boolean;
+  /** Kept for API stability: offline queueing is decided by the offline-queue context. */
+  isOnline?: boolean;
   getBookingLabel: (bookingId: string) => string;
 };
 
+/**
+ * Bookings-list bindings over the canonical `useBookingLifecycle` hook. Pending state is per
+ * booking from the mutation cache; toasts, analytics, offline queueing and conflict refresh all
+ * live in the canonical hook, so these handlers resolve and never throw.
+ */
 export function useOpsBookingsLifecycleHandlers({
   restaurantId,
   targetDate,
-  isOnline,
   getBookingLabel,
 }: UseOpsBookingsLifecycleHandlersParams) {
-  const bookingLifecycleMutations = useOpsBookingLifecycleActions();
+  const { run, pendingActions } = useBookingLifecycle({ getBookingLabel });
 
-  const [pendingActionsByBookingId, setPendingActionsByBookingId] = useState<
-    Record<string, BookingAction | null>
-  >({});
-
-  const setPendingBookingAction = useCallback((bookingId: string, action: BookingAction) => {
-    setPendingActionsByBookingId((current) => ({ ...current, [bookingId]: action }));
-  }, []);
-
-  const clearPendingBookingAction = useCallback((bookingId: string) => {
-    setPendingActionsByBookingId((current) => {
-      if (!current[bookingId]) return current;
-      const next = { ...current };
-      delete next[bookingId];
-      return next;
-    });
-  }, []);
-
-  const onUndoNoShow = useCallback(
-    async (bookingId: string, reason?: string | null) => {
-      if (!restaurantId) return;
-      const guestLabel = getBookingLabel(bookingId);
-
-      if (!isOnline) {
-        bookingLifecycleMutations.undoNoShow.mutate({
-          restaurantId,
-          bookingId,
-          reason: reason ?? null,
-          targetDate,
-        });
-        toast.message(`Queued undo no-show: ${guestLabel}`, {
-          description: 'This will sync automatically once you reconnect.',
-        });
-        return;
-      }
-
-      setPendingBookingAction(bookingId, 'undo-no-show');
-      try {
-        await bookingLifecycleMutations.undoNoShow.mutateAsync({
-          restaurantId,
-          bookingId,
-          reason: reason ?? null,
-          targetDate,
-        });
-        toast.success(`Undo no-show: ${guestLabel}`);
-      } catch (error) {
-        if (error instanceof HttpError && error.status === 409) {
-          return;
-        }
-        const message = error instanceof Error ? error.message : 'Unable to undo no-show.';
-        toast.error('Unable to undo no-show', { description: message });
-      } finally {
-        clearPendingBookingAction(bookingId);
-      }
-    },
-    [
-      restaurantId,
-      targetDate,
-      bookingLifecycleMutations.undoNoShow,
-      clearPendingBookingAction,
-      getBookingLabel,
-      isOnline,
-      setPendingBookingAction,
-    ],
-  );
-
-  const onMarkNoShow = useCallback(
-    async (bookingId: string, options?: { performedAt?: string | null; reason?: string | null }) => {
-      if (!restaurantId) return;
-      const guestLabel = getBookingLabel(bookingId);
-
-      if (!isOnline) {
-        bookingLifecycleMutations.markNoShow.mutate({
-          restaurantId,
-          bookingId,
-          performedAt: options?.performedAt ?? null,
-          reason: options?.reason ?? null,
-          targetDate,
-        });
-        toast.message(`Queued no-show: ${guestLabel}`, {
-          description: 'This will sync automatically once you reconnect.',
-        });
-        return;
-      }
-
-      setPendingBookingAction(bookingId, 'no-show');
-      try {
-        await bookingLifecycleMutations.markNoShow.mutateAsync({
-          restaurantId,
-          bookingId,
-          performedAt: options?.performedAt ?? null,
-          reason: options?.reason ?? null,
-          targetDate,
-        });
-        track('booking_no_show', {
-          booking_id: bookingId,
-          restaurant_id: restaurantId,
-          date: targetDate,
-          is_online: isOnline,
-        });
-        toast.success(`Marked no-show: ${guestLabel}`, {
-          duration: 5000,
-          action: {
-            label: 'Undo',
-            onClick: () => {
-              void onUndoNoShow(bookingId);
-            },
-          },
-        });
-      } catch (error) {
-        if (error instanceof HttpError && error.status === 409) {
-          return;
-        }
-        const message = error instanceof Error ? error.message : 'Unable to mark no-show.';
-        toast.error('Unable to mark no-show', { description: message });
-      } finally {
-        clearPendingBookingAction(bookingId);
-      }
-    },
-    [
-      restaurantId,
-      targetDate,
-      bookingLifecycleMutations.markNoShow,
-      clearPendingBookingAction,
-      getBookingLabel,
-      isOnline,
-      onUndoNoShow,
-      setPendingBookingAction,
-    ],
-  );
+  const pendingActionsByBookingId = useMemo(() => {
+    const byBooking: Record<string, BookingAction | null> = {};
+    for (const [bookingId, pending] of Object.entries(pendingActions)) {
+      byBooking[bookingId] = pending.action;
+    }
+    return byBooking;
+  }, [pendingActions]);
 
   const onCheckIn = useCallback(
     async (bookingId: string) => {
       if (!restaurantId) return;
-      const guestLabel = getBookingLabel(bookingId);
-
-      if (!isOnline) {
-        bookingLifecycleMutations.checkIn.mutate({
-          restaurantId,
-          bookingId,
-          targetDate,
-        });
-        toast.message(`Queued seat: ${guestLabel}`, {
-          description: 'This will sync automatically once you reconnect.',
-        });
-        return;
-      }
-
-      setPendingBookingAction(bookingId, 'check-in');
-      try {
-        await bookingLifecycleMutations.checkIn.mutateAsync({
-          restaurantId,
-          bookingId,
-          targetDate,
-        });
-        track('booking_check_in', {
-          booking_id: bookingId,
-          restaurant_id: restaurantId,
-          date: targetDate,
-          is_online: isOnline,
-        });
-        toast.success(`Seated: ${guestLabel}`);
-      } catch (error) {
-        if (error instanceof HttpError && error.status === 409) {
-          return;
-        }
-        const message = error instanceof Error ? error.message : 'Unable to seat guest.';
-        toast.error('Unable to seat guest', { description: message });
-      } finally {
-        clearPendingBookingAction(bookingId);
-      }
+      await run({ action: 'check-in', restaurantId, bookingId, targetDate });
     },
-    [
-      restaurantId,
-      targetDate,
-      bookingLifecycleMutations.checkIn,
-      clearPendingBookingAction,
-      getBookingLabel,
-      isOnline,
-      setPendingBookingAction,
-    ],
+    [restaurantId, run, targetDate],
   );
 
   const onCheckOut = useCallback(
     async (bookingId: string) => {
       if (!restaurantId) return;
-      const guestLabel = getBookingLabel(bookingId);
-
-      if (!isOnline) {
-        bookingLifecycleMutations.checkOut.mutate({
-          restaurantId,
-          bookingId,
-          targetDate,
-        });
-        toast.message(`Queued finish: ${guestLabel}`, {
-          description: 'This will sync automatically once you reconnect.',
-        });
-        return;
-      }
-
-      setPendingBookingAction(bookingId, 'check-out');
-      try {
-        await bookingLifecycleMutations.checkOut.mutateAsync({
-          restaurantId,
-          bookingId,
-          targetDate,
-        });
-        track('booking_check_out', {
-          booking_id: bookingId,
-          restaurant_id: restaurantId,
-          date: targetDate,
-          is_online: isOnline,
-        });
-        track('booking_completed', {
-          booking_id: bookingId,
-          restaurant_id: restaurantId,
-          date: targetDate,
-          is_online: isOnline,
-        });
-        toast.success(`Finished: ${guestLabel}`);
-      } catch (error) {
-        if (error instanceof HttpError && error.status === 409) {
-          return;
-        }
-        const message = error instanceof Error ? error.message : 'Unable to finish booking.';
-        toast.error('Unable to finish booking', { description: message });
-      } finally {
-        clearPendingBookingAction(bookingId);
-      }
+      await run({ action: 'check-out', restaurantId, bookingId, targetDate });
     },
-    [
-      restaurantId,
-      targetDate,
-      bookingLifecycleMutations.checkOut,
-      clearPendingBookingAction,
-      getBookingLabel,
-      isOnline,
-      setPendingBookingAction,
-    ],
+    [restaurantId, run, targetDate],
+  );
+
+  const onMarkNoShow = useCallback(
+    async (
+      bookingId: string,
+      options?: { performedAt?: string | null; reason?: string | null },
+    ) => {
+      if (!restaurantId) return;
+      await run({
+        action: 'no-show',
+        restaurantId,
+        bookingId,
+        targetDate,
+        performedAt: options?.performedAt ?? null,
+        reason: options?.reason ?? null,
+      });
+    },
+    [restaurantId, run, targetDate],
+  );
+
+  const onUndoNoShow = useCallback(
+    async (bookingId: string, reason?: string | null) => {
+      if (!restaurantId) return;
+      await run({
+        action: 'undo-no-show',
+        restaurantId,
+        bookingId,
+        targetDate,
+        reason: reason ?? null,
+      });
+    },
+    [restaurantId, run, targetDate],
   );
 
   return {

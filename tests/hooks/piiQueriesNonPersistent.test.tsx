@@ -48,6 +48,7 @@ const GUEST_NAME = 'Guest Sentinel';
 const GUEST_EMAIL = 'guest-sentinel@example.test';
 const GUEST_PHONE = '+440000guest';
 const STAFF_CONTACT_EMAIL = 'staff-contact-sentinel@example.test';
+const PROFILE_EMAIL = 'profile-sentinel@example.test';
 
 const INVITES = [{ id: 'invite-1', email: INVITEE_EMAIL, role: 'host', status: 'pending' }];
 const PROFILE = {
@@ -204,6 +205,12 @@ const PII_PREFETCHES: ReadonlyArray<{ name: string; queryKey: QueryKey; data: un
       ],
     },
   },
+  {
+    // useProfile (and the guest dashboard) cache the signed-in user's name, email and phone.
+    name: 'user profile',
+    queryKey: queryKeys.profile.self(),
+    data: { id: 'user-1', name: 'Profile Sentinel', email: PROFILE_EMAIL, phone: null },
+  },
 ];
 
 describe('PII-bearing query caches are marked non-persistent', () => {
@@ -349,6 +356,7 @@ describe('PII-bearing queries never reach the persisted cache', () => {
       GUEST_EMAIL,
       GUEST_PHONE,
       STAFF_CONTACT_EMAIL,
+      PROFILE_EMAIL,
     ]) {
       expect(raw).not.toContain(sentinel);
     }

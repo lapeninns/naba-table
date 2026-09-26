@@ -72,6 +72,15 @@ export default async function BookingsLandingPage() {
             <p className="pg-kicker">Have a message link?</p>
             <h2 className="pg-card-title">Open it from your email or SMS</h2>
             <p className="pg-body max-w-[58ch] text-sm">{content.messageLinkDescription}</p>
+            <p className="pg-body text-sm">
+              Lost the link?{' '}
+              <Link
+                href="/bookings/find"
+                className="pg-focus-ring font-semibold text-primary underline"
+              >
+                Email me a new one
+              </Link>
+            </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <GuestInsetCard

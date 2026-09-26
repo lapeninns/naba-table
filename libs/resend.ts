@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import {
   Resend,
   type CreateEmailOptions,
@@ -159,6 +160,83 @@ export function isEmailRecipientSuppressedError(
   return error instanceof EmailRecipientSuppressedError;
 }
 
+/**
+ * A send the provider answered with an error. `providerErrorName` and `statusCode` come from the
+ * Resend SDK's error response, so callers can classify failures without parsing the message.
+ * The message format ("Resend API error (<name>): <message>") is unchanged for existing logs.
+ */
+export class ResendSendError extends Error {
+  readonly providerErrorName: string;
+  readonly statusCode: number | null;
+
+  constructor(params: { name: string; message: string; statusCode?: number | null }) {
+    super(`Resend API error (${params.name}): ${params.message}`);
+    this.name = "ResendSendError";
+    this.providerErrorName = params.name;
+    this.statusCode = typeof params.statusCode === "number" ? params.statusCode : null;
+  }
+}
+
+export function isResendSendError(error: unknown): error is ResendSendError {
+  return error instanceof ResendSendError;
+}
+
+// Errors Resend returns when it rejected the request before accepting any email. Anything else
+// (application_error: the SDK's wrapper for network failures and timeouts, internal_server_error,
+// missing_id, concurrent/invalid idempotent request) may hide an accepted send. An
+// invalid_idempotent_request means the key was already used: see isResendIdempotencyConflict.
+const RESEND_NOT_SENT_ERROR_NAMES = new Set([
+  "validation_error",
+  "invalid_parameter",
+  "missing_required_field",
+  "invalid_from_address",
+  "invalid_idempotency_key",
+  "invalid_access",
+  "invalid_region",
+  "missing_api_key",
+  "invalid_api_key",
+  "suspended_api_key",
+  "rate_limit_exceeded",
+  "not_found",
+  "method_not_allowed",
+]);
+
+/**
+ * True only when the provider definitively did not accept the email, so a retry may use a new
+ * idempotency key without risking a duplicate. Thrown non-provider errors are not definitive.
+ */
+export function isDefinitiveResendNotSent(error: unknown): boolean {
+  return isResendSendError(error) && RESEND_NOT_SENT_ERROR_NAMES.has(error.providerErrorName);
+}
+
+/**
+ * Resend answered 409 invalid_idempotent_request: it already holds a request under this
+ * idempotency key with a different payload. A booking email is rendered again on every attempt
+ * (the manage link carries a fresh sealed token), so a takeover of an ambiguous attempt reuses
+ * the key with a different body and lands here. The provider has seen that key, so the earlier
+ * request reached it; this is "already sent under this key", never a reason to mint a new key.
+ * concurrent_idempotent_requests (the original is still in flight) is deliberately excluded and
+ * stays ambiguous.
+ */
+export function isResendIdempotencyConflict(error: unknown): boolean {
+  return isResendSendError(error) && error.providerErrorName === "invalid_idempotent_request";
+}
+
+/**
+ * The provider rejected the message itself (malformed or invalid recipient/payload): the same
+ * send can never succeed. A 403 validation_error (unverified domain, testing-mode recipient
+ * restriction) is a sender configuration problem and is not included.
+ */
+export function isResendRejectedMessageError(error: unknown): boolean {
+  return (
+    isResendSendError(error) &&
+    (error.statusCode === 400 || error.statusCode === 422) &&
+    (error.providerErrorName === "validation_error" ||
+      error.providerErrorName === "invalid_parameter" ||
+      error.providerErrorName === "missing_required_field")
+  );
+}
+
 export function createEmailIdempotencyKey(params: {
   scope: string;
   parts: Array<string | number | boolean | null | undefined>;
@@ -168,6 +246,19 @@ export function createEmailIdempotencyKey(params: {
     .join("|");
 
   const digest = Buffer.from(payload, "utf-8").toString("base64url").slice(0, 180);
+  return `${params.scope}:${digest}`;
+}
+
+/**
+ * Idempotency key from a SHA-256 digest of every part, so no part (tenant, recipient, client
+ * request key) is ever truncated away and keys from different tenants cannot collide.
+ */
+export function createHashedEmailIdempotencyKey(params: {
+  scope: string;
+  parts: Array<string | number | boolean | null | undefined>;
+}): string {
+  const payload = params.parts.map((part) => String(part ?? "")).join("|");
+  const digest = createHash("sha256").update(payload, "utf8").digest("base64url");
   return `${params.scope}:${digest}`;
 }
 
@@ -408,11 +499,18 @@ export async function sendEmail({
     const emailId = result.data?.id ?? null;
 
     if (providerError || !emailId) {
-      const normalizedError = providerError ?? {
-        name: "missing_id",
-        message: "Resend send call succeeded without returning an email id.",
-      };
-      throw new Error(`Resend API error (${normalizedError.name}): ${normalizedError.message}`);
+      throw new ResendSendError(
+        providerError
+          ? {
+              name: providerError.name,
+              message: providerError.message,
+              statusCode: providerError.statusCode,
+            }
+          : {
+              name: "missing_id",
+              message: "Resend send call succeeded without returning an email id.",
+            },
+      );
     }
 
     console.log(`[resend] Email sent successfully. ID: ${emailId}`);

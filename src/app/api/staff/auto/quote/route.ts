@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  conflict,
+  forbidden,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { quoteTables } from '@/server/capacity/engine';
 import { HoldConflictError } from '@/server/capacity/holds';
 import { ServiceNotFoundError } from '@/server/capacity/policy';
@@ -33,17 +42,14 @@ async function postStaffAutoQuote(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   const body = await req.json().catch(() => null);
   const parsed = quotePayloadSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request payload', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid request payload');
   }
 
   const { bookingId, zoneId, maxTables, requireAdjacency, avoidTables, holdTtlSeconds } =
@@ -56,12 +62,20 @@ async function postStaffAutoQuote(req: NextRequest) {
     .maybeSingle();
 
   if (bookingLookup.error) {
-    return NextResponse.json({ error: bookingLookup.error.message }, { status: 500 });
+    return internalError(
+      bookingLookup.error,
+      {
+        route: '/api/staff/auto/quote',
+        stage: 'booking_lookup',
+        errorKind: bookingLookup.error.code,
+      },
+      'Unable to quote tables',
+    );
   }
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow || !bookingRow.restaurant_id) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   const membership = await supabase
@@ -72,11 +86,19 @@ async function postStaffAutoQuote(req: NextRequest) {
     .maybeSingle();
 
   if (membership.error) {
-    return NextResponse.json({ error: membership.error.message }, { status: 500 });
+    return internalError(
+      membership.error,
+      {
+        route: '/api/staff/auto/quote',
+        stage: 'membership_lookup',
+        errorKind: membership.error.code,
+      },
+      'Unable to quote tables',
+    );
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    return forbidden();
   }
 
   const rateLimitResponse = await requireApiRateLimit({
@@ -126,13 +148,7 @@ async function postStaffAutoQuote(req: NextRequest) {
     }
 
     if (!result.hold || !result.candidate) {
-      return NextResponse.json(
-        {
-          error: 'Quote failed',
-          details: result.reason ?? 'No candidate returned',
-        },
-        { status: 409 },
-      );
+      return conflict('QUOTE_FAILED', 'No tables could be held for this booking. Try again.');
     }
 
     return NextResponse.json({
@@ -155,20 +171,18 @@ async function postStaffAutoQuote(req: NextRequest) {
     });
   } catch (error) {
     if (error instanceof HoldConflictError) {
-      return NextResponse.json(
-        {
-          error: 'Hold conflict',
-          holdId: error.holdId ?? null,
-        },
-        { status: 409 },
+      return conflict(
+        'HOLD_CONFLICT',
+        'One of those tables is held for another booking. Re-quote and try again.',
+        { details: { holdId: error.holdId ?? null } },
       );
     }
 
     if (error instanceof ServiceNotFoundError) {
-      return NextResponse.json({ error: error.message }, { status: 422 });
+      // The policy message embeds the attempted timestamp; send fixed copy instead.
+      return apiError(422, 'SERVICE_NOT_FOUND', 'No service is open at this booking time.');
     }
 
-    console.error('[staff/auto/quote] unexpected error', { error, bookingId });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: bookingRow.restaurant_id },
@@ -179,7 +193,10 @@ async function postStaffAutoQuote(req: NextRequest) {
         kind: 'staff-auto-quote',
       },
     });
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalError(
+      error,
+      { route: '/api/staff/auto/quote', bookingId, restaurantId: bookingRow.restaurant_id },
+      'Unable to quote tables',
+    );
   }
 }

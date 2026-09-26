@@ -13,6 +13,11 @@ import {
   sendBookingUpdateEmail,
   sendRestaurantCancellationEmail,
 } from '@/server/emails/bookings';
+import {
+  bookingEmailIntentKey,
+  ensureBookingEmailIntent,
+  runClaimedBookingEmailIntent,
+} from '@/server/jobs/booking-side-effect-intents';
 import { recordObservabilityEvent } from '@/server/observability';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { cancelEmailIntents } from '@/server/queue/email-intents';
@@ -65,6 +70,11 @@ export type BookingCreatedSideEffectsPayload = {
   idempotencyKey: string | null;
   restaurantId: string;
   emailProvided?: boolean;
+  /**
+   * True when the create request was an idempotent replay of a booking that
+   * already existed. Replays re-ensure durable effects and skip non-idempotent ones.
+   */
+  replay?: boolean;
 };
 
 export type BookingUpdatedSideEffectsPayload = {
@@ -403,15 +413,24 @@ async function scheduleReminderJob(
   minutesBefore: number,
   prefs: EmailPrefs,
   timezone = 'Europe/London',
-) {
-  if (variant === 'reminder_24h' && !prefs.sendReminder24h) return;
-  if (variant === 'reminder_short' && !prefs.sendReminderShort) return;
-  if (!isValidEmail(booking.customer_email) || !booking.start_at) return;
+  options: {
+    /**
+     * `replace` (default) upserts the reminder, resetting it; used after a
+     * reschedule has cancelled the old one. `ensure` only writes it when absent,
+     * so a create replay never resets a reminder that was already sent.
+     */
+    mode?: 'replace' | 'ensure';
+    client?: SupabaseLike;
+  } = {},
+): Promise<'scheduled' | 'skipped' | 'failed'> {
+  if (variant === 'reminder_24h' && !prefs.sendReminder24h) return 'skipped';
+  if (variant === 'reminder_short' && !prefs.sendReminderShort) return 'skipped';
+  if (!isValidEmail(booking.customer_email) || !booking.start_at) return 'skipped';
 
   const baseDelayMs = computeDelayMs(booking.start_at, minutesBefore);
   if (baseDelayMs === null || baseDelayMs <= 0) {
     // Too close or past; skip scheduling.
-    return;
+    return 'skipped';
   }
 
   // Calculate the proposed send time and event time
@@ -430,7 +449,19 @@ async function scheduleReminderJob(
 
   // If smart scheduling returns null, we can't schedule this reminder properly
   if (optimizedDelayMs === null) {
-    return;
+    return 'skipped';
+  }
+
+  if (isEmailQueueEnabled() && options.mode === 'ensure') {
+    // Same dedupe key as the replace path (`<variant>:<bookingId>`, sanitised).
+    const ensured = await ensureBookingEmailIntent(options.client ?? resolveSupabase(), {
+      bookingId: booking.id,
+      restaurantId,
+      type: variant,
+      dedupeKey: `${variant}__${booking.id}`,
+      scheduledFor: new Date(Date.now() + optimizedDelayMs).toISOString(),
+    });
+    return ensured.ok ? 'scheduled' : 'failed';
   }
 
   if (isEmailQueueEnabled()) {
@@ -451,8 +482,9 @@ async function scheduleReminderJob(
         variant,
         error: error instanceof Error ? error.message : String(error),
       });
+      return 'failed';
     }
-    return;
+    return 'scheduled';
   }
 
   // Fallback (dev-only / queue disabled): attempt a best-effort inline send.
@@ -471,6 +503,7 @@ async function scheduleReminderJob(
     },
     `booking.${variant}`,
   );
+  return 'scheduled';
 }
 
 async function scheduleReviewJob(
@@ -611,98 +644,245 @@ async function scheduleReviewJob(
   }
 }
 
+type CreatedSideEffectStep =
+  | 'client'
+  | 'email_prefs'
+  | 'analytics'
+  | 'confirmation_intent'
+  | 'confirmation_email'
+  | 'confirmation_sms'
+  | 'reminders'
+  | 'review'
+  | 'unexpected';
+
+export type BookingCreatedSideEffectsResult = {
+  /** True when the confirmation email is held by the durable email queue. */
+  queued: boolean;
+  /** Steps that failed. Each failure is logged; none of them is thrown. */
+  failures: CreatedSideEffectStep[];
+};
+
+const CONFIRMATION_INLINE_RETRY_DELAY_SECONDS = 60;
+
+function errorNameOf(error: unknown): string {
+  return error instanceof Error ? error.name : 'UnknownError';
+}
+
+/**
+ * Sends the first confirmation for a booking: at creation when it is confirmed
+ * straight away, or later when it moves from pending to confirmed.
+ *
+ * With the durable email queue enabled, the email is an `email_dispatch_intents`
+ * row keyed `email__confirmation__<bookingId>`. It is ensured (insert-if-absent) on
+ * every create and every idempotent replay, then claimed and sent inline so the
+ * guest hears back immediately. A failed inline send goes back to the queue, which
+ * retries it; a replay after a successful send finds the intent settled and sends
+ * nothing. SMS has no durable queue: it stays inline behind the
+ * booking_confirmation_notification_claims row, so a replay retries a failed SMS
+ * without sending a second one.
+ */
+async function ensureFirstConfirmation(
+  booking: BookingPayload,
+  restaurantId: string,
+  client: SupabaseLike,
+  options: { allowEmail: boolean; allowSms: boolean },
+  fail: (step: CreatedSideEffectStep, error?: unknown) => void,
+): Promise<boolean> {
+  let queued = false;
+  const record = booking as BookingRecord;
+
+  if (options.allowEmail) {
+    const sendInline = async (): Promise<'sent' | 'skipped'> => {
+      const result = await sendFirstBookingConfirmationNotifications(record, {
+        allowEmail: true,
+        allowSms: false,
+      });
+      return result.emailSent || result.alreadySent ? 'sent' : 'skipped';
+    };
+
+    if (isEmailQueueEnabled()) {
+      const dedupeKey = bookingEmailIntentKey('confirmation', booking.id);
+      const ensured = await ensureBookingEmailIntent(client, {
+        bookingId: booking.id,
+        restaurantId,
+        type: 'confirmation',
+        dedupeKey,
+      });
+      if (ensured.ok) {
+        // Delivery is owned by the intent: inline now, or the queue on retry.
+        queued = true;
+        const outcome = await runClaimedBookingEmailIntent(
+          client,
+          {
+            dedupeKey,
+            restaurantId,
+            bookingId: booking.id,
+            retryDelaySeconds: CONFIRMATION_INLINE_RETRY_DELAY_SECONDS,
+          },
+          sendInline,
+        );
+        if (outcome === 'retry_scheduled' || outcome === 'claim_failed') {
+          fail('confirmation_email');
+        }
+      } else {
+        // No durable intent: fall back to the claim-guarded inline send so the
+        // guest is still told now. A client replay re-ensures the intent.
+        fail('confirmation_intent');
+        try {
+          await sendInline();
+        } catch (error) {
+          fail('confirmation_email', error);
+        }
+      }
+    } else {
+      try {
+        await sendInline();
+      } catch (error) {
+        fail('confirmation_email', error);
+      }
+    }
+  }
+
+  if (options.allowSms) {
+    try {
+      await sendFirstBookingConfirmationNotifications(record, {
+        allowEmail: false,
+        allowSms: true,
+      });
+    } catch (error) {
+      fail('confirmation_sms', error);
+    }
+  }
+
+  return queued;
+}
+
 async function processBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
   _supabase?: SupabaseLike,
-): Promise<boolean> {
-  const client = resolveSupabase(_supabase);
+): Promise<BookingCreatedSideEffectsResult> {
   const { booking, idempotencyKey, restaurantId } = payload;
-
-  const queuedViaQueue = false;
-  const shouldSendEmail = (payload.emailProvided ?? true) && isValidEmail(booking.customer_email);
-  const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
-  const shouldSendConfirmationNotifications =
-    booking.status === 'confirmed' && ((!SUPPRESS_EMAILS && shouldSendEmail) || shouldSendSms);
-
-  const emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
-
-  try {
-    await recordBookingCreatedEvent(client, {
+  const failures: CreatedSideEffectStep[] = [];
+  const fail = (step: CreatedSideEffectStep, error?: unknown) => {
+    failures.push(step);
+    logger.error('[jobs][booking.created] side effect failed', {
       bookingId: booking.id,
       restaurantId,
-      customerId: booking.customer_id,
-      status: booking.status as Tables<'bookings'>['status'],
-      partySize: booking.party_size,
-      bookingType: booking.booking_type as Tables<'bookings'>['booking_type'],
-      seatingPreference: booking.seating_preference as Tables<'bookings'>['seating_preference'],
-      source: booking.source ?? 'api',
-      loyaltyPointsAwarded: booking.loyalty_points_awarded ?? 0,
-      occurredAt: booking.created_at,
-      clientRequestId: booking.client_request_id ?? undefined,
-      idempotencyKey,
-      pendingRef: booking.pending_ref ?? undefined,
+      step,
+      replay: payload.replay === true,
+      ...(error === undefined ? {} : { errorName: errorNameOf(error) }),
     });
+  };
+
+  let client: SupabaseLike;
+  try {
+    client = resolveSupabase(_supabase);
   } catch (error) {
-    console.error('[jobs][booking.created][analytics]', error);
+    fail('client', error);
+    return { queued: false, failures };
   }
 
-  if (shouldSendConfirmationNotifications) {
+  let queued = false;
+  try {
+    const shouldSendEmail = (payload.emailProvided ?? true) && isValidEmail(booking.customer_email);
+    const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
+    const allowConfirmationEmail = !SUPPRESS_EMAILS && shouldSendEmail;
+
+    let emailPrefs: EmailPrefs;
     try {
-      await sendFirstBookingConfirmationNotifications(booking as BookingRecord, {
-        allowEmail: !SUPPRESS_EMAILS && shouldSendEmail,
-        allowSms: shouldSendSms,
-      });
+      emailPrefs = await fetchRestaurantEmailPrefs(restaurantId, client);
     } catch (error) {
-      console.error('[jobs][booking.created][confirmation-notifications]', error);
+      fail('email_prefs', error);
+      emailPrefs = { ...ALWAYS_ENABLED_EMAIL_PREFS, sendReviewRequest: false };
     }
-  }
 
-  // Schedule pre-visit reminders if already confirmed at creation.
-  if (!SUPPRESS_EMAILS && shouldSendEmail && booking.status === 'confirmed') {
-    try {
+    // Analytics inserts are not idempotent: record the creation once, not on replay.
+    if (payload.replay !== true) {
+      try {
+        await recordBookingCreatedEvent(client, {
+          bookingId: booking.id,
+          restaurantId,
+          customerId: booking.customer_id,
+          status: booking.status as Tables<'bookings'>['status'],
+          partySize: booking.party_size,
+          bookingType: booking.booking_type as Tables<'bookings'>['booking_type'],
+          seatingPreference: booking.seating_preference as Tables<'bookings'>['seating_preference'],
+          source: booking.source ?? 'api',
+          loyaltyPointsAwarded: booking.loyalty_points_awarded ?? 0,
+          occurredAt: booking.created_at,
+          clientRequestId: booking.client_request_id ?? undefined,
+          idempotencyKey,
+          pendingRef: booking.pending_ref ?? undefined,
+        });
+      } catch (error) {
+        fail('analytics', error);
+      }
+    }
+
+    if (booking.status === 'confirmed' && (allowConfirmationEmail || shouldSendSms)) {
+      queued = await ensureFirstConfirmation(
+        booking,
+        restaurantId,
+        client,
+        { allowEmail: allowConfirmationEmail, allowSms: shouldSendSms },
+        fail,
+      );
+    }
+
+    // Pre-visit reminders for a booking confirmed at creation. They are ensured
+    // (insert-if-absent), so a replay never resets a reminder already sent.
+    if (allowConfirmationEmail && booking.status === 'confirmed') {
       const timezone = await fetchRestaurantTimezone(restaurantId, client);
-      await scheduleReminderJob(
-        booking as BookingRecord,
-        restaurantId,
-        'reminder_24h',
-        REMINDER_24H_MINUTES,
-        emailPrefs,
-        timezone,
-      );
-      await scheduleReminderJob(
-        booking as BookingRecord,
-        restaurantId,
-        'reminder_short',
-        REMINDER_SHORT_MINUTES,
-        emailPrefs,
-        timezone,
-      );
-    } catch (error) {
-      console.warn('[jobs][booking.created] failed to schedule reminders', {
-        bookingId: booking.id,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      for (const [variant, minutesBefore] of [
+        ['reminder_24h', REMINDER_24H_MINUTES],
+        ['reminder_short', REMINDER_SHORT_MINUTES],
+      ] as const) {
+        try {
+          const scheduled = await scheduleReminderJob(
+            booking as BookingRecord,
+            restaurantId,
+            variant,
+            minutesBefore,
+            emailPrefs,
+            timezone,
+            { mode: 'ensure', client },
+          );
+          if (scheduled === 'failed') {
+            fail('reminders');
+          }
+        } catch (error) {
+          fail('reminders', error);
+        }
+      }
     }
+
+    // Edge: if created as completed (rare), schedule review with smart timing.
+    if (
+      booking.status === 'completed' &&
+      emailPrefs.sendReviewRequest &&
+      ((!SUPPRESS_EMAILS && shouldSendEmail) ||
+        (Boolean(emailPrefs.googleReviewUrl) &&
+          hasReviewWhatsAppCandidate(booking as BookingRecord)))
+    ) {
+      try {
+        const timezone = await fetchRestaurantTimezone(restaurantId, client);
+        await scheduleReviewJob(booking as BookingRecord, restaurantId, {
+          allowEmail: !SUPPRESS_EMAILS && shouldSendEmail,
+          allowWhatsApp:
+            Boolean(emailPrefs.googleReviewUrl) &&
+            hasReviewWhatsAppCandidate(booking as BookingRecord),
+          client,
+          timezone,
+        });
+      } catch (error) {
+        fail('review', error);
+      }
+    }
+  } catch (error) {
+    fail('unexpected', error);
   }
 
-  // Edge: if created as completed (rare), schedule review with smart timing.
-  if (
-    booking.status === 'completed' &&
-    emailPrefs.sendReviewRequest &&
-    ((!SUPPRESS_EMAILS && shouldSendEmail) ||
-      (Boolean(emailPrefs.googleReviewUrl) && hasReviewWhatsAppCandidate(booking as BookingRecord)))
-  ) {
-    const timezone = await fetchRestaurantTimezone(restaurantId, client);
-    await scheduleReviewJob(booking as BookingRecord, restaurantId, {
-      allowEmail: !SUPPRESS_EMAILS && shouldSendEmail,
-      allowWhatsApp:
-        Boolean(emailPrefs.googleReviewUrl) && hasReviewWhatsAppCandidate(booking as BookingRecord),
-      client,
-      timezone,
-    });
-  }
-
-  return queuedViaQueue;
+  return { queued, failures };
 }
 
 async function processBookingUpdatedSideEffects(
@@ -774,14 +954,25 @@ async function processBookingUpdatedSideEffects(
     ((!SUPPRESS_EMAILS && isValidEmail(current.customer_email)) ||
       hasValidSmsRecipient(current.customer_phone))
   ) {
-    try {
-      await sendFirstBookingConfirmationNotifications(current as BookingRecord, {
+    // Same durable, per-booking confirmation key as the created path, so a booking
+    // is confirmed to the guest once however it reached `confirmed`.
+    await ensureFirstConfirmation(
+      current,
+      restaurantId,
+      resolveSupabase(_supabase),
+      {
         allowEmail: !SUPPRESS_EMAILS && isValidEmail(current.customer_email),
         allowSms: hasValidSmsRecipient(current.customer_phone),
-      });
-    } catch (error) {
-      console.error('[jobs][booking.updated][confirmation-notifications]', error);
-    }
+      },
+      (step, error) => {
+        logger.error('[jobs][booking.updated] confirmation side effect failed', {
+          bookingId: current.id,
+          restaurantId,
+          step,
+          ...(error === undefined ? {} : { errorName: errorNameOf(error) }),
+        });
+      },
+    );
 
     const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
     await scheduleReminderJob(
@@ -870,7 +1061,17 @@ async function processBookingCancelledSideEffects(
     try {
       await cancelEmailIntents({
         bookingId: cancelled.id,
-        types: ['reminder_24h', 'reminder_short', 'review_request'],
+        // 'updated', 'modification_pending' and (from the previous release)
+        // 'request_received' are modification emails still queued for the cron drain;
+        // they must not reach a guest after a cancellation.
+        types: [
+          'reminder_24h',
+          'reminder_short',
+          'review_request',
+          'updated',
+          'request_received',
+          'modification_pending',
+        ],
       });
     } catch (error) {
       console.warn('[jobs][booking.cancelled] failed to cancel pending email intents', {
@@ -899,12 +1100,27 @@ async function processBookingCancelledSideEffects(
   }
 }
 
+/**
+ * Runs the "booking created" side effects. Safe to call on every create AND on an
+ * idempotent replay (pass `replay: true` in the payload): confirmation and
+ * reminders are keyed per booking and effect type, so a replay re-ensures them
+ * without sending twice. It never throws; a committed booking must not become a
+ * 500 because a side effect failed. Failures are logged and listed in the result.
+ */
 export async function enqueueBookingCreatedSideEffects(
   payload: BookingCreatedSideEffectsPayload,
   options?: { supabase?: SupabaseLike },
-) {
-  const queued = await processBookingCreatedSideEffects(payload, options?.supabase);
-  return { queued } as const;
+): Promise<BookingCreatedSideEffectsResult> {
+  try {
+    return await processBookingCreatedSideEffects(payload, options?.supabase);
+  } catch (error) {
+    logger.error('[jobs][booking.created] side effects crashed', {
+      bookingId: payload.booking.id,
+      restaurantId: payload.restaurantId,
+      errorName: errorNameOf(error),
+    });
+    return { queued: false, failures: ['unexpected'] };
+  }
 }
 
 export async function enqueueBookingUpdatedSideEffects(
@@ -912,17 +1128,16 @@ export async function enqueueBookingUpdatedSideEffects(
   options?: {
     supabase?: SupabaseLike;
     /**
-     * Skip sending update emails. Set to true when the modification flow
-     * has already sent a confirmation email to prevent duplicate emails.
-     * This happens when beginBookingModificationFlow successfully assigns
-     * tables inline and sends the "Changes Confirmed" email.
+     * Skip the guest update email and SMS. Set to true for changes made through
+     * beginBookingModificationFlow, which queues its own "changes confirmed" (or
+     * "request received") email, to avoid a duplicate.
      */
     skipEmail?: boolean;
   },
 ) {
   if (options?.skipEmail) {
     console.log(
-      '[jobs][booking.updated] Skipping guest update notifications - modification flow already handled email',
+      '[jobs][booking.updated] Skipping guest update notifications - modification flow queued its own email',
       {
         bookingId: payload.current.id,
       },

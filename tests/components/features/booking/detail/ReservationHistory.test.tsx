@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ReservationHistory } from '@/components/features/booking/detail/ReservationHistory';
+import { HttpError } from '@/lib/http/errors';
 
 import type { BookingHistoryEvent } from '@/types/bookingHistory';
 
@@ -53,12 +54,34 @@ describe('ReservationHistory', () => {
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
   });
 
-  it('@contract surfaces the query error message when history fails to load', () => {
-    mockHistory({ isError: true, error: new Error('History service down') });
+  it('@contract surfaces a 4xx server message when history fails to load', () => {
+    mockHistory({
+      isError: true,
+      error: new HttpError({ message: 'You no longer have access to this venue.', status: 403 }),
+    });
     renderHistory();
 
     expect(screen.getByText('Unable to load history')).toBeInTheDocument();
-    expect(screen.getByText('History service down')).toBeInTheDocument();
+    expect(screen.getByText('You no longer have access to this venue.')).toBeInTheDocument();
+  });
+
+  it('@contract never shows raw 5xx or thrown error text', () => {
+    mockHistory({ isError: true, error: new Error('History service down') });
+    const { unmount } = renderHistory();
+    expect(screen.queryByText('History service down')).toBeNull();
+    expect(screen.getByText('Please try again later.')).toBeInTheDocument();
+    unmount();
+
+    mockHistory({
+      isError: true,
+      error: new HttpError({
+        message: 'Request failed with status 502',
+        status: 502,
+        hasServerMessage: false,
+      }),
+    });
+    renderHistory();
+    expect(screen.queryByText('Request failed with status 502')).toBeNull();
   });
 
   it('@contract falls back to generic error copy when the error has no message', () => {

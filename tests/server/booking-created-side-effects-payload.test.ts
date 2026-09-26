@@ -127,6 +127,32 @@ describe('buildBookingCreatedSideEffectsPayload', () => {
     );
   });
 
+  it('marks an idempotent replay so only idempotent effects are re-ensured', async () => {
+    const dispatcher = vi.fn(async () => ({ queued: true }));
+
+    await dispatchBookingCreatedSideEffects({
+      booking,
+      client: sideEffectsClient,
+      dispatcher,
+      idempotencyKey: 'idem-1',
+      isOpsWalkIn: false,
+      opsEmailProvidedHeader: false,
+      replay: true,
+      restaurantId: 'restaurant-1',
+    });
+
+    expect(dispatcher).toHaveBeenCalledWith(
+      {
+        booking: { ...booking },
+        idempotencyKey: 'idem-1',
+        restaurantId: 'restaurant-1',
+        emailProvided: true,
+        replay: true,
+      },
+      { supabase: sideEffectsClient },
+    );
+  });
+
   it('retries transient side-effect dispatch failures with the route policy', async () => {
     vi.useFakeTimers();
     const dispatcher = vi

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, internalError, notFound } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import {
   getRestaurantBySlug,
   type RestaurantDetail,
@@ -9,6 +10,8 @@ import {
 
 import type { VenueDetails } from '@reserve/shared/config/venue';
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/restaurants/[slug]';
 
 const slugSchema = z.string().min(1);
 
@@ -47,18 +50,18 @@ function toVenueDetails(restaurant: RestaurantDetail): VenueDetails {
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const slug = await resolveSlug(params);
   if (!slug) {
-    return NextResponse.json({ error: 'Missing restaurant slug' }, { status: 400 });
+    return apiError(400, 'MISSING_SLUG', 'Missing restaurant slug.');
   }
 
   const parsed = slugSchema.safeParse(slug);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid restaurant slug' }, { status: 400 });
+    return apiError(400, 'INVALID_SLUG', 'Invalid restaurant slug.');
   }
 
   try {
     const restaurant = await getRestaurantBySlug(parsed.data);
     if (!restaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found.');
     }
 
     return NextResponse.json(
@@ -70,10 +73,9 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       },
     );
   } catch (error) {
-    console.error('[restaurants][detail] failed to load restaurant', { slug, error });
     captureServerException(error, {
       properties: { source: 'api', kind: 'restaurant-detail' },
     });
-    return NextResponse.json({ error: 'Unable to load restaurant' }, { status: 500 });
+    return internalError(error, { route: ROUTE, slug }, 'Unable to load restaurant');
   }
 }

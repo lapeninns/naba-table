@@ -1,6 +1,17 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import { GuardError } from '@/server/auth/guards';
+import {
+  EmailDeliveryLogUnavailableError,
+  EmailDeliveryRetryError,
+} from '@/server/emails/email-delivery-log';
+import { POST } from '@/src/app/api/ops/email-delivery/retry/route';
+
+import type * as GuardsModule from '@/server/auth/guards';
+import type * as DeliveryLogModule from '@/server/emails/email-delivery-log';
+
 const requireSessionMock = vi.hoisted(() => vi.fn());
 const requireRestaurantMemberMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
@@ -9,8 +20,7 @@ const resendBookingEmailFromDeliveryLogMock = vi.hoisted(() => vi.fn());
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
-  const actual =
-    await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
+  const actual = await vi.importActual<typeof GuardsModule>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: requireSessionMock,
@@ -23,7 +33,7 @@ vi.mock('@/server/supabase', () => ({
 }));
 
 vi.mock('@/server/emails/email-delivery-log', async () => {
-  const actual = await vi.importActual<typeof import('@/server/emails/email-delivery-log')>(
+  const actual = await vi.importActual<typeof DeliveryLogModule>(
     '@/server/emails/email-delivery-log',
   );
   return {
@@ -39,14 +49,6 @@ vi.mock('@/server/emails/bookings', () => ({
 vi.mock('@/server/security/api-rate-limit', () => ({
   requireApiRateLimit: requireApiRateLimitMock,
 }));
-
-import { GuardError } from '@/server/auth/guards';
-import {
-  EmailDeliveryLogUnavailableError,
-  EmailDeliveryRetryError,
-} from '@/server/emails/email-delivery-log';
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
-import { POST } from '@/src/app/api/ops/email-delivery/retry/route';
 
 const CSRF_TOKEN = 'email-retry-csrf-token';
 const RESTAURANT_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
@@ -101,7 +103,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(payload).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });
+    expect(payload).toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
   });
 
@@ -112,7 +114,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(400);
-    expect(payload).toMatchObject({ ok: false, code: 'INVALID_REQUEST' });
+    expect(payload).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 
   it('returns uniform 404 when membership verification fails', async () => {
@@ -129,7 +131,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(404);
-    expect(payload).toMatchObject({ ok: false, code: 'NOT_FOUND' });
+    expect(payload).toMatchObject({ code: 'NOT_FOUND' });
     expect(retryEmailDeliveryLogEntryMock).not.toHaveBeenCalled();
   });
 
@@ -147,7 +149,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(401);
-    expect(payload).toMatchObject({ ok: false, code: 'UNAUTHENTICATED' });
+    expect(payload).toMatchObject({ code: 'UNAUTHENTICATED' });
   });
 
   it('returns 409 when the delivery log is not retryable', async () => {
@@ -164,7 +166,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(409);
-    expect(payload).toMatchObject({ ok: false, code: 'NOT_RETRYABLE' });
+    expect(payload).toMatchObject({ code: 'NOT_RETRYABLE' });
   });
 
   it('returns 404 when the delivery log is not found for the restaurant', async () => {
@@ -181,7 +183,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(404);
-    expect(payload).toMatchObject({ ok: false, code: 'NOT_FOUND' });
+    expect(payload).toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('returns a new delivery log entry on success and scopes lookup by restaurant', async () => {
@@ -213,9 +215,13 @@ describe('POST /api/ops/email-delivery/retry', () => {
       error: null,
       metadata: { subject: 'Booking Confirmed - Test Venue' },
     });
-    retryEmailDeliveryLogEntryMock.mockImplementation(async ({ resendBookingEmail }) =>
-      resendBookingEmail('booking-1', 'created', 'booking_confirmation'),
-    );
+    retryEmailDeliveryLogEntryMock.mockImplementation(async ({ resendBookingEmail }) => ({
+      status: 'sent',
+      retryAttempt: 3,
+      deliveryLogEntry: await resendBookingEmail('booking-1', 'created', 'booking_confirmation', {
+        idempotencyKey: 'booking-email-retry:key-3',
+      }),
+    }));
 
     const response = await POST(
       buildRequest({
@@ -228,6 +234,8 @@ describe('POST /api/ops/email-delivery/retry', () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       ok: true,
+      status: 'sent',
+      retryAttempt: 3,
       deliveryLogEntry: expect.objectContaining({
         id: 'log-2',
         bookingId: 'booking-1',
@@ -249,6 +257,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
       booking: expect.objectContaining({ id: 'booking-1' }),
       emailType: 'created',
       templateType: 'booking_confirmation',
+      idempotencyKey: 'booking-email-retry:key-3',
     });
   });
 
@@ -264,7 +273,7 @@ describe('POST /api/ops/email-delivery/retry', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(503);
-    expect(payload).toMatchObject({ ok: false, code: 'DELIVERY_LOG_UNAVAILABLE' });
+    expect(payload).toMatchObject({ code: 'DELIVERY_LOG_UNAVAILABLE', retryable: true });
   });
 
   it('returns a deterministic simulated error when requested in dev/test validation flows', async () => {
@@ -279,7 +288,6 @@ describe('POST /api/ops/email-delivery/retry', () => {
 
     expect(response.status).toBe(500);
     expect(payload).toMatchObject({
-      ok: false,
       code: 'SIMULATED_RETRY_ERROR',
       error: 'Forced retry mutation error for dev/test validation.',
     });
@@ -317,5 +325,85 @@ describe('POST /api/ops/email-delivery/retry', () => {
       userId: 'user-1',
       restaurantId: RESTAURANT_ID,
     });
+  });
+
+  it('returns 409 RETRY_IN_PROGRESS when another resend already holds the claim', async () => {
+    retryEmailDeliveryLogEntryMock.mockRejectedValue(
+      new EmailDeliveryRetryError('RETRY_IN_PROGRESS', 'This email is already being resent.'),
+    );
+
+    const response = await POST(
+      buildRequest({ restaurantId: RESTAURANT_ID, deliveryLogId: DELIVERED_DELIVERY_LOG_ID }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'RETRY_IN_PROGRESS' });
+  });
+
+  it('returns 409 ALREADY_RETRIED for an email that was already resent', async () => {
+    retryEmailDeliveryLogEntryMock.mockRejectedValue(
+      new EmailDeliveryRetryError('ALREADY_RETRIED', 'This email was already resent.'),
+    );
+
+    const response = await POST(
+      buildRequest({ restaurantId: RESTAURANT_ID, deliveryLogId: DELIVERED_DELIVERY_LOG_ID }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'ALREADY_RETRIED' });
+  });
+
+  it('returns a retryable 502 SEND_FAILED without provider text when the send fails', async () => {
+    retryEmailDeliveryLogEntryMock.mockRejectedValue(
+      new EmailDeliveryRetryError('SEND_FAILED', 'The email could not be sent.', {
+        cause: new Error('Resend API error (application_error): secret upstream detail'),
+      }),
+    );
+
+    const response = await POST(
+      buildRequest({ restaurantId: RESTAURANT_ID, deliveryLogId: DELIVERED_DELIVERY_LOG_ID }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload).toMatchObject({ code: 'SEND_FAILED', retryable: true });
+    expect(JSON.stringify(payload)).not.toContain('upstream');
+  });
+
+  it('returns a retryable 502 SEND_UNCONFIRMED when the provider outcome is unknown', async () => {
+    retryEmailDeliveryLogEntryMock.mockRejectedValue(
+      new EmailDeliveryRetryError(
+        'SEND_UNCONFIRMED',
+        'The email provider did not confirm the send.',
+        {
+          cause: new Error('Resend API error (application_error): secret upstream detail'),
+        },
+      ),
+    );
+
+    const response = await POST(
+      buildRequest({ restaurantId: RESTAURANT_ID, deliveryLogId: DELIVERED_DELIVERY_LOG_ID }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload).toMatchObject({ code: 'SEND_UNCONFIRMED', retryable: true });
+    expect(payload.message).toMatch(/won't send a duplicate/);
+    expect(JSON.stringify(payload)).not.toContain('upstream');
+  });
+
+  it('returns a generic 500 without raw error text for unexpected failures', async () => {
+    retryEmailDeliveryLogEntryMock.mockRejectedValue(
+      new Error('duplicate key value violates unique constraint "email_delivery_log_pkey"'),
+    );
+
+    const response = await POST(
+      buildRequest({ restaurantId: RESTAURANT_ID, deliveryLogId: DELIVERED_DELIVERY_LOG_ID }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(payload)).not.toContain('email_delivery_log');
   });
 });

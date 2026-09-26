@@ -293,10 +293,8 @@ export function useFloorPlanController({
       } catch (error) {
         const mapped = toAssignmentError(error);
         const verb = kind === 'move' ? 'moved' : 'assigned';
-        const message =
-          mapped.restored === false
-            ? `Not moved, and ${booking.name} lost the original table. They’re back in Needs a table.`
-            : `Not ${verb}. ${mapped.message}`;
+        // Moves are atomic on the server, so a failed move always keeps the original tables.
+        const message = `Not ${verb}. ${mapped.message}`;
         setBookingErrors((current) => ({ ...current, [booking.id]: message }));
         if (tableIds[0]) flash(tableIds[0]);
         if (kind === 'move') setFocusBookingId(booking.id);

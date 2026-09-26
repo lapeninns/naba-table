@@ -1,10 +1,12 @@
+import { hashIdempotencyKey } from '@/server/bookings/idempotency';
+
 export type BookingCreateRecoveredObservabilityEvent = {
   source: string;
   eventType: 'booking.create.recovered';
   severity: 'warning';
   context: {
     restaurantId: string;
-    idempotencyKey?: string;
+    keyHash?: string;
     method: 'idempotency_key' | 'signature';
   };
 };
@@ -15,7 +17,7 @@ export type BookingCreateInsertFallbackObservabilityEvent = {
   severity: 'warning';
   context: {
     restaurantId: string;
-    idempotencyKey?: string;
+    keyHash?: string;
   };
 };
 
@@ -159,10 +161,12 @@ export function buildBookingCreateRecoveredObservabilityEvent({
   source,
   restaurantId,
   idempotencyKey,
+  method,
 }: {
   source: string;
   restaurantId: string;
   idempotencyKey: string | null;
+  method: 'idempotency_key' | 'signature';
 }): BookingCreateRecoveredObservabilityEvent {
   return {
     source,
@@ -170,8 +174,8 @@ export function buildBookingCreateRecoveredObservabilityEvent({
     severity: 'warning',
     context: {
       restaurantId,
-      idempotencyKey: idempotencyKey ?? undefined,
-      method: idempotencyKey ? 'idempotency_key' : 'signature',
+      keyHash: hashIdempotencyKey(idempotencyKey),
+      method,
     },
   };
 }
@@ -191,7 +195,7 @@ export function buildBookingCreateInsertFallbackObservabilityEvent({
     severity: 'warning',
     context: {
       restaurantId,
-      idempotencyKey: idempotencyKey ?? undefined,
+      keyHash: hashIdempotencyKey(idempotencyKey),
     },
   };
 }

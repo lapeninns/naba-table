@@ -37,10 +37,17 @@ import {
   MIN_ONLINE_PARTY_SIZE,
   ONLINE_PARTY_SIZE_LIMIT_COPY,
 } from '@/lib/bookings/partySize';
+import { HttpError } from '@/lib/http/errors';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { cn } from '@/lib/utils';
 
+import {
+  GUEST_ACCESS_LINK_ERROR_COPY,
+  GuestNewLinkCta,
+  isGuestAccessLinkErrorCode,
+} from './GuestNewLinkCta';
+
 import type { BookingDTO } from '@/hooks/useBookings';
-import type { HttpError } from '@/lib/http/errors';
 
 const errorCopy: Record<string, string> = {
   OVERLAP_DETECTED: 'That time overlaps an existing booking. Please choose another slot.',
@@ -242,7 +249,7 @@ type EditBookingMutationInput = {
 type EditBookingMutation = {
   mutateAsync: (input: EditBookingMutationInput) => Promise<unknown>;
   isPending: boolean;
-  error: HttpError | null;
+  error: unknown;
 };
 
 type UseEditBookingDialogState = {
@@ -271,6 +278,8 @@ type UseEditBookingDialogState = {
 type UseEditBookingDialogParams = EditBookingDialogProps & {
   mutation: EditBookingMutation;
   includeRestaurantId?: boolean;
+  /** Guest dialogs offer a new emailed link when the booking link expired or was revoked. */
+  guestAccessRecovery?: boolean;
 };
 
 function useEditBookingDialogState({
@@ -281,7 +290,36 @@ function useEditBookingDialogState({
   restaurantTimezone: restaurantTimezoneOverride,
   mutation,
   includeRestaurantId = false,
+  guestAccessRecovery = false,
 }: UseEditBookingDialogParams): UseEditBookingDialogState {
+  const copyForCode = useCallback(
+    (code: string | undefined): string | undefined => {
+      if (!code) return undefined;
+      // Guest dialogs prefer the link-recovery copy (e.g. UNAUTHENTICATED after the booking
+      // cookie expired); ops copy is unchanged.
+      if (guestAccessRecovery) return GUEST_ACCESS_LINK_ERROR_COPY[code] ?? errorCopy[code];
+      return errorCopy[code];
+    },
+    [guestAccessRecovery],
+  );
+  /**
+   * Alert copy for a failed save. Guest HttpErrors were already rewritten to guest copy by the
+   * guest hook, so their message is kept. Ops errors and anything that is not an HttpError
+   * (network failures, unexpected throws) go through toUserMessage: 5xx and network text is
+   * never shown raw.
+   */
+  const resolveErrorMessage = useCallback(
+    (error: unknown): { message: string; code?: string } => {
+      const code = error instanceof HttpError ? error.code : undefined;
+      const preset = copyForCode(code);
+      if (preset) return { message: preset, code };
+      if (guestAccessRecovery && error instanceof HttpError && error.message.trim()) {
+        return { message: error.message, code };
+      }
+      return { message: toUserMessage(error, { copy: errorCopy }), code };
+    },
+    [copyForCode, guestAccessRecovery],
+  );
   const defaultValues = useMemo(() => toDefaultValues(booking), [booking]);
   const resolver = formResolver;
   const form = useForm<FormValues>({
@@ -421,23 +459,14 @@ function useEditBookingDialogState({
         await mutation.mutateAsync(payload);
         onOpenChange(false);
       } catch (error) {
-        const err = error as HttpError;
-        const code = err?.code;
-        const preset = code ? errorCopy[code] : null;
-        const message = preset ?? err?.message ?? 'Something went wrong. Please try again.';
-
-        setFormError({ message, code });
+        setFormError(resolveErrorMessage(error));
       }
     },
-    [booking, derivedEndIso, includeRestaurantId, mutation, onOpenChange],
+    [booking, derivedEndIso, includeRestaurantId, mutation, onOpenChange, resolveErrorMessage],
   );
 
-  const mutationError = mutation.error as HttpError | null;
-  const fallbackMessage = mutationError?.code
-    ? (errorCopy[mutationError.code] ?? mutationError.message)
-    : mutationError?.message;
-  const activeError =
-    formError ?? (fallbackMessage ? { message: fallbackMessage, code: mutationError?.code } : null);
+  const mutationError: unknown = mutation.error;
+  const activeError = formError ?? (mutationError ? resolveErrorMessage(mutationError) : null);
   const isPastTimeError = activeError?.code === 'BOOKING_IN_PAST';
   const alertTitle = isPastTimeError ? 'Booking time is in the past' : 'Unable to save changes';
   const notesValue = watch('notes') ?? '';
@@ -518,6 +547,7 @@ function EditBookingDialogBase({
   restaurantTimezone: restaurantTimezoneOverride,
   mutation,
   includeRestaurantId = false,
+  guestAccessRecovery = false,
 }: UseEditBookingDialogParams) {
   const {
     form,
@@ -547,8 +577,10 @@ function EditBookingDialogBase({
     restaurantTimezone: restaurantTimezoneOverride,
     mutation,
     includeRestaurantId,
+    guestAccessRecovery,
   });
 
+  const showNewLinkCta = guestAccessRecovery && isGuestAccessLinkErrorCode(activeError?.code);
   const showReassignmentNotice = isDirty;
   const isSaving = mutation.isPending;
   const notesLength = notesValue?.length ?? 0;
@@ -680,6 +712,11 @@ function EditBookingDialogBase({
                 <Alert variant="destructive" role="alert">
                   <AlertTitle>{alertTitle}</AlertTitle>
                   <AlertDescription>{activeError.message}</AlertDescription>
+                  {showNewLinkCta ? (
+                    <div className="mt-3">
+                      <GuestNewLinkCta restaurantSlug={effectiveRestaurantSlug} />
+                    </div>
+                  ) : null}
                 </Alert>
               ) : null}
             </div>
@@ -715,7 +752,14 @@ function EditBookingDialogBase({
 
 function EditBookingDialogGuest(props: EditBookingDialogProps) {
   const mutation = useGuestEditBookingMutation();
-  return <EditBookingDialogBase {...props} mutation={mutation} includeRestaurantId={false} />;
+  return (
+    <EditBookingDialogBase
+      {...props}
+      mutation={mutation}
+      includeRestaurantId={false}
+      guestAccessRecovery
+    />
+  );
 }
 
 function EditBookingDialogOps(props: EditBookingDialogProps) {

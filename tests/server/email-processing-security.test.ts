@@ -11,6 +11,7 @@ vi.mock('@/server/supabase', () => ({
 }));
 
 vi.mock('@/server/emails/bookings', () => ({
+  isBookingEmailSkippedError: () => false,
   sendBookingCancellationEmail: vi.fn(),
   sendBookingConfirmationEmail: sendBookingConfirmationEmailMock,
   sendBookingRejectedEmail: vi.fn(),
@@ -157,6 +158,7 @@ describe('email job processing security', () => {
     expect(result).toEqual({ jobId: 'valid-job', success: true });
     expect(sendBookingConfirmationEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'booking-1', restaurant_id: RESTAURANT_A }),
+      { reportSkips: true },
     );
   });
 });
