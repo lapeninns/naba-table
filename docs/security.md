@@ -135,8 +135,10 @@ Source of truth: `server/bookings/guest-booking-access.ts` and `server/security/
   (HttpOnly, Secure, SameSite=Lax, at most 14 days, at most 10 booking cookies) and redirects with
   no token in the URL. The API refuses tokens in the query string.
 - **Endpoints.** `GET/PUT/DELETE /api/bookings/[id]`, its history route and the confirmation PDF
-  resolve access through `resolveGuestBookingAccess`: the booking cookie (rate limited per
-  booking, bound to booking, restaurant and current contact), then a session whose user id is
+  resolve access through `resolveGuestBookingAccess`: the booking cookie (bound to booking,
+  restaurant and current contact; only a cookie that decrypts for the booking is rate limited per
+  booking, anything else is charged per IP so a booking id alone cannot lock the guest out),
+  then a session whose user id is
   the booking's `auth_user_id`. Writes need the CSRF double-submit token. Staff of the booking's
   restaurant keep the staff path. Token responses mask contact details; no guest response carries
   idempotency or confirmation keys. Guests cannot change the booking's email or phone.
