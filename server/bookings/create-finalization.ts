@@ -58,6 +58,23 @@ export async function finalizeBookingCreateCommit({
   let finalBooking = booking;
 
   if (reusedExisting) {
+    // Idempotent replay: the booking committed on an earlier request, whose side
+    // effects may have failed or never run. Re-ensure them; they are keyed per
+    // booking and effect type, so nothing is sent twice. Audit, inline
+    // auto-assign and its retry already ran for the original request.
+    try {
+      await sideEffectsDispatcher({
+        booking: finalBooking,
+        client,
+        idempotencyKey,
+        isOpsWalkIn,
+        opsEmailProvidedHeader,
+        replay: true,
+        restaurantId,
+      });
+    } catch (error) {
+      onSideEffectsError?.(error);
+    }
     return { booking: finalBooking };
   }
 

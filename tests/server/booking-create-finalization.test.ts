@@ -76,7 +76,7 @@ describe('finalizeBookingCreateCommit', () => {
     });
   });
 
-  it('skips all post-commit effects for reused bookings', async () => {
+  it('re-ensures side effects on an idempotent replay but skips audit and auto-assign', async () => {
     const auditDispatcher = vi.fn();
     const inlineAutoAssignRunner = vi.fn();
     const sideEffectsDispatcher = vi.fn();
@@ -85,18 +85,46 @@ describe('finalizeBookingCreateCommit', () => {
     await expect(
       finalizeBookingCreateCommit({
         ...baseArgs,
+        booking: confirmedBooking,
         reusedExisting: true,
         auditDispatcher,
         inlineAutoAssignRunner,
         sideEffectsDispatcher,
         autoAssignRetryScheduler,
       }),
-    ).resolves.toEqual({ booking: pendingBooking });
+    ).resolves.toEqual({ booking: confirmedBooking });
 
     expect(auditDispatcher).not.toHaveBeenCalled();
     expect(inlineAutoAssignRunner).not.toHaveBeenCalled();
-    expect(sideEffectsDispatcher).not.toHaveBeenCalled();
     expect(autoAssignRetryScheduler).not.toHaveBeenCalled();
+    expect(sideEffectsDispatcher).toHaveBeenCalledTimes(1);
+    expect(sideEffectsDispatcher).toHaveBeenCalledWith({
+      booking: confirmedBooking,
+      client,
+      idempotencyKey: 'idem-1',
+      isOpsWalkIn: false,
+      opsEmailProvidedHeader: false,
+      replay: true,
+      restaurantId: 'restaurant-1',
+    });
+  });
+
+  it('keeps a replay side-effect failure non-fatal', async () => {
+    const sideEffectError = new Error('queue unavailable');
+    const onSideEffectsError = vi.fn();
+
+    await expect(
+      finalizeBookingCreateCommit({
+        ...baseArgs,
+        reusedExisting: true,
+        onSideEffectsError,
+        sideEffectsDispatcher: vi.fn(async () => {
+          throw sideEffectError;
+        }),
+      }),
+    ).resolves.toEqual({ booking: pendingBooking });
+
+    expect(onSideEffectsError).toHaveBeenCalledWith(sideEffectError);
   });
 
   it('continues with the original booking when inline auto-assign returns null', async () => {
