@@ -107,13 +107,26 @@ export function useCancelBooking() {
         emit('booking_cancel_blocked', { bookingId: variables.id, code: error.code });
       }
     },
-    onSettled: (_data, _error, variables) => {
+    onSettled: (_data, _error, variables, context) => {
       // Only what this booking change affects: every guest list page, this booking's
       // detail and its history. Other bookings' detail and history queries are left alone.
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.listPrefix() });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.historyPrefix(variables.id) });
+
+      // A cancel frees capacity in this booking's restaurant schedule, so open booking
+      // wizards should see the slot again. When the restaurant is unknown, refresh them all.
+      const slug =
+        context?.reservationDetail?.restaurantSlug ??
+        queryClient.getQueryData<Reservation>(reservationKeys.detail(variables.id))
+          ?.restaurantSlug ??
+        null;
       queryClient.invalidateQueries({ queryKey: reservationKeys.detail(variables.id) });
+      queryClient.invalidateQueries({
+        queryKey: slug
+          ? queryKeys.reservations.scheduleFor(slug)
+          : queryKeys.reservations.schedulePrefix(),
+      });
     },
   });
 }

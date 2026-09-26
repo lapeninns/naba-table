@@ -55,6 +55,9 @@ describe('GET /api/ops/dashboard/summary', () => {
     expect(response.headers.get('Retry-After')).toBe('30');
     await expect(response.json()).resolves.toEqual({
       error: 'Membership verification is temporarily unavailable',
+      message: 'Membership verification is temporarily unavailable',
+      retryable: true,
+      retryAfter: 30,
       code: 'MEMBERSHIP_VALIDATION_UNAVAILABLE',
     });
     expect(getTodayBookingsSummary).not.toHaveBeenCalled();
