@@ -68,7 +68,6 @@ vi.mock('@/server/runtime-policy', () => ({
   getInlineAutoAssignTimeoutMs: vi.fn(() => 4_000),
   isAutoAssignOnBookingEnabled: vi.fn(() => false),
   isBookingPastTimeBlockingEnabled: vi.fn(() => policyState.bookingPastTimeBlocking),
-  isGuestLookupPolicyEnabled: vi.fn(() => false),
   isUnifiedBookingValidationEnabled: vi.fn(() => policyState.bookingValidationUnified),
 }));
 

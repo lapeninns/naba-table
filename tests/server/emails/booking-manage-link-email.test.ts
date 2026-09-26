@@ -29,7 +29,6 @@ vi.mock('@/lib/env', () => ({
     app: { url: 'https://app.nabatable.com' },
     security: {
       sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret',
-      sessionRecoveryAccessTokenTtlSeconds: 900,
     },
   },
 }));

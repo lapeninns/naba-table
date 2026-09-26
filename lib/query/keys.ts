@@ -37,6 +37,11 @@ export const queryKeys = {
     detail: (id: string) => ['bookings', 'detail', id] as const,
     history: (id: string, params: Record<string, unknown> = {}) =>
       ['bookings', 'history', id, params] as const,
+    // --- G4 (loose ends) ---
+    /** Prefix of every guest bookings list page, for cancel/invalidate/setQueriesData. */
+    listPrefix: () => ['bookings', 'list'] as const,
+    /** Prefix of every history page of one booking. */
+    historyPrefix: (id: string) => ['bookings', 'history', id] as const,
   },
   opsBookings: {
     all: ['ops', 'bookings'] as const,
@@ -291,6 +296,15 @@ export const queryKeys = {
      * restaurant slug, date and party size.
      */
     schedulePrefix: () => ['reservations', 'schedule'] as const,
+    // --- G4 (loose ends) ---
+    /**
+     * Every party-size variant of one restaurant's schedule, narrowed to one date when
+     * given. Matches the leading segments of `scheduleQueryKey`.
+     */
+    scheduleFor: (restaurantSlug: string, date?: string | null) =>
+      date
+        ? (['reservations', 'schedule', restaurantSlug, date] as const)
+        : (['reservations', 'schedule', restaurantSlug] as const),
   },
   team: {
     memberships: () => ['team', 'memberships'] as const,

@@ -133,7 +133,13 @@ export async function settleBookingEmailIntent(
   params: {
     intentId: string;
     restaurantId: string;
-    /** attempts_made returned by the claim: the settle only matches that claim. */
+    /**
+     * claim_generation returned by the claim (monotonic, never reset): the settle only
+     * matches that claim. Null when migration 20260927210000 is not applied yet; the
+     * settle then falls back to the weaker attempts_made fence.
+     */
+    claimGeneration: number | null;
+    /** attempts_made returned by the claim: the fallback fence. */
     expectedAttempts: number;
     outcome: 'sent' | 'skipped' | 'retry';
     errorCode?: string | null;
@@ -141,19 +147,29 @@ export async function settleBookingEmailIntent(
   },
 ): Promise<string | null> {
   try {
-    const { data, error } = await client.rpc('settle_booking_email_intent', {
+    const shared = {
       p_intent_id: params.intentId,
       p_restaurant_id: params.restaurantId,
       p_outcome: params.outcome,
-      p_expected_attempts: params.expectedAttempts,
       p_error_code: params.errorCode ?? null,
       p_retry_delay_seconds: params.retryDelaySeconds ?? 60,
-    });
+    };
+    const { data, error } =
+      params.claimGeneration !== null
+        ? await client.rpc('settle_booking_email_intent_v2', {
+            ...shared,
+            p_claim_generation: params.claimGeneration,
+          })
+        : await client.rpc('settle_booking_email_intent', {
+            ...shared,
+            p_expected_attempts: params.expectedAttempts,
+          });
     if (error) {
       throw error;
     }
     if (typeof data !== 'string') {
-      // No row matched: the intent was re-claimed (lease expired) or already settled.
+      // No row matched: the intent was re-claimed (lease expired or reset), cancelled
+      // or already settled.
       logger.warn('[jobs][email-intent] settle matched no claim', {
         intentId: params.intentId,
         outcome: params.outcome,
@@ -205,8 +221,11 @@ export async function runClaimedBookingEmailIntent(
   }
 
   const intentId = claim.intent.id;
-  // Fencing token: if this attempt outlives its 15 minute lease and the cron drain
-  // re-claims the intent, attempts_made moves on and this settle matches nothing.
+  // Fencing token: if this attempt outlives its 15 minute lease, or the intent is reset
+  // and re-claimed, claim_generation moves on and this settle matches nothing.
+  // attempts_made is the fallback fence before migration 20260927210000.
+  const claimGeneration =
+    typeof claim.intent.claim_generation === 'number' ? claim.intent.claim_generation : null;
   const expectedAttempts = claim.intent.attempts_made;
   let outcome: 'sent' | 'skipped';
   try {
@@ -220,6 +239,7 @@ export async function runClaimedBookingEmailIntent(
     await settleBookingEmailIntent(client, {
       intentId,
       restaurantId: params.restaurantId,
+      claimGeneration,
       expectedAttempts,
       outcome: 'retry',
       errorCode: 'INLINE_SEND_FAILED',
@@ -231,6 +251,7 @@ export async function runClaimedBookingEmailIntent(
   await settleBookingEmailIntent(client, {
     intentId,
     restaurantId: params.restaurantId,
+    claimGeneration,
     expectedAttempts,
     outcome,
   });

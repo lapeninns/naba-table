@@ -6,6 +6,7 @@ import { useCancelBooking } from '@/hooks/useCancelBooking';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
+import { reservationKeys } from '@shared/api/queryKeys';
 
 import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
@@ -64,5 +65,46 @@ describe('guest booking mutations invalidate only the affected booking queries',
     expect(invalidated(queryClient, keys.history!)).toBe(true);
     expect(invalidated(queryClient, keys.otherDetail!)).toBe(false);
     expect(invalidated(queryClient, keys.otherHistory!)).toBe(false);
+  });
+});
+
+describe('guest booking update refreshes only its own restaurant schedule', () => {
+  const foxSchedule = ['reservations', 'schedule', 'the-fox', '2026-10-01', 2];
+  const bellSchedule = ['reservations', 'schedule', 'the-bell', '2026-10-01', 2];
+
+  function seedSchedules(queryClient: QueryClient) {
+    queryClient.setQueryData(foxSchedule, { seeded: true });
+    queryClient.setQueryData(bellSchedule, { seeded: true });
+  }
+
+  it("narrows the schedule refresh to the cached booking's restaurant", async () => {
+    const queryClient = createTestQueryClient();
+    seedSchedules(queryClient);
+    queryClient.setQueryData(reservationKeys.detail(ID), {
+      id: ID,
+      restaurantSlug: 'the-fox',
+      bookingDate: '2026-09-30',
+    });
+    vi.mocked(fetchJson).mockResolvedValue({ id: ID } as never);
+    const { result } = renderHook(() => useUpdateBooking(), {
+      wrapper: createQueryWrapper(queryClient),
+    });
+    await result.current.mutateAsync({ id: ID, startIso: '2026-10-01T19:00:00Z', partySize: 2 });
+
+    expect(invalidated(queryClient, foxSchedule)).toBe(true);
+    expect(invalidated(queryClient, bellSchedule)).toBe(false);
+  });
+
+  it('falls back to every schedule when the restaurant is unknown', async () => {
+    const queryClient = createTestQueryClient();
+    seedSchedules(queryClient);
+    vi.mocked(fetchJson).mockResolvedValue({ id: ID } as never);
+    const { result } = renderHook(() => useUpdateBooking(), {
+      wrapper: createQueryWrapper(queryClient),
+    });
+    await result.current.mutateAsync({ id: ID, startIso: '2026-10-01T19:00:00Z', partySize: 2 });
+
+    expect(invalidated(queryClient, foxSchedule)).toBe(true);
+    expect(invalidated(queryClient, bellSchedule)).toBe(true);
   });
 });

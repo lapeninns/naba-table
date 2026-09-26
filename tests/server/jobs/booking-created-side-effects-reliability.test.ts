@@ -55,13 +55,15 @@ type Intent = {
   status: string;
   attempts_made: number;
   max_attempts: number;
+  claim_generation: number;
   scheduled_for: string;
 };
 
 /**
  * In-memory stand-in for the ensure/claim/settle RPCs with the same semantics as
  * the SQL (insert-if-absent by dedupe key; conditional claim; guarded settle).
- * The SQL itself is exercised by tests/db/booking-email-intent-ensure.sql.
+ * The SQL itself is exercised by tests/db/booking-email-intent-ensure.sql and
+ * tests/db/booking-email-intent-settle-generation.sql.
  */
 function createIntentStore(options: { failEnsure?: boolean } = {}) {
   const intents = new Map<string, Intent>();
@@ -87,6 +89,7 @@ function createIntentStore(options: { failEnsure?: boolean } = {}) {
         status: 'pending',
         attempts_made: 0,
         max_attempts: 5,
+        claim_generation: 0,
         scheduled_for: (args.p_scheduled_for as string | null) ?? 'now',
       };
       intents.set(key, intent);
@@ -102,15 +105,16 @@ function createIntentStore(options: { failEnsure?: boolean } = {}) {
       }
       intent.status = 'processing';
       intent.attempts_made += 1;
+      intent.claim_generation += 1;
       return { data: [{ ...intent }], error: null };
     }
-    if (name === 'settle_booking_email_intent') {
+    if (name === 'settle_booking_email_intent_v2') {
       const intent = [...intents.values()].find((row) => row.id === args.p_intent_id);
-      // Fenced on the claim's attempt number, like the SQL function.
+      // Fenced on the claim generation, like the SQL function.
       if (
         !intent ||
         intent.status !== 'processing' ||
-        intent.attempts_made !== args.p_expected_attempts
+        intent.claim_generation !== args.p_claim_generation
       ) {
         return { data: null, error: null };
       }

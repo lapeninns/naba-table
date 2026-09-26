@@ -36,6 +36,10 @@ export const SQL_REGRESSION_FILES: readonly string[] = [
   'tests/db/business-context-atomic-save.sql',
   'tests/db/atomic-restaurant-profile-update.sql',
   'tests/db/onboarding-replace-layout.sql',
+  'tests/db/pending-booking-modification-guard.sql',
+  'tests/db/booking-owner-binding-and-capacity-update-errors.sql',
+  'tests/db/email-intent-claim-generation.sql',
+  'tests/db/booking-email-intent-settle-generation.sql',
   'supabase/tests/mobile_sms_attempt_finalization.sql',
   'supabase/tests/whatsapp_review_notification_ledger.sql',
 ];
