@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import { logger } from '@/lib/logger';
 import { HOLD_EXPIRY_SKEW_MS } from '@/server/capacity/hold-expiry';
 import { getHoldMinTtlSeconds } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -57,6 +58,8 @@ type TableHoldWindowRow = {
 export type ReleaseTableHoldInput = {
   holdId: string;
   client?: DbClient;
+  /** Staff member releasing the hold; recorded on the hold.released observability event. */
+  actorId?: string | null;
 };
 
 // Legacy confirmTableHold path has been removed in favor of the
@@ -398,13 +401,13 @@ async function manualDeleteHold(supabase: DbClient, holdId: string): Promise<voi
 }
 
 export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<void> {
-  const { holdId, client } = input;
+  const { holdId, client, actorId } = input;
   const supabase = ensureClient(client);
   await configureHoldStrictConflictSession(supabase);
   const rpcCall = supabase.rpc('release_hold_and_emit', {
     p_hold_id: holdId,
     // actor id is optional for system-triggered releases; Supabase RPC expects string | undefined
-    p_actor_id: undefined,
+    p_actor_id: actorId ?? undefined,
   });
   const { data: rpcData, error: rpcError } = await rpcCall;
 
@@ -414,15 +417,12 @@ export async function releaseTableHold(input: ReleaseTableHoldInput): Promise<vo
   // rather than reporting success on partial/no deletion.
   const deleted = rpcData === true;
   if (rpcError || !deleted) {
-    console.warn(
-      '[capacity.hold] release_hold_and_emit did not confirm deletion; falling back to manual delete',
-      {
-        holdId,
-        deleted,
-        code: rpcError?.code ?? null,
-        message: rpcError?.message ?? null,
-      },
-    );
+    logger.warn('capacity.hold.release_fallback', {
+      holdId,
+      deleted,
+      // `code` keys are redacted by lib/logger, so the SQLSTATE is logged as errorKind.
+      errorKind: rpcError?.code ?? null,
+    });
     await manualDeleteHold(supabase, holdId);
   }
 }

@@ -24,7 +24,7 @@ export function TableTimelineSegmentDialog({
 }: {
   selected: SelectedSegment | null;
   onClose: () => void;
-  onReleaseHold: (holdId: string, bookingId: string | null) => void;
+  onReleaseHold: (holdId: string) => void;
   actionState: { releasing: boolean; error: string | null };
 }) {
   if (!selected) return null;
@@ -88,7 +88,7 @@ export function TableTimelineSegmentDialog({
                 <>
                   <p className="font-semibold text-foreground">Table is on hold</p>
                   <p className="text-muted-foreground">
-                    Linked booking ID: {bookingId ?? 'unknown'}
+                    {bookingId ? `Linked booking ID: ${bookingId}` : 'Not linked to a booking'}
                   </p>
                 </>
               ) : segment.state === 'out_of_service' ? (
@@ -119,8 +119,8 @@ export function TableTimelineSegmentDialog({
             <Button
               className="flex-1"
               variant="outline"
-              disabled={!holdId || !bookingId || actionState.releasing}
-              onClick={() => holdId && onReleaseHold(holdId, bookingId)}
+              disabled={!holdId || actionState.releasing}
+              onClick={() => holdId && onReleaseHold(holdId)}
             >
               {actionState.releasing ? 'Releasing hold…' : 'Release hold'}
             </Button>

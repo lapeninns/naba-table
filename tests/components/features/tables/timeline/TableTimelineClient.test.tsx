@@ -68,7 +68,7 @@ type ControllerShape = {
   actionState: { releasing: boolean; error: string | null };
   closeSelectedSegment: () => void;
   filteredTables: TableTimelineResponse['tables'];
-  handleReleaseHold: (holdId: string, bookingId: string | null) => void;
+  handleReleaseHold: (holdId: string) => void;
   hasActiveRestaurant: boolean;
   isRealtimeEnabled: boolean;
   now: Date;
@@ -138,9 +138,7 @@ describe('TableTimelineClient', () => {
   });
 
   it('@contract asks the operator to select a restaurant before rendering the timeline', () => {
-    useTableTimelineControllerMock.mockReturnValue(
-      makeController({ hasActiveRestaurant: false }),
-    );
+    useTableTimelineControllerMock.mockReturnValue(makeController({ hasActiveRestaurant: false }));
 
     render(<TableTimelineClient />);
 
@@ -230,9 +228,7 @@ describe('TableTimelineClient', () => {
   });
 
   it('@contract falls back to the polling label when realtime is disabled', () => {
-    useTableTimelineControllerMock.mockReturnValue(
-      makeController({ isRealtimeEnabled: false }),
-    );
+    useTableTimelineControllerMock.mockReturnValue(makeController({ isRealtimeEnabled: false }));
 
     render(<TableTimelineClient />);
 
