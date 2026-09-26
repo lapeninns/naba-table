@@ -7,6 +7,7 @@ import {
   buildBookingCreateRecoveredObservabilityEvent,
   buildBookingPastTimeBlockedObservabilityEvent,
 } from '@/server/bookings/create-observability-events';
+import { hashIdempotencyKey } from '@/server/bookings/idempotency';
 
 describe('booking create observability events', () => {
   it('builds the capacity-precheck failed event with existing context keys', () => {
@@ -91,12 +92,13 @@ describe('booking create observability events', () => {
     });
   });
 
-  it('builds the recovered event with idempotency-key recovery method', () => {
+  it('builds the recovered event with a hashed key and the matched method', () => {
     expect(
       buildBookingCreateRecoveredObservabilityEvent({
         source: 'api.bookings',
         restaurantId: 'restaurant-1',
         idempotencyKey: 'idem-1',
+        method: 'idempotency_key',
       }),
     ).toEqual({
       source: 'api.bookings',
@@ -104,18 +106,30 @@ describe('booking create observability events', () => {
       severity: 'warning',
       context: {
         restaurantId: 'restaurant-1',
-        idempotencyKey: 'idem-1',
+        keyHash: hashIdempotencyKey('idem-1'),
         method: 'idempotency_key',
       },
     });
   });
 
-  it('builds the recovered event with signature recovery method when no idempotency key exists', () => {
+  it('reports a signature match even when a key was supplied', () => {
+    const event = buildBookingCreateRecoveredObservabilityEvent({
+      source: 'api.bookings',
+      restaurantId: 'restaurant-1',
+      idempotencyKey: 'idem-1',
+      method: 'signature',
+    });
+    expect(event.context.method).toBe('signature');
+    expect(JSON.stringify(event)).not.toContain('idem-1');
+  });
+
+  it('builds the recovered event without a key hash when no key exists', () => {
     expect(
       buildBookingCreateRecoveredObservabilityEvent({
         source: 'api.bookings',
         restaurantId: 'restaurant-1',
         idempotencyKey: null,
+        method: 'signature',
       }),
     ).toEqual({
       source: 'api.bookings',
@@ -123,13 +137,13 @@ describe('booking create observability events', () => {
       severity: 'warning',
       context: {
         restaurantId: 'restaurant-1',
-        idempotencyKey: undefined,
+        keyHash: undefined,
         method: 'signature',
       },
     });
   });
 
-  it('builds the insert-fallback event with existing context shape', () => {
+  it('builds the insert-fallback event with a hashed key', () => {
     expect(
       buildBookingCreateInsertFallbackObservabilityEvent({
         source: 'api.bookings',
@@ -142,12 +156,12 @@ describe('booking create observability events', () => {
       severity: 'warning',
       context: {
         restaurantId: 'restaurant-1',
-        idempotencyKey: 'idem-1',
+        keyHash: hashIdempotencyKey('idem-1'),
       },
     });
   });
 
-  it('keeps absent insert-fallback idempotency keys undefined', () => {
+  it('keeps absent insert-fallback key hashes undefined', () => {
     expect(
       buildBookingCreateInsertFallbackObservabilityEvent({
         source: 'api.bookings',
@@ -156,7 +170,7 @@ describe('booking create observability events', () => {
       }).context,
     ).toEqual({
       restaurantId: 'restaurant-1',
-      idempotencyKey: undefined,
+      keyHash: undefined,
     });
   });
 });

@@ -21,7 +21,6 @@ vi.mock('@/server/security/request', () => ({
 import {
   runBookingCreateLegacyCapacityCreate,
   type BookingCreateCapacityCreator,
-  type BookingCreateInitialStatusEnforcer,
   type BookingCreateMissingRecordResolver,
 } from '@/server/bookings/legacy-capacity-create';
 
@@ -29,8 +28,7 @@ import type { BookingRecord } from '@/server/bookings';
 import type { BookingCreateRequest } from '@/server/bookings/request-validation';
 import type { Json } from '@/types/supabase';
 
-type LegacyCapacityClient = Parameters<BookingCreateMissingRecordResolver>[0]['client'] &
-  Parameters<BookingCreateInitialStatusEnforcer>[0]['client'];
+type LegacyCapacityClient = Parameters<BookingCreateMissingRecordResolver>[0]['client'];
 
 const client = { from: vi.fn() } as unknown as LegacyCapacityClient;
 
@@ -87,24 +85,23 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
     anonymizeIpMock.mockImplementation((ip: string) => `anon:${ip}`);
   });
 
-  it('returns created bookings after initial status enforcement', async () => {
+  it('asks the RPC to insert the booking as pending in one write', async () => {
     const capacityCreator = vi.fn(async () => ({
       success: true,
       duplicate: false,
-      booking: confirmedBooking,
+      booking: pendingBooking,
     }));
-    const initialStatusEnforcer = vi.fn(async () => pendingBooking);
 
     await expect(
       runBookingCreateLegacyCapacityCreate({
         ...baseArgs,
         capacityCreator: capacityCreator as BookingCreateCapacityCreator,
-        initialStatusEnforcer: initialStatusEnforcer as BookingCreateInitialStatusEnforcer,
       }),
     ).resolves.toEqual({
       kind: 'created',
       booking: pendingBooking,
       reusedExisting: false,
+      recovered: false,
     });
 
     expect(capacityCreator).toHaveBeenCalledWith(
@@ -116,17 +113,57 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
         endTime: '20:30',
         partySize: 4,
         idempotencyKey: 'idem-1',
+        details: { source: 'public', initial_status: 'pending' },
       }),
     );
-    expect(initialStatusEnforcer).toHaveBeenCalledWith({
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it('returns the RPC duplicate as reused without writing again', async () => {
+    const capacityCreator = vi.fn(async () => ({
+      success: true,
+      duplicate: true,
       booking: confirmedBooking,
-      client,
-      reusedExisting: false,
-      onError: undefined,
+    }));
+
+    await expect(
+      runBookingCreateLegacyCapacityCreate({
+        ...baseArgs,
+        capacityCreator: capacityCreator as BookingCreateCapacityCreator,
+      }),
+    ).resolves.toEqual({
+      kind: 'created',
+      booking: confirmedBooking,
+      reusedExisting: true,
+      recovered: false,
     });
   });
 
-  it('recovers missing booking records before status enforcement', async () => {
+  it('maps a reused key with a different payload to 409 IDEMPOTENCY_KEY_REUSED', async () => {
+    const capacityCreator = vi.fn(async () => ({
+      success: false,
+      duplicate: false,
+      error: 'IDEMPOTENCY_KEY_REUSED',
+      message: 'This request key was already used for a different booking.',
+      details: { idempotencyConflict: true },
+      retryable: false,
+    }));
+
+    const result = await runBookingCreateLegacyCapacityCreate({
+      ...baseArgs,
+      capacityCreator: capacityCreator as unknown as BookingCreateCapacityCreator,
+    });
+
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+    expect(result.response.status).toBe(409);
+    const body = (await result.response.json()) as Record<string, unknown>;
+    expect(body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect(body).not.toHaveProperty('booking');
+    expect(findAlternativeSlotsMock).not.toHaveBeenCalled();
+  });
+
+  it('marks bookings from missing-record recovery as recovered', async () => {
     const recoveredBooking = { ...pendingBooking, id: 'booking-recovered' } as BookingRecord;
     const capacityCreator = vi.fn(async () => ({
       success: true,
@@ -134,19 +171,18 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
       booking: undefined,
     }));
     const missingRecordResolver = vi.fn(async () => recoveredBooking);
-    const initialStatusEnforcer = vi.fn(async () => recoveredBooking);
 
     await expect(
       runBookingCreateLegacyCapacityCreate({
         ...baseArgs,
         capacityCreator: capacityCreator as BookingCreateCapacityCreator,
-        initialStatusEnforcer: initialStatusEnforcer as BookingCreateInitialStatusEnforcer,
         missingRecordResolver: missingRecordResolver as BookingCreateMissingRecordResolver,
       }),
     ).resolves.toEqual({
       kind: 'created',
       booking: recoveredBooking,
       reusedExisting: false,
+      recovered: true,
     });
 
     expect(missingRecordResolver).toHaveBeenCalledWith({
@@ -161,6 +197,7 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
           bookingDate: '2026-07-01',
           startTime: '19:00',
           endTime: '20:30',
+          partySize: 4,
         },
       }),
     });
@@ -173,12 +210,10 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
       booking: undefined,
     }));
     const missingRecordResolver = vi.fn(async () => null);
-    const initialStatusEnforcer = vi.fn(async () => pendingBooking);
 
     const result = await runBookingCreateLegacyCapacityCreate({
       ...baseArgs,
       capacityCreator: capacityCreator as BookingCreateCapacityCreator,
-      initialStatusEnforcer: initialStatusEnforcer as BookingCreateInitialStatusEnforcer,
       missingRecordResolver: missingRecordResolver as BookingCreateMissingRecordResolver,
     });
 
@@ -191,7 +226,6 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
       code: 'CAPACITY_UNAVAILABLE',
       details: null,
     });
-    expect(initialStatusEnforcer).not.toHaveBeenCalled();
   });
 
   it('returns capacity unavailable responses for unavailable capacity enforcement', async () => {
@@ -272,34 +306,5 @@ describe('runBookingCreateLegacyCapacityCreate', () => {
       code: 'INTERNAL_ERROR',
       details: { code: 'rpc_failed' },
     });
-  });
-
-  it('keeps status enforcement errors non-fatal through the injected enforcer', async () => {
-    const statusError = new Error('status update failed');
-    const onStatusError = vi.fn();
-    const capacityCreator = vi.fn(async () => ({
-      success: true,
-      duplicate: false,
-      booking: confirmedBooking,
-    }));
-    const initialStatusEnforcer = vi.fn(async (args) => {
-      args.onError?.(statusError);
-      return args.booking;
-    });
-
-    await expect(
-      runBookingCreateLegacyCapacityCreate({
-        ...baseArgs,
-        capacityCreator: capacityCreator as BookingCreateCapacityCreator,
-        initialStatusEnforcer: initialStatusEnforcer as BookingCreateInitialStatusEnforcer,
-        onStatusError,
-      }),
-    ).resolves.toEqual({
-      kind: 'created',
-      booking: confirmedBooking,
-      reusedExisting: false,
-    });
-
-    expect(onStatusError).toHaveBeenCalledWith(statusError);
   });
 });

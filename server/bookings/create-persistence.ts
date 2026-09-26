@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server';
-
+import {
+  resolveBookingCreateOrigin,
+  type BookingCreateOrigin,
+} from '@/server/bookings/idempotency';
 import { runBookingCreateLegacyCapacityCreate } from '@/server/bookings/legacy-capacity-create';
 import { runBookingCreateUnifiedValidation } from '@/server/bookings/unified-validation-create';
 
@@ -7,6 +9,7 @@ import type { BookingRecord } from '@/server/bookings';
 import type { BookingCreatePrecommitContextResult } from '@/server/bookings/create-precommit-context';
 import type { BookingCreateRequestContext } from '@/server/bookings/create-request-context';
 import type { BookingCreateRequest } from '@/server/bookings/request-validation';
+import type { NextResponse } from 'next/server';
 
 type BookingCreatePersistenceClient = Parameters<
   typeof runBookingCreateUnifiedValidation
@@ -27,6 +30,7 @@ export type BookingCreatePersistenceResult =
       customer: BookingCreatePrecommitContext['customer'];
       idempotencyKey: string;
       reusedExisting: boolean;
+      createOrigin: BookingCreateOrigin;
     }
   | {
       kind: 'response';
@@ -37,7 +41,6 @@ export async function runBookingCreatePersistence({
   client,
   clientIp,
   legacyCapacityRunner = runBookingCreateLegacyCapacityCreate,
-  onStatusError,
   pastTimeBlocking,
   pastTimeGraceMinutes,
   precommit,
@@ -50,14 +53,13 @@ export async function runBookingCreatePersistence({
   client: BookingCreatePersistenceClient;
   clientIp: string;
   legacyCapacityRunner?: BookingCreateLegacyCapacityRunner;
-  onStatusError?: (error: unknown) => void;
   pastTimeBlocking: boolean;
   pastTimeGraceMinutes: number;
   precommit: BookingCreatePrecommitContext;
   request: BookingCreateRequest;
   requestContext: Pick<
     BookingCreateRequestContext,
-    'bookingDetails' | 'bookingSource' | 'clientRequestId' | 'requestSource'
+    'bookingDetails' | 'bookingSource' | 'clientRequestId' | 'headerIdempotencyKey' | 'requestSource'
   >;
   restaurantId: string;
   unifiedValidationRunner?: BookingCreateUnifiedValidationRunner;
@@ -70,6 +72,7 @@ export async function runBookingCreatePersistence({
       customer: precommit.customer,
       idempotencyKey: precommit.idempotencyKey,
       reusedExisting: precommit.reusedExisting,
+      createOrigin: precommit.createOrigin ?? 'recovered',
     };
   }
 
@@ -97,10 +100,7 @@ export async function runBookingCreatePersistence({
     });
 
     if (unifiedValidationResult.kind === 'response') {
-      return {
-        kind: 'response',
-        response: NextResponse.json(unifiedValidationResult.body, unifiedValidationResult.init),
-      };
+      return unifiedValidationResult;
     }
 
     return {
@@ -109,6 +109,12 @@ export async function runBookingCreatePersistence({
       customer: precommit.customer,
       idempotencyKey: precommit.idempotencyKey,
       reusedExisting: unifiedValidationResult.reusedExisting,
+      createOrigin: resolveBookingCreateOrigin({
+        booking: unifiedValidationResult.booking,
+        duplicate: unifiedValidationResult.reusedExisting,
+        headerIdempotencyKey: requestContext.headerIdempotencyKey,
+        recovered: false,
+      }),
     };
   }
 
@@ -116,7 +122,6 @@ export async function runBookingCreatePersistence({
     ...sharedArgs,
     clientIp,
     requestSource: requestContext.requestSource,
-    onStatusError,
   });
 
   if (legacyCapacityResult.kind === 'response') {
@@ -129,5 +134,11 @@ export async function runBookingCreatePersistence({
     customer: precommit.customer,
     idempotencyKey: precommit.idempotencyKey,
     reusedExisting: legacyCapacityResult.reusedExisting,
+    createOrigin: resolveBookingCreateOrigin({
+      booking: legacyCapacityResult.booking,
+      duplicate: legacyCapacityResult.reusedExisting,
+      headerIdempotencyKey: requestContext.headerIdempotencyKey,
+      recovered: legacyCapacityResult.recovered,
+    }),
   };
 }

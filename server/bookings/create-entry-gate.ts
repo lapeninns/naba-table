@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { apiError } from '@/lib/api/errors';
 import { buildBookingCreateRateLimitedObservabilityEvent } from '@/server/bookings/create-observability-events';
 import {
   buildBookingCreateRequestContext,
@@ -86,7 +87,11 @@ export async function runBookingCreateEntryGate({
     const response = buildBookingCreateRateLimitResponse({ rateLimit: rateResult });
     return {
       kind: 'response',
-      response: NextResponse.json(response.body, response.init),
+      // C1 flat body; the builder's Retry-After and X-RateLimit-* headers are kept.
+      response: NextResponse.json(
+        { ...response.body, message: response.body.error, retryable: true },
+        response.init,
+      ),
     };
   }
 
@@ -100,8 +105,5 @@ export async function runBookingCreateEntryGate({
 function buildRestaurantResolutionResponse(
   result: Extract<BookingRestaurantResolutionResult, { ok: false }>,
 ): NextResponse {
-  return NextResponse.json(
-    { error: result.error, code: result.code },
-    { status: result.status || 400 },
-  );
+  return apiError(result.status || 400, result.code, result.error);
 }

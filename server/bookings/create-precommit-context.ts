@@ -5,7 +5,16 @@ import { runBookingCreateCapacityPrecheck } from '@/server/bookings/capacity-fai
 import { resolveBookingCreateCustomerContext } from '@/server/bookings/create-customer-context';
 import { runBookingCreateScheduleGate } from '@/server/bookings/create-schedule-gate';
 import { resolveBookingDurationMinutes } from '@/server/bookings/duration';
-import { recoverBookingRecord } from '@/server/bookings/recovery';
+import {
+  buildIdempotencyKeyReusedResponse,
+  matchesIdempotentCreatePayload,
+  resolveBookingCreateOrigin,
+  type BookingCreateOrigin,
+} from '@/server/bookings/idempotency';
+import {
+  findBookingByIdempotencyKey,
+  recoverBookingRecordWithMethod,
+} from '@/server/bookings/recovery';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { BookingCreateCustomerContext } from '@/server/bookings/create-customer-context';
@@ -17,14 +26,15 @@ type BookingCreatePrecommitClient = NonNullable<
 > &
   Parameters<typeof runBookingCreateScheduleGate>[0]['client'] &
   Parameters<typeof resolveBookingDurationMinutes>[0]['client'] &
-  Parameters<typeof recoverBookingRecord>[0] &
+  Parameters<typeof recoverBookingRecordWithMethod>[0] &
   Parameters<typeof runBookingCreateCapacityPrecheck>[0]['client'];
 
 export type BookingCreateScheduleGateRunner = typeof runBookingCreateScheduleGate;
 export type BookingCreateDurationResolver = typeof resolveBookingDurationMinutes;
 export type BookingCreateEndTimeDeriver = typeof deriveEndTimeFromDuration;
 export type BookingCreateCustomerContextResolver = typeof resolveBookingCreateCustomerContext;
-export type BookingCreateRecoveredRecordResolver = typeof recoverBookingRecord;
+export type BookingCreateRecoveredRecordResolver = typeof recoverBookingRecordWithMethod;
+export type BookingCreateKeyedBookingFinder = typeof findBookingByIdempotencyKey;
 export type BookingCreatePrecommitCapacityPrechecker = typeof runBookingCreateCapacityPrecheck;
 export type BookingCreateMealTypeInferrer = typeof inferMealTypeFromTime;
 
@@ -33,11 +43,14 @@ export type BookingCreatePrecommitContextResult =
       kind: 'continue';
       booking: BookingRecord | undefined;
       bookingType: BookingCreateRequest['bookingType'];
-      customer: BookingCreateCustomerContext['customer'];
+      /** The resolved customer; for a key replay only the booking's customer id is known. */
+      customer: Pick<BookingCreateCustomerContext['customer'], 'id'>;
       durationMinutes: number;
       endTime: string;
       idempotencyKey: string;
       reusedExisting: boolean;
+      /** How an existing booking was found; null when the request continues to insert. */
+      createOrigin: Exclude<BookingCreateOrigin, 'inserted'> | null;
       scheduleTimezone: string | null;
       startTime: string;
     }
@@ -53,11 +66,12 @@ export async function runBookingCreatePrecommitContext({
   customerContextResolver = resolveBookingCreateCustomerContext,
   durationResolver = resolveBookingDurationMinutes,
   endTimeDeriver = deriveEndTimeFromDuration,
+  keyedBookingFinder = findBookingByIdempotencyKey,
   mealTypeInferrer = inferMealTypeFromTime,
   onCapacityPrecheckError,
   pastTimeBlocking,
   pastTimeGraceMinutes,
-  recoveredRecordResolver = recoverBookingRecord,
+  recoveredRecordResolver = recoverBookingRecordWithMethod,
   request,
   requestContext,
   restaurantId,
@@ -69,6 +83,7 @@ export async function runBookingCreatePrecommitContext({
   customerContextResolver?: BookingCreateCustomerContextResolver;
   durationResolver?: BookingCreateDurationResolver;
   endTimeDeriver?: BookingCreateEndTimeDeriver;
+  keyedBookingFinder?: BookingCreateKeyedBookingFinder;
   mealTypeInferrer?: BookingCreateMealTypeInferrer;
   onCapacityPrecheckError?: (error: unknown) => void;
   pastTimeBlocking: boolean;
@@ -117,6 +132,65 @@ export async function runBookingCreatePrecommitContext({
   });
   const endTime = endTimeDeriver(startTime, durationMinutes);
 
+  const headerIdempotencyKey = requestContext.headerIdempotencyKey;
+
+  // 1. The client's own key, in the scope of the unique (restaurant_id, idempotency_key) index.
+  //    A replay needs neither the capacity precheck (its own booking fills the slot) nor a
+  //    customer write.
+  if (headerIdempotencyKey) {
+    const keyedBooking = await keyedBookingFinder(client, {
+      restaurantId,
+      idempotencyKey: headerIdempotencyKey,
+    });
+
+    if (keyedBooking) {
+      if (
+        !matchesIdempotentCreatePayload(keyedBooking, {
+          bookingDate: request.date,
+          startTime,
+          partySize: request.party,
+          customerEmail: request.email,
+        })
+      ) {
+        return { kind: 'response', response: buildIdempotencyKeyReusedResponse() };
+      }
+
+      return {
+        kind: 'continue',
+        booking: keyedBooking,
+        bookingType,
+        customer: { id: keyedBooking.customer_id },
+        durationMinutes,
+        endTime,
+        idempotencyKey: headerIdempotencyKey,
+        reusedExisting: true,
+        createOrigin: 'key_replay',
+        scheduleTimezone,
+        startTime,
+      };
+    }
+  }
+
+  // 2. Advisory capacity precheck before the customer upsert, so a full slot writes nothing.
+  //    The create RPC stays the capacity authority; it needs the customer id, so the customer
+  //    is still written before the definitive capacity outcome.
+  const capacityPrecheck = await capacityPrechecker({
+    client,
+    restaurantId,
+    date: request.date,
+    startTime,
+    partySize: request.party,
+    durationMinutes,
+    bookingOption: bookingType,
+    requestSource: requestContext.requestSource,
+    clientIp,
+    onError: onCapacityPrecheckError,
+  });
+
+  if (capacityPrecheck.kind === 'response') {
+    return capacityPrecheck;
+  }
+
   const customerContext = await customerContextResolver({
     client,
     restaurantId,
@@ -127,52 +201,54 @@ export async function runBookingCreatePrecommitContext({
     phone: request.phone,
     name: request.name,
     marketingOptIn: request.marketingOptIn,
-    headerIdempotencyKey: requestContext.headerIdempotencyKey,
+    headerIdempotencyKey,
   });
   const { customer, idempotencyKey } = customerContext;
 
-  const booking = await recoveredRecordResolver(client, {
+  // 3. Deterministic key (key-less clients) and the live-slot signature. Cancelled and
+  //    no-show bookings never match, so a guest can rebook a slot they cancelled.
+  const recovered = await recoveredRecordResolver(client, {
     restaurantId,
-    idempotencyKey,
+    idempotencyKey: headerIdempotencyKey ? null : idempotencyKey,
     customerId: customer.id,
     bookingDate: request.date,
     startTime,
     endTime,
+    partySize: request.party,
   });
-  let reusedExisting = false;
 
-  if (booking) {
-    reusedExisting = true;
-  }
-
-  if (!booking) {
-    const capacityPrecheck = await capacityPrechecker({
-      client,
-      restaurantId,
-      date: request.date,
-      startTime,
-      partySize: request.party,
-      durationMinutes,
-      bookingOption: bookingType,
-      requestSource: requestContext.requestSource,
-      clientIp,
-      onError: onCapacityPrecheckError,
+  if (recovered) {
+    const origin = resolveBookingCreateOrigin({
+      booking: recovered.booking,
+      duplicate: true,
+      headerIdempotencyKey,
+      recovered: true,
     });
-
-    if (capacityPrecheck.kind === 'response') {
-      return capacityPrecheck;
-    }
+    return {
+      kind: 'continue',
+      booking: recovered.booking,
+      bookingType,
+      customer,
+      durationMinutes,
+      endTime,
+      idempotencyKey,
+      reusedExisting: true,
+      createOrigin: origin === 'inserted' ? null : origin,
+      scheduleTimezone,
+      startTime,
+    };
   }
 
   return {
     kind: 'continue',
-    booking: booking ?? undefined,
+    booking: undefined,
     bookingType,
     customer,
     durationMinutes,
     endTime,
     idempotencyKey,
-    reusedExisting,
+    reusedExisting: false,
+    createOrigin: null,
     scheduleTimezone,
     startTime,
   };

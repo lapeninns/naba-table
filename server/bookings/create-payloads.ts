@@ -1,9 +1,4 @@
-import {
-  buildBookingAuditSnapshot,
-  logAuditEvent,
-  updateBookingRecord,
-  type BookingRecord,
-} from '@/server/bookings';
+import { buildBookingAuditSnapshot, logAuditEvent, type BookingRecord } from '@/server/bookings';
 import { normalizeEmail } from '@/server/customers';
 
 import { DEFAULT_SEATING_PREFERENCE, type BookingCreateRequest } from './request-validation';
@@ -16,12 +11,11 @@ export type BookingCreateCustomer = {
   id: string;
 };
 
-export type BookingInitialStatusEnforcement = {
-  bookingId: string;
-  payload: {
-    status: 'pending';
-  };
-};
+/**
+ * Status the create RPC inserts. Carried in `p_details.initial_status` (the RPC strips it
+ * before storing details), so the booking is written once with its intended status.
+ */
+export type BookingCreateInitialStatus = 'pending' | 'confirmed';
 
 export type BookingCreatePayloadBase = {
   request: BookingCreateRequest;
@@ -83,8 +77,23 @@ export function buildBookingValidationCreatePayload(
   return { input, context };
 }
 
+function buildCapacityCreateDetails(
+  bookingDetails: Json | null,
+  initialStatus: BookingCreateInitialStatus | undefined,
+): Json | null {
+  if (!initialStatus) {
+    return bookingDetails;
+  }
+
+  const base =
+    bookingDetails && typeof bookingDetails === 'object' && !Array.isArray(bookingDetails)
+      ? bookingDetails
+      : {};
+  return { ...base, initial_status: initialStatus };
+}
+
 export function buildCapacityCreateBookingParams(
-  params: BookingCreatePayloadBase,
+  params: BookingCreatePayloadBase & { initialStatus?: BookingCreateInitialStatus },
 ): CreateBookingParams {
   return {
     restaurantId: params.restaurantId,
@@ -104,7 +113,7 @@ export function buildCapacityCreateBookingParams(
     source: params.bookingSource,
     authUserId: null,
     clientRequestId: params.clientRequestId,
-    details: params.bookingDetails,
+    details: buildCapacityCreateDetails(params.bookingDetails, params.initialStatus),
   };
 }
 
@@ -227,57 +236,4 @@ export async function dispatchBookingCreatedAuditEvent({
       actor,
     }),
   );
-}
-
-export function buildBookingInitialStatusEnforcement({
-  booking,
-  reusedExisting,
-}: {
-  booking: BookingRecord;
-  reusedExisting: boolean;
-}): BookingInitialStatusEnforcement | null {
-  if (reusedExisting || booking.status === 'pending') {
-    return null;
-  }
-
-  return {
-    bookingId: booking.id,
-    payload: { status: 'pending' },
-  };
-}
-
-export type BookingInitialStatusUpdater = (
-  client: Parameters<typeof updateBookingRecord>[0],
-  bookingId: string,
-  payload: BookingInitialStatusEnforcement['payload'],
-) => Promise<BookingRecord>;
-
-export async function enforceBookingCreateInitialStatus({
-  booking,
-  client,
-  onError,
-  reusedExisting,
-  updater = updateBookingRecord,
-}: {
-  booking: BookingRecord;
-  client: Parameters<typeof updateBookingRecord>[0];
-  onError?: (error: unknown) => void;
-  reusedExisting: boolean;
-  updater?: BookingInitialStatusUpdater;
-}): Promise<BookingRecord> {
-  const statusEnforcement = buildBookingInitialStatusEnforcement({
-    booking,
-    reusedExisting,
-  });
-
-  if (!statusEnforcement) {
-    return booking;
-  }
-
-  try {
-    return await updater(client, statusEnforcement.bookingId, statusEnforcement.payload);
-  } catch (error) {
-    onError?.(error);
-    return booking;
-  }
 }

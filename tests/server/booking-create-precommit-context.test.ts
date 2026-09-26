@@ -6,6 +6,7 @@ import {
   type BookingCreateCustomerContextResolver,
   type BookingCreateDurationResolver,
   type BookingCreateEndTimeDeriver,
+  type BookingCreateKeyedBookingFinder,
   type BookingCreatePrecommitCapacityPrechecker,
   type BookingCreateRecoveredRecordResolver,
   type BookingCreateScheduleGateRunner,
@@ -29,8 +30,9 @@ const request = {
   phone: '07123456789',
   marketingOptIn: false,
 } as BookingCreateRequest;
+const HEADER_KEY = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const requestContext = {
-  headerIdempotencyKey: 'header-idem-1',
+  headerIdempotencyKey: HEADER_KEY,
   clientRequestId: 'client-request-1',
   opsEmailProvidedHeader: false,
   isOpsWalkIn: false,
@@ -40,9 +42,19 @@ const requestContext = {
 } satisfies BookingCreateRequestContext;
 const recoveredBooking = {
   id: 'booking-1',
+  customer_id: 'customer-1',
   customer_email: request.email,
   customer_phone: request.phone,
+  booking_date: '2026-07-01',
+  start_time: '18:45:00',
+  party_size: 4,
+  idempotency_key: 'deterministic-idem-1',
   status: 'pending',
+} as BookingRecord;
+const keyedBooking = {
+  ...recoveredBooking,
+  id: 'booking-keyed',
+  idempotency_key: HEADER_KEY,
 } as BookingRecord;
 
 function buildContinueDeps(
@@ -51,6 +63,7 @@ function buildContinueDeps(
     customerContextResolver: BookingCreateCustomerContextResolver;
     durationResolver: BookingCreateDurationResolver;
     endTimeDeriver: BookingCreateEndTimeDeriver;
+    keyedBookingFinder: BookingCreateKeyedBookingFinder;
     recoveredRecordResolver: BookingCreateRecoveredRecordResolver;
     scheduleGateRunner: BookingCreateScheduleGateRunner;
   }> = {},
@@ -70,8 +83,9 @@ function buildContinueDeps(
     customerContextResolver: vi.fn(async () => ({
       customer,
       deterministicIdempotencyKey: 'deterministic-idem-1',
-      idempotencyKey: 'header-idem-1',
+      idempotencyKey: HEADER_KEY,
     })) as BookingCreateCustomerContextResolver,
+    keyedBookingFinder: vi.fn(async () => null) as BookingCreateKeyedBookingFinder,
     recoveredRecordResolver: vi.fn(async () => null) as BookingCreateRecoveredRecordResolver,
     capacityPrechecker: vi.fn(async () => ({
       kind: 'continue',
@@ -81,7 +95,7 @@ function buildContinueDeps(
 }
 
 describe('runBookingCreatePrecommitContext', () => {
-  it('builds the precommit context in the existing route order', async () => {
+  it('checks the key and capacity before writing the customer', async () => {
     const deps = buildContinueDeps();
 
     await expect(
@@ -102,10 +116,23 @@ describe('runBookingCreatePrecommitContext', () => {
       customer,
       durationMinutes: 90,
       endTime: '20:15',
-      idempotencyKey: 'header-idem-1',
+      idempotencyKey: HEADER_KEY,
       reusedExisting: false,
+      createOrigin: null,
       scheduleTimezone: 'Europe/London',
       startTime: '18:45',
+    });
+
+    const keyOrder = vi.mocked(deps.keyedBookingFinder).mock.invocationCallOrder[0]!;
+    const precheckOrder = vi.mocked(deps.capacityPrechecker).mock.invocationCallOrder[0]!;
+    const customerOrder = vi.mocked(deps.customerContextResolver).mock.invocationCallOrder[0]!;
+    const recoveryOrder = vi.mocked(deps.recoveredRecordResolver).mock.invocationCallOrder[0]!;
+    expect(keyOrder).toBeLessThan(precheckOrder);
+    expect(precheckOrder).toBeLessThan(customerOrder);
+    expect(customerOrder).toBeLessThan(recoveryOrder);
+    expect(deps.keyedBookingFinder).toHaveBeenCalledWith(client, {
+      restaurantId,
+      idempotencyKey: HEADER_KEY,
     });
 
     expect(deps.scheduleGateRunner).toHaveBeenCalledWith(
@@ -134,16 +161,18 @@ describe('runBookingCreatePrecommitContext', () => {
         bookingDate: '2026-07-01',
         startTime: '18:45',
         endTime: '20:15',
-        headerIdempotencyKey: 'header-idem-1',
+        headerIdempotencyKey: HEADER_KEY,
       }),
     );
+    // The header key was already looked up per restaurant; recovery only tries the signature.
     expect(deps.recoveredRecordResolver).toHaveBeenCalledWith(client, {
       restaurantId,
-      idempotencyKey: 'header-idem-1',
+      idempotencyKey: null,
       customerId: 'customer-1',
       bookingDate: '2026-07-01',
       startTime: '18:45',
       endTime: '20:15',
+      partySize: 4,
     });
     expect(deps.capacityPrechecker).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -188,11 +217,68 @@ describe('runBookingCreatePrecommitContext', () => {
     expect(deps.durationResolver).not.toHaveBeenCalled();
   });
 
-  it('returns recovered bookings and skips capacity precheck', async () => {
+  it('replays the booking created with the same key and skips precheck and customer writes', async () => {
     const deps = buildContinueDeps({
-      recoveredRecordResolver: vi.fn(
-        async () => recoveredBooking,
-      ) as BookingCreateRecoveredRecordResolver,
+      keyedBookingFinder: vi.fn(async () => keyedBooking) as BookingCreateKeyedBookingFinder,
+    });
+
+    await expect(
+      runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request,
+        requestContext,
+        restaurantId,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'continue',
+      booking: keyedBooking,
+      customer: { id: 'customer-1' },
+      idempotencyKey: HEADER_KEY,
+      reusedExisting: true,
+      createOrigin: 'key_replay',
+    });
+
+    expect(deps.capacityPrechecker).not.toHaveBeenCalled();
+    expect(deps.customerContextResolver).not.toHaveBeenCalled();
+    expect(deps.recoveredRecordResolver).not.toHaveBeenCalled();
+  });
+
+  it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
+    const deps = buildContinueDeps({
+      keyedBookingFinder: vi.fn(async () => ({
+        ...keyedBooking,
+        party_size: 2,
+      })) as BookingCreateKeyedBookingFinder,
+    });
+
+    const result = await runBookingCreatePrecommitContext({
+      ...deps,
+      client,
+      clientIp: '192.0.2.10',
+      pastTimeBlocking: true,
+      request,
+      requestContext,
+      restaurantId,
+    });
+
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+    expect(result.response.status).toBe(409);
+    const body = (await result.response.json()) as Record<string, unknown>;
+    expect(body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+    expect(JSON.stringify(body)).not.toContain('booking-keyed');
+    expect(deps.customerContextResolver).not.toHaveBeenCalled();
+  });
+
+  it('marks signature matches as recovered, not as the creator replay', async () => {
+    const deps = buildContinueDeps({
+      recoveredRecordResolver: vi.fn(async () => ({
+        booking: recoveredBooking,
+        method: 'signature' as const,
+      })) as BookingCreateRecoveredRecordResolver,
     });
 
     await expect(
@@ -209,12 +295,46 @@ describe('runBookingCreatePrecommitContext', () => {
       kind: 'continue',
       booking: recoveredBooking,
       reusedExisting: true,
+      createOrigin: 'recovered',
     });
-
-    expect(deps.capacityPrechecker).not.toHaveBeenCalled();
   });
 
-  it('short-circuits capacity precheck responses', async () => {
+  it('uses the deterministic key for recovery when the client sent no key', async () => {
+    const deps = buildContinueDeps({
+      customerContextResolver: vi.fn(async () => ({
+        customer,
+        deterministicIdempotencyKey: 'deterministic-idem-1',
+        idempotencyKey: 'deterministic-idem-1',
+      })) as BookingCreateCustomerContextResolver,
+      recoveredRecordResolver: vi.fn(async () => ({
+        booking: recoveredBooking,
+        method: 'idempotency_key' as const,
+      })) as BookingCreateRecoveredRecordResolver,
+    });
+
+    await expect(
+      runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request,
+        requestContext: { ...requestContext, headerIdempotencyKey: null },
+        restaurantId,
+      }),
+    ).resolves.toMatchObject({
+      booking: recoveredBooking,
+      idempotencyKey: 'deterministic-idem-1',
+      createOrigin: 'recovered',
+    });
+    expect(deps.keyedBookingFinder).not.toHaveBeenCalled();
+    expect(deps.recoveredRecordResolver).toHaveBeenCalledWith(
+      client,
+      expect.objectContaining({ idempotencyKey: 'deterministic-idem-1' }),
+    );
+  });
+
+  it('short-circuits capacity precheck responses before any customer write', async () => {
     const response = NextResponse.json({ error: 'No capacity' }, { status: 409 });
     const deps = buildContinueDeps({
       capacityPrechecker: vi.fn(async () => ({
@@ -237,5 +357,6 @@ describe('runBookingCreatePrecommitContext', () => {
       kind: 'response',
       response,
     });
+    expect(deps.customerContextResolver).not.toHaveBeenCalled();
   });
 });

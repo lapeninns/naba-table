@@ -30,6 +30,9 @@
 --        the legacy create path no longer inserts 'confirmed' and flips it to 'pending' in a
 --        second, non-atomic write. The key is stripped before details is stored. Callers that
 --        do not send it keep the previous behaviour ('confirmed');
+--      - retryable BOOKING_CONFLICT payloads carry details.bookingConflict = true, because the
+--        unified validation path maps the RPC code to CAPACITY_EXCEEDED and would otherwise
+--        lose the retry signal;
 --      - the INTERNAL_ERROR payload no longer carries SQLERRM (it is still RAISE WARNING-ed).
 --
 -- Rollback notes:
@@ -464,7 +467,8 @@ BEGIN
                 'success', false,
                 'error', 'BOOKING_CONFLICT',
                 'message', 'Concurrent booking conflict detected. Please retry.',
-                'retryable', true
+                'retryable', true,
+                'details', jsonb_build_object('bookingConflict', true)
             );
         END IF;
 
@@ -493,7 +497,8 @@ EXCEPTION
             'success', false,
             'error', 'BOOKING_CONFLICT',
             'message', 'Concurrent booking conflict detected. Please retry.',
-            'retryable', true
+            'retryable', true,
+            'details', jsonb_build_object('bookingConflict', true)
         );
 
     WHEN deadlock_detected THEN
@@ -501,7 +506,8 @@ EXCEPTION
             'success', false,
             'error', 'BOOKING_CONFLICT',
             'message', 'Database deadlock detected. Please retry.',
-            'retryable', true
+            'retryable', true,
+            'details', jsonb_build_object('bookingConflict', true)
         );
 
     WHEN lock_not_available THEN
@@ -509,7 +515,8 @@ EXCEPTION
             'success', false,
             'error', 'BOOKING_CONFLICT',
             'message', 'Capacity rule is currently locked by another transaction. Please retry.',
-            'retryable', true
+            'retryable', true,
+            'details', jsonb_build_object('bookingConflict', true)
         );
 
     WHEN OTHERS THEN

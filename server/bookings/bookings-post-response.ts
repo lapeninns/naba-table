@@ -129,9 +129,6 @@ export async function buildBookingsPostHttpResponse({
     const persistence = await persistenceRunner({
       client,
       clientIp,
-      onStatusError: (statusError) => {
-        logger.error('[bookings][POST][status-enforce]', stringifyError(statusError));
-      },
       pastTimeBlocking,
       pastTimeGraceMinutes: bookingPastTimeGraceMinutes ?? 5,
       precommit,

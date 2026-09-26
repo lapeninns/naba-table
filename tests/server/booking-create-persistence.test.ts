@@ -25,8 +25,9 @@ const request = {
   phone: '07123456789',
   marketingOptIn: false,
 } as BookingCreateRequest;
+const HEADER_KEY = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const requestContext = {
-  headerIdempotencyKey: 'header-idem-1',
+  headerIdempotencyKey: HEADER_KEY,
   clientRequestId: 'client-request-1',
   opsEmailProvidedHeader: false,
   isOpsWalkIn: false,
@@ -37,6 +38,7 @@ const requestContext = {
 const booking = {
   id: 'booking-1',
   status: 'pending',
+  idempotency_key: HEADER_KEY,
   customer_email: request.email,
   customer_phone: request.phone,
 } as BookingRecord;
@@ -51,8 +53,9 @@ function buildPrecommit(
     customer: { id: 'customer-1' },
     durationMinutes: 90,
     endTime: '20:00',
-    idempotencyKey: 'idem-1',
+    idempotencyKey: HEADER_KEY,
     reusedExisting: false,
+    createOrigin: null,
     scheduleTimezone: 'Europe/London',
     startTime: '18:30',
     ...overrides,
@@ -71,7 +74,7 @@ describe('runBookingCreatePersistence', () => {
         legacyCapacityRunner,
         pastTimeBlocking: true,
         pastTimeGraceMinutes: 5,
-        precommit: buildPrecommit({ booking, reusedExisting: true }),
+        precommit: buildPrecommit({ booking, reusedExisting: true, createOrigin: 'key_replay' }),
         request,
         requestContext,
         restaurantId,
@@ -82,8 +85,9 @@ describe('runBookingCreatePersistence', () => {
       kind: 'created',
       booking,
       customer: { id: 'customer-1' },
-      idempotencyKey: 'idem-1',
+      idempotencyKey: HEADER_KEY,
       reusedExisting: true,
+      createOrigin: 'key_replay',
     });
 
     expect(unifiedValidationRunner).not.toHaveBeenCalled();
@@ -114,8 +118,9 @@ describe('runBookingCreatePersistence', () => {
       kind: 'created',
       booking,
       customer: { id: 'customer-1' },
-      idempotencyKey: 'idem-1',
+      idempotencyKey: HEADER_KEY,
       reusedExisting: false,
+      createOrigin: 'inserted',
     });
 
     expect(unifiedValidationRunner).toHaveBeenCalledWith(
@@ -132,23 +137,66 @@ describe('runBookingCreatePersistence', () => {
         pastTimeBlocking: true,
         pastTimeGraceMinutes: 5,
         bookingSource: 'api',
-        idempotencyKey: 'idem-1',
+        idempotencyKey: HEADER_KEY,
         clientRequestId: 'client-request-1',
         bookingDetails: null,
       }),
     );
   });
 
-  it('wraps unified validation response specs in NextResponse', async () => {
+  it('classifies an RPC duplicate carrying the header key as a key replay', async () => {
+    const unifiedValidationRunner = vi.fn(async () => ({
+      kind: 'created',
+      booking,
+      reusedExisting: true,
+    })) as BookingCreateUnifiedValidationRunner;
+
+    await expect(
+      runBookingCreatePersistence({
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        pastTimeGraceMinutes: 5,
+        precommit: buildPrecommit(),
+        request,
+        requestContext,
+        restaurantId,
+        unifiedValidationRunner,
+        useUnifiedValidation: true,
+      }),
+    ).resolves.toMatchObject({ reusedExisting: true, createOrigin: 'key_replay' });
+  });
+
+  it('classifies an RPC duplicate found by the deterministic key as recovered', async () => {
+    const unifiedValidationRunner = vi.fn(async () => ({
+      kind: 'created',
+      booking: { ...booking, idempotency_key: 'deterministic-idem' },
+      reusedExisting: true,
+    })) as BookingCreateUnifiedValidationRunner;
+
+    await expect(
+      runBookingCreatePersistence({
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        pastTimeGraceMinutes: 5,
+        precommit: buildPrecommit({ idempotencyKey: 'deterministic-idem' }),
+        request,
+        requestContext: { ...requestContext, headerIdempotencyKey: null },
+        restaurantId,
+        unifiedValidationRunner,
+        useUnifiedValidation: true,
+      }),
+    ).resolves.toMatchObject({ reusedExisting: true, createOrigin: 'recovered' });
+  });
+
+  it('returns unified validation responses directly', async () => {
     const unifiedValidationRunner = vi.fn(async () => ({
       kind: 'response',
-      body: { ok: false, issues: [{ code: 'OUTSIDE_HOURS' }] },
-      init: {
-        status: 400,
-        headers: {
-          'X-Booking-Validation': 'unified',
-        },
-      },
+      response: NextResponse.json(
+        { ok: false, issues: [{ code: 'OUTSIDE_HOURS' }] },
+        { status: 400, headers: { 'X-Booking-Validation': 'unified' } },
+      ),
     })) as BookingCreateUnifiedValidationRunner;
 
     const result = await runBookingCreatePersistence({
@@ -178,11 +226,11 @@ describe('runBookingCreatePersistence', () => {
   });
 
   it('runs legacy capacity creation when unified validation is disabled', async () => {
-    const onStatusError = vi.fn();
     const legacyCapacityRunner = vi.fn(async () => ({
       kind: 'created',
       booking,
       reusedExisting: false,
+      recovered: false,
     })) as BookingCreateLegacyCapacityRunner;
 
     await expect(
@@ -190,7 +238,6 @@ describe('runBookingCreatePersistence', () => {
         client,
         clientIp: '192.0.2.10',
         legacyCapacityRunner,
-        onStatusError,
         pastTimeBlocking: true,
         pastTimeGraceMinutes: 5,
         precommit: buildPrecommit(),
@@ -203,8 +250,9 @@ describe('runBookingCreatePersistence', () => {
       kind: 'created',
       booking,
       customer: { id: 'customer-1' },
-      idempotencyKey: 'idem-1',
+      idempotencyKey: HEADER_KEY,
       reusedExisting: false,
+      createOrigin: 'inserted',
     });
 
     expect(legacyCapacityRunner).toHaveBeenCalledWith(
@@ -218,14 +266,37 @@ describe('runBookingCreatePersistence', () => {
         endTime: '20:00',
         durationMinutes: 90,
         bookingSource: 'api',
-        idempotencyKey: 'idem-1',
+        idempotencyKey: HEADER_KEY,
         clientRequestId: 'client-request-1',
         bookingDetails: null,
         clientIp: '192.0.2.10',
         requestSource: 'api.bookings',
-        onStatusError,
       }),
     );
+  });
+
+  it('marks legacy missing-record recoveries as recovered', async () => {
+    const legacyCapacityRunner = vi.fn(async () => ({
+      kind: 'created',
+      booking: { ...booking, idempotency_key: 'other-key' },
+      reusedExisting: false,
+      recovered: true,
+    })) as BookingCreateLegacyCapacityRunner;
+
+    await expect(
+      runBookingCreatePersistence({
+        client,
+        clientIp: '192.0.2.10',
+        legacyCapacityRunner,
+        pastTimeBlocking: true,
+        pastTimeGraceMinutes: 5,
+        precommit: buildPrecommit(),
+        request,
+        requestContext,
+        restaurantId,
+        useUnifiedValidation: false,
+      }),
+    ).resolves.toMatchObject({ createOrigin: 'recovered' });
   });
 
   it('returns legacy capacity responses directly', async () => {

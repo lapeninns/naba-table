@@ -115,6 +115,7 @@ vi.mock('@/server/capacity', () => ({
 }));
 
 vi.mock('@/server/customers', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports
   const actual = await importOriginal<typeof import('@/server/customers')>();
   return {
     ...actual,
@@ -546,7 +547,8 @@ describe('public POST /api/bookings capacity handling', () => {
       { time: '18:30', available: true, utilizationPercent: 80 },
       { time: '20:00', available: true, utilizationPercent: 70 },
     ]);
-    expect(upsertCustomerMock).toHaveBeenCalledOnce();
+    // A full slot is rejected before the customer row is written.
+    expect(upsertCustomerMock).not.toHaveBeenCalled();
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
     expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
   });
@@ -761,5 +763,151 @@ describe('public POST /api/bookings capacity handling', () => {
     expect(recoverBuilder.eq).toHaveBeenCalledWith('idempotency_key', expect.any(String));
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
     expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+  });
+
+  describe('Idempotency-Key replays', () => {
+    const IDEMPOTENCY_KEY = '0f8fad5b-d9cb-469f-a165-70867728950e';
+    const storedBooking = {
+      id: 'booking-keyed',
+      restaurant_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: 'cust-1',
+      booking_date: '2026-07-01',
+      start_time: '19:00:00',
+      end_time: '20:30:00',
+      start_at: null,
+      end_at: null,
+      reference: 'NB654321',
+      party_size: 4,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      status: 'pending',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+      notes: null,
+      marketing_opt_in: true,
+      client_request_id: IDEMPOTENCY_KEY,
+      idempotency_key: IDEMPOTENCY_KEY,
+      pending_ref: null,
+      confirmation_token: 'confirm-token',
+      confirmation_token_expires_at: '2026-07-01T12:00:00.000Z',
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    };
+
+    function keyedRequest(overrides: Record<string, unknown> = {}) {
+      const request = buildRequest(overrides);
+      request.headers.set('Idempotency-Key', IDEMPOTENCY_KEY);
+      return request;
+    }
+
+    function availableSlot() {
+      checkSlotAvailabilityMock.mockResolvedValue({
+        available: true,
+        metadata: { servicePeriod: 'Dinner', maxCovers: 20, bookedCovers: 0 },
+      });
+    }
+
+    it('replays the same key with the same body and status as the original, writing nothing', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: false,
+        booking: storedBooking,
+      });
+      const original = await POST(keyedRequest());
+      const originalBody = await original.json();
+      expect(original.status).toBe(201);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: IDEMPOTENCY_KEY,
+          details: expect.objectContaining({ initial_status: 'pending' }),
+        }),
+      );
+      expect(updateBookingRecordMock).not.toHaveBeenCalled();
+
+      upsertCustomerMock.mockClear();
+      enqueueBookingCreatedSideEffectsMock.mockClear();
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({ data: storedBooking, error: null });
+      fromMock.mockReturnValueOnce(keyBuilder);
+
+      const replay = await POST(keyedRequest());
+
+      expect(replay.status).toBe(original.status);
+      await expect(replay.json()).resolves.toEqual(originalBody);
+      expect(keyBuilder.eq).toHaveBeenCalledWith('idempotency_key', IDEMPOTENCY_KEY);
+      expect(keyBuilder.eq).not.toHaveBeenCalledWith('customer_id', expect.anything());
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
+      expect(upsertCustomerMock).not.toHaveBeenCalled();
+      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    });
+
+    it('answers a lost race (RPC duplicate for our key) exactly like the original insert', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: true,
+        booking: storedBooking,
+      });
+
+      const response = await POST(keyedRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(body.duplicate).toBe(false);
+      expect(body.booking.reference).toBe('NB654321');
+      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({ data: storedBooking, error: null });
+      fromMock.mockReturnValueOnce(keyBuilder);
+
+      const response = await POST(keyedRequest({ party: 6 }));
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', retryable: false });
+      expect(body.error).toBe(body.message);
+      expect(JSON.stringify(body)).not.toContain('NB654321');
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+      expect(upsertCustomerMock).not.toHaveBeenCalled();
+    });
+
+    it('maps the RPC IDEMPOTENCY_KEY_REUSED result (concurrent different payload) to 409', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: false,
+        duplicate: false,
+        error: 'IDEMPOTENCY_KEY_REUSED',
+        message: 'This request key was already used for a different booking.',
+        details: { idempotencyConflict: true },
+        retryable: false,
+      });
+
+      const response = await POST(keyedRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    });
+
+    it('never records the raw key in observability events', async () => {
+      availableSlot();
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: false,
+        booking: null,
+      });
+
+      await POST(keyedRequest());
+
+      expect(recordObservabilityEventMock).toHaveBeenCalled();
+      expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(IDEMPOTENCY_KEY);
+    });
   });
 });

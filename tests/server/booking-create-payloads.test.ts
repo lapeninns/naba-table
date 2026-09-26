@@ -4,19 +4,14 @@ import {
   buildFallbackInsertBookingPayload,
   buildBookingCreatedAuditEvent,
   buildBookingCreatedAuditMetadata,
-  buildBookingInitialStatusEnforcement,
   buildBookingValidationCreatePayload,
   buildCapacityCreateBookingParams,
   dispatchBookingCreatedAuditEvent,
-  enforceBookingCreateInitialStatus,
   type BookingCreatePayloadBase,
 } from '@/server/bookings/create-payloads';
 
 import type { BookingRecord } from '@/server/bookings';
-import type {
-  BookingCreatedAuditLogger,
-  BookingInitialStatusUpdater,
-} from '@/server/bookings/create-payloads';
+import type { BookingCreatedAuditLogger } from '@/server/bookings/create-payloads';
 
 const baseParams: BookingCreatePayloadBase = {
   request: {
@@ -406,109 +401,18 @@ describe('buildBookingCreatedAuditEvent', () => {
   });
 });
 
-describe('buildBookingInitialStatusEnforcement', () => {
-  it('does not enforce status for reused bookings', () => {
+describe('buildCapacityCreateBookingParams initial status', () => {
+  it('asks the create RPC to insert pending in the same statement (no second status write)', () => {
+    expect(buildCapacityCreateBookingParams({ ...baseParams, initialStatus: 'pending' }).details).toEqual({
+      ...baseParams.bookingDetails,
+      initial_status: 'pending',
+    });
+  });
+
+  it('carries the initial status even without booking details', () => {
     expect(
-      buildBookingInitialStatusEnforcement({
-        booking: { id: 'booking-1', status: 'confirmed' } as BookingRecord,
-        reusedExisting: true,
-      }),
-    ).toBeNull();
-  });
-
-  it('does not enforce status for new bookings that are already pending', () => {
-    expect(
-      buildBookingInitialStatusEnforcement({
-        booking: { id: 'booking-1', status: 'pending' } as BookingRecord,
-        reusedExisting: false,
-      }),
-    ).toBeNull();
-  });
-
-  it('builds the pending status update payload for non-pending new bookings', () => {
-    expect(
-      buildBookingInitialStatusEnforcement({
-        booking: { id: 'booking-1', status: 'confirmed' } as BookingRecord,
-        reusedExisting: false,
-      }),
-    ).toEqual({
-      bookingId: 'booking-1',
-      payload: { status: 'pending' },
-    });
-  });
-
-  it('does not call the updater for reused bookings', async () => {
-    const booking = { id: 'booking-1', status: 'confirmed' } as BookingRecord;
-    const updater = vi.fn<BookingInitialStatusUpdater>(async () => {
-      throw new Error('should not update');
-    });
-
-    await expect(
-      enforceBookingCreateInitialStatus({
-        booking,
-        client: {} as Parameters<BookingInitialStatusUpdater>[0],
-        reusedExisting: true,
-        updater,
-      }),
-    ).resolves.toBe(booking);
-
-    expect(updater).not.toHaveBeenCalled();
-  });
-
-  it('does not call the updater for new bookings that are already pending', async () => {
-    const booking = { id: 'booking-1', status: 'pending' } as BookingRecord;
-    const updater = vi.fn<BookingInitialStatusUpdater>(async () => {
-      throw new Error('should not update');
-    });
-
-    await expect(
-      enforceBookingCreateInitialStatus({
-        booking,
-        client: {} as Parameters<BookingInitialStatusUpdater>[0],
-        reusedExisting: false,
-        updater,
-      }),
-    ).resolves.toBe(booking);
-
-    expect(updater).not.toHaveBeenCalled();
-  });
-
-  it('returns the updated booking when initial status enforcement succeeds', async () => {
-    const booking = { id: 'booking-1', status: 'confirmed' } as BookingRecord;
-    const updatedBooking = { id: 'booking-1', status: 'pending' } as BookingRecord;
-    const client = {};
-    const updater = vi.fn<BookingInitialStatusUpdater>(async () => updatedBooking);
-
-    await expect(
-      enforceBookingCreateInitialStatus({
-        booking,
-        client: client as Parameters<BookingInitialStatusUpdater>[0],
-        reusedExisting: false,
-        updater,
-      }),
-    ).resolves.toBe(updatedBooking);
-
-    expect(updater).toHaveBeenCalledWith(client, 'booking-1', { status: 'pending' });
-  });
-
-  it('returns the original booking and reports update failures', async () => {
-    const booking = { id: 'booking-1', status: 'confirmed' } as BookingRecord;
-    const updateError = new Error('status update failed');
-    const updater = vi.fn<BookingInitialStatusUpdater>(async () => {
-      throw updateError;
-    });
-    const onError = vi.fn();
-
-    await expect(
-      enforceBookingCreateInitialStatus({
-        booking,
-        client: {} as Parameters<BookingInitialStatusUpdater>[0],
-        onError,
-        reusedExisting: false,
-        updater,
-      }),
-    ).resolves.toBe(booking);
-
-    expect(onError).toHaveBeenCalledWith(updateError);
+      buildCapacityCreateBookingParams({ ...baseParams, bookingDetails: null, initialStatus: 'pending' })
+        .details,
+    ).toEqual({ initial_status: 'pending' });
   });
 });
