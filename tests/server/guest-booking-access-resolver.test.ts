@@ -162,6 +162,7 @@ vi.mock('@/server/supabase', () => {
 import { isVerifiedBookingOwner } from '@/server/bookings/guest-booking-access';
 import { GET as historyGET } from '@/src/app/api/bookings/[id]/history/route';
 import { DELETE, GET, PUT } from '@/src/app/api/bookings/[id]/route';
+import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
 import { GET as pdfGET } from '@/src/app/api/reservations/[id]/confirmation/route';
 
 import {
@@ -715,6 +716,33 @@ describe('token path responses', () => {
     const sessionBody = await sessionResponse.json();
     expect(sessionBody.booking.customer_email).toBe('alex@example.com');
     expect(sessionBody.booking).not.toHaveProperty('idempotency_key');
+  });
+
+  it('§16 the confirmation PDF masks the guest name for token access, like the JSON DTO', async () => {
+    const buildPdf = vi.mocked(buildReservationConfirmationPdfBuffer);
+    buildPdf.mockClear();
+    const tokenResponse = await pdfGET(
+      req('GET', `/api/reservations/${A}/confirmation`, {
+        cookies: [tokenCookieFor(makeBooking())],
+      }),
+      params(A),
+    );
+    expect(tokenResponse.status).toBe(200);
+    expect(buildPdf).toHaveBeenLastCalledWith(expect.objectContaining({ guestName: 'A***' }));
+
+    db.bookings[0] = makeBooking({ auth_user_id: 'user-1' });
+    authGetUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'alex@example.com' } },
+      error: null,
+    });
+    const sessionResponse = await pdfGET(
+      req('GET', `/api/reservations/${A}/confirmation`),
+      params(A),
+    );
+    expect(sessionResponse.status).toBe(200);
+    expect(buildPdf).toHaveBeenLastCalledWith(
+      expect.objectContaining({ guestName: 'Alex Guest' }),
+    );
   });
 
   it('§17 a token PUT that changes email or phone is 422 and writes nothing', async () => {
