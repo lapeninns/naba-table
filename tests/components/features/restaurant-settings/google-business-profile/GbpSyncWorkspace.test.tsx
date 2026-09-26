@@ -592,6 +592,10 @@ describe('GbpSyncWorkspace', () => {
     expect(alert).toHaveTextContent('owner or manager');
     expect(screen.queryByTestId('gbp-alert-sync-error')).toBeNull();
     expect(screen.getByText('Access lost')).toBeInTheDocument();
+    // Getting the latest can only repeat Google's refusal, so reconnecting is the one way on.
+    for (const button of screen.getAllByRole('button', { name: /get latest from google/i })) {
+      expect(button).toBeDisabled();
+    }
 
     await user.click(within(alert).getByRole('button', { name: 'Reconnect Google' }));
     expect(mocks.startAuthorization).toHaveBeenCalledTimes(1);

@@ -91,7 +91,7 @@ describe('buildGoogleBusinessProfileAuthUrl', () => {
     );
     expect(url.searchParams.get('access_type')).toBe('offline');
     expect(url.searchParams.get('include_granted_scopes')).toBe('true');
-    expect(url.searchParams.get('prompt')).toBe('consent');
+    expect(url.searchParams.get('prompt')).toBe('consent select_account');
     expect(url.searchParams.get('state')).toBe('state-token-1');
     expect(url.searchParams.get('nonce')).toBe('nonce-1');
   });

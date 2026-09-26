@@ -85,7 +85,9 @@ export function buildGoogleBusinessProfileAuthUrl(state: string, nonce: string):
   url.searchParams.set('scope', GOOGLE_BUSINESS_PROFILE_SCOPES.join(' '));
   url.searchParams.set('access_type', 'offline');
   url.searchParams.set('include_granted_scopes', 'true');
-  url.searchParams.set('prompt', 'consent');
+  // Always offer the account chooser: after Google refuses a listing (lost access), the browser
+  // is often still signed in as the account that no longer manages it.
+  url.searchParams.set('prompt', 'consent select_account');
   url.searchParams.set('state', state);
   url.searchParams.set('nonce', nonce);
   return url.toString();

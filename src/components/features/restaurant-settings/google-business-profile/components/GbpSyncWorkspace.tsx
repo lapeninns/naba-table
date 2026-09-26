@@ -98,7 +98,8 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
     label: actions.refresh.label,
     onClick: shellActions.onClickRefresh,
     pending: workspace.refreshMutation.isPending,
-    disabled: actions.refresh.disabled,
+    // Getting the latest only repeats Google's refusal until Google is reconnected.
+    disabled: actions.refresh.disabled || reconnectReason !== null,
   };
   const notices = operator?.terminalNoticesQuery.data?.notices ?? [];
 

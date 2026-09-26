@@ -244,6 +244,11 @@ function SectionBulkSelect({
  * "Review differences": every compared field in one table, sections as bands, with the choice
  * for each difference in a fixed column. Matching fields are hidden unless asked for.
  */
+/** Shown without "Show matching fields": differences, and fields not compared with Google yet. */
+function needsReview(field: DualSyncFieldSummary): boolean {
+  return isGbpFieldDifferent(field) || field.state === null;
+}
+
 export function GbpReviewTable({
   workspace,
   sendBlockReason,
@@ -259,9 +264,7 @@ export function GbpReviewTable({
     key,
     fields: workspace.fieldsBySection.get(key) ?? [],
   }));
-  const shown = sections.filter(
-    (section) => showMatching || section.fields.some(isGbpFieldDifferent),
-  );
+  const shown = sections.filter((section) => showMatching || section.fields.some(needsReview));
   const matchingSections = sections.filter((section) =>
     section.fields.every((field) => field.state === 'in_sync'),
   );
@@ -318,7 +321,7 @@ export function GbpReviewTable({
           </div>
           {shown.map(({ key, fields }, index) => {
             const section = summarizeGbpSection(fields);
-            const rows = showMatching ? fields : fields.filter(isGbpFieldDifferent);
+            const rows = showMatching ? fields : fields.filter(needsReview);
             const headingId = `gbp-section-${key.replaceAll('.', '-')}`;
             return (
               <section

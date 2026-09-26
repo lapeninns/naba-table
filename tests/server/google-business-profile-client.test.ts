@@ -71,7 +71,7 @@ describe('google business profile client', () => {
     );
     expect(url.searchParams.get('nonce')).toBe('nonce-token');
     expect(url.searchParams.get('access_type')).toBe('offline');
-    expect(url.searchParams.get('prompt')).toBe('consent');
+    expect(url.searchParams.get('prompt')).toBe('consent select_account');
   });
 
   it('builds account-scoped FoodMenus resource names from ids or resource names', () => {
