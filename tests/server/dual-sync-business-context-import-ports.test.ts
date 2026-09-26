@@ -2,8 +2,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateRestaurantBusinessContextMock = vi.hoisted(() => vi.fn());
 const getRestaurantBusinessContextMock = vi.hoisted(() => vi.fn());
+const StaleWriteError = vi.hoisted(
+  () =>
+    class BusinessContextStaleWriteError extends Error {
+      readonly currentRevision: number;
+
+      constructor(currentRevision: number) {
+        super('Business context changed since it was loaded.');
+        this.name = 'BusinessContextStaleWriteError';
+        this.currentRevision = currentRevision;
+      }
+    },
+);
 
 vi.mock('@/server/restaurants/businessContext', () => ({
+  BusinessContextStaleWriteError: StaleWriteError,
   getRestaurantBusinessContext: getRestaurantBusinessContextMock,
   updateRestaurantBusinessContext: updateRestaurantBusinessContextMock,
 }));
@@ -448,5 +461,159 @@ describe('applyBusinessContextServiceItemImportToCore', () => {
       }),
     );
     expect(result.status).toBe('succeeded');
+  });
+});
+
+describe('business-context import revision precondition', () => {
+  const googleFineDining = {
+    categories: [
+      {
+        displayName: 'Fine Dining',
+        categoryCode: 'gcid:cat-1',
+        isPrimary: true,
+        moreHoursTypes: [],
+      },
+    ],
+  };
+
+  function coreCategory(id: string, displayName: string) {
+    return {
+      id,
+      displayName,
+      categoryCode: null,
+      moreHoursTypes: [],
+      isPrimary: false,
+      source: 'core',
+      managedBy: 'core',
+      updatedAt: null,
+    };
+  }
+
+  function contextAt(revision: number, categories: ReturnType<typeof coreCategory>[]) {
+    const empty = { categories: [], serviceAreas: [], attributes: [], serviceItems: [], links: [] };
+    return { revision, core: { ...empty, categories }, providerSnapshot: empty };
+  }
+
+  const ctx = () =>
+    makeCtx(
+      'businessContext.categories.fine-dining',
+      'businessContext.categories',
+      {},
+      googleFineDining,
+    );
+
+  it('@contract writes with the revision it read, so a concurrent Discovery save is not overwritten', async () => {
+    getRestaurantBusinessContextMock.mockResolvedValue(contextAt(5, [coreCategory('x', 'Bar')]));
+
+    await applyBusinessContextCategoryImportToCore(ctx());
+
+    const [, , , , options] = updateRestaurantBusinessContextMock.mock.calls[0] ?? [];
+    expect(options).toEqual({ expectedRevision: 5 });
+  });
+
+  it('@contract re-reads and re-applies onto the newer list after a stale write, keeping the concurrent row', async () => {
+    getRestaurantBusinessContextMock
+      .mockResolvedValueOnce(contextAt(5, [coreCategory('x', 'Bar')]))
+      .mockResolvedValueOnce(
+        contextAt(6, [coreCategory('x', 'Bar'), coreCategory('z', 'Brewery')]),
+      );
+    updateRestaurantBusinessContextMock
+      .mockRejectedValueOnce(new StaleWriteError(6))
+      .mockResolvedValueOnce({});
+
+    const result = await applyBusinessContextCategoryImportToCore(ctx());
+
+    expect(result.status).toBe('succeeded');
+    expect(updateRestaurantBusinessContextMock).toHaveBeenCalledTimes(2);
+    const [, payload, , , options] = updateRestaurantBusinessContextMock.mock.calls[1] ?? [];
+    expect(options).toEqual({ expectedRevision: 6 });
+    expect(payload?.categories).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ displayName: 'Bar' }),
+        expect.objectContaining({ displayName: 'Brewery' }),
+        expect.objectContaining({ displayName: 'Fine Dining', isPrimary: true }),
+      ]),
+    );
+  });
+
+  it('@contract reports a retryable CORE_DRIFT failure when every attempt is stale', async () => {
+    getRestaurantBusinessContextMock.mockResolvedValue(contextAt(5, []));
+    updateRestaurantBusinessContextMock.mockRejectedValue(new StaleWriteError(6));
+
+    const result = await applyBusinessContextCategoryImportToCore(ctx());
+
+    expect(result).toEqual({
+      status: 'failed',
+      failure: expect.objectContaining({ code: 'CORE_DRIFT', retryable: true }),
+    });
+    expect(updateRestaurantBusinessContextMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('@contract passes no precondition while the revision RPC is not deployed', async () => {
+    const legacy = contextAt(0, []);
+    getRestaurantBusinessContextMock.mockResolvedValue({
+      core: legacy.core,
+      providerSnapshot: legacy.providerSnapshot,
+    });
+
+    await applyBusinessContextCategoryImportToCore(ctx());
+
+    const [, , , , options] = updateRestaurantBusinessContextMock.mock.calls[0] ?? [];
+    expect(options).toEqual({ expectedRevision: null });
+  });
+
+  it('@contract applies the same precondition to service areas, attributes and service items', async () => {
+    getRestaurantBusinessContextMock.mockResolvedValue(contextAt(9, []));
+
+    const area = { displayName: 'Downtown', areaType: 'place', regionCode: null, placeData: null };
+    const attribute = {
+      attributeKey: 'has_wheelchair_accessible_entrance',
+      attributeName: 'Wheelchair accessible entrance',
+      attributeId: 'attributes/foo',
+      valueType: 'BOOL',
+      boolValue: true,
+      textValue: null,
+      uriValue: null,
+      uriValues: [],
+      enumValues: [],
+      unsetEnumValues: [],
+    };
+    const item = {
+      itemKey: 'brunch-deal',
+      itemType: 'structured',
+      displayName: 'Brunch deal',
+      description: null,
+      payload: null,
+    };
+
+    await applyBusinessContextServiceAreaImportToCore(
+      makeCtx(
+        'businessContext.serviceAreas.downtown',
+        'businessContext.serviceAreas',
+        { serviceAreas: [area] },
+        { serviceAreas: [area] },
+      ),
+    );
+    await applyBusinessContextAttributeImportToCore(
+      makeCtx(
+        'businessContext.attributes.has_wheelchair_accessible_entrance',
+        'businessContext.attributes',
+        { attributes: [attribute] },
+        { attributes: [attribute] },
+      ),
+    );
+    await applyBusinessContextServiceItemImportToCore(
+      makeCtx(
+        'businessContext.serviceItems.brunch-deal',
+        'businessContext.serviceItems',
+        { serviceItems: [item] },
+        { serviceItems: [item] },
+      ),
+    );
+
+    expect(updateRestaurantBusinessContextMock).toHaveBeenCalledTimes(3);
+    for (const call of updateRestaurantBusinessContextMock.mock.calls) {
+      expect(call[4]).toEqual({ expectedRevision: 9 });
+    }
   });
 });

@@ -140,6 +140,60 @@ describe('useOpsDualSync publish', () => {
     );
   });
 
+  it('@contract refreshes the Availability snapshot and schedule after an hours import', async () => {
+    vi.mocked(publishDualSyncDecisions).mockResolvedValue(summary());
+    const { result, invalidated } = setup();
+
+    await act(async () => {
+      await result.current.a.publishMutation.mutateAsync({
+        decisions: [decision('operatingHours.weekly.mon', 'operatingHours')],
+      });
+    });
+
+    // The Availability page builds its draft and expectedRevision from this snapshot only.
+    expect(invalidated()).toEqual(
+      expect.arrayContaining([
+        key(queryKeys.opsRestaurants.hours(restaurantId)),
+        key(queryKeys.opsRestaurants.availability(restaurantId)),
+        key(queryKeys.reservations.schedulePrefix()),
+      ]),
+    );
+    expect(invalidated()).not.toContain(key(queryKeys.opsRestaurants.turnBands(restaurantId)));
+  });
+
+  it('@contract refreshes the Availability snapshot, turn bands and schedule after a meal-times import', async () => {
+    vi.mocked(publishDualSyncDecisions).mockResolvedValue(summary());
+    const { result, invalidated } = setup();
+
+    await act(async () => {
+      await result.current.a.publishMutation.mutateAsync({
+        decisions: [decision('servicePeriods.lunch', 'servicePeriods')],
+      });
+    });
+
+    expect(invalidated()).toEqual(
+      expect.arrayContaining([
+        key(queryKeys.opsRestaurants.servicePeriods(restaurantId)),
+        key(queryKeys.opsRestaurants.availability(restaurantId)),
+        key(queryKeys.opsRestaurants.turnBands(restaurantId)),
+        key(queryKeys.reservations.schedulePrefix()),
+      ]),
+    );
+  });
+
+  it('@contract leaves the Availability snapshot alone when the hours import failed', async () => {
+    vi.mocked(publishDualSyncDecisions).mockResolvedValue(summary(['operatingHours.weekly.mon']));
+    const { result, invalidated } = setup();
+
+    await act(async () => {
+      await result.current.a.publishMutation.mutateAsync({
+        decisions: [decision('operatingHours.weekly.mon', 'operatingHours')],
+      });
+    });
+
+    expect(invalidated()).not.toContain(key(queryKeys.opsRestaurants.availability(restaurantId)));
+  });
+
   it('@contract leaves Nabatable caches alone when every import failed', async () => {
     vi.mocked(publishDualSyncDecisions).mockResolvedValue(summary(['profile.name']));
     const { result, invalidated } = setup();
