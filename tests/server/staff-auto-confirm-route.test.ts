@@ -132,7 +132,11 @@ describe('staff auto-confirm route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Booking not found' });
+    expect(body).toEqual({
+      error: 'Booking not found',
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
+    });
     expect(queries.bookingQuery.eq).toHaveBeenCalledWith('id', BOOKING_ID);
     expect(queries.bookingQuery.eq).toHaveBeenCalledWith('restaurant_id', RESTAURANT_ID);
     expect(getTenantServiceSupabaseClientMock).not.toHaveBeenCalled();
@@ -157,7 +161,11 @@ describe('staff auto-confirm route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(404);
-    expect(body).toEqual({ error: 'Booking not found' });
+    expect(body).toEqual({
+      error: 'Booking not found',
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
+    });
   });
 
   describe('raw error sweep (C1)', () => {

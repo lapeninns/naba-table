@@ -92,6 +92,8 @@ describe('GET /api/ops/bookings/status-summary', () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
       error: 'Status summary range must be between 1 and 93 days',
+      code: 'VALIDATION_FAILED',
+      message: 'Status summary range must be between 1 and 93 days',
     });
     expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
   });
@@ -113,7 +115,11 @@ describe('GET /api/ops/bookings/status-summary', () => {
     );
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Authentication required',
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
     expect(fetchUserMembershipsMock).not.toHaveBeenCalled();
     expect(getBookingStatusSummaryMock).not.toHaveBeenCalled();
   });
@@ -128,7 +134,11 @@ describe('GET /api/ops/bookings/status-summary', () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({
+      error: "You don't have permission to do that.",
+      code: 'FORBIDDEN',
+      message: "You don't have permission to do that.",
+    });
     expect(fetchUserMembershipsMock).toHaveBeenCalledWith('user-1', supabase);
     expect(requireApiRateLimitMock).not.toHaveBeenCalled();
     expect(getBookingStatusSummaryMock).not.toHaveBeenCalled();
@@ -232,6 +242,8 @@ describe('GET /api/ops/bookings/status-summary', () => {
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
       error: 'Unable to compute booking status summary',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to compute booking status summary',
     });
   });
 });

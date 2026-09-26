@@ -104,7 +104,11 @@ describe('GET /api/ops/dashboard/summary', () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid query' });
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Invalid query',
+      code: 'VALIDATION_FAILED',
+      fields: { date: expect.any(Array) },
+    });
     expect(requireSession).not.toHaveBeenCalled();
     expect(getTodayBookingsSummary).not.toHaveBeenCalled();
   });

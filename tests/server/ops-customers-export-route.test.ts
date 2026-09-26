@@ -78,7 +78,11 @@ describe('GET /api/ops/customers/export', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ error: 'Authentication required' });
+    expect(body).toEqual({
+      error: 'Authentication required',
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
     expect(fetchUserMembershipsMock).not.toHaveBeenCalled();
     expect(requireApiRateLimitMock).not.toHaveBeenCalled();
     expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
@@ -90,7 +94,11 @@ describe('GET /api/ops/customers/export', () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Forbidden' });
+    expect(body).toEqual({
+      error: "You don't have permission to do that.",
+      code: 'FORBIDDEN',
+      message: "You don't have permission to do that.",
+    });
     expect(fetchUserMembershipsMock).toHaveBeenCalledWith('user-1', expect.anything());
     expect(requireApiRateLimitMock).not.toHaveBeenCalled();
     expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
