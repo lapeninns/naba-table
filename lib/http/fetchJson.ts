@@ -50,6 +50,7 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
       throw normalizeError({
         status: response.status,
         statusText: response.statusText,
+        headers: response.headers,
         cause,
       });
     }
@@ -80,6 +81,7 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
       status: response.status,
       statusText: response.statusText,
       body: errorBody,
+      headers: response.headers,
       cause: parseError,
     });
   }
