@@ -34,6 +34,7 @@ type QueryCall =
   | ['from', string]
   | ['select', string, { count: 'exact' }]
   | ['eq', string, string]
+  | ['or', string]
   | ['in', string, readonly string[]]
   | ['gte', string, string]
   | ['lt', string, string]
@@ -52,6 +53,10 @@ function createQueryClient({
   const builder: MyBookingsPageQueryBuilder = {
     eq(column, value) {
       calls.push(['eq', column, value]);
+      return builder;
+    },
+    or(filters) {
+      calls.push(['or', filters]);
       return builder;
     },
     in(column, values) {
@@ -122,6 +127,7 @@ describe('fetchMyBookingsPage', () => {
     await expect(
       fetchMyBookingsPage({
         client,
+        userId: 'user-1',
         email: 'guest@example.com',
         query: buildQuery({ status: 'active', pageSize: 1, offset: 1 }),
         todayForTimezone: () => '2026-05-23',
@@ -132,7 +138,8 @@ describe('fetchMyBookingsPage', () => {
       total: 2,
     });
 
-    expect(calls).toContainEqual(['eq', 'customer_email', 'guest@example.com']);
+    expect(calls).toContainEqual(['eq', 'auth_user_id', 'user-1']);
+    expect(calls).not.toContainEqual(['eq', 'customer_email', 'guest@example.com']);
     expect(calls).toContainEqual(['in', 'status', ['pending', 'pending_allocation', 'confirmed']]);
     expect(calls).not.toContainEqual(['range', expect.any(Number), expect.any(Number)]);
   });
@@ -146,6 +153,7 @@ describe('fetchMyBookingsPage', () => {
     await expect(
       fetchMyBookingsPage({
         client,
+        userId: 'user-1',
         email: 'guest@example.com',
         query: buildQuery({
           status: 'confirmed',
@@ -173,6 +181,38 @@ describe('fetchMyBookingsPage', () => {
     expect(calls).toContainEqual(['range', 20, 39]);
   });
 
+  it('adds email-matched rows only when email matching is enabled', async () => {
+    const enabled = createQueryClient({
+      result: { data: [], error: null },
+      rangeResult: { data: [], error: null, count: 0 },
+    });
+    await fetchMyBookingsPage({
+      client: enabled.client,
+      userId: 'user-1',
+      email: 'Guest@Example.com',
+      emailMatch: true,
+      query: buildQuery(),
+    });
+    expect(enabled.calls).toContainEqual([
+      'or',
+      'auth_user_id.eq.user-1,customer_email.eq.guest@example.com',
+    ]);
+
+    const unsafe = createQueryClient({
+      result: { data: [], error: null },
+      rangeResult: { data: [], error: null, count: 0 },
+    });
+    await fetchMyBookingsPage({
+      client: unsafe.client,
+      userId: 'user-1',
+      email: 'a,b@example.com',
+      emailMatch: true,
+      query: buildQuery(),
+    });
+    expect(unsafe.calls).toContainEqual(['eq', 'auth_user_id', 'user-1']);
+    expect(unsafe.calls.some((call) => call[0] === 'or')).toBe(false);
+  });
+
   it('returns query errors without mapping them to HTTP responses', async () => {
     const error = { message: 'database unavailable' };
     const { client } = createQueryClient({
@@ -183,6 +223,7 @@ describe('fetchMyBookingsPage', () => {
     await expect(
       fetchMyBookingsPage({
         client,
+        userId: 'user-1',
         email: 'guest@example.com',
         query: buildQuery({ status: 'cancelled' }),
       }),

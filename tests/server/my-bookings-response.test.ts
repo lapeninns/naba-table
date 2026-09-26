@@ -43,6 +43,7 @@ describe('buildMyBookingsHttpResponse', () => {
 
     const response = await buildMyBookingsHttpResponse({
       client,
+      userId: 'user-1',
       email: 'Guest@Example.com',
       pageFetcher,
       searchParams: new URLSearchParams({ me: '1', page: '2', pageSize: '1' }),
@@ -86,13 +87,17 @@ describe('buildMyBookingsHttpResponse', () => {
 
     const response = await buildMyBookingsHttpResponse({
       client,
+      userId: 'user-1',
       email: 'guest@example.com',
       pageFetcher,
       queryParser,
       searchParams: new URLSearchParams({ me: '1' }),
     });
 
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid date range' });
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'INVALID_DATE_RANGE',
+      error: 'Invalid date range.',
+    });
     expect(response.status).toBe(400);
     expect(pageFetcher).not.toHaveBeenCalled();
   });
@@ -103,6 +108,7 @@ describe('buildMyBookingsHttpResponse', () => {
 
     const response = await buildMyBookingsHttpResponse({
       clientFor,
+      userId: 'user-1',
       email: 'guest@example.com',
       pageFetcher,
       searchParams: new URLSearchParams({ me: '0', status: 'completed' }),
@@ -124,13 +130,14 @@ describe('buildMyBookingsHttpResponse', () => {
 
     const response = await buildMyBookingsHttpResponse({
       client,
+      userId: 'user-1',
       email: 'guest@example.com',
       onPageFetchError,
       pageFetcher,
       searchParams: new URLSearchParams({ me: '1' }),
     });
 
-    await expect(response.json()).resolves.toEqual({ error: 'Unable to fetch bookings' });
+    await expect(response.json()).resolves.toMatchObject({ code: 'INTERNAL_ERROR' });
     expect(response.status).toBe(500);
     expect(onPageFetchError).toHaveBeenCalledWith(error);
   });

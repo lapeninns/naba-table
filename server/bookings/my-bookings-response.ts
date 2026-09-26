@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { apiError } from '@/lib/api/errors';
 import { buildMyBookingsPageResponse } from '@/server/bookings/my-bookings-dto';
 import {
   fetchMyBookingsPage,
@@ -17,7 +18,9 @@ export type MyBookingsHttpResponseBuilder = typeof buildMyBookingsPageResponse;
 export async function buildMyBookingsHttpResponse({
   client,
   clientFor,
+  userId,
   email,
+  emailMatch = false,
   onPageFetchError,
   pageFetcher = fetchMyBookingsPage,
   responseBuilder = buildMyBookingsPageResponse,
@@ -26,7 +29,11 @@ export async function buildMyBookingsHttpResponse({
 }: {
   client?: MyBookingsHttpResponseClient;
   clientFor?: MyBookingsHttpClientFactory;
-  email: string;
+  /** Session user id: bookings bound to it are always listed. */
+  userId: string;
+  email?: string | null;
+  /** Also list rows whose email matches (SESSION_EMAIL_MATCH_ENABLED + confirmed email). */
+  emailMatch?: boolean;
   onPageFetchError?: (error: unknown) => void;
   pageFetcher?: MyBookingsHttpPageFetcher;
   responseBuilder?: MyBookingsHttpResponseBuilder;
@@ -37,7 +44,7 @@ export async function buildMyBookingsHttpResponse({
 
   if (!parsed.ok) {
     if (parsed.kind === 'date_range') {
-      return NextResponse.json({ error: 'Invalid date range' }, { status: 400 });
+      return apiError(400, 'INVALID_DATE_RANGE', 'Invalid date range.');
     }
 
     const validationFailure = mapBookingZodValidationFailure(parsed.error);
@@ -52,13 +59,15 @@ export async function buildMyBookingsHttpResponse({
 
   const pageResult = await pageFetcher({
     client: queryClient,
-    email: email.toLowerCase(),
+    userId,
+    email: email ? email.toLowerCase() : null,
+    emailMatch,
     query: params,
   });
 
   if (!pageResult.ok) {
     onPageFetchError?.(pageResult.error);
-    return NextResponse.json({ error: 'Unable to fetch bookings' }, { status: 500 });
+    return apiError(500, 'INTERNAL_ERROR', 'Something went wrong on our side. Try again.');
   }
 
   const response = responseBuilder({
