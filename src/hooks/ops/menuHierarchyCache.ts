@@ -194,3 +194,65 @@ export function applyChildOrder(
       }));
   }
 }
+
+/** One parent's children as `{ id, displayOrder }`, in display order (reorder rollback). */
+export type ChildOrderSnapshot = ReadonlyArray<{ id: string; displayOrder: number }>;
+
+function snapshotOrder(entries: readonly Ordered[]): ChildOrderSnapshot {
+  return byDisplayOrder(entries).flatMap((entry) =>
+    entry.id ? [{ id: entry.id, displayOrder: entry.displayOrder }] : [],
+  );
+}
+
+/** Reads the current order of the reorder target's children; undefined if the parent is gone. */
+export function readChildOrder(
+  data: MenuHierarchyData,
+  target: MenuReorderTarget,
+): ChildOrderSnapshot | undefined {
+  const menu = data.menus.find((candidate) => candidate.id === target.menuId);
+  if (!menu) return undefined;
+  if (target.level === 'sections') return snapshotOrder(menu.sections);
+  const section = menu.sections.find((candidate) => candidate.id === target.sectionId);
+  if (!section) return undefined;
+  if (target.level === 'items') return snapshotOrder(section.items);
+  const item = section.items.find((candidate) => candidate.id === target.itemId);
+  return item ? snapshotOrder(item.options) : undefined;
+}
+
+function restoreOrder<T extends Ordered>(entries: readonly T[], snapshot: ChildOrderSnapshot): T[] {
+  const saved = new Map(snapshot.map((entry) => [entry.id, entry.displayOrder]));
+  return byDisplayOrder(
+    entries.map((entry) => {
+      const displayOrder = entry.id ? saved.get(entry.id) : undefined;
+      return displayOrder === undefined ? entry : { ...entry, displayOrder };
+    }),
+  );
+}
+
+/**
+ * Puts back one parent's children order from {@link readChildOrder}, leaving every other part of
+ * the hierarchy (including other reorders still in flight) untouched.
+ */
+export function restoreChildOrder(
+  data: MenuHierarchyData,
+  target: MenuReorderTarget,
+  snapshot: ChildOrderSnapshot,
+): MenuHierarchyData {
+  switch (target.level) {
+    case 'sections':
+      return mapMenu(data, target.menuId, (menu) => ({
+        ...menu,
+        sections: restoreOrder(menu.sections, snapshot),
+      }));
+    case 'items':
+      return mapSection(data, target.menuId, target.sectionId, (section) => ({
+        ...section,
+        items: restoreOrder(section.items, snapshot),
+      }));
+    case 'options':
+      return mapItem(data, target.menuId, target.sectionId, target.itemId, (item) => ({
+        ...item,
+        options: restoreOrder(item.options, snapshot),
+      }));
+  }
+}

@@ -143,7 +143,9 @@ export function useDualSyncExactPublishActions({
     setPreviewOpen(false);
     try {
       await workspace.refreshMutation.mutateAsync();
-      const refreshed = await workspace.stateQuery.refetch();
+      // The refresh mutation already invalidated the state; join that fetch instead of aborting
+      // it and sending a second request (`cancelRefetch: false` dedupes onto the in-flight one).
+      const refreshed = await workspace.stateQuery.refetch({ cancelRefetch: false });
       await createPreview(refreshed.data);
     } catch (error) {
       showToast({

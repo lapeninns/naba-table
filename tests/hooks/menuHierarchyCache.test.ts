@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { movedIds } from '@/components/features/menu/menuHierarchyOrder';
 import {
   applyChildOrder,
+  readChildOrder,
+  restoreChildOrder,
   upsertMenu,
   upsertOption,
   type MenuHierarchyData,
@@ -36,6 +38,39 @@ function hierarchy(): MenuHierarchyData {
 }
 
 describe('menuHierarchyCache', () => {
+  it('restoreChildOrder puts back one parent exactly, leaving other parents untouched', () => {
+    const target = {
+      level: 'options',
+      menuId: 'menu-1',
+      sectionId: 'section-1',
+      itemId: 'item-1',
+    } as const;
+    const base = hierarchy();
+    base.menus[0]!.sections[0]!.items[0]!.options[1]!.displayOrder = 7;
+    const snapshot = readChildOrder(base, target);
+    expect(snapshot).toEqual([
+      { id: 'opt-1', displayOrder: 0 },
+      { id: 'opt-2', displayOrder: 7 },
+    ]);
+
+    const reordered = applyChildOrder(base, target, ['opt-2', 'opt-1']);
+    const withOtherChange = applyChildOrder(reordered, { level: 'sections', menuId: 'menu-1' }, [
+      'section-1',
+    ]);
+    const restored = restoreChildOrder(withOtherChange, target, snapshot!);
+
+    expect(
+      restored.menus[0]!.sections[0]!.items[0]!.options.map((o) => [o.id, o.displayOrder]),
+    ).toEqual([
+      ['opt-1', 0],
+      ['opt-2', 7],
+    ]);
+    expect(restored.menus[0]!.sections).not.toBe(base.menus[0]!.sections);
+    expect(readChildOrder(base, { level: 'items', menuId: 'menu-1', sectionId: 'gone' })).toBe(
+      undefined,
+    );
+  });
+
   it('movedIds swaps neighbours and refuses out-of-range moves', () => {
     const entries = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
     expect(movedIds(entries, 1, -1)).toEqual(['b', 'a', 'c']);

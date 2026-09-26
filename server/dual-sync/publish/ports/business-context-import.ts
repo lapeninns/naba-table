@@ -11,12 +11,15 @@
  *    section fields the dual-sync canonical snapshot does not project),
  *  - splice in the canonical Google value (or remove the row when Google
  *    is missing the entry — that is the "delete" semantic for an import),
- *  - send the mutated array back through `updateRestaurantBusinessContext`,
+ *  - send the mutated array back through `updateRestaurantBusinessContext` with the revision
+ *    that was read, so a Discovery save committed between the read and the write is never
+ *    overwritten; on a stale write the list is re-read and the splice re-applied (bounded),
  *  - return the canonical hash of the new state so the orchestrator can
  *    bookkeep `in_sync_hash` for the field.
  */
 
 import {
+  BusinessContextStaleWriteError,
   getRestaurantBusinessContext,
   updateRestaurantBusinessContext,
 } from '@/server/restaurants/businessContext';
@@ -39,6 +42,52 @@ import {
 import { buildRegistry } from '../../registry';
 
 import type { DualSyncOperationContext, DualSyncOperationResult } from '../types';
+import type {
+  RestaurantBusinessContextSnapshot,
+  UpdateRestaurantBusinessContextInput,
+} from '@/server/restaurants/businessContext';
+
+/** Attempts before a section import that keeps losing the revision race reports CORE_DRIFT. */
+const MAX_IMPORT_ATTEMPTS = 3;
+
+/**
+ * Reads the section, splices in the Google value and writes it back under the revision it read.
+ * A stale write means someone saved the section in between: re-read and re-apply onto their
+ * list, so their rows survive. The RPC holds the restaurant lock for the compare-and-write.
+ */
+async function writeSectionImport(
+  ctx: DualSyncOperationContext,
+  buildInput: (snapshot: RestaurantBusinessContextSnapshot) => UpdateRestaurantBusinessContextInput,
+): Promise<DualSyncOperationResult | null> {
+  for (let attempt = 1; attempt <= MAX_IMPORT_ATTEMPTS; attempt += 1) {
+    const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
+    try {
+      await updateRestaurantBusinessContext(
+        ctx.restaurantId,
+        buildInput(snapshot),
+        ctx.client,
+        {
+          changeOrigin: 'import',
+          changedByUserId: ctx.actorUserId ?? null,
+          changedVia: 'dual-sync.publish',
+          publishJobId: ctx.publishJobId,
+        },
+        { expectedRevision: snapshot.revision ?? null },
+      );
+      return null;
+    } catch (error) {
+      if (!(error instanceof BusinessContextStaleWriteError)) throw error;
+    }
+  }
+  return {
+    status: 'failed',
+    failure: {
+      code: 'CORE_DRIFT',
+      message: 'Business context kept changing during the import. Try again.',
+      retryable: true,
+    },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Categories
@@ -66,15 +115,10 @@ export async function applyBusinessContextCategoryImportToCore(
   if (configResult.status === 'failed') return configResult.result;
 
   const googleEntry = findGoogleCategoryForImport(ctx.gbpSnapshot, slug);
-  const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const updated = buildCategoryImportUpdate(snapshot.core.categories, slug, googleEntry);
-
-  await updateRestaurantBusinessContext(ctx.restaurantId, { categories: updated }, ctx.client, {
-    changeOrigin: 'import',
-    changedByUserId: ctx.actorUserId ?? null,
-    changedVia: 'dual-sync.publish',
-    publishJobId: ctx.publishJobId,
-  });
+  const drift = await writeSectionImport(ctx, (snapshot) => ({
+    categories: buildCategoryImportUpdate(snapshot.core.categories, slug, googleEntry),
+  }));
+  if (drift) return drift;
 
   return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }
@@ -105,15 +149,10 @@ export async function applyBusinessContextServiceAreaImportToCore(
   if (configResult.status === 'failed') return configResult.result;
 
   const googleEntry = findGoogleServiceAreaForImport(ctx.gbpSnapshot, slug);
-  const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const updated = buildServiceAreaImportUpdate(snapshot.core.serviceAreas, slug, googleEntry);
-
-  await updateRestaurantBusinessContext(ctx.restaurantId, { serviceAreas: updated }, ctx.client, {
-    changeOrigin: 'import',
-    changedByUserId: ctx.actorUserId ?? null,
-    changedVia: 'dual-sync.publish',
-    publishJobId: ctx.publishJobId,
-  });
+  const drift = await writeSectionImport(ctx, (snapshot) => ({
+    serviceAreas: buildServiceAreaImportUpdate(snapshot.core.serviceAreas, slug, googleEntry),
+  }));
+  if (drift) return drift;
 
   return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }
@@ -144,15 +183,10 @@ export async function applyBusinessContextAttributeImportToCore(
   if (configResult.status === 'failed') return configResult.result;
 
   const googleEntry = findGoogleAttributeForImport(ctx.gbpSnapshot, attributeKey);
-  const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const updated = buildAttributeImportUpdate(snapshot.core.attributes, attributeKey, googleEntry);
-
-  await updateRestaurantBusinessContext(ctx.restaurantId, { attributes: updated }, ctx.client, {
-    changeOrigin: 'import',
-    changedByUserId: ctx.actorUserId ?? null,
-    changedVia: 'dual-sync.publish',
-    publishJobId: ctx.publishJobId,
-  });
+  const drift = await writeSectionImport(ctx, (snapshot) => ({
+    attributes: buildAttributeImportUpdate(snapshot.core.attributes, attributeKey, googleEntry),
+  }));
+  if (drift) return drift;
 
   return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }
@@ -183,15 +217,10 @@ export async function applyBusinessContextServiceItemImportToCore(
   if (configResult.status === 'failed') return configResult.result;
 
   const googleEntry = findGoogleServiceItemForImport(ctx.gbpSnapshot, itemKey);
-  const snapshot = await getRestaurantBusinessContext(ctx.restaurantId, ctx.client);
-  const updated = buildServiceItemImportUpdate(snapshot.core.serviceItems, itemKey, googleEntry);
-
-  await updateRestaurantBusinessContext(ctx.restaurantId, { serviceItems: updated }, ctx.client, {
-    changeOrigin: 'import',
-    changedByUserId: ctx.actorUserId ?? null,
-    changedVia: 'dual-sync.publish',
-    publishJobId: ctx.publishJobId,
-  });
+  const drift = await writeSectionImport(ctx, (snapshot) => ({
+    serviceItems: buildServiceItemImportUpdate(snapshot.core.serviceItems, itemKey, googleEntry),
+  }));
+  if (drift) return drift;
 
   return buildBusinessContextImportSuccess(configResult.config, googleEntry);
 }

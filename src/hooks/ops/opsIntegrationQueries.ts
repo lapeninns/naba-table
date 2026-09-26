@@ -1,5 +1,7 @@
 import { queryKeys } from '@/lib/query/keys';
 
+import { availabilityDependentKeys } from './availabilityQueryDependencies';
+
 import type { DualSyncSectionKey } from '@/server/dual-sync';
 import type { QueryClient } from '@tanstack/react-query';
 
@@ -100,10 +102,20 @@ function nabatableKeysForImportSection(restaurantId: string, sectionKey: DualSyn
         queryKeys.opsRestaurants.businessContext(restaurantId),
         queryKeys.opsRestaurants.list(),
       ];
+    // The Availability page builds its draft and expectedRevision from the availability
+    // snapshot only, so it must refetch too, or its next save fails with STALE_WRITE.
     case 'operatingHours':
-      return [queryKeys.opsRestaurants.hours(restaurantId)];
+      return [
+        queryKeys.opsRestaurants.hours(restaurantId),
+        queryKeys.opsRestaurants.availability(restaurantId),
+        ...availabilityDependentKeys('hours', restaurantId),
+      ];
     case 'servicePeriods':
-      return [queryKeys.opsRestaurants.servicePeriods(restaurantId)];
+      return [
+        queryKeys.opsRestaurants.servicePeriods(restaurantId),
+        queryKeys.opsRestaurants.availability(restaurantId),
+        ...availabilityDependentKeys('service-periods', restaurantId),
+      ];
     case 'foodMenus':
       return [queryKeys.opsMenuHierarchy.list(restaurantId)];
     case 'businessContext.categories':
