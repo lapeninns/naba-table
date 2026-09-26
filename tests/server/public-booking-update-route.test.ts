@@ -57,9 +57,35 @@ vi.mock('@/server/bookings/duration', () => ({
   resolveBookingDurationMinutes: resolveBookingDurationMinutesMock,
 }));
 
-vi.mock('@/server/bookings/modification-flow', () => ({
-  beginBookingModificationFlow: beginBookingModificationFlowMock,
-}));
+vi.mock('@/server/bookings/modification-flow', async () => {
+  // The real module pulls in the email stack. This stand-in keeps the contract the route
+  // relies on (S2-modification-flow.md §1): a 409 error class with a code and retryable
+  // flag, a type guard, and a C1 response helper with safe copy.
+  const { conflict } = await import('@/lib/api/errors');
+  class BookingModificationConflictError extends Error {
+    readonly status = 409 as const;
+    readonly retryable: boolean;
+    constructor(
+      readonly code: string,
+      options: { reason?: string | null } = {},
+    ) {
+      super('Booking validation failed');
+      this.name = 'BookingModificationConflictError';
+      this.retryable = !['MODIFICATION_NO_TABLES', 'MODIFICATION_UNAVAILABLE'].includes(code);
+      void options;
+    }
+  }
+  return {
+    beginBookingModificationFlow: beginBookingModificationFlowMock,
+    BookingModificationConflictError,
+    isBookingModificationConflictError: (error: unknown) =>
+      error instanceof BookingModificationConflictError,
+    bookingModificationConflictResponse: (error: BookingModificationConflictError) =>
+      conflict(error.code, `Refused (${error.code}). The booking has not been changed.`, {
+        retryable: error.retryable,
+      }),
+  };
+});
 
 vi.mock('@/server/booking', () => ({
   BookingValidationError: class BookingValidationError extends Error {
@@ -134,6 +160,7 @@ vi.mock('@reserve/shared/validation', () => ({
   isUKPhone: vi.fn(() => true),
 }));
 
+import * as modificationFlow from '@/server/bookings/modification-flow';
 import { PUT } from '@/src/app/api/bookings/[id]/route';
 
 import { guestTokenHeaders } from './helpers/guestBookingAccess';
@@ -481,5 +508,91 @@ describe('public PUT /api/bookings/[id]', () => {
     );
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
+  });
+
+  describe('refused modifications (S2b BookingModificationConflictError) answer a C1 409', () => {
+    const { BookingModificationConflictError } = modificationFlow as unknown as {
+      BookingModificationConflictError: new (
+        code: string,
+        options?: { reason?: string | null },
+      ) => Error;
+    };
+    const params = { params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }) };
+
+    async function expectConflict(response: Response, code: string, retryable: boolean) {
+      const body = await response.json();
+      expect(response.status).toBe(409);
+      expect(body).toEqual({
+        error: body.message,
+        code,
+        message: expect.stringContaining('The booking has not been changed.'),
+        retryable,
+      });
+      expect(logAuditEventMock).not.toHaveBeenCalled();
+      expect(enqueueBookingUpdatedSideEffectsMock).not.toHaveBeenCalled();
+      expect(updateBookingRecordMock).not.toHaveBeenCalled();
+    }
+
+    it('maps the full-schema (wizard edit) PUT', async () => {
+      serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
+      beginBookingModificationFlowMock.mockRejectedValue(
+        new BookingModificationConflictError('MODIFICATION_NO_TABLES', {
+          reason: 'planner detail',
+        }),
+      );
+
+      const response = await PUT(makeUpdateRequest({ party: 4 }), params);
+
+      await expectConflict(response, 'MODIFICATION_NO_TABLES', false);
+      expect(beginBookingModificationFlowMock).toHaveBeenCalledOnce();
+    });
+
+    it('maps the dashboard schema, non-unified branch', async () => {
+      serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
+      beginBookingModificationFlowMock.mockRejectedValue(
+        new BookingModificationConflictError('MODIFICATION_UNAVAILABLE'),
+      );
+
+      const response = await PUT(
+        makeDashboardUpdateRequest({ startIso: '2026-07-01T18:00:00.000Z', partySize: 4 }),
+        params,
+      );
+
+      await expectConflict(response, 'MODIFICATION_UNAVAILABLE', false);
+      expect(beginBookingModificationFlowMock).toHaveBeenCalledOnce();
+    });
+
+    it('maps the dashboard schema, unified branch, to the C1 body (not the issues body)', async () => {
+      isUnifiedBookingValidationEnabledMock.mockReturnValue(true);
+      serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking({ party_size: 2 })));
+      createBookingValidationServiceMock.mockReturnValue({
+        validateUpdate: vi.fn(async () => ({
+          response: { ok: true, issues: [], overridden: false, overrideCodes: [] },
+          metadata: {},
+        })),
+        updateWithEnforcement: vi.fn(),
+      });
+      beginBookingModificationFlowMock.mockRejectedValue(
+        new BookingModificationConflictError('MODIFICATION_TABLES_UNCONFIRMED'),
+      );
+
+      const response = await PUT(
+        makeDashboardUpdateRequest({ startIso: '2026-07-01T18:00:00.000Z', partySize: 5 }),
+        params,
+      );
+
+      await expectConflict(response, 'MODIFICATION_TABLES_UNCONFIRMED', true);
+    });
+
+    it('maps BOOKING_STATE_CONFLICT (booking changed meanwhile) as retryable', async () => {
+      serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
+      beginBookingModificationFlowMock.mockRejectedValue(
+        new BookingModificationConflictError('BOOKING_STATE_CONFLICT'),
+      );
+
+      const response = await PUT(makeUpdateRequest({ party: 4 }), params);
+
+      await expectConflict(response, 'BOOKING_STATE_CONFLICT', true);
+    });
   });
 });

@@ -19,9 +19,6 @@ const CONTACT_LOOKUP_REMOVED_MESSAGE =
  *   guest's contact details read and then manage their bookings. It is gone;
  *   a lost link is re-sent to the stored inbox through
  *   POST /api/bookings/lookup-email instead. No query runs on this path.
- *
- * The remaining parameters are accepted for call-site compatibility with the
- * route (owned by the booking-create stream) and are ignored.
  */
 export async function buildBookingsGetHttpResponse({
   logger = console.error,
@@ -31,18 +28,6 @@ export async function buildBookingsGetHttpResponse({
   searchParams: URLSearchParams;
   logger?: BookingsGetLogger;
   myBookingsResponseBuilder?: BookingsGetMyBookingsResponseBuilder;
-  /** @deprecated ignored: the contact lookup was removed. */
-  clientIp?: string;
-  /** @deprecated ignored: `sr_access` is no longer read. */
-  cookieAccessToken?: string | null;
-  /** @deprecated ignored: the contact lookup was removed. */
-  guestLookupPepper?: string | null;
-  /** @deprecated ignored: the contact lookup was removed. */
-  guestLookupPolicyEnabled?: boolean;
-  /** @deprecated ignored: the contact lookup was removed. */
-  headers?: Headers;
-  /** @deprecated ignored: `sr2` tokens are no longer accepted. */
-  sessionRecoverySecret?: string | null;
 }): Promise<NextResponse> {
   if (searchParams.get('me') !== '1') {
     const response = apiError(410, 'CONTACT_LOOKUP_REMOVED', CONTACT_LOOKUP_REMOVED_MESSAGE);

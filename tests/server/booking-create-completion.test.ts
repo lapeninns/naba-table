@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -13,6 +13,8 @@ import type { BookingCreateRequestContext } from '@/server/bookings/create-reque
 import type { BookingCreateRequest } from '@/server/bookings/request-validation';
 
 const client = { from: vi.fn() } as never;
+const cookieRequest = new NextRequest('https://www.nabatable.com/api/bookings', { method: 'POST' });
+const accessSecret = 'test-session-recovery-secret';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const request = {
   restaurantId,
@@ -76,6 +78,8 @@ describe('completeBookingCreate', () => {
     const responseBuilder = vi.fn(async () => NextResponse.json({ ok: true }));
 
     await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: false,
       client,
       consentPersister,
@@ -113,6 +117,8 @@ describe('completeBookingCreate', () => {
     ) as BookingCreateHttpResponseBuilder;
 
     const response = await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: false,
       client,
       consentPersister,
@@ -138,13 +144,13 @@ describe('completeBookingCreate', () => {
     ) as BookingCreateHttpResponseBuilder;
 
     const response = await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: true,
       client,
       finalizer,
       inlineAutoAssignTimeoutMs: 4000,
       persistence,
-      recoverySecret: 'recovery-secret',
-      recoveryTtlSeconds: 900,
       request,
       requestContext,
       responseBuilder,
@@ -171,12 +177,12 @@ describe('completeBookingCreate', () => {
     );
     expect(responseBuilder).toHaveBeenCalledWith(
       expect.objectContaining({
+        accessSecret,
         booking: finalizedBooking,
+        contactEmail: request.email,
+        cookieRequest,
         loyaltyPointsAwarded: 0,
-        recoverySecret: 'recovery-secret',
-        recoveryTtlSeconds: 900,
         restaurantId,
-        reusedExisting: false,
         useUnifiedValidation: true,
       }),
     );
@@ -187,6 +193,8 @@ describe('completeBookingCreate', () => {
     const finalizer = vi.fn(async () => ({ booking })) as BookingCreateFinalizer;
 
     await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: false,
       client,
       finalizer,
@@ -201,13 +209,11 @@ describe('completeBookingCreate', () => {
     expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ actor: 'customer-1' }));
   });
 
-  it('passes finalization and response error callbacks through unchanged @contract', async () => {
+  it('passes finalization error callbacks through unchanged @contract', async () => {
     const callbacks = {
       onAutoAssignError: vi.fn(),
       onInlineAutoAssignError: vi.fn(),
-      onRecoveryCookieError: vi.fn(),
       onSideEffectsError: vi.fn(),
-      onTokenError: vi.fn(),
     };
     const finalizer = vi.fn(async () => ({ booking })) as BookingCreateFinalizer;
     const responseBuilder = vi.fn(async () =>
@@ -215,6 +221,8 @@ describe('completeBookingCreate', () => {
     ) as BookingCreateHttpResponseBuilder;
 
     await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: false,
       client,
       finalizer,
@@ -234,15 +242,9 @@ describe('completeBookingCreate', () => {
         onSideEffectsError: callbacks.onSideEffectsError,
       }),
     );
-    expect(responseBuilder).toHaveBeenCalledWith(
-      expect.objectContaining({
-        onRecoveryCookieError: callbacks.onRecoveryCookieError,
-        onTokenError: callbacks.onTokenError,
-      }),
-    );
   });
 
-  it('preserves reused booking semantics through finalization and response @api @contract', async () => {
+  it('marks a recovered (non-key) match as not creator-eligible @api @contract', async () => {
     const reusedPersistence = {
       ...persistence,
       reusedExisting: true,
@@ -250,10 +252,12 @@ describe('completeBookingCreate', () => {
     } satisfies Extract<BookingCreatePersistenceResult, { kind: 'created' }>;
     const finalizer = vi.fn(async () => ({ booking })) as BookingCreateFinalizer;
     const responseBuilder = vi.fn(async () =>
-      NextResponse.json({ duplicate: true }, { status: 200 }),
+      NextResponse.json({ code: 'BOOKING_NOT_COMPLETED' }, { status: 409 }),
     ) as BookingCreateHttpResponseBuilder;
 
     const response = await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: true,
       client,
       finalizer,
@@ -265,12 +269,11 @@ describe('completeBookingCreate', () => {
       useUnifiedValidation: false,
     });
 
-    await expect(response.json()).resolves.toEqual({ duplicate: true });
-    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ code: 'BOOKING_NOT_COMPLETED' });
+    expect(response.status).toBe(409);
     expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ reusedExisting: true }));
     expect(responseBuilder).toHaveBeenCalledWith(
       expect.objectContaining({
-        reusedExisting: true,
         createOrigin: 'recovered',
         creatorCapabilityEligible: false,
       }),
@@ -290,6 +293,8 @@ describe('completeBookingCreate', () => {
     ) as BookingCreateHttpResponseBuilder;
 
     await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: true,
       client,
       finalizer,
@@ -319,6 +324,8 @@ describe('completeBookingCreate', () => {
     ) as BookingCreateHttpResponseBuilder;
 
     await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
       autoAssignEnabled: false,
       client,
       finalizer: vi.fn(async () => ({ booking })) as BookingCreateFinalizer,
@@ -332,6 +339,42 @@ describe('completeBookingCreate', () => {
 
     expect(responseBuilder).toHaveBeenCalledWith(
       expect.objectContaining({ createOrigin: 'inserted', creatorCapabilityEligible: true }),
+    );
+  });
+
+  it('refuses creator eligibility for a key replay outside the 15-minute window', async () => {
+    const now = new Date('2026-09-27T12:16:00.000Z').getTime();
+    const replayed = {
+      ...booking,
+      idempotency_key: HEADER_KEY,
+      created_at: '2026-09-27T12:00:00.000Z',
+    } as BookingRecord;
+    const responseBuilder = vi.fn(async () =>
+      NextResponse.json({ ok: false }, { status: 409 }),
+    ) as BookingCreateHttpResponseBuilder;
+
+    await completeBookingCreate({
+      accessSecret,
+      cookieRequest,
+      autoAssignEnabled: false,
+      client,
+      finalizer: vi.fn(async () => ({ booking: replayed })) as BookingCreateFinalizer,
+      now: () => now,
+      persistence: {
+        ...persistence,
+        booking: replayed,
+        reusedExisting: true,
+        createOrigin: 'key_replay',
+      },
+      request,
+      requestContext,
+      responseBuilder,
+      restaurantId,
+      useUnifiedValidation: false,
+    });
+
+    expect(responseBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({ createOrigin: 'key_replay', creatorCapabilityEligible: false }),
     );
   });
 });

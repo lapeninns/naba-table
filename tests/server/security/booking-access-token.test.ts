@@ -11,7 +11,8 @@ import {
   isLegacySessionRecoveryToken,
   validateBookingAccessToken,
 } from '@/server/security/booking-access-token';
-import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
+
+import { mintLegacySessionRecoveryToken } from '../helpers/guestBookingAccess';
 
 const secret = 'test-booking-access-secret';
 const now = new Date('2026-09-26T12:00:00.000Z');
@@ -74,7 +75,7 @@ describe('bk1 booking access token', () => {
   });
 
   it('keeps domain separation from sr2, unsub1 and the unsubscribe key', () => {
-    const sr2 = createSessionRecoveryAccessToken({
+    const sr2 = mintLegacySessionRecoveryToken({
       restaurantId: booking().restaurant_id,
       email: 'alex@example.com',
       secret,

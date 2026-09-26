@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { apiError, internalError, validationError } from '@/lib/api/errors';
+import { apiError, conflict, internalError, validationError } from '@/lib/api/errors';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
 import { isBookingType } from '@/lib/enums';
 import { env } from '@/lib/env';
@@ -39,7 +39,11 @@ import {
   buildBookingInstantFields,
   buildBookingInstantFieldsFromLocalTimes,
 } from '@/server/bookings/instant-fields';
-import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
+import {
+  beginBookingModificationFlow,
+  bookingModificationConflictResponse,
+  isBookingModificationConflictError,
+} from '@/server/bookings/modification-flow';
 import { PastBookingError, assertBookingNotInPast } from '@/server/bookings/pastTimeValidation';
 import {
   OperatingHoursError,
@@ -141,6 +145,9 @@ const pendingSelfServeGraceWindowMs = Math.max(0, pendingSelfServeGraceMinutes) 
 const pastTimeGraceMinutes = getBookingPastTimeGraceMinutes();
 const guestSelfServeCutoffMinutes = 15;
 const bookingIdParamSchema = z.string().uuid();
+
+const BOOKING_NOT_CANCELLABLE_CODE = 'BOOKING_NOT_CANCELLABLE';
+const BOOKING_NOT_CANCELLABLE_MESSAGE = 'This booking can no longer be cancelled.';
 
 function respondWithPastBooking(error: PastBookingError) {
   return apiError(422, error.code, error.message, { details: error.details });
@@ -655,6 +662,10 @@ async function handleDashboardUpdate(params: {
           updated = commit.booking as unknown as Tables<'bookings'>;
         }
       } catch (error) {
+        // Checked first: a refused modification also extends BookingValidationError.
+        if (isBookingModificationConflictError(error)) {
+          return bookingModificationConflictResponse(error);
+        }
         if (error instanceof BookingValidationError) {
           const mapped = mapValidationFailure(error.response);
           return NextResponse.json(mapped.body, withValidationHeaders({ status: mapped.status }));
@@ -776,6 +787,16 @@ async function handleDashboardUpdate(params: {
 
     return NextResponse.json(bookingDTO, responseInit);
   } catch (error: unknown) {
+    if (isBookingModificationConflictError(error)) {
+      captureServerEvent('booking_modify_failed', {
+        bookingId,
+        source: 'api',
+        method: 'guest',
+        code: error.code,
+        status: error.status,
+      });
+      return bookingModificationConflictResponse(error);
+    }
     captureServerEvent('booking_modify_failed', {
       bookingId,
       source: 'api',
@@ -1196,6 +1217,16 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       NextResponse.json({ booking: toGuestAccessBookingDTO(updated, resolution.access) }),
     );
   } catch (error: unknown) {
+    if (isBookingModificationConflictError(error)) {
+      captureServerEvent('booking_modify_failed', {
+        bookingId,
+        source: 'api',
+        method: 'guest',
+        code: error.code,
+        status: error.status,
+      });
+      return finalize(bookingModificationConflictResponse(error));
+    }
     captureServerEvent('booking_modify_failed', {
       bookingId,
       source: 'api',
@@ -1360,6 +1391,23 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
           'CUTOFF_PASSED',
           'This booking can no longer be cancelled online. Please contact the venue.',
         ),
+      );
+    }
+
+    // softCancelBooking's DB guard: checked in, completed or no-show (BookingNotCancellableError).
+    if (errorCode === BOOKING_NOT_CANCELLABLE_CODE) {
+      const currentStatus = (error as { currentStatus?: unknown }).currentStatus;
+      captureServerEvent('booking_cancel_failed', {
+        bookingId,
+        source: 'api',
+        method: 'guest',
+        reason: 'not_cancellable',
+      });
+      return finalize(
+        conflict(BOOKING_NOT_CANCELLABLE_CODE, BOOKING_NOT_CANCELLABLE_MESSAGE, {
+          retryable: false,
+          details: { currentStatus: typeof currentStatus === 'string' ? currentStatus : null },
+        }),
       );
     }
 
