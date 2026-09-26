@@ -1,6 +1,7 @@
 'use client';
 
 import { CircleAlert } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
@@ -73,7 +74,11 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
   const { status: gbpStatus } = useGbpDriftStatus();
   const gbpDrift = useOptionalGbpDrift();
   const profileDriftStatus = useGbpDriftSectionStatus(PROFILE_WORKSPACE_COMPARE_SECTION_KEYS);
-  const updateMutation = useOpsUpdateRestaurantDetails(restaurantId);
+  const router = useRouter();
+  // The sidebar switcher and booking links read memberships from the server layout.
+  const updateMutation = useOpsUpdateRestaurantDetails(restaurantId, {
+    onIdentityChange: () => router.refresh(),
+  });
 
   const profileVerification = useMemo(
     () =>

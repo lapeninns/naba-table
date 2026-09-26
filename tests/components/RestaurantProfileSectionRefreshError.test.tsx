@@ -12,6 +12,10 @@ vi.mock('next/image', () => ({
   default: () => null,
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 vi.mock('sonner', () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
@@ -47,6 +51,7 @@ vi.mock('@/hooks/ops/useOpsDualSync', () => ({
 
 vi.mock('@/hooks/ops/useOpsRestaurantLogoUpload', () => ({
   useOpsRestaurantLogoUpload: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useOpsRemoveRestaurantLogo: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 
 import { RestaurantProfileSection } from '@/components/features/restaurant-settings/RestaurantProfileSection';

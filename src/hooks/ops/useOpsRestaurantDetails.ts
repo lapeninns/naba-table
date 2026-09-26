@@ -43,11 +43,32 @@ export function useOpsRestaurantDetails(
   });
 }
 
+/** Fields whose change alters the guest booking schedule (slot grid, last seating, grace). */
+function changesBookingSchedule(payload: Partial<RestaurantProfile>): boolean {
+  return Object.keys(payload).some((key) => key === 'timezone' || key.startsWith('reservation'));
+}
+
+/** Fields shown wherever the restaurant is listed: the sidebar switcher and restaurant lists. */
+function changesIdentity(payload: Partial<RestaurantProfile>): boolean {
+  return payload.name !== undefined || payload.slug !== undefined;
+}
+
+export type UseOpsUpdateRestaurantDetailsOptions = {
+  /**
+   * Called after a save that changed the name or slug. The ops session memberships (sidebar
+   * switcher, booking links) come from the server layout, so the page refreshes them, typically
+   * with `router.refresh()`. The hook itself never navigates.
+   */
+  onIdentityChange?: (profile: RestaurantProfile) => void;
+};
+
 export function useOpsUpdateRestaurantDetails(
   restaurantId?: string | null,
+  options: UseOpsUpdateRestaurantDetailsOptions = {},
 ): UseMutationResult<RestaurantProfile, HttpError | Error, Partial<RestaurantProfile>> {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
+  const { onIdentityChange } = options;
 
   return useMutation<RestaurantProfile, HttpError | Error, Partial<RestaurantProfile>>({
     // Saves for one restaurant run serially so an older response cannot land last.
@@ -63,11 +84,24 @@ export function useOpsUpdateRestaurantDetails(
       // An in-flight GET started before the save would otherwise overwrite the saved profile.
       await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.detail(restaurantId) });
     },
-    onSuccess: (profile) => {
+    onSuccess: (profile, payload) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurantId), profile);
       // Dual-sync state compares the live Core snapshot against Google, so drift moves with the save.
       void queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.state(restaurantId) });
+      if (changesBookingSchedule(payload)) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.reservations.schedulePrefix() });
+      }
+      if (payload.timezone !== undefined) {
+        // "Today" and the summary windows are computed in the restaurant timezone.
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.opsDashboard.summaryPrefix(restaurantId),
+        });
+      }
+      if (changesIdentity(payload)) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.list() });
+        onIdentityChange?.(profile);
+      }
     },
   });
 }

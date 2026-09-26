@@ -30,7 +30,7 @@ function profile(label: string): RestaurantProfile {
   return { label } as unknown as RestaurantProfile;
 }
 
-const payload: Partial<RestaurantProfile> = { name: 'Updated' };
+const payload: Partial<RestaurantProfile> = { contactPhone: '+441223000000' };
 
 type Deferred<T> = { promise: Promise<T>; resolve: (value: T) => void };
 
@@ -183,5 +183,55 @@ describe('useOpsUpdateRestaurantDetails', () => {
 
     expect(queryClient.getQueryData(detailKey)).toEqual(profile('loaded'));
     expect(invalidateSpy).not.toHaveBeenCalled();
+  });
+
+  it('@contract booking-rule fields refresh the guest booking schedule, not the dashboard', async () => {
+    restaurantService.updateProfile.mockResolvedValue(profile('saved'));
+    const { result, invalidateSpy } = setup(() => useOpsUpdateRestaurantDetails(restaurantId));
+
+    await act(async () => {
+      await result.current.mutateAsync({ reservationIntervalMinutes: 30 });
+    });
+
+    expect(invalidatedKeys(invalidateSpy)).toEqual([
+      dualSyncQueryKeys.state(restaurantId),
+      queryKeys.reservations.schedulePrefix(),
+    ]);
+  });
+
+  it('@contract a timezone change also refreshes the dashboard summaries', async () => {
+    restaurantService.updateProfile.mockResolvedValue(profile('saved'));
+    const { result, invalidateSpy } = setup(() => useOpsUpdateRestaurantDetails(restaurantId));
+
+    await act(async () => {
+      await result.current.mutateAsync({ timezone: 'Europe/Paris' });
+    });
+
+    expect(invalidatedKeys(invalidateSpy)).toEqual([
+      dualSyncQueryKeys.state(restaurantId),
+      queryKeys.reservations.schedulePrefix(),
+      queryKeys.opsDashboard.summaryPrefix(restaurantId),
+    ]);
+  });
+
+  it('@contract a name or slug change refreshes restaurant lists and notifies the page', async () => {
+    restaurantService.updateProfile.mockResolvedValue(profile('saved'));
+    const onIdentityChange = vi.fn();
+    const { result, invalidateSpy } = setup(() =>
+      useOpsUpdateRestaurantDetails(restaurantId, { onIdentityChange }),
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync({ contactPhone: '+441223000000' });
+    });
+    expect(onIdentityChange).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.mutateAsync({ name: 'The Bell', slug: 'the-bell' });
+    });
+
+    expect(onIdentityChange).toHaveBeenCalledTimes(1);
+    expect(onIdentityChange).toHaveBeenCalledWith(profile('saved'));
+    expect(invalidatedKeys(invalidateSpy)).toContainEqual(queryKeys.opsRestaurants.list());
   });
 });

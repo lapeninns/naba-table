@@ -3,12 +3,14 @@
 import { CircleAlert, Loader2, Trash2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/typography';
-import { useOpsRestaurantLogoUpload } from '@/hooks/ops/useOpsRestaurantLogoUpload';
+import {
+  useOpsRemoveRestaurantLogo,
+  useOpsRestaurantLogoUpload,
+} from '@/hooks/ops/useOpsRestaurantLogoUpload';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { cn } from '@/lib/utils';
@@ -22,20 +24,15 @@ import {
 } from './restaurantLogoModel';
 import { getSafeSettingsErrorMessage } from './shared/settingsErrorCopy';
 
-import type { HttpError } from '@/lib/http/errors';
-import type { RestaurantProfile } from '@/services/ops/restaurants';
-import type { UseMutationResult } from '@tanstack/react-query';
-
 type RestaurantLogoUploaderProps = {
   restaurantId: string | null;
   restaurantName: string;
   logoUrl: string | null;
-  updateMutation: UseMutationResult<
-    RestaurantProfile,
-    HttpError | Error,
-    Partial<RestaurantProfile>
-  >;
   isLoading?: boolean;
+  /**
+   * The logo the page should preview: a local object URL while uploading, `null` while removing,
+   * and `undefined` to fall back to the saved logo (after success or failure).
+   */
   onPreviewChange?: (previewUrl: string | null | undefined) => void;
 };
 
@@ -48,12 +45,13 @@ export function RestaurantLogoUploader({
   restaurantId,
   restaurantName,
   logoUrl,
-  updateMutation,
   isLoading = false,
   onPreviewChange,
 }: RestaurantLogoUploaderProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Both hooks write the canonical restaurant into the details cache and own the success toast.
   const uploadMutation = useOpsRestaurantLogoUpload(restaurantId);
+  const removeMutation = useOpsRemoveRestaurantLogo(restaurantId);
   const [localPreview, setLocalPreview] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
@@ -71,7 +69,7 @@ export function RestaurantLogoUploader({
     () => extractLogoInitials(restaurantName || 'Restaurant'),
     [restaurantName],
   );
-  const busy = uploadMutation.isPending || updateMutation.isPending;
+  const busy = uploadMutation.isPending || removeMutation.isPending;
   const controlsDisabled = busy || !restaurantId || isLoading;
 
   const resetFileInput = () => {
@@ -106,10 +104,9 @@ export function RestaurantLogoUploader({
     onPreviewChange?.(nextPreview);
 
     try {
-      const uploaded = await uploadMutation.mutateAsync(file);
-      await updateMutation.mutateAsync({ logoUrl: uploaded.url });
-      onPreviewChange?.(uploaded.url);
-      toast.success('Logo uploaded and saved.');
+      await uploadMutation.mutateAsync(file);
+      // The saved profile now carries the new logo; stop overriding it with the local preview.
+      onPreviewChange?.(undefined);
       emitLogoAnalytics('restaurant_profile_logo_saved', {
         restaurant_id: restaurantId,
         action: 'upload',
@@ -137,8 +134,8 @@ export function RestaurantLogoUploader({
     onPreviewChange?.(null);
     const removeStartedAt = Date.now();
     try {
-      await updateMutation.mutateAsync({ logoUrl: null });
-      toast.success('Logo removed.');
+      await removeMutation.mutateAsync();
+      onPreviewChange?.(undefined);
       emitLogoAnalytics('restaurant_profile_logo_saved', {
         restaurant_id: restaurantId,
         action: 'remove',
@@ -200,7 +197,7 @@ export function RestaurantLogoUploader({
         <p id="restaurant-logo-title" className="text-sm font-medium text-foreground">
           Logo
         </p>
-        <Text variant="caption">Square, 320×320px, PNG, JPG, WEBP or SVG, under 2 MB.</Text>
+        <Text variant="caption">Square, 320×320px, PNG, JPG or WEBP, under 2 MB.</Text>
         <Text
           variant="caption"
           role="status"

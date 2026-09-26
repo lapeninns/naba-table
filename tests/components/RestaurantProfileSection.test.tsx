@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateProfileMock = vi.hoisted(() => vi.fn());
+const routerRefreshMock = vi.hoisted(() => vi.fn());
+const updateHookOptions = vi.hoisted(() => ({
+  current: undefined as { onIdentityChange?: (profile: unknown) => void } | undefined,
+}));
 const analyticsTrackMock = vi.hoisted(() => vi.fn());
 const analyticsEmitMock = vi.hoisted(() => vi.fn());
 const registerUnsavedMock = vi.hoisted(() => vi.fn());
@@ -16,6 +20,10 @@ const gbpConnectionData = vi.hoisted(() => ({
 
 vi.mock('next/image', () => ({
   default: () => null,
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: routerRefreshMock }),
 }));
 
 vi.mock('sonner', () => ({ toast: toastMock }));
@@ -55,6 +63,10 @@ vi.mock('@/hooks/ops/useOpsRestaurantLogoUpload', () => ({
     mutateAsync: vi.fn(),
     isPending: false,
   }),
+  useOpsRemoveRestaurantLogo: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
 }));
 
 const profile: RestaurantProfile = {
@@ -90,10 +102,13 @@ vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
     isLoading: false,
     refetch: vi.fn(),
   }),
-  useOpsUpdateRestaurantDetails: () => ({
-    mutateAsync: updateProfileMock,
-    isPending: false,
-  }),
+  useOpsUpdateRestaurantDetails: (
+    _restaurantId: string,
+    options?: { onIdentityChange?: (profile: unknown) => void },
+  ) => {
+    updateHookOptions.current = options;
+    return { mutateAsync: updateProfileMock, isPending: false };
+  },
 }));
 
 import { RestaurantProfileSection } from '@/components/features/restaurant-settings/RestaurantProfileSection';
@@ -462,5 +477,42 @@ describe('RestaurantProfileSection', () => {
 
     expect(screen.getByText('Saves as soon as you upload it.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload logo' })).toBeInTheDocument();
+  });
+
+  it('shows a taken booking link on the link field until the link is edited', async () => {
+    const user = userEvent.setup();
+    updateProfileMock.mockRejectedValueOnce(
+      new HttpError({
+        message: 'That booking link is already used by another restaurant.',
+        status: 409,
+        code: 'SLUG_TAKEN',
+        fields: { slug: ['That booking link is already used by another restaurant.'] },
+      }),
+    );
+    await renderProfile();
+
+    const slug = screen.getByRole('textbox', { name: /link name/i });
+    await user.clear(slug);
+    await user.type(slug, 'the-old-crown');
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      await screen.findByText('That booking link is already used by another restaurant.'),
+    ).toBeInTheDocument();
+    expect(slug).toHaveAttribute('aria-invalid', 'true');
+
+    await user.type(slug, '-inn');
+    expect(
+      screen.queryByText('That booking link is already used by another restaurant.'),
+    ).not.toBeInTheDocument();
+  }, 20_000);
+
+  it('refreshes the ops session when a save changes the name or booking link', async () => {
+    await renderProfile();
+
+    expect(updateHookOptions.current?.onIdentityChange).toBeTypeOf('function');
+    updateHookOptions.current?.onIdentityChange?.(profile);
+
+    expect(routerRefreshMock).toHaveBeenCalledTimes(1);
   });
 });

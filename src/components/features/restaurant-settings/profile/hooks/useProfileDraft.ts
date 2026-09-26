@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
+import { getFieldErrors } from '@/lib/http/userMessage';
 
 import { emitProfileAnalytics } from '../../../../../../components/ops/restaurants/details/shared';
 import {
@@ -65,6 +66,35 @@ function formatChangeValue(value: FormState[DetailsField]): string {
   return value.trim() ? value : 'Empty';
 }
 
+/** Server field errors, each shown until the user changes the value it was reported for. */
+type ServerFieldErrors = {
+  errors: FormErrors;
+  values: Partial<FormState>;
+};
+
+const NO_SERVER_ERRORS: ServerFieldErrors = { errors: {}, values: {} };
+
+function toServerFieldErrors(
+  error: unknown,
+  fields: readonly DetailsField[],
+  snapshot: FormState,
+): ServerFieldErrors | null {
+  const fieldErrors = getFieldErrors(error);
+  if (!fieldErrors) {
+    return null;
+  }
+  const errors: FormErrors = {};
+  const values: Partial<FormState> = {};
+  for (const field of fields) {
+    const message = fieldErrors[field]?.[0];
+    if (message) {
+      errors[field] = message;
+      Object.assign(values, { [field]: snapshot[field] });
+    }
+  }
+  return Object.keys(errors).length > 0 ? { errors, values } : null;
+}
+
 function withoutFields(
   edits: Partial<FormState>,
   fields: readonly DetailsField[],
@@ -106,6 +136,7 @@ export function useProfileDraft({
   const [showAllErrors, setShowAllErrors] = useState(false);
   const [whatsappTurnedOff, setWhatsappTurnedOff] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [serverErrors, setServerErrors] = useState<ServerFieldErrors>(NO_SERVER_ERRORS);
   const saveSequence = useSettingsSaveSequence();
   const editStartedAtRef = useRef<Partial<Record<ProfileSectionId, number>>>({});
 
@@ -134,10 +165,18 @@ export function useProfileDraft({
   );
   const isDirty = dirtyFields.length > 0;
 
-  const allErrors = useMemo<FormErrors>(
-    () => filterErrors(validateRestaurantDetails(draft), fieldOrder),
-    [draft, fieldOrder],
-  );
+  const allErrors = useMemo<FormErrors>(() => {
+    const clientErrors = filterErrors(validateRestaurantDetails(draft), fieldOrder);
+    const activeServerErrors: FormErrors = {};
+    for (const field of fieldOrder) {
+      const message = serverErrors.errors[field];
+      if (message && draft[field] === serverErrors.values[field]) {
+        activeServerErrors[field] = message;
+      }
+    }
+    // Client validation speaks first; a server message stays until its value is edited.
+    return { ...activeServerErrors, ...clientErrors };
+  }, [draft, fieldOrder, serverErrors]);
   // Only sections being saved can block the save; untouched saved values are left alone.
   const blockingErrors = useMemo<FormErrors>(
     () =>
@@ -236,6 +275,7 @@ export function useProfileDraft({
     setTouched(new Set());
     setShowAllErrors(false);
     setWhatsappTurnedOff(false);
+    setServerErrors(NO_SERVER_ERRORS);
   }, []);
 
   const discard = useCallback(() => {
@@ -284,9 +324,27 @@ export function useProfileDraft({
       name: section.name,
       run: async () => {
         let updated: RestaurantProfile;
+        const sectionDirtyFields = new Set(
+          section.fields.filter((field) => snapshot[field] !== savedAtStart[field]),
+        );
         try {
-          updated = await updateProfile(section.buildPayload(snapshot));
+          updated = await updateProfile(section.buildPayload(snapshot, sectionDirtyFields));
         } catch (error) {
+          // 400 VALIDATION_FAILED / 409 SLUG_TAKEN name the fields; show them on the form.
+          const fieldErrors = toServerFieldErrors(error, section.fields, snapshot);
+          if (fieldErrors) {
+            setServerErrors((current) => ({
+              errors: { ...current.errors, ...fieldErrors.errors },
+              values: { ...current.values, ...fieldErrors.values },
+            }));
+            setTouched((current) => {
+              const next = new Set(current);
+              section.fields
+                .filter((field) => fieldErrors.errors[field])
+                .forEach((field) => next.add(field));
+              return next;
+            });
+          }
           emitProfileAnalytics('restaurant_profile_section_save_failed', {
             restaurant_id: restaurantId,
             section: section.analyticsSection,

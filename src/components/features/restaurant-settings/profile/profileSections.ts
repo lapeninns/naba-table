@@ -22,8 +22,14 @@ export type ProfileSectionDefinition = {
   /** Fields in the order they appear on the page. */
   fields: readonly DetailsField[];
   analyticsSection: ProfileAnalyticsSection;
-  /** The partial payload this section sends to `PATCH /api/ops/restaurants/:id`. */
-  buildPayload: (state: FormState) => Partial<RestaurantProfile>;
+  /**
+   * The partial payload this section sends to `PATCH /api/ops/restaurants/:id`. `dirtyFields`
+   * are this section's fields that differ from the saved values.
+   */
+  buildPayload: (
+    state: FormState,
+    dirtyFields: ReadonlySet<DetailsField>,
+  ) => Partial<RestaurantProfile>;
 };
 
 /** A labelled group of fields inside a section, with its own jump-bar anchor. */
@@ -105,14 +111,22 @@ export const STAFF_COMMUNICATIONS_SECTION_DEFINITIONS: readonly ProfileSectionDe
       'managerWhatsappEnabled',
     ],
     analyticsSection: 'manager_notifications',
-    buildPayload: (state) => {
+    // Only changed fields are sent: the server derives the WhatsApp consent from the stored
+    // row, so an untouched toggle must not look like a fresh opt-in.
+    buildPayload: (state, dirtyFields) => {
       const payload = sanitizePayload(state);
-      return {
-        managerName: payload.managerName,
-        managerNotificationPhone: payload.managerNotificationPhone,
-        managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
-        managerWhatsappEnabled: payload.managerWhatsappEnabled,
-      };
+      const next: Partial<RestaurantProfile> = {};
+      if (dirtyFields.has('managerName')) next.managerName = payload.managerName;
+      if (dirtyFields.has('managerNotificationPhone')) {
+        next.managerNotificationPhone = payload.managerNotificationPhone;
+      }
+      if (dirtyFields.has('managerDailySummaryEnabled')) {
+        next.managerDailySummaryEnabled = payload.managerDailySummaryEnabled;
+      }
+      if (dirtyFields.has('managerWhatsappEnabled')) {
+        next.managerWhatsappEnabled = payload.managerWhatsappEnabled;
+      }
+      return next;
     },
   },
 ];

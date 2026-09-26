@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentProps,
   type ReactNode,
 } from 'react';
 
@@ -49,12 +48,13 @@ import {
 
 import type { ProfileSubformProps } from '../../../../../components/ops/restaurants/details/shared';
 import type { deriveProfileVerification } from '../google-business-profile/googleBusinessProfileVerification';
+import type { useOpsUpdateRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
 
 type ProfileLoadedViewProps = {
   restaurantId: string;
   profile: RestaurantProfile;
-  updateMutation: ComponentProps<typeof RestaurantLogoUploader>['updateMutation'];
+  updateMutation: Pick<ReturnType<typeof useOpsUpdateRestaurantDetails>, 'mutateAsync'>;
   gbpFieldVerifications: ReturnType<typeof deriveProfileVerification>['fields'];
   registerGbpDraftOverride?: (fieldKey: string, value: unknown | null) => void;
   clearGbpDraftOverrides?: (fieldKeys?: ReadonlyArray<string>) => void;
@@ -198,7 +198,6 @@ export function ProfileLoadedView({
             restaurantId={restaurantId}
             restaurantName={restaurantName}
             logoUrl={profile.logoUrl}
-            updateMutation={updateMutation}
             onPreviewChange={setLogoPreviewUrl}
           />
           <BrandIdentitySubform

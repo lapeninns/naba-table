@@ -1,4 +1,5 @@
-export const LOGO_ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+/** Matches the server allowlist (SVG is rejected server-side: it can carry script). */
+export const LOGO_ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 export const LOGO_MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 export type LogoValidationError = {
@@ -22,7 +23,7 @@ export function validateLogoFile(file: Pick<File, 'size' | 'type'>): LogoValidat
   if (!LOGO_ALLOWED_MIME_TYPES.includes(file.type)) {
     return {
       code: 'UNSUPPORTED_FILE',
-      message: 'Supported formats: JPEG, PNG, WEBP, SVG.',
+      message: 'Supported formats: JPEG, PNG, WEBP.',
     };
   }
 
