@@ -102,11 +102,3 @@ export const profileResponseSchema = z.object({
 });
 
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
-
-export const profileUploadResponseSchema = z.object({
-  path: z.string(),
-  url: z.string().url(),
-  cacheKey: z.string(),
-});
-
-export type ProfileUploadResponse = z.infer<typeof profileUploadResponseSchema>;

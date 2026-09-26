@@ -115,6 +115,7 @@ describe('guest profile route', () => {
 
       expect(response.status).toBe(401);
       expect(body).toEqual({
+        error: 'Authentication required',
         code: 'UNAUTHENTICATED',
         message: 'Authentication required',
       });
@@ -151,7 +152,8 @@ describe('guest profile route', () => {
 
     expect(response.status).toBe(400);
     expect(body.code).toBe('INVALID_PROFILE');
-    expect(body.details.fieldErrors.phone).toEqual([
+    expect(body.error).toBe(body.message);
+    expect(body.fields.phone).toEqual([
       'Phone can only include digits, spaces, +, -, and parentheses',
       'Phone must include between 7 and 20 digits',
     ]);

@@ -56,7 +56,7 @@ type TeamInviteFormProps = {
 };
 
 type InviteResult =
-  | { ok: true; email: string; expiresAt: string }
+  | { ok: true; email: string; expiresAt: string; emailSent: boolean }
   | ({ ok: false } & TeamInviteFailure);
 
 function FieldError({ show }: { show: boolean }) {
@@ -159,6 +159,7 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
         ok: true,
         email: response.invite.email,
         expiresAt: response.invite.expiresAt,
+        emailSent: response.emailSent,
       });
       form.reset({ email: '', role: values.role });
     } catch (error) {
@@ -235,7 +236,17 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
           />
 
           {result ? (
-            result.ok ? (
+            result.ok && !result.emailSent ? (
+              <Alert variant="warning" role="status">
+                <AlertCircle className="size-4" aria-hidden />
+                <AlertTitle className="break-all">
+                  Invitation created for {result.email}, but the email wasn’t sent
+                </AlertTitle>
+                <AlertDescription className="text-foreground">
+                  Use Resend in the invitations list to try the email again.
+                </AlertDescription>
+              </Alert>
+            ) : result.ok ? (
               <Alert variant="success" role="status">
                 <CheckCircle2 className="size-4" aria-hidden />
                 <AlertTitle className="break-all">Invitation sent to {result.email}</AlertTitle>

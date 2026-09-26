@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { apiError, internalError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
-import { findInviteByToken, inviteHasExpired, markInviteExpired } from '@/server/team/invitations';
+import {
+  findInviteByToken,
+  getInviteAvailability,
+  markInviteExpired,
+} from '@/server/team/invitations';
 import { resolveInviteContext } from '@/server/team/invite-context';
+import { inviteUnavailableResponse } from '@/server/team/invite-response';
 
 import type { NextRequest } from 'next/server';
 
@@ -14,29 +20,22 @@ const paramsSchema = z.object({
 export async function GET(_request: NextRequest, context: { params: Promise<{ token: string }> }) {
   const parsed = paramsSchema.safeParse(await context.params);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
+    return apiError(400, 'INVALID_INVITE_TOKEN', 'This invitation link isn’t valid.');
   }
 
   try {
     const invite = await findInviteByToken(parsed.data.token);
 
     if (!invite) {
-      return NextResponse.json({ error: 'Invitation not found' }, { status: 404 });
+      return inviteUnavailableResponse('notFound');
     }
 
-    if (invite.status === 'revoked') {
-      return NextResponse.json({ error: 'Invitation revoked' }, { status: 410 });
-    }
-
-    if (invite.status === 'accepted') {
-      return NextResponse.json({ error: 'Invitation already accepted' }, { status: 409 });
-    }
-
-    if (invite.status === 'expired' || inviteHasExpired(invite)) {
-      if (invite.status === 'pending') {
+    const availability = getInviteAvailability(invite);
+    if (availability !== 'pending') {
+      if (availability === 'expired' && invite.status === 'pending') {
         await markInviteExpired(invite.id);
       }
-      return NextResponse.json({ error: 'Invitation expired' }, { status: 410 });
+      return inviteUnavailableResponse(availability);
     }
 
     const { restaurantName, inviterName } = await resolveInviteContext(invite);
@@ -56,11 +55,13 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ to
       },
     });
   } catch (error) {
-    const normalizedError = error instanceof Error ? error : new Error(String(error));
-    console.error('[api/team/invitations/token][GET] failed', normalizedError);
-    captureServerException(normalizedError, {
+    captureServerException(error, {
       properties: { source: 'api', kind: 'team-invitation' },
     });
-    return NextResponse.json({ error: 'Unable to load invitation' }, { status: 500 });
+    return internalError(
+      error,
+      { route: 'team.invitations.token.get' },
+      'The invitation couldn’t be loaded. Try again.',
+    );
   }
 }

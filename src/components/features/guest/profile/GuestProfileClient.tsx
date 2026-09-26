@@ -19,7 +19,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/typography';
 import { useGuestProfile } from '@/guest/hooks';
-import { coerceProfileUpdatePayload, useUpdateProfile } from '@/hooks/useProfile';
+import {
+  coerceProfileUpdatePayload,
+  useProfileSaveKey,
+  useUpdateProfile,
+} from '@/hooks/useProfile';
+import { HttpError } from '@/lib/http/errors';
+import { getFieldErrors, toUserMessage } from '@/lib/http/userMessage';
 
 import type { GuestProfileViewModel } from '@/guest/routes/profile/view-model';
 import type { ReactNode } from 'react';
@@ -28,6 +34,23 @@ type ProfileFormValues = {
   full_name: string;
   phone_number: string;
 };
+
+/** Server field paths to form fields. */
+const SERVER_FIELD_TO_FORM: Record<string, keyof ProfileFormValues> = {
+  name: 'full_name',
+  phone: 'phone_number',
+};
+
+/** Save copy by C1 code; anything else resolves through toUserMessage. */
+const PROFILE_SAVE_ERROR_COPY: Partial<Record<string, string>> = {
+  IDEMPOTENCY_KEY_CONFLICT:
+    'Your details changed while an earlier save was still being processed. Save again.',
+  INVALID_PROFILE: 'Some details need attention. Check the highlighted fields.',
+  EMAIL_IMMUTABLE: 'Your email is managed through sign-in and can’t be changed here.',
+  UNAUTHENTICATED: 'Your session has ended. Sign in again to save your details.',
+};
+
+const PROFILE_SAVE_FALLBACK = 'Your changes weren’t saved. Try again.';
 
 export function GuestProfileClient({
   viewModel,
@@ -47,6 +70,7 @@ export function GuestProfileClient({
   });
 
   const updateProfile = useUpdateProfile();
+  const saveKey = useProfileSaveKey();
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null,
   );
@@ -98,20 +122,42 @@ export function GuestProfileClient({
       return;
     }
 
-    updateProfile.mutate(payload, {
-      onSuccess: (result) => {
-        form.reset({
-          full_name: result.profile.name || '',
-          phone_number: result.profile.phone || '',
-        });
-        setFeedback({ type: 'success', message: 'Profile updated successfully.' });
-        setTimeout(() => setFeedback(null), 4000);
+    // The key stays the same for this payload until a save succeeds, so a retry after a
+    // network error or 5xx is deduplicated by the server.
+    const idempotencyKey = saveKey.keyFor(payload);
+    updateProfile.mutate(
+      { payload, idempotencyKey },
+      {
+        onSuccess: (result) => {
+          saveKey.reset();
+          form.reset({
+            full_name: result.profile.name || '',
+            phone_number: result.profile.phone || '',
+          });
+          setFeedback({ type: 'success', message: 'Profile updated successfully.' });
+          setTimeout(() => setFeedback(null), 4000);
+        },
+        onError: (error) => {
+          if (error instanceof HttpError && error.code === 'IDEMPOTENCY_KEY_CONFLICT') {
+            // That key is spent on another payload: the next save needs a new one.
+            saveKey.reset();
+          }
+          for (const [path, messages] of Object.entries(getFieldErrors(error) ?? {})) {
+            const field = SERVER_FIELD_TO_FORM[path.split('.').at(-1) ?? path];
+            if (field && messages[0]) {
+              form.setError(field, { type: 'server', message: messages[0] });
+            }
+          }
+          setFeedback({
+            type: 'error',
+            message: toUserMessage(error, {
+              copy: PROFILE_SAVE_ERROR_COPY,
+              fallback: PROFILE_SAVE_FALLBACK,
+            }),
+          });
+        },
       },
-      onError: () => {
-        setFeedback({ type: 'error', message: 'Failed to save changes. Please try again.' });
-        setTimeout(() => setFeedback(null), 6000);
-      },
-    });
+    );
   };
 
   const isSubmitting = updateProfile.isPending;

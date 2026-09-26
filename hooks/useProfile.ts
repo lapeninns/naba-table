@@ -7,7 +7,7 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { z } from 'zod';
 
 import { track } from '@/lib/analytics';
@@ -16,15 +16,13 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import {
   profileResponseSchema,
   profileUpdateSchema,
-  profileUploadResponseSchema,
   type ProfileResponse,
   type ProfileUpdatePayload,
-  type ProfileUploadResponse,
 } from '@/lib/profile/schema';
 import { queryKeys } from '@/lib/query/keys';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import type { HttpError } from '@/lib/http/errors';
-
 
 const profileApiResponseSchema = z.object({
   profile: profileResponseSchema,
@@ -53,43 +51,77 @@ type ProfileMutationResult = {
   idempotent: boolean;
 };
 
+/** One save intent: the payload and the idempotency key it keeps across retries (C5). */
+export type ProfileUpdateVariables = {
+  payload: ProfileUpdatePayload;
+  idempotencyKey: string;
+};
+
+type ProfileUpdateContext = { previous?: ProfileResponse };
+
+function payloadSignature(payload: ProfileUpdatePayload): string {
+  const entries = Object.entries(payload).sort(([a], [b]) => a.localeCompare(b));
+  return JSON.stringify(entries);
+}
+
+/**
+ * The idempotency key for a profile save intent. The same payload gets the same key until
+ * `reset()` (call it after a successful save), so a retry after a network error or 5xx is
+ * recognised by the server as the same request; a changed payload gets a new key.
+ */
+export function useProfileSaveKey(): {
+  keyFor: (payload: ProfileUpdatePayload) => string;
+  reset: () => void;
+} {
+  const draftRef = useRef<{ signature: string; key: string } | null>(null);
+
+  const keyFor = useCallback((payload: ProfileUpdatePayload) => {
+    const signature = payloadSignature(payload);
+    if (draftRef.current?.signature !== signature) {
+      draftRef.current = { signature, key: generateIdempotencyKey() };
+    }
+    return draftRef.current.key;
+  }, []);
+
+  const reset = useCallback(() => {
+    draftRef.current = null;
+  }, []);
+
+  return { keyFor, reset };
+}
+
 export function useUpdateProfile(): UseMutationResult<
   ProfileMutationResult,
   HttpError,
-  ProfileUpdatePayload,
-  { previous?: ProfileResponse; payload: ProfileUpdatePayload }
+  ProfileUpdateVariables,
+  ProfileUpdateContext
 > {
   const queryClient = useQueryClient();
-  const idempotencyKeyRef = useRef<string | null>(null);
 
-  return useMutation<ProfileMutationResult, HttpError, ProfileUpdatePayload, { previous?: ProfileResponse; payload: ProfileUpdatePayload }>({
-    mutationFn: async (payload) => {
-      const body = JSON.stringify(payload);
-      const idempotencyKey =
-        idempotencyKeyRef.current ??
-        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      idempotencyKeyRef.current = idempotencyKey;
-      try {
-        const data = await fetchJson<unknown>('/api/profile', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
-          },
-          body,
-        });
-        const parsed = profileApiResponseSchema.parse(data);
-        return {
-          profile: parsed.profile,
-          idempotent: parsed.idempotent ?? false,
-        };
-      } finally {
-        idempotencyKeyRef.current = null;
-      }
+  return useMutation<
+    ProfileMutationResult,
+    HttpError,
+    ProfileUpdateVariables,
+    ProfileUpdateContext
+  >({
+    mutationFn: async ({ payload, idempotencyKey }) => {
+      const data = await fetchJson<unknown>('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify(payload),
+      });
+      const parsed = profileApiResponseSchema.parse(data);
+      return {
+        profile: parsed.profile,
+        idempotent: parsed.idempotent ?? false,
+      };
     },
-    onMutate: async (payload) => {
+    // The profile form shows save errors inline, with field messages.
+    meta: { feedback: { error: false } },
+    onMutate: async ({ payload }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.profile.self() });
       const previous = queryClient.getQueryData<ProfileResponse>(queryKeys.profile.self());
 
@@ -97,25 +129,26 @@ export function useUpdateProfile(): UseMutationResult<
         const optimistic: ProfileResponse = {
           ...previous,
           name: Object.prototype.hasOwnProperty.call(payload, 'name')
-            ? payload.name ?? null
+            ? (payload.name ?? null)
             : previous.name,
           phone: Object.prototype.hasOwnProperty.call(payload, 'phone')
-            ? payload.phone ?? null
+            ? (payload.phone ?? null)
             : previous.phone,
           image: Object.prototype.hasOwnProperty.call(payload, 'image')
-            ? payload.image ?? null
+            ? (payload.image ?? null)
             : previous.image,
           updatedAt: new Date().toISOString(),
         };
         queryClient.setQueryData(queryKeys.profile.self(), optimistic);
       }
 
-      return { previous, payload };
+      return { previous };
     },
-    onSuccess: (result, variables, context) => {
+    onSuccess: (result, { payload }) => {
       const profile = result.profile;
+      // The server returns the canonical profile: store it, no refetch needed.
       queryClient.setQueryData(queryKeys.profile.self(), profile);
-      const fields = Object.keys(variables ?? {});
+      const fields = Object.keys(payload ?? {});
       const analyticsPayload = {
         fields,
         hasAvatar: Boolean(profile.image),
@@ -132,40 +165,10 @@ export function useUpdateProfile(): UseMutationResult<
         emit('profile_update_duplicate', duplicatePayload);
       }
     },
-    onError: (error, _variables, context) => {
+    onError: (_error, _variables, context) => {
       if (context?.previous) {
         queryClient.setQueryData(queryKeys.profile.self(), context.previous);
       }
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
-    },
-  });
-}
-
-export function useUploadProfileAvatar(): UseMutationResult<ProfileUploadResponse, HttpError, File, { file: File }> {
-  return useMutation<ProfileUploadResponse, HttpError, File, { file: File }>({
-    mutationFn: async (file) => {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const data = await fetchJson<unknown>('/api/profile/image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      return profileUploadResponseSchema.parse(data);
-    },
-    onMutate: (file) => ({ file }),
-    onError: (error, _variables, context) => {
-      const analyticsPayload = {
-        code: error.code,
-        status: error.status,
-        size: context?.file?.size,
-        type: context?.file?.type,
-      };
-      track('profile_upload_error', analyticsPayload);
-      emit('profile_upload_error', analyticsPayload);
     },
   });
 }
