@@ -28,6 +28,10 @@ describe('resolveBookingCreateCustomerContext', () => {
         bookingDate: '2026-07-01',
         startTime: '19:00',
         endTime: '20:30',
+        partySize: 2,
+        bookingType: 'dinner',
+        seatingPreference: 'any',
+        notes: null,
         customerUpserter: customerUpserter as BookingCreateCustomerUpserter,
         idempotencyKeyBuilder: idempotencyKeyBuilder as BookingCreateIdempotencyKeyBuilder,
       }),
@@ -61,6 +65,10 @@ describe('resolveBookingCreateCustomerContext', () => {
       bookingDate: '2026-07-01',
       startTime: '19:00',
       endTime: '20:30',
+      partySize: 2,
+      bookingType: 'dinner',
+      seatingPreference: 'any',
+      notes: ' Birthday ',
       customerUpserter: customerUpserter as BookingCreateCustomerUpserter,
       idempotencyKeyBuilder: idempotencyKeyBuilder as BookingCreateIdempotencyKeyBuilder,
     });
@@ -71,6 +79,10 @@ describe('resolveBookingCreateCustomerContext', () => {
       bookingDate: '2026-07-01',
       startTime: '19:00',
       endTime: '20:30',
+      partySize: 2,
+      bookingType: 'dinner',
+      seatingPreference: 'any',
+      notes: ' Birthday ',
     });
   });
 
@@ -89,6 +101,10 @@ describe('resolveBookingCreateCustomerContext', () => {
         bookingDate: '2026-07-01',
         startTime: '19:00',
         endTime: '20:30',
+        partySize: 2,
+        bookingType: 'dinner',
+        seatingPreference: 'any',
+        notes: null,
         headerIdempotencyKey: 'request-key',
         customerUpserter: customerUpserter as BookingCreateCustomerUpserter,
         idempotencyKeyBuilder: idempotencyKeyBuilder as BookingCreateIdempotencyKeyBuilder,

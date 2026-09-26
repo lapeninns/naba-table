@@ -76,7 +76,7 @@ describe('finalizeBookingCreateCommit', () => {
     });
   });
 
-  it('re-ensures side effects on an idempotent replay but skips audit and auto-assign', async () => {
+  it('re-ensures side effects on an idempotent replay of a confirmed booking but skips audit and auto-assign', async () => {
     const auditDispatcher = vi.fn();
     const inlineAutoAssignRunner = vi.fn();
     const sideEffectsDispatcher = vi.fn();
@@ -109,6 +109,71 @@ describe('finalizeBookingCreateCommit', () => {
     });
   });
 
+  it.each(['pending', 'pending_allocation'])(
+    'reschedules auto-assign on a replay whose booking is still %s, without re-running inline assign or audit',
+    async (status) => {
+      const replayed = { ...pendingBooking, status } as BookingRecord;
+      const auditDispatcher = vi.fn();
+      const inlineAutoAssignRunner = vi.fn();
+      const autoAssignRetryScheduler = vi.fn(async () => true);
+
+      await expect(
+        finalizeBookingCreateCommit({
+          ...baseArgs,
+          booking: replayed,
+          reusedExisting: true,
+          auditDispatcher,
+          inlineAutoAssignRunner,
+          sideEffectsDispatcher: vi.fn(),
+          autoAssignRetryScheduler,
+        }),
+      ).resolves.toEqual({ booking: replayed });
+
+      expect(auditDispatcher).not.toHaveBeenCalled();
+      expect(inlineAutoAssignRunner).not.toHaveBeenCalled();
+      expect(autoAssignRetryScheduler).toHaveBeenCalledTimes(1);
+      expect(autoAssignRetryScheduler).toHaveBeenCalledWith({
+        autoAssignEnabled: true,
+        bookingId: 'booking-1',
+        bookingStatus: status,
+      });
+    },
+  );
+
+  it.each(['confirmed', 'cancelled', 'checked_in'])(
+    'does not reschedule auto-assign on a replay whose booking is %s',
+    async (status) => {
+      const autoAssignRetryScheduler = vi.fn();
+      await finalizeBookingCreateCommit({
+        ...baseArgs,
+        booking: { ...pendingBooking, status } as BookingRecord,
+        reusedExisting: true,
+        sideEffectsDispatcher: vi.fn(),
+        autoAssignRetryScheduler,
+      });
+      expect(autoAssignRetryScheduler).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps a replay auto-assign scheduling failure non-fatal', async () => {
+    const scheduleError = new Error('after() unavailable');
+    const onAutoAssignError = vi.fn();
+
+    await expect(
+      finalizeBookingCreateCommit({
+        ...baseArgs,
+        reusedExisting: true,
+        onAutoAssignError,
+        sideEffectsDispatcher: vi.fn(),
+        autoAssignRetryScheduler: vi.fn(async () => {
+          throw scheduleError;
+        }),
+      }),
+    ).resolves.toEqual({ booking: pendingBooking });
+
+    expect(onAutoAssignError).toHaveBeenCalledWith(scheduleError);
+  });
+
   it('keeps a replay side-effect failure non-fatal', async () => {
     const sideEffectError = new Error('queue unavailable');
     const onSideEffectsError = vi.fn();
@@ -117,6 +182,7 @@ describe('finalizeBookingCreateCommit', () => {
       finalizeBookingCreateCommit({
         ...baseArgs,
         reusedExisting: true,
+        autoAssignRetryScheduler: vi.fn(),
         onSideEffectsError,
         sideEffectsDispatcher: vi.fn(async () => {
           throw sideEffectError;

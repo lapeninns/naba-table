@@ -96,6 +96,8 @@ export type OnboardingSavedSetup = {
   servicePeriods: ServicePeriod[];
   zones: Zone[];
   tables: TableInventoryItem[];
+  /** Revision of `zones`/`tables`, read in the same snapshot; sent back when saving. */
+  layoutRevision: string | null;
 };
 
 export type OnboardingState = {
@@ -111,6 +113,12 @@ export type OnboardingState = {
   servicePeriods: ServicePeriod[];
   zones: Zone[];
   tables: TableInventoryItem[];
+  /**
+   * The server layout revision `zones`/`tables` were loaded from (a save or a snapshot).
+   * Null when none is known, which the server reads as "no layout yet": a save over an
+   * existing layout is then refused and the step reloads it instead of deleting tables.
+   */
+  layoutRevision: string | null;
   loading: boolean;
   error: string | null;
 };

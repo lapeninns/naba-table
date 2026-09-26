@@ -743,7 +743,8 @@ describe('public POST /api/bookings capacity handling', () => {
       customer_name: 'Alex Guest',
       customer_email: 'alex@example.com',
       customer_phone: '+447700900123',
-      notes: null,
+      // The booking-defining fields match buildRequest(), as a real replay's stored row does.
+      notes: 'Window seat please',
       marketing_opt_in: true,
       client_request_id: IDEMPOTENCY_KEY,
       idempotency_key: IDEMPOTENCY_KEY,
@@ -899,6 +900,22 @@ describe('public POST /api/bookings capacity handling', () => {
       expect(response.status).toBe(409);
       expect(body).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', retryable: false });
       expect(body.error).toBe(body.message);
+      expect(JSON.stringify(body)).not.toContain('NB654321');
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+      expect(upsertCustomerMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects the same key with different notes as 409 IDEMPOTENCY_KEY_REUSED, not a replay', async () => {
+      availableSlot();
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValue({ data: storedBooking, error: null });
+      fromMock.mockReturnValue(keyBuilder);
+
+      const response = await POST(keyedRequest({ notes: 'Wheelchair access please' }));
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', retryable: false });
       expect(JSON.stringify(body)).not.toContain('NB654321');
       expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
       expect(upsertCustomerMock).not.toHaveBeenCalled();
@@ -1264,7 +1281,13 @@ describe('public POST /api/bookings capacity handling', () => {
       signedIn({ email: 'alex@example.com', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
       const keyBuilder = createQueryBuilder();
       keyBuilder.maybeSingle.mockResolvedValueOnce({
-        data: { ...insertedBooking, client_request_id: key, idempotency_key: key },
+        // A replay's stored row carries the same notes as buildRequest().
+        data: {
+          ...insertedBooking,
+          notes: 'Window seat please',
+          client_request_id: key,
+          idempotency_key: key,
+        },
         error: null,
       });
       fromMock.mockReturnValueOnce(keyBuilder);

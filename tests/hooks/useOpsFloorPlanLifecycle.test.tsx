@@ -37,11 +37,11 @@ beforeEach(() => {
 describe('useOpsFloorPlanLifecycle', () => {
   it('reports done, maps complete to check-out, and revalidates only the timeline', async () => {
     const { result, invalidate } = setup();
-    let outcome: string | undefined;
+    let outcome: unknown;
     await act(async () => {
       outcome = await result.current.run('complete', 'b1');
     });
-    expect(outcome).toBe('done');
+    expect(outcome).toEqual({ status: 'done', result: {} });
     expect(lifecycle.run).toHaveBeenCalledWith({
       action: 'check-out',
       restaurantId: 'rest-1',
@@ -58,12 +58,28 @@ describe('useOpsFloorPlanLifecycle', () => {
   it('reports queued when offline so the UI does not claim it happened', async () => {
     lifecycle.run.mockResolvedValue({ status: 'queued' });
     const { result, invalidate } = setup();
-    let outcome: string | undefined;
+    let outcome: unknown;
     await act(async () => {
       outcome = await result.current.run('check-in', 'b1');
     });
-    expect(outcome).toBe('queued');
+    expect(outcome).toEqual({ status: 'queued' });
     expect(invalidate).not.toHaveBeenCalled();
+  });
+
+  it('passes the undo-no-show table restoration through so the plan can warn', async () => {
+    const response = {
+      status: 'confirmed',
+      checkedInAt: null,
+      checkedOutAt: null,
+      tableRestoration: { status: 'unavailable', tableIds: ['t1'] },
+    };
+    lifecycle.run.mockResolvedValue({ status: 'done', result: response });
+    const { result } = setup();
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await result.current.run('undo-no-show', 'b1');
+    });
+    expect(outcome).toEqual({ status: 'done', result: response });
   });
 
   it('rejects with the server error so the plan can show its own copy', async () => {

@@ -8,6 +8,7 @@ const tableResults = vi.hoisted(
   () => new Map<string, { data: unknown[] | null; error: { code: string } | null }>(),
 );
 const tableFilters = vi.hoisted(() => new Map<string, Array<[string, unknown]>>());
+const rpcMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/request-user', () => ({ getRequestUser: getRequestUserMock }));
 vi.mock('@/server/team/access', () => ({ fetchUserMemberships: fetchUserMembershipsMock }));
@@ -16,6 +17,7 @@ vi.mock('@/server/onboarding/readiness', () => ({
 }));
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: () => ({
+    rpc: rpcMock,
     from: (table: string) => {
       const filters: Array<[string, unknown]> = [];
       tableFilters.set(table, filters);
@@ -51,6 +53,9 @@ beforeEach(() => {
   getOnboardingReadinessMock.mockReset();
   tableResults.clear();
   tableFilters.clear();
+  rpcMock
+    .mockReset()
+    .mockResolvedValue({ data: { zones: [], tables: [], revision: 'rev-empty' }, error: null });
   maybeSingleMock.mockReset().mockResolvedValue({
     data: { id: RESTAURANT_ID, name: 'The Local', slug: 'the-local', timezone: 'Europe/London' },
     error: null,
@@ -117,12 +122,25 @@ describe('loadOnboardingResume', () => {
       ],
       error: null,
     });
-    tableResults.set('zones', {
-      data: [{ id: 'zone-1', name: 'Terrace', sort_order: 0, active: true }],
-      error: null,
-    });
-    tableResults.set('table_inventory', {
-      data: [{ id: 'table-1', table_number: 'T7', capacity: 4, zone_id: 'zone-1' }],
+    rpcMock.mockResolvedValue({
+      data: {
+        zones: [{ id: 'zone-1', name: 'Terrace', sort_order: 0, active: true }],
+        tables: [
+          {
+            id: 'table-1',
+            table_number: 'T7',
+            capacity: 4,
+            min_party_size: 1,
+            max_party_size: null,
+            zone_id: 'zone-1',
+            category: 'dining',
+            seating_type: 'standard',
+            mobility: 'fixed',
+            status: 'available',
+          },
+        ],
+        revision: 'rev-7',
+      },
       error: null,
     });
 
@@ -152,7 +170,12 @@ describe('loadOnboardingResume', () => {
     expect(setup?.tables).toEqual([
       { id: 'table-1', tableNumber: 'T7', capacity: 4, zoneId: 'zone-1' },
     ]);
-    for (const table of ['restaurant_operating_hours', 'restaurant_service_periods', 'zones', 'table_inventory']) {
+    // Zones and tables come from one snapshot, with the revision the Tables step sends back.
+    expect(setup?.layoutRevision).toBe('rev-7');
+    expect(rpcMock).toHaveBeenCalledWith('onboarding_layout_snapshot', {
+      p_restaurant_id: RESTAURANT_ID,
+    });
+    for (const table of ['restaurant_operating_hours', 'restaurant_service_periods']) {
       expect(tableFilters.get(table)).toContainEqual(['restaurant_id', RESTAURANT_ID]);
     }
     expect(tableFilters.get('restaurant_operating_hours')).toContainEqual(['effective_date', null]);
@@ -162,11 +185,22 @@ describe('loadOnboardingResume', () => {
     getRequestUserMock.mockResolvedValue({ user: USER, error: null });
     fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID, role: 'owner' }]);
     getOnboardingReadinessMock.mockResolvedValue({ ready: false, missing: ['tables'] });
-    tableResults.set('zones', { data: null, error: { code: '42501' } });
+    tableResults.set('restaurant_service_periods', { data: null, error: { code: '42501' } });
 
     const resume = await loadOnboardingResume();
 
     expect(resume?.resumeRestaurant?.id).toBe(RESTAURANT_ID);
+    expect(resume?.resumeRestaurant?.setup).toBeNull();
+  });
+
+  it('marks the setup unavailable (null) when the layout snapshot fails', async () => {
+    getRequestUserMock.mockResolvedValue({ user: USER, error: null });
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID, role: 'owner' }]);
+    getOnboardingReadinessMock.mockResolvedValue({ ready: false, missing: ['tables'] });
+    rpcMock.mockResolvedValue({ data: null, error: { code: '42501', message: 'denied' } });
+
+    const resume = await loadOnboardingResume();
+
     expect(resume?.resumeRestaurant?.setup).toBeNull();
   });
 

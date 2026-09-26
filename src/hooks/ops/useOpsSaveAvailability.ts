@@ -35,8 +35,8 @@ function ownKeys(restaurantId: string) {
 /**
  * The Availability page's source: hours, meal times, table times and booking rules together with
  * the revision of exactly those rows (one server read). The page builds its draft from this, never
- * from the single-resource caches, so the `expectedRevision` it sends always describes the data
- * the draft came from. Always refetched on mount (`staleTime: 0`); persisting is safe because a
+ * from the single-resource caches, so the per-section `expectedRevisions` it sends always describe
+ * the data the draft came from (only the sections a save writes are checked). Always refetched on mount (`staleTime: 0`); persisting is safe because a
  * restored snapshot carries its own, equally old, revision (a save from it is refused if stale).
  */
 export function useOpsAvailability(

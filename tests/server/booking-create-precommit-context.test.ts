@@ -48,6 +48,9 @@ const recoveredBooking = {
   booking_date: '2026-07-01',
   start_time: '18:45:00',
   party_size: 4,
+  booking_type: 'dinner',
+  seating_preference: 'any',
+  notes: null,
   idempotency_key: 'deterministic-idem-1',
   status: 'pending',
 } as BookingRecord;
@@ -326,6 +329,83 @@ describe('runBookingCreatePrecommitContext', () => {
     expect(body.code).toBe('IDEMPOTENCY_KEY_REUSED');
     expect(JSON.stringify(body)).not.toContain('booking-keyed');
     expect(deps.customerContextResolver).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['notes', { notes: 'Wheelchair access please' }, 'dinner'],
+    ['booking type', {}, 'lunch'],
+  ])(
+    'rejects the same key with different %s as 409 IDEMPOTENCY_KEY_REUSED',
+    async (_label, requestChange, gateBookingType) => {
+      const deps = buildContinueDeps({
+        keyedBookingFinder: vi.fn(async () => keyedBooking) as BookingCreateKeyedBookingFinder,
+        scheduleGateRunner: vi.fn(async () => ({
+          kind: 'continue',
+          startTime: '18:45',
+          bookingType: gateBookingType,
+          scheduleTimezone: 'Europe/London',
+        })) as BookingCreateScheduleGateRunner,
+      });
+
+      const result = await runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request: { ...request, ...requestChange } as BookingCreateRequest,
+        requestContext,
+        restaurantId,
+      });
+
+      expect(result.kind).toBe('response');
+      if (result.kind !== 'response') return;
+      expect(result.response.status).toBe(409);
+      const body = (await result.response.json()) as Record<string, unknown>;
+      expect(body.code).toBe('IDEMPOTENCY_KEY_REUSED');
+      expect(deps.customerContextResolver).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not replay before the gate when the notes differ from the keyed booking', async () => {
+    const committed = { ...keyedBooking, start_time: '18:30:00' } as BookingRecord;
+    const deps = buildContinueDeps({
+      keyedBookingFinder: vi.fn(async () => committed) as BookingCreateKeyedBookingFinder,
+    });
+
+    const result = await runBookingCreatePrecommitContext({
+      ...deps,
+      client,
+      clientIp: '192.0.2.10',
+      pastTimeBlocking: true,
+      request: { ...request, notes: 'High chair please' } as BookingCreateRequest,
+      requestContext,
+      restaurantId,
+    });
+
+    expect(deps.scheduleGateRunner).toHaveBeenCalledTimes(1);
+    expect(result.kind).toBe('response');
+  });
+
+  it('replays an identical retry whose blank notes equal the stored empty notes', async () => {
+    const deps = buildContinueDeps({
+      keyedBookingFinder: vi.fn(async () => keyedBooking) as BookingCreateKeyedBookingFinder,
+    });
+
+    await expect(
+      runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request: { ...request, notes: '   ' } as BookingCreateRequest,
+        requestContext,
+        restaurantId,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'continue',
+      booking: keyedBooking,
+      createOrigin: 'key_replay',
+    });
   });
 
   it('marks signature matches as recovered, not as the creator replay', async () => {

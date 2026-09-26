@@ -75,16 +75,21 @@ BEGIN
     OR (v_result -> 'options' -> 0 ->> 'display_order')::integer <> 0
     OR (v_result -> 'options' -> 1 ->> 'display_order')::integer <> 1
     OR (v_result -> 'extension' -> 'availability_policy' -> 'servicePeriods') <> '["lunch"]'::jsonb
-    OR v_result -> 'item' ? 'create_idempotency_key' THEN
+    OR v_result -> 'item' ? 'create_idempotency_key'
+    OR v_result -> 'item' ? 'create_request_fingerprint' THEN
     RAISE EXCEPTION 'keyed item create wrong: %', v_result USING ERRCODE = 'NB001';
   END IF;
 
+  -- The retry carries the same payload (key order does not matter: jsonb is normalised).
   v_replay := public.create_restaurant_menu_item_v1(
     v_restaurant_id, v_menu_id, v_section_id,
-    jsonb_build_object('item_kind', 'food', 'external_item_id', 'syn-item-2', 'item_name', 'Two',
-      'labels', v_label),
-    '{}'::jsonb,
-    jsonb_build_array(jsonb_build_object('external_option_id', 'syn-opt-a', 'labels', v_label)),
+    jsonb_build_object('labels', v_label, 'item_name', 'Two', 'external_item_id', 'syn-item-2',
+      'item_kind', 'food'),
+    '{"availability_policy":{"servicePeriods":["lunch"],"soldOut":false}}'::jsonb,
+    jsonb_build_array(
+      jsonb_build_object('labels', v_label, 'external_option_id', 'syn-opt-a'),
+      jsonb_build_object('external_option_id', 'syn-opt-b', 'labels', v_label)
+    ),
     'syn-create-key-0001');
   IF (v_replay -> 'item' ->> 'id')::uuid <> v_second_item_id
     OR NOT (v_replay ->> 'replayed')::boolean
@@ -95,6 +100,47 @@ BEGIN
   WHERE restaurant_id = v_restaurant_id AND section_id = v_section_id;
   IF v_count <> 2 THEN
     RAISE EXCEPTION 'retry duplicated the item (% rows)', v_count USING ERRCODE = 'NB001';
+  END IF;
+
+  -- 2b. The same key with an edited payload (item, extensions or options) is a conflict, not a
+  --     silent replay of the original: the user changed the draft after an ambiguous failure.
+  FOR v_row IN
+    SELECT * FROM (VALUES
+      (jsonb_build_object('item_kind', 'food', 'external_item_id', 'syn-item-2', 'item_name', 'Two edited',
+         'labels', v_label),
+       '{"availability_policy":{"soldOut":false,"servicePeriods":["lunch"]}}'::jsonb,
+       jsonb_build_array(
+         jsonb_build_object('external_option_id', 'syn-opt-a', 'labels', v_label),
+         jsonb_build_object('external_option_id', 'syn-opt-b', 'labels', v_label))),
+      (jsonb_build_object('item_kind', 'food', 'external_item_id', 'syn-item-2', 'item_name', 'Two',
+         'labels', v_label),
+       '{}'::jsonb,
+       jsonb_build_array(
+         jsonb_build_object('external_option_id', 'syn-opt-a', 'labels', v_label),
+         jsonb_build_object('external_option_id', 'syn-opt-b', 'labels', v_label))),
+      (jsonb_build_object('item_kind', 'food', 'external_item_id', 'syn-item-2', 'item_name', 'Two',
+         'labels', v_label),
+       '{"availability_policy":{"soldOut":false,"servicePeriods":["lunch"]}}'::jsonb,
+       jsonb_build_array(jsonb_build_object('external_option_id', 'syn-opt-a', 'labels', v_label)))
+    ) AS cases(item, extensions, options)
+  LOOP
+    v_raised := false;
+    BEGIN
+      PERFORM public.create_restaurant_menu_item_v1(
+        v_restaurant_id, v_menu_id, v_section_id, v_row.item, v_row.extensions, v_row.options,
+        'syn-create-key-0001');
+    EXCEPTION
+      WHEN SQLSTATE 'NB001' THEN RAISE;
+      WHEN sqlstate 'P0001' THEN
+      v_raised := SQLERRM = 'menu_idempotency_key_reused';
+    END;
+    IF NOT v_raised THEN
+      RAISE EXCEPTION 'key reuse with an edited payload was replayed silently: %', v_row.item
+        USING ERRCODE = 'NB001';
+    END IF;
+  END LOOP;
+  IF (SELECT item_name FROM public.restaurant_menu_items WHERE id = v_second_item_id) <> 'Two' THEN
+    RAISE EXCEPTION 'rejected key reuse changed the original item' USING ERRCODE = 'NB001';
   END IF;
 
   -- 3. The same key for another section is a conflict, not a silent replay.

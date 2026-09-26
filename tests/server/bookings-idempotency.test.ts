@@ -31,6 +31,9 @@ describe('booking idempotency helpers', () => {
       startTime: '18:30',
       endTime: '20:00',
       partySize: 4,
+      bookingType: 'dinner',
+      seatingPreference: 'any',
+      notes: null,
     });
 
     expect(key).toMatch(/^[0-9a-f]{32}$/);
@@ -42,6 +45,9 @@ describe('booking idempotency helpers', () => {
         startTime: '18:30',
         endTime: '20:00',
         partySize: 4,
+        bookingType: 'dinner',
+        seatingPreference: 'any',
+        notes: null,
       }),
     ).toBe(key);
   });
@@ -53,10 +59,52 @@ describe('booking idempotency helpers', () => {
       bookingDate: '2026-05-22',
       startTime: '18:30',
       endTime: '20:00',
+      bookingType: 'dinner',
+      seatingPreference: 'any',
+      notes: null,
     };
 
     expect(buildDeterministicIdempotencyKey({ ...base, partySize: 2 })).not.toBe(
       buildDeterministicIdempotencyKey({ ...base, partySize: 3 }),
     );
+  });
+
+  describe('covers every field the create RPC compares on replay', () => {
+    const base = {
+      restaurantId: 'restaurant-1',
+      customerId: 'customer-1',
+      bookingDate: '2026-05-22',
+      startTime: '18:30',
+      endTime: '20:00',
+      partySize: 2,
+      bookingType: 'dinner',
+      seatingPreference: 'any',
+      notes: null as string | null,
+    };
+    const key = buildDeterministicIdempotencyKey(base);
+
+    it.each([
+      ['booking type', { bookingType: 'lunch' }],
+      ['seating preference', { seatingPreference: 'window' }],
+      ['notes', { notes: 'Wheelchair access please' }],
+    ])('derives a different key for a different %s', (_label, change) => {
+      expect(buildDeterministicIdempotencyKey({ ...base, ...change })).not.toBe(key);
+    });
+
+    it('treats blank notes as no notes and ignores surrounding whitespace', () => {
+      expect(buildDeterministicIdempotencyKey({ ...base, notes: '' })).toBe(key);
+      expect(buildDeterministicIdempotencyKey({ ...base, notes: '   ' })).toBe(key);
+      expect(buildDeterministicIdempotencyKey({ ...base, notes: ' Birthday ' })).toBe(
+        buildDeterministicIdempotencyKey({ ...base, notes: 'Birthday' }),
+      );
+    });
+
+    it('cannot be collided by a delimiter inside free-text notes', () => {
+      expect(
+        buildDeterministicIdempotencyKey({ ...base, seatingPreference: 'any|x', notes: 'y' }),
+      ).not.toBe(
+        buildDeterministicIdempotencyKey({ ...base, seatingPreference: 'any', notes: 'x|y' }),
+      );
+    });
   });
 });

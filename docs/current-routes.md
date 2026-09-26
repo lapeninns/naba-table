@@ -181,7 +181,7 @@ All ops APIs require restaurant staff authentication.
 | `/api/onboarding/restaurant/[id]/profile`             | `PATCH` changed profile fields                          |
 | `/api/onboarding/restaurant/[id]/hours`               | Operating hours                                         |
 | `/api/onboarding/restaurant/[id]/service-periods`     | Service periods                                         |
-| `/api/onboarding/restaurant/[id]/layout`              | `PUT` zones and tables in one replace                   |
+| `/api/onboarding/restaurant/[id]/layout`              | `GET` layout + revision; `PUT` guarded replace          |
 | `/api/onboarding/restaurant/[id]/zones`, `.../tables` | Kept for compatibility; the wizard no longer calls them |
 | `/api/onboarding/restaurant/[id]/complete`            | Readiness check before opening the dashboard            |
 

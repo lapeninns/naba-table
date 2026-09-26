@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const runOutboxWorkerMock = vi.hoisted(() => vi.fn());
 const loggerErrorMock = vi.hoisted(() => vi.fn());
+const loggerWarnMock = vi.hoisted(() => vi.fn());
 const captureServerExceptionMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/jobs/outbox-worker', () => ({ runOutboxWorker: runOutboxWorkerMock }));
-vi.mock('@/lib/logger', () => ({ logger: { error: loggerErrorMock, warn: vi.fn() } }));
+vi.mock('@/lib/logger', () => ({ logger: { error: loggerErrorMock, warn: loggerWarnMock } }));
 vi.mock('@/lib/posthog/server', () => ({ captureServerException: captureServerExceptionMock }));
 vi.mock('@/src/instrumentation', () => ({ flushPosthogLogsAfterResponse: vi.fn() }));
 vi.mock('@/server/security/cron-auth', async () => {
@@ -61,6 +62,28 @@ describe('capacity outbox drain cron route', () => {
       dead: 0,
       batches: 2,
     });
+  });
+
+  it('reports and logs dead-lettered events', async () => {
+    runOutboxWorkerMock.mockResolvedValue({ processed: 2, failed: 0, dead: 3, batches: 1 });
+
+    const response = await GET(authed());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ success: true, dead: 3 });
+    expect(loggerWarnMock).toHaveBeenCalledWith('Capacity outbox drain dead-lettered events.', {
+      source: 'cron.capacity-outbox',
+      runId: '00000000-0000-4000-8000-000000000042',
+      dead: 3,
+      processed: 2,
+      failed: 0,
+      batches: 1,
+    });
+  });
+
+  it('does not warn when nothing was dead-lettered', async () => {
+    await GET(authed());
+    expect(loggerWarnMock).not.toHaveBeenCalled();
   });
 
   it('caps a requested batch size and ignores invalid values', async () => {

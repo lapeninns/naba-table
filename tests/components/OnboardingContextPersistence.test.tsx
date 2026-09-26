@@ -30,6 +30,11 @@ function AccountProbe() {
   );
 }
 
+function RevisionProbe() {
+  const { state } = useOnboarding();
+  return <span data-testid="layout-revision">{String(state.layoutRevision)}</span>;
+}
+
 describe('OnboardingProvider persistence', () => {
   beforeEach(() => {
     window.sessionStorage.clear();
@@ -119,5 +124,27 @@ describe('OnboardingProvider persistence', () => {
       expect(persisted).not.toHaveProperty('alreadyOnboarded');
     });
     expect(window.localStorage.length).toBe(0);
+  });
+
+  it('restores the layout revision with the draft and drops a malformed one', () => {
+    window.sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ step: 5, layoutRevision: 'rev-4' }),
+    );
+    const { unmount } = render(
+      <OnboardingProvider>
+        <RevisionProbe />
+      </OnboardingProvider>,
+    );
+    expect(screen.getByTestId('layout-revision')).toHaveTextContent('rev-4');
+    unmount();
+
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step: 5, layoutRevision: 42 }));
+    render(
+      <OnboardingProvider>
+        <RevisionProbe />
+      </OnboardingProvider>,
+    );
+    expect(screen.getByTestId('layout-revision')).toHaveTextContent('null');
   });
 });

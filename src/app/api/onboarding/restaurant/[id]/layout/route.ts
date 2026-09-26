@@ -8,9 +8,11 @@ import { onboardingInternalError } from '@/server/onboarding/errors';
 import {
   MAX_ONBOARDING_LAYOUT_TABLES,
   MAX_ONBOARDING_LAYOUT_ZONES,
+  OnboardingLayoutChangedError,
   OnboardingLayoutInvalidError,
   OnboardingLayoutLockedError,
   OnboardingLayoutRestaurantNotFoundError,
+  loadOnboardingLayout,
   replaceOnboardingLayout,
 } from '@/server/onboarding/layout';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -57,6 +59,9 @@ const requestSchema = z
   .object({
     zones: z.array(zoneSchema).min(1, 'Add at least one zone').max(MAX_ONBOARDING_LAYOUT_ZONES),
     tables: z.array(tableSchema).min(1, 'Add at least one table').max(MAX_ONBOARDING_LAYOUT_TABLES),
+    // The revision the client last loaded; null when it expects no layout yet. Required, so
+    // an old client can't fall back to an unguarded replace.
+    expectedRevision: z.string().trim().min(1).max(64).nullable(),
   })
   .superRefine((value, context) => {
     const zoneKeys = new Set<string>();
@@ -92,10 +97,43 @@ const requestSchema = z
     });
   });
 
+const LAYOUT_CHANGED_MESSAGE =
+  'Your tables were changed somewhere else since you opened this step. We loaded the latest layout; review it and save again.';
+
+/**
+ * The onboarding restaurant's current zones, tables and layout revision. The Tables step
+ * loads it after a 409 ONBOARDING_LAYOUT_CHANGED so the owner edits the latest layout.
+ */
+export async function GET(req: NextRequest, context: RouteContext) {
+  const { id: restaurantId } = await context.params;
+  const authorization = await withRestaurantAuthorization(req, restaurantId, {
+    roles: RESTAURANT_ADMIN_ROLES,
+  });
+  if (!authorization.ok) {
+    return authorization.response;
+  }
+
+  try {
+    const layout = await loadOnboardingLayout(getServiceSupabaseClient(), restaurantId);
+    return NextResponse.json({ data: layout }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    if (error instanceof OnboardingLayoutRestaurantNotFoundError) {
+      return notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found.');
+    }
+    return onboardingInternalError(error, {
+      route: ROUTE,
+      restaurantId,
+      userId: authorization.user.id,
+    });
+  }
+}
+
 /**
  * Replaces the onboarding restaurant's zones and tables in one transaction
  * (`onboarding_replace_layout`). Idempotent: re-sending the same layout returns the same
- * rows. Refused with 409 ONBOARDING_LAYOUT_LOCKED once the restaurant has bookings.
+ * rows. Guarded by `expectedRevision`: 409 ONBOARDING_LAYOUT_CHANGED when the layout
+ * changed since the client loaded it (nothing is written). Refused with 409
+ * ONBOARDING_LAYOUT_LOCKED once the restaurant has bookings.
  */
 export async function PUT(req: NextRequest, context: RouteContext) {
   const { id: restaurantId } = await context.params;
@@ -140,6 +178,9 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     );
     return NextResponse.json({ data: layout });
   } catch (error) {
+    if (error instanceof OnboardingLayoutChangedError) {
+      return conflict('ONBOARDING_LAYOUT_CHANGED', LAYOUT_CHANGED_MESSAGE);
+    }
     if (error instanceof OnboardingLayoutLockedError) {
       return conflict(
         'ONBOARDING_LAYOUT_LOCKED',

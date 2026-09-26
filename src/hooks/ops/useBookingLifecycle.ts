@@ -237,14 +237,22 @@ function successCopy(
     case 'no-show':
       // Shown by the hook itself, because it carries an Undo action.
       return null;
-    case 'undo-no-show': {
-      const restoration = result.tableRestoration?.status;
-      if (restoration === 'unavailable' || restoration === 'unknown') {
-        return `No-show undone for ${label}. Tables were not restored, so assign a table.`;
-      }
-      return `Undo no-show: ${label}`;
-    }
+    case 'undo-no-show':
+      return undoNoShowCopy(result, label);
   }
+}
+
+/** True when an undo-no-show could not (or may not have) put the booking back on its tables. */
+export function undoNoShowNeedsTable(result: LifecycleResponse): boolean {
+  const restoration = result.tableRestoration?.status;
+  return restoration === 'unavailable' || restoration === 'unknown';
+}
+
+/** Undo-no-show copy for every surface (dashboard, bookings list, floor plan). */
+export function undoNoShowCopy(result: LifecycleResponse, label: string): string {
+  return undoNoShowNeedsTable(result)
+    ? `No-show undone for ${label}. Tables were not restored, so assign a table.`
+    : `Undo no-show: ${label}`;
 }
 
 /**
@@ -309,7 +317,18 @@ export function useBookingLifecycle(options: UseBookingLifecycleOptions = {}) {
           } catch (error) {
             const replayed = replayedStatus(vars.action, error);
             if (replayed) {
-              return { status: replayed, checkedInAt: null, checkedOutAt: null, changed: false };
+              const replay: LifecycleResponse = {
+                status: replayed,
+                checkedInAt: null,
+                checkedOutAt: null,
+                changed: false,
+              };
+              // The 409 cannot say whether the first undo restored the tables, so staff are
+              // told to check (the server's own answer when it cannot tell).
+              if (vars.action === 'undo-no-show') {
+                replay.tableRestoration = { status: 'unknown', tableIds: [] };
+              }
+              return replay;
             }
             throw error;
           }

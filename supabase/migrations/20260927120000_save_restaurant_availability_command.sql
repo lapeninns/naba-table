@@ -10,23 +10,26 @@
 --      takes to `replace_restaurant_service_periods` and `replace_restaurant_turn_bands`
 --      (bodies otherwise unchanged from 20260516082800), so concurrent replacements of the same
 --      restaurant queue instead of interleaving their upsert and delete phases.
---   2. `restaurant_availability_revision(uuid)`: a content hash of the restaurant's hours,
---      service periods, turn bands and booking-rule fields. Row ids and timestamps are excluded,
---      so replaying an already-applied save produces the same revision.
+--   2. `restaurant_availability_revisions(uuid)`: one content hash per section
+--      ({hours, servicePeriods, turnBands, rules}), and `restaurant_availability_revision(uuid)`,
+--      the hash of those four (the whole-page revision). Row ids and timestamps are excluded, so
+--      replaying an already-applied save produces the same revisions.
 --   3. `restaurant_availability_snapshot(uuid)`: the stored hours, service periods, turn bands and
---      booking-rule fields plus their revision, built in ONE statement so the rows and the revision
---      always describe the same state (NULL when the restaurant does not exist). The Availability
---      page loads from it, and the command returns it.
+--      booking-rule fields plus their revision and per-section revisions, built in ONE statement
+--      so the rows and the revisions always describe the same state (NULL when the restaurant does
+--      not exist). The Availability page loads from it, and the command returns it.
 --   4. `save_restaurant_availability(...)`: replaces any subset of hours (weekly + special dates),
 --      service periods, turn bands and the booking-rule fields in ONE transaction, reusing the
 --      three replace_* functions. It takes the command lock and then every per-resource lock in a
---      fixed order, locks the restaurant row, checks the optional expected revision, validates
+--      fixed order, locks the restaurant row, checks the optional expected revisions, validates
 --      the resulting configuration (meal times inside open weekly hours) and returns the snapshot
 --      (as in 3) read inside the same transaction. Any failure rolls back every part.
 --
 -- Error contract (SQLSTATE, read by server/restaurants/availabilityCommand.ts):
 --   NT400  malformed command (no parts, or a part of the wrong JSON type)
---   NT409  STALE_WRITE: the stored availability changed since the caller loaded it
+--   NT409  STALE_WRITE: a section this command writes changed since the caller loaded it
+--          (p_expected_revisions, per section), or, for callers that still send only the
+--          whole-page p_expected_revision, anything changed since it was loaded
 --   NT422  SERVICE_PERIOD_OUTSIDE_HOURS: a weekday service period lies outside that day's hours
 --   P0002  restaurant not found
 --   23503  unknown booking option (FK), 23514 check constraints, P0001 from the replace_* helpers
@@ -34,8 +37,9 @@
 -- Grants: service_role only, like the replace_* functions.
 --
 -- Rollback (manual, forward-only repo): DROP FUNCTION public.save_restaurant_availability(uuid,
---   jsonb, jsonb, jsonb, jsonb, text); DROP FUNCTION public.restaurant_availability_snapshot(uuid);
+--   jsonb, jsonb, jsonb, jsonb, text, jsonb); DROP FUNCTION public.restaurant_availability_snapshot(uuid);
 --   DROP FUNCTION public.restaurant_availability_revision(uuid);
+--   DROP FUNCTION public.restaurant_availability_revisions(uuid);
 --   and re-apply the replace_restaurant_service_periods / replace_restaurant_turn_bands bodies from
 --   20260516082800_atomic_restaurant_schedule_replacements.sql (without the advisory lock). No data
 --   is changed by this migration, so rolling back needs no data repair.
@@ -224,17 +228,19 @@ $$;
 REVOKE ALL ON FUNCTION public.replace_restaurant_turn_bands(uuid, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.replace_restaurant_turn_bands(uuid, jsonb) TO service_role;
 
-CREATE OR REPLACE FUNCTION public.restaurant_availability_revision(p_restaurant_id uuid)
-RETURNS text
+-- One content hash per section, so a save is only checked against the sections it writes: two
+-- managers editing different sections (for example hours and booking rules) do not refuse each
+-- other. Keys match the command parts: hours, servicePeriods, turnBands, rules.
+CREATE OR REPLACE FUNCTION public.restaurant_availability_revisions(p_restaurant_id uuid)
+RETURNS jsonb
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT md5(
-    jsonb_build_object(
+  SELECT jsonb_build_object(
       'hours',
-      COALESCE(
+      md5(COALESCE(
         (
           SELECT jsonb_agg(
             jsonb_build_array(
@@ -254,9 +260,9 @@ AS $$
           WHERE h.restaurant_id = p_restaurant_id
         ),
         '[]'::jsonb
-      ),
-      'periods',
-      COALESCE(
+      )::text),
+      'servicePeriods',
+      md5(COALESCE(
         (
           SELECT jsonb_agg(
             jsonb_build_array(p.day_of_week, p.start_time, p.end_time, p.booking_option, p.name)
@@ -266,9 +272,9 @@ AS $$
           WHERE p.restaurant_id = p_restaurant_id
         ),
         '[]'::jsonb
-      ),
-      'bands',
-      COALESCE(
+      )::text),
+      'turnBands',
+      md5(COALESCE(
         (
           SELECT jsonb_agg(
             jsonb_build_array(b.booking_option, b.max_party_size, b.duration_minutes)
@@ -278,9 +284,9 @@ AS $$
           WHERE b.restaurant_id = p_restaurant_id
         ),
         '[]'::jsonb
-      ),
+      )::text),
       'rules',
-      (
+      md5(COALESCE((
         SELECT jsonb_build_array(
           r.reservation_interval_minutes,
           r.reservation_default_duration_minutes,
@@ -290,10 +296,25 @@ AS $$
         )
         FROM public.restaurants r
         WHERE r.id = p_restaurant_id
-      )
-    )::text
-  );
+      ), 'null'::jsonb)::text)
+    );
 $$;
+
+REVOKE ALL ON FUNCTION public.restaurant_availability_revisions(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.restaurant_availability_revisions(uuid) TO service_role;
+
+-- The whole-page revision: a hash of the four section revisions. Kept for callers that send a
+-- single expected revision.
+CREATE OR REPLACE FUNCTION public.restaurant_availability_revision(p_restaurant_id uuid)
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT md5(public.restaurant_availability_revisions(p_restaurant_id)::text);
+$$;
+
 
 REVOKE ALL ON FUNCTION public.restaurant_availability_revision(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.restaurant_availability_revision(uuid) TO service_role;
@@ -308,6 +329,7 @@ AS $$
   -- One statement, so the rows and the revision come from the same database snapshot.
   SELECT jsonb_build_object(
     'revision', public.restaurant_availability_revision(r.id),
+    'revisions', public.restaurant_availability_revisions(r.id),
     'restaurant', jsonb_build_object(
       'timezone', r.timezone,
       'reservation_interval_minutes', r.reservation_interval_minutes,
@@ -384,13 +406,17 @@ $$;
 REVOKE ALL ON FUNCTION public.restaurant_availability_snapshot(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.restaurant_availability_snapshot(uuid) TO service_role;
 
+-- An earlier draft of this file defined the six-argument form; drop it so no overload remains.
+DROP FUNCTION IF EXISTS public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text);
+
 CREATE OR REPLACE FUNCTION public.save_restaurant_availability(
   p_restaurant_id uuid,
   p_operating_hours jsonb DEFAULT NULL,
   p_service_periods jsonb DEFAULT NULL,
   p_turn_bands jsonb DEFAULT NULL,
   p_rules jsonb DEFAULT NULL,
-  p_expected_revision text DEFAULT NULL
+  p_expected_revision text DEFAULT NULL,
+  p_expected_revisions jsonb DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -400,6 +426,10 @@ AS $$
 DECLARE
   v_before text;
   v_after text;
+  v_before_sections jsonb;
+  v_after_sections jsonb;
+  v_section text;
+  v_written text[];
 BEGIN
   IF p_restaurant_id IS NULL THEN
     RAISE EXCEPTION 'restaurant id is required' USING ERRCODE = 'NT400';
@@ -415,7 +445,8 @@ BEGIN
   IF (p_operating_hours IS NOT NULL AND jsonb_typeof(p_operating_hours) <> 'array')
     OR (p_service_periods IS NOT NULL AND jsonb_typeof(p_service_periods) <> 'array')
     OR (p_turn_bands IS NOT NULL AND jsonb_typeof(p_turn_bands) <> 'array')
-    OR (p_rules IS NOT NULL AND jsonb_typeof(p_rules) <> 'object') THEN
+    OR (p_rules IS NOT NULL AND jsonb_typeof(p_rules) <> 'object')
+    OR (p_expected_revisions IS NOT NULL AND jsonb_typeof(p_expected_revisions) <> 'object') THEN
     RAISE EXCEPTION 'availability command part has the wrong shape' USING ERRCODE = 'NT400';
   END IF;
 
@@ -444,7 +475,8 @@ BEGIN
     RAISE EXCEPTION 'restaurant not found' USING ERRCODE = 'P0002';
   END IF;
 
-  v_before := public.restaurant_availability_revision(p_restaurant_id);
+  v_before_sections := public.restaurant_availability_revisions(p_restaurant_id);
+  v_before := md5(v_before_sections::text);
 
   IF p_operating_hours IS NOT NULL THEN
     PERFORM public.replace_restaurant_operating_hours(p_restaurant_id, p_operating_hours);
@@ -512,14 +544,34 @@ BEGIN
     END IF;
   END IF;
 
-  v_after := public.restaurant_availability_revision(p_restaurant_id);
+  v_after_sections := public.restaurant_availability_revisions(p_restaurant_id);
+  v_after := md5(v_after_sections::text);
 
   -- Stale check. A caller whose revision no longer matches is refused, unless this command
   -- changed nothing (a replay of a save that already committed, e.g. a retry after a lost
   -- response), in which case the stored state is already what the caller asked for.
-  IF p_expected_revision IS NOT NULL
+  v_written := array_remove(ARRAY[
+    CASE WHEN p_operating_hours IS NOT NULL THEN 'hours' END,
+    CASE WHEN p_service_periods IS NOT NULL THEN 'servicePeriods' END,
+    CASE WHEN p_turn_bands IS NOT NULL THEN 'turnBands' END,
+    CASE WHEN p_rules IS NOT NULL THEN 'rules' END
+  ], NULL);
+
+  IF p_expected_revisions IS NOT NULL THEN
+    -- Per section, and only for the sections this command writes: a concurrent save of another
+    -- section is not a conflict. Cross-section consistency (meal times inside hours) is
+    -- validated above on the resulting state, whatever the revisions say.
+    FOREACH v_section IN ARRAY v_written LOOP
+      IF p_expected_revisions ? v_section
+        AND (p_expected_revisions ->> v_section) IS DISTINCT FROM (v_before_sections ->> v_section)
+        AND (v_after_sections ->> v_section) IS DISTINCT FROM (v_before_sections ->> v_section) THEN
+        RAISE EXCEPTION 'STALE_WRITE' USING ERRCODE = 'NT409';
+      END IF;
+    END LOOP;
+  ELSIF p_expected_revision IS NOT NULL
     AND p_expected_revision <> v_before
     AND v_after <> v_before THEN
+    -- Whole-page revision (callers that predate per-section revisions).
     RAISE EXCEPTION 'STALE_WRITE' USING ERRCODE = 'NT409';
   END IF;
 
@@ -528,7 +580,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text) TO service_role;
+REVOKE ALL ON FUNCTION public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text, jsonb) TO service_role;
 
 COMMIT;

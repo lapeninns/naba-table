@@ -383,6 +383,56 @@ describe('processOutboxBatch', () => {
     });
   });
 
+  it('@worker @contract @observability counts rows the claim dead-lettered and never handles them', async () => {
+    // The claim moved an exhausted row to 'dead' in the same statement and returned
+    // it with that status next to the leased rows.
+    const stub = createProcessingClient({
+      rows: [
+        claimedRow({ id: 'evt-ok' }),
+        claimedRow({
+          id: 'evt-exhausted',
+          event_type: 'capacity.assignment.sync',
+          status: 'dead',
+          attempt_count: 10,
+          next_attempt_at: null,
+        }),
+      ],
+    });
+
+    const summary = await processOutboxBatch({ client: stub.client });
+
+    expect(summary).toEqual({ processed: 1, failed: 0, dead: 1, pending: 0 });
+    expect(emitHoldConfirmedMock).toHaveBeenCalledTimes(1);
+    expect(recordObservabilityEventMock).not.toHaveBeenCalledWith(
+      expect.objectContaining({ eventType: 'capacity.assignment.synchronized' }),
+    );
+    // Only the leased row is settled; the dead letter is already final.
+    expect(updatesOf(stub.queries).map((u) => u.id)).toEqual(['evt-ok']);
+    expect(loggerMock.warn).toHaveBeenCalledWith('[outbox] dead-lettered by claim', {
+      outboxId: 'evt-exhausted',
+      eventType: 'capacity.assignment.sync',
+      attempts: 10,
+    });
+    expect(recordObservabilityEventMock).toHaveBeenCalledWith({
+      source: 'outbox',
+      eventType: 'outbox.batch',
+      severity: 'warning',
+      context: summary,
+    });
+  });
+
+  it('@worker @contract a batch of only dead letters still reports them', async () => {
+    const stub = createProcessingClient({
+      rows: [claimedRow({ id: 'evt-exhausted', status: 'dead', attempt_count: 10 })],
+    });
+
+    const summary = await processOutboxBatch({ client: stub.client });
+
+    expect(summary).toEqual({ processed: 0, failed: 0, dead: 1, pending: 0 });
+    expect(emitHoldConfirmedMock).not.toHaveBeenCalled();
+    expect(updatesOf(stub.queries)).toEqual([]);
+  });
+
   it('@worker @contract a settle that matches no row (lease lost) is reported, not counted as processed', async () => {
     const stub = createProcessingClient({
       rows: [

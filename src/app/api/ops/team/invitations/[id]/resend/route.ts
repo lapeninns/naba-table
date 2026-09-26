@@ -20,7 +20,8 @@ const WINDOW_MS = 10 * 60 * 1000;
 
 /**
  * POST /api/ops/team/invitations/[id]/resend — re-sends a pending, unexpired invite with a
- * fresh link (the previous link stops working). Owners and managers only.
+ * fresh link. The previous link stops working only once the new email is delivered; a failed
+ * or suppressed send keeps the old link valid. Owners and managers only.
  */
 export async function POST(request: NextRequest, context: InviteIdRouteParams) {
   return withCsrfProtectedMutation(request, () => postResendInvitation(request, context));
@@ -34,6 +35,10 @@ async function postResendInvitation(request: NextRequest, context: InviteIdRoute
   const { supabase, user, inviteId, restaurantId } = resolved;
 
   // Every invite email from one admin shares the creation budget, and each invite has its own.
+  // Attempts are charged before sending, including ones the provider then fails: each attempt
+  // reaches the email provider, and refunding failures would let a client retry a failing
+  // send without bound. A failed send no longer costs the invitee their link (the old token
+  // is restored), so a later retry inside the window loses nothing.
   const aggregateRateLimitResponse = await requireApiRateLimit({
     request,
     scope: 'ops.team_invitations.create.aggregate',
@@ -86,6 +91,12 @@ async function postResendInvitation(request: NextRequest, context: InviteIdRoute
       return conflict(
         'INVITE_NOT_PENDING',
         'This invitation was already accepted or revoked, so it can’t be resent.',
+      );
+    }
+    if (code === 'INVITE_CHANGED') {
+      return conflict(
+        'INVITE_CHANGED',
+        'This invitation was just resent or changed. Refresh the list and try again.',
       );
     }
     if (code === 'INVITE_NOT_FOUND') {

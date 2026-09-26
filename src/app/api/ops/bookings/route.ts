@@ -3,7 +3,6 @@ import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-
 import {
   apiError,
   forbidden,
@@ -121,6 +120,9 @@ async function resolveOpsKeyReplay(
     startTime: string;
     partySize: number;
     customerEmail: string | null;
+    bookingType: string | null;
+    seatingPreference: string | null;
+    notes: string | null;
   },
 ): Promise<OpsBookingReplayDecision> {
   if (!args.idempotencyKey) {
@@ -140,6 +142,9 @@ async function resolveOpsKeyReplay(
     startTime: args.startTime,
     partySize: args.partySize,
     customerEmail: args.customerEmail,
+    bookingType: args.bookingType,
+    seatingPreference: args.seatingPreference,
+    notes: args.notes,
   })
     ? { kind: 'existing', booking: keyed }
     : { kind: 'key_reused' };
@@ -928,6 +933,9 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     startTime: payload.time,
     partySize: payload.party,
     customerEmail: emailProvided ? customerEmailForStorage : null,
+    bookingType,
+    seatingPreference: payload.seating ?? null,
+    notes: payload.notes ?? null,
   });
   if (keyReplay.kind === 'key_reused') {
     void recordObservabilityEvent({
@@ -1174,6 +1182,9 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
         startTime: payload.time,
         partySize: payload.party,
         customerEmail: emailProvided ? customerEmailForStorage : null,
+        bookingType,
+        seatingPreference: payload.seating ?? null,
+        notes: payload.notes ?? null,
       });
       if (lateReplay.kind === 'existing') {
         return respondWithExistingBooking(lateReplay.booking);

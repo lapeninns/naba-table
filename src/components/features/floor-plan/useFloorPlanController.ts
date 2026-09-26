@@ -13,6 +13,8 @@ import {
 import { useOpsFloorPlanLayoutSave } from '@/hooks/ops/useOpsFloorPlanLayout';
 import {
   lifecycleErrorMessage,
+  undoNoShowCopy,
+  undoNoShowNeedsTable,
   useOpsFloorPlanLifecycle,
 } from '@/hooks/ops/useOpsFloorPlanLifecycle';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
@@ -471,14 +473,14 @@ export function useFloorPlanController({
   /* ───────── lifecycle ───────── */
 
   const runLifecycle = useCallback(
-    async (action: FloorPlanLifecycleAction, bookingId: string) => {
+    async function runFloorLifecycle(action: FloorPlanLifecycleAction, bookingId: string) {
       const booking = bookingById.get(bookingId);
       if (!booking || !snapshot) return;
       const tables = tableNumbers(snapshot, booking.tableIds);
       try {
         const outcome = await lifecycle.run(action, bookingId);
         const who = `${booking.name} · ${booking.partySize}`;
-        if (outcome === 'queued') {
+        if (outcome.status === 'queued') {
           const message = `You’re offline. ${who} will update when the connection is back.`;
           toast.info(message);
           announce(message);
@@ -493,15 +495,18 @@ export function useFloorPlanController({
           toast.success(`${booking.name} marked no-show. ${tables} is free.`, {
             action: {
               label: 'Undo',
-              onClick: () => {
-                lifecycle
-                  .run('undo-no-show', bookingId)
-                  .catch((error: unknown) =>
-                    toast.error(lifecycleErrorMessage('undo-no-show', error)),
-                  );
-              },
+              onClick: () => void runFloorLifecycle('undo-no-show', bookingId),
             },
           });
+        }
+        if (action === 'undo-no-show') {
+          // Same copy as the dashboard and bookings list; a warning when the tables were not
+          // restored, because the booking is back without a table.
+          const message = undoNoShowCopy(outcome.result, booking.name);
+          if (undoNoShowNeedsTable(outcome.result)) toast.warning(message);
+          else toast.success(message);
+          announce(message);
+          return;
         }
         if (action === 'complete' || action === 'no-show') setFocusBookingId(null);
         announce(`${who}: done`);

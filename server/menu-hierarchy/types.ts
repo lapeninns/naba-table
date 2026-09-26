@@ -343,8 +343,9 @@ export const RestaurantMenuItemInputSchema = z.object({
   /** Options created in the same transaction as the item. */
   options: z.array(RestaurantMenuOptionInputSchema).max(50).optional(),
   /**
-   * Client idempotency key, unique per restaurant. A retry with the same key returns the item
-   * the first request created instead of creating a duplicate.
+   * Client idempotency key, unique per restaurant. A retry with the same key and the same payload
+   * returns the item the first request created instead of creating a duplicate; the same key with
+   * a different payload is refused (`idempotency_key_reused`).
    */
   idempotencyKey: z.string().trim().min(8).max(200).optional(),
 });

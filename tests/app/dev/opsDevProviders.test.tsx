@@ -43,6 +43,20 @@ describe('OpsDevProviders', () => {
       }),
     ).rejects.toMatchObject({ status: 409, code: 'STALE_WRITE' });
 
+    // Per-section revisions: a save of another section from the same old snapshot succeeds; a
+    // save of the section that changed is refused.
+    const hours = await service.saveAvailability(DEV_RESTAURANT_ID, {
+      hours: { weekly: snapshot.hours.weekly, overrides: snapshot.hours.overrides },
+      expectedRevisions: { hours: snapshot.revisions!.hours },
+    });
+    expect(hours.revisions!.rules).toBe(saved.revisions!.rules);
+    await expect(
+      service.saveAvailability(DEV_RESTAURANT_ID, {
+        rules: { reservationLastSeatingBufferMinutes: 60 },
+        expectedRevisions: { rules: snapshot.revisions!.rules },
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'STALE_WRITE' });
+
     await waitFor(() => expect(fetchSpy).not.toHaveBeenCalled());
     fetchSpy.mockRestore();
   });

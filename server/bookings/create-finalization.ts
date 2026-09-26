@@ -13,6 +13,9 @@ type InlineAutoAssignRunner = typeof runBookingCreateInlineAutoAssign;
 type SideEffectsDispatcher = typeof dispatchBookingCreatedSideEffects;
 type AutoAssignRetryScheduler = typeof scheduleBookingCreateAutoAssignRetry;
 
+/** Statuses that mean the booking is still waiting for a table. */
+const REPLAY_AUTO_ASSIGN_STATUSES: ReadonlySet<string> = new Set(['pending', 'pending_allocation']);
+
 type FinalizationClient = Parameters<AuditDispatcher>[0]['client'] &
   Parameters<InlineAutoAssignRunner>[0]['client'] &
   Parameters<SideEffectsDispatcher>[0]['client'];
@@ -61,8 +64,8 @@ export async function finalizeBookingCreateCommit({
   if (reusedExisting) {
     // Idempotent replay: the booking committed on an earlier request, whose side
     // effects may have failed or never run. Re-ensure them; they are keyed per
-    // booking and effect type, so nothing is sent twice. Audit, inline
-    // auto-assign and its retry already ran for the original request.
+    // booking and effect type, so nothing is sent twice. Audit and the inline
+    // auto-assign belong to the original request and are not repeated.
     try {
       await sideEffectsDispatcher({
         booking: finalBooking,
@@ -75,6 +78,24 @@ export async function finalizeBookingCreateCommit({
       });
     } catch (error) {
       onSideEffectsError?.(error);
+    }
+
+    // If the original process died after the insert, its background auto-assign
+    // never ran and the booking would stay unallocated. The replay reads the
+    // current row, so a booking that is still awaiting allocation gets the
+    // background job again. The job re-reads the booking before every attempt
+    // and exits once it is confirmed with tables (or cancelled), so a second
+    // run alongside a still-live original cannot double-assign.
+    if (REPLAY_AUTO_ASSIGN_STATUSES.has(String(finalBooking.status))) {
+      try {
+        await autoAssignRetryScheduler({
+          autoAssignEnabled,
+          bookingId: finalBooking.id,
+          bookingStatus: finalBooking.status,
+        });
+      } catch (error) {
+        onAutoAssignError?.(error);
+      }
     }
     return { booking: finalBooking };
   }

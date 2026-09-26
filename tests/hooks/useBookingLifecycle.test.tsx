@@ -399,10 +399,17 @@ describe('useBookingLifecycle', () => {
       outcome = await result.current.run(vars('undo-no-show'));
     });
 
-    expect(outcome).toMatchObject({ status: 'done' });
+    // The replayed 409 cannot say whether the first undo restored the tables, so the result says
+    // 'unknown' and staff are told to check for a table instead of being told it succeeded cleanly.
+    expect(outcome).toMatchObject({
+      status: 'done',
+      result: { status: 'confirmed', tableRestoration: { status: 'unknown', tableIds: [] } },
+    });
     expect(summaryRow(queryClient, 'b1')?.status).toBe('confirmed');
     expect(notify.error).not.toHaveBeenCalled();
-    expect(notify.success).toHaveBeenCalledWith('Undo no-show: Ada');
+    expect(notify.success).toHaveBeenCalledWith(
+      'No-show undone for Ada. Tables were not restored, so assign a table.',
+    );
     expect(bookingService.getBooking).not.toHaveBeenCalled();
   });
 

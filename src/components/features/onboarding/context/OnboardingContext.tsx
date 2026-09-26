@@ -49,6 +49,7 @@ const DEFAULT_STATE: OnboardingState = {
   servicePeriods: [],
   zones: [],
   tables: [],
+  layoutRevision: null,
   loading: false,
   error: null,
 };
@@ -62,6 +63,7 @@ type Action =
   | { type: 'SET_SERVICE_PERIODS'; periods: ServicePeriod[] }
   | { type: 'SET_ZONES'; zones: Zone[] }
   | { type: 'SET_TABLES'; tables: TableInventoryItem[] }
+  | { type: 'SET_LAYOUT'; layout: OnboardingLayoutState }
   | { type: 'SET_LOADING'; value: boolean }
   | { type: 'SET_ERROR'; message: string | null }
   | { type: 'RESET'; initial?: Partial<OnboardingState> };
@@ -84,6 +86,13 @@ function reducer(state: OnboardingState, action: Action): OnboardingState {
       return { ...state, zones: action.zones };
     case 'SET_TABLES':
       return { ...state, tables: action.tables };
+    case 'SET_LAYOUT':
+      return {
+        ...state,
+        zones: action.layout.zones,
+        tables: action.layout.tables,
+        layoutRevision: action.layout.layoutRevision,
+      };
     case 'SET_LOADING':
       return { ...state, loading: action.value };
     case 'SET_ERROR':
@@ -129,6 +138,7 @@ function sanitizePersistedState(value: unknown): Partial<OnboardingState> {
     ...source,
     account: redactAccountDetails(source.account),
     step: isOnboardingStep(source.step) ? source.step : DEFAULT_STATE.step,
+    layoutRevision: typeof source.layoutRevision === 'string' ? source.layoutRevision : null,
     loading: false,
     error: null,
   };
@@ -180,6 +190,9 @@ export function clearPersistedOnboardingDraft() {
   }
 }
 
+/** Zones, tables and the revision they were read at; always replaced together. */
+export type OnboardingLayoutState = Pick<OnboardingState, 'zones' | 'tables' | 'layoutRevision'>;
+
 export type OnboardingContextValue = {
   state: OnboardingState;
   setStep: (step: OnboardingStep) => void;
@@ -190,6 +203,8 @@ export type OnboardingContextValue = {
   setServicePeriods: (periods: ServicePeriod[]) => void;
   setZones: (zones: Zone[]) => void;
   setTables: (tables: TableInventoryItem[]) => void;
+  /** Stores a server layout (save result or snapshot) together with its revision. */
+  setLayout: (layout: OnboardingLayoutState) => void;
   setLoading: (value: boolean) => void;
   setError: (message: string | null) => void;
   reset: (initial?: Partial<OnboardingState>) => void;
@@ -233,6 +248,7 @@ export function OnboardingProvider({
       setServicePeriods: (periods) => dispatch({ type: 'SET_SERVICE_PERIODS', periods }),
       setZones: (zones) => dispatch({ type: 'SET_ZONES', zones }),
       setTables: (tables) => dispatch({ type: 'SET_TABLES', tables }),
+      setLayout: (layout) => dispatch({ type: 'SET_LAYOUT', layout }),
       setLoading: (value) => dispatch({ type: 'SET_LOADING', value }),
       setError: (message) => dispatch({ type: 'SET_ERROR', message }),
       reset: (initial) => dispatch({ type: 'RESET', initial }),

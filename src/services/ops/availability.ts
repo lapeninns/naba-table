@@ -32,16 +32,31 @@ export type AvailabilityRulesPayload = Partial<
   >
 >;
 
+/** The sections of the availability command; each has its own content revision. */
+export type AvailabilitySection = 'hours' | 'servicePeriods' | 'turnBands' | 'rules';
+
+export const AVAILABILITY_SECTIONS: readonly AvailabilitySection[] = [
+  'hours',
+  'servicePeriods',
+  'turnBands',
+  'rules',
+];
+
+export type AvailabilitySectionRevisions = Record<AvailabilitySection, string>;
+
 /**
  * One save of the restaurant-owned availability. Each part present replaces that resource;
- * absent parts are untouched. `expectedRevision` makes the save fail with 409 `STALE_WRITE` when
- * someone else saved since it was loaded.
+ * absent parts are untouched. `expectedRevisions` makes the save fail with 409 `STALE_WRITE` when
+ * someone else saved one of the sections it writes since it was loaded; saves of other sections
+ * do not conflict. `expectedRevision` (whole page) is the older, coarser precondition, used only
+ * when `expectedRevisions` is absent.
  */
 export type AvailabilityCommandPayload = {
   hours?: Pick<OperatingHoursSnapshot, 'weekly' | 'overrides'>;
   servicePeriods?: ServicePeriodRow[];
   turnBands?: TurnBandsPayload;
   rules?: AvailabilityRulesPayload;
+  expectedRevisions?: Partial<AvailabilitySectionRevisions>;
   expectedRevision?: string;
 };
 
@@ -60,7 +75,10 @@ export type AvailabilityRulesSnapshot = {
  */
 export type AvailabilitySnapshot = {
   restaurantId: string;
+  /** Whole-page revision. */
   revision: string;
+  /** Per-section revisions; absent only from a server that predates them. */
+  revisions?: AvailabilitySectionRevisions;
   hours: OperatingHoursSnapshot;
   servicePeriods: ServicePeriodRow[];
   turnBands: TurnBandsSnapshot;
@@ -138,8 +156,8 @@ function contentRevision(value: unknown): string {
 /**
  * An {@link AvailabilityService} composed from a `RestaurantService` (the dev harness's in-memory
  * one). Not transactional: it exists so the Availability page works against mocks. It keeps the
- * command's contract (only the parts sent are written; a stale `expectedRevision` is refused
- * with 409 `STALE_WRITE`) so the page behaves as it does against the real route.
+ * command's contract (only the parts sent are written; a stale revision of a section it writes,
+ * or a stale whole-page `expectedRevision`, is refused with 409 `STALE_WRITE`) so the page behaves as it does against the real route.
  */
 export function createRestaurantServiceAvailability(
   service: RestaurantService,
@@ -162,22 +180,37 @@ export function createRestaurantServiceAvailability(
       bookingPolicy: profile.bookingPolicy ?? null,
       updatedAt: profile.updatedAt ?? null,
     };
-    const revision = contentRevision({
-      weekly: hours.weekly,
-      overrides: hours.overrides,
-      servicePeriods: servicePeriods.map(({ updatedAt: _updatedAt, ...row }) => row),
-      bands: turnBands.bands,
-      rules: { ...rules, updatedAt: null },
-    });
-    return { restaurantId, revision, hours, servicePeriods, turnBands, rules };
+    const revisions: AvailabilitySectionRevisions = {
+      hours: contentRevision({ weekly: hours.weekly, overrides: hours.overrides }),
+      servicePeriods: contentRevision(
+        servicePeriods.map(({ updatedAt: _updatedAt, ...row }) => row),
+      ),
+      turnBands: contentRevision(turnBands.bands),
+      rules: contentRevision({ ...rules, updatedAt: null }),
+    };
+    const revision = contentRevision(revisions);
+    return { restaurantId, revision, revisions, hours, servicePeriods, turnBands, rules };
+  }
+
+  function isStale(current: AvailabilitySnapshot, payload: AvailabilityCommandPayload): boolean {
+    const expected = payload.expectedRevisions;
+    if (expected) {
+      return AVAILABILITY_SECTIONS.some(
+        (section) =>
+          payload[section] !== undefined &&
+          expected[section] !== undefined &&
+          expected[section] !== current.revisions?.[section],
+      );
+    }
+    return Boolean(payload.expectedRevision) && payload.expectedRevision !== current.revision;
   }
 
   return {
     getAvailability: read,
     async saveAvailability(restaurantId, payload) {
-      if (payload.expectedRevision) {
+      if (payload.expectedRevisions || payload.expectedRevision) {
         const current = await read(restaurantId);
-        if (current.revision !== payload.expectedRevision) {
+        if (isStale(current, payload)) {
           throw new HttpError({
             status: 409,
             code: 'STALE_WRITE',

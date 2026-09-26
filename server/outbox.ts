@@ -33,6 +33,7 @@ export type OutboxEnqueueResult =
 export type OutboxBatchSummary = {
   processed: number;
   failed: number;
+  /** Dead-lettered this batch: by the claim (attempts used up) or by a failed last attempt. */
   dead: number;
   pending: number;
   error?: 'CLAIM_FAILED';
@@ -167,7 +168,8 @@ export async function processOutboxBatch(params?: {
     p_limit: limit,
     p_lease_seconds: leaseSeconds,
     // Rows whose attempts are used up (the worker kept dying before settling) are
-    // dead-lettered by the claim instead of being re-claimed forever.
+    // dead-lettered by the claim instead of being re-claimed forever. The claim
+    // returns them with status 'dead' so they are counted here.
     p_max_attempts: OUTBOX_MAX_ATTEMPTS,
   });
 
@@ -176,14 +178,30 @@ export async function processOutboxBatch(params?: {
     return { processed: 0, failed: 0, dead: 0, pending: 0, error: 'CLAIM_FAILED' };
   }
 
-  const rows: OutboxRow[] = Array.isArray(data) ? data : [];
-  if (rows.length === 0) {
+  const returned: OutboxRow[] = Array.isArray(data) ? data : [];
+  if (returned.length === 0) {
     return { processed: 0, failed: 0, dead: 0, pending: 0 };
   }
 
   let processed = 0;
   let failed = 0;
   let dead = 0;
+
+  // Only 'processing' rows are this worker's to handle. 'dead' rows were
+  // dead-lettered by the claim itself and are already final.
+  const rows: OutboxRow[] = [];
+  for (const row of returned) {
+    if (row.status === 'dead') {
+      dead += 1;
+      logger.warn('[outbox] dead-lettered by claim', {
+        outboxId: row.id,
+        eventType: row.event_type,
+        attempts: row.attempt_count,
+      });
+      continue;
+    }
+    rows.push(row);
+  }
 
   for (const row of rows) {
     try {

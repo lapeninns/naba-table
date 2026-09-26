@@ -55,6 +55,17 @@ export async function GET(request: Request): Promise<NextResponse> {
           { status: 503 },
         );
       }
+      if (summary.dead > 0) {
+        // Dead letters need an operator: they will not be retried.
+        logger.warn('Capacity outbox drain dead-lettered events.', {
+          source: 'cron.capacity-outbox',
+          runId: auth.runId,
+          dead: summary.dead,
+          processed: summary.processed,
+          failed: summary.failed,
+          batches: summary.batches,
+        });
+      }
       return NextResponse.json({ success: true, runId: auth.runId, limit, ...summary });
     } catch (error) {
       logger.error('Capacity outbox drain failed.', {

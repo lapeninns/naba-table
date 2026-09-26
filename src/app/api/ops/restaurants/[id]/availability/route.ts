@@ -39,6 +39,8 @@ const rulesSchema = updateRestaurantSchema
   })
   .strict();
 
+const revisionSchema = z.string().regex(/^[0-9a-f]{32}$/, 'Revision must come from this page.');
+
 /**
  * PUT body. Each part present replaces that resource; absent parts are untouched. Parts are
  * validated with the same schemas as the single-resource routes.
@@ -49,9 +51,16 @@ const commandSchema = z
     servicePeriods: servicePeriodsPayloadSchema.optional(),
     turnBands: turnBandsPayloadSchema.optional(),
     rules: rulesSchema.optional(),
-    expectedRevision: z
-      .string()
-      .regex(/^[0-9a-f]{32}$/, 'Revision must come from this page.')
+    expectedRevision: revisionSchema.optional(),
+    /** Per-section revisions; only the sections this save writes are checked. */
+    expectedRevisions: z
+      .object({
+        hours: revisionSchema.optional(),
+        servicePeriods: revisionSchema.optional(),
+        turnBands: revisionSchema.optional(),
+        rules: revisionSchema.optional(),
+      })
+      .strict()
       .optional(),
   })
   .strict()

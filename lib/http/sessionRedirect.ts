@@ -2,14 +2,25 @@
 
 export const SESSION_EXPIRED_EVENT = 'session:expired';
 
+// `/guest/bookings/<id>` and `/guest/bookings/<id>/receipt`: the same booking
+// page gate as `/bookings/<id>`, reachable with the booking cookie alone (they
+// are in the recover route's `next` allow-list).
+const GUEST_BOOKING_COOKIE_PAGE = /^\/guest\/bookings\/[^/]+(?:\/receipt)?\/?$/;
+
 /**
- * The public guest booking pages (`/bookings`, `/bookings/<id>`, `/bookings/find`).
- * Guests there hold an emailed booking link, not an account: a 401 means the link
- * cookie expired, and the page offers a new link, so a sign-in redirect is wrong.
- * `/guest/**` (signed-in guests) and `/app/**` (ops) keep the sign-in redirect.
+ * Pages a guest can reach with an emailed booking link instead of an account:
+ * the public `/bookings`, `/bookings/<id>`, `/bookings/find`, plus the
+ * `/guest/bookings/<id>` detail and receipt pages. A 401 there means the link
+ * cookie expired and the page offers a new link, so a sign-in redirect is
+ * wrong. The rest of `/guest/**` (signed-in guests, including the
+ * `/guest/bookings` list) and `/app/**` (ops) keep the sign-in redirect.
  */
 export function isGuestBookingLinkPath(pathname: string): boolean {
-  return pathname === '/bookings' || pathname.startsWith('/bookings/');
+  return (
+    pathname === '/bookings' ||
+    pathname.startsWith('/bookings/') ||
+    GUEST_BOOKING_COOKIE_PAGE.test(pathname)
+  );
 }
 
 /** Whether a 401 from the current page should send the browser to sign-in. */

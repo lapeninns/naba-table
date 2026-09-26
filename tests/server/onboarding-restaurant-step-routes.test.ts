@@ -11,6 +11,7 @@ const createZoneMock = vi.hoisted(() => vi.fn());
 const insertTableMock = vi.hoisted(() => vi.fn());
 const getOnboardingReadinessMock = vi.hoisted(() => vi.fn());
 const replaceOnboardingLayoutMock = vi.hoisted(() => vi.fn());
+const loadOnboardingLayoutMock = vi.hoisted(() => vi.fn());
 const updateOnboardingProfileMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
@@ -69,7 +70,11 @@ vi.mock('@/server/onboarding/readiness', () => ({
 // Keep the real error classes; stub only the RPC-backed writer.
 vi.mock('@/server/onboarding/layout', async () => {
   const actual = await vi.importActual<typeof OnboardingLayoutModule>('@/server/onboarding/layout');
-  return { ...actual, replaceOnboardingLayout: replaceOnboardingLayoutMock };
+  return {
+    ...actual,
+    replaceOnboardingLayout: replaceOnboardingLayoutMock,
+    loadOnboardingLayout: loadOnboardingLayoutMock,
+  };
 });
 
 // Keep the real error class; stub only the writer.
@@ -83,15 +88,20 @@ vi.mock('@/server/onboarding/profile', async () => {
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import {
+  OnboardingLayoutChangedError,
   OnboardingLayoutInvalidError,
   OnboardingLayoutLockedError,
+  OnboardingLayoutRestaurantNotFoundError,
   OnboardingLayoutWriteError,
 } from '@/server/onboarding/layout';
 import { OnboardingSlugTakenError } from '@/server/onboarding/profile';
 import { MembershipAccessError } from '@/server/team/access';
 import { POST as completePOST } from '@/src/app/api/onboarding/restaurant/[id]/complete/route';
 import { PATCH as hoursPATCH } from '@/src/app/api/onboarding/restaurant/[id]/hours/route';
-import { PUT as layoutPUT } from '@/src/app/api/onboarding/restaurant/[id]/layout/route';
+import {
+  GET as layoutGET,
+  PUT as layoutPUT,
+} from '@/src/app/api/onboarding/restaurant/[id]/layout/route';
 import { PATCH as profilePATCH } from '@/src/app/api/onboarding/restaurant/[id]/profile/route';
 import { PATCH as servicePeriodsPATCH } from '@/src/app/api/onboarding/restaurant/[id]/service-periods/route';
 import { POST as tablesPOST } from '@/src/app/api/onboarding/restaurant/[id]/tables/route';
@@ -182,6 +192,7 @@ const STEPS: StepDefinition[] = [
         { tableNumber: 'T1', capacity: 2 },
         { tableNumber: 'T2', capacity: 4, zoneName: 'terrace' },
       ],
+      expectedRevision: 'rev-1',
     },
     invalidBody: { zones: [], tables: [{ tableNumber: 'T1', capacity: 0 }] },
   },
@@ -281,6 +292,7 @@ beforeEach(() => {
   insertTableMock.mockReset();
   getOnboardingReadinessMock.mockReset();
   replaceOnboardingLayoutMock.mockReset();
+  loadOnboardingLayoutMock.mockReset();
   updateOnboardingProfileMock.mockReset();
 
   getRouteHandlerSupabaseClientMock.mockResolvedValue(buildRouteHandlerClient());
@@ -652,6 +664,7 @@ describe('onboarding restaurant step routes happy paths', () => {
     const layout = {
       zones: [{ id: ZONE_A, name: 'Main Dining', sortOrder: 0, active: true }],
       tables: [],
+      revision: 'rev-2',
     };
     replaceOnboardingLayoutMock.mockResolvedValue(layout);
 
@@ -666,6 +679,7 @@ describe('onboarding restaurant step routes happy paths', () => {
         { tableNumber: 'T1', capacity: 2 },
         { tableNumber: 'T2', capacity: 4, zoneName: 'terrace' },
       ],
+      expectedRevision: 'rev-1',
     });
     expect(requireApiRateLimitMock).toHaveBeenCalledWith(
       expect.objectContaining({ scope: 'onboarding:layout', tenantId: RESTAURANT_ID }),
@@ -680,6 +694,7 @@ describe('onboarding restaurant step routes happy paths', () => {
           { tableNumber: 'T1', capacity: 2 },
           { tableNumber: 'T1', capacity: 2, zoneName: 'Garden' },
         ],
+        expectedRevision: null,
       }),
       routeContext(),
     );
@@ -702,6 +717,110 @@ describe('onboarding restaurant step routes happy paths', () => {
 
     expect(response.status).toBe(409);
     expect(body.code).toBe('ONBOARDING_LAYOUT_LOCKED');
+  });
+
+  it('requires the expected layout revision, so a client cannot do an unguarded replace @p1 @api @contract', async () => {
+    const withoutRevision: Record<string, unknown> = { ...(STEPS[5].validBody as object) };
+    delete withoutRevision.expectedRevision;
+
+    const response = await layoutPUT(stepRequest(STEPS[5], withoutRevision), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields).toHaveProperty('expectedRevision');
+    expect(replaceOnboardingLayoutMock).not.toHaveBeenCalled();
+  });
+
+  it('passes a null revision through as "no layout expected yet" @p2 @api', async () => {
+    replaceOnboardingLayoutMock.mockResolvedValue({ zones: [], tables: [], revision: 'rev-1' });
+
+    const response = await layoutPUT(
+      stepRequest(STEPS[5], { ...(STEPS[5].validBody as object), expectedRevision: null }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(replaceOnboardingLayoutMock).toHaveBeenCalledWith(
+      SERVICE_CLIENT,
+      RESTAURANT_ID,
+      expect.objectContaining({ expectedRevision: null }),
+    );
+  });
+
+  it('maps a stale layout revision to 409 ONBOARDING_LAYOUT_CHANGED @p1 @api @contract', async () => {
+    replaceOnboardingLayoutMock.mockRejectedValue(new OnboardingLayoutChangedError());
+
+    const response = await layoutPUT(stepRequest(STEPS[5], STEPS[5].validBody), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('ONBOARDING_LAYOUT_CHANGED');
+    expect(body.error).toMatch(/changed somewhere else/);
+  });
+
+  it('GET returns the current layout and revision for a restaurant admin @p1 @api', async () => {
+    const layout = {
+      zones: [{ id: ZONE_A, name: 'Main Dining', sortOrder: 0, active: true }],
+      tables: [],
+      revision: 'rev-9',
+    };
+    loadOnboardingLayoutMock.mockResolvedValue(layout);
+
+    const response = await layoutGET(
+      new NextRequest(
+        `https://app.nabatable.com/api/onboarding/restaurant/${RESTAURANT_ID}/layout`,
+      ),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    await expect(response.json()).resolves.toEqual({ data: layout });
+    expect(loadOnboardingLayoutMock).toHaveBeenCalledWith(SERVICE_CLIENT, RESTAURANT_ID);
+    expect(requireMembershipForRestaurantMock).toHaveBeenCalledWith(
+      expect.objectContaining({ restaurantId: RESTAURANT_ID }),
+    );
+  });
+
+  it('GET refuses a non-member and never reads the layout @p1 @api @security', async () => {
+    requireMembershipForRestaurantMock.mockRejectedValue(
+      new MembershipAccessError({
+        status: 403,
+        code: 'MEMBERSHIP_NOT_FOUND',
+        message: 'Membership not found',
+      }),
+    );
+
+    const response = await layoutGET(
+      new NextRequest(
+        `https://app.nabatable.com/api/onboarding/restaurant/${RESTAURANT_ID}/layout`,
+      ),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(403);
+    expect(loadOnboardingLayoutMock).not.toHaveBeenCalled();
+  });
+
+  it('GET maps a missing restaurant to 404 and hides unexpected failures @p2 @api @security', async () => {
+    loadOnboardingLayoutMock.mockRejectedValueOnce(new OnboardingLayoutRestaurantNotFoundError());
+    const missing = await layoutGET(
+      new NextRequest(
+        `https://app.nabatable.com/api/onboarding/restaurant/${RESTAURANT_ID}/layout`,
+      ),
+      routeContext(),
+    );
+    expect(missing.status).toBe(404);
+
+    loadOnboardingLayoutMock.mockRejectedValueOnce(new OnboardingLayoutWriteError('XX000'));
+    const failed = await layoutGET(
+      new NextRequest(
+        `https://app.nabatable.com/api/onboarding/restaurant/${RESTAURANT_ID}/layout`,
+      ),
+      routeContext(),
+    );
+    expect(failed.status).toBe(500);
+    expect((await failed.json()).code).toBe('INTERNAL_ERROR');
   });
 
   it('maps a database payload rejection to 400 and hides the reason @p2 @api', async () => {

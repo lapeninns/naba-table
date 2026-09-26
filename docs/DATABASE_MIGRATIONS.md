@@ -47,8 +47,14 @@ first wherever a note says so.
    `create_booking_with_capacity_check`. Existing duplicate keys are nulled (earliest row
    keeps its key) and recorded in `booking_idempotency_key_dedupe_audit`. The migration adds
    the unique partial index `bookings_restaurant_idempotency_key_unique`, an
-   `ON CONFLICT` insert, `IDEMPOTENCY_KEY_REUSED` and derived-key release. It locks
-   `bookings` (SHARE ROW EXCLUSIVE) while the index builds.
+   `ON CONFLICT` insert, `IDEMPOTENCY_KEY_REUSED` (a reused key whose customer, date, start,
+   party size, booking type, seating preference or notes differ) and derived-key release.
+   It locks `bookings` (SHARE ROW EXCLUSIVE) only for the dedupe and the index build, with
+   `lock_timeout = 5s` and `statement_timeout = 60s`: if a long transaction holds
+   `bookings`, it rolls back after 5 s instead of stalling booking writes, so re-run it at a
+   quieter time. Measured locally at 200,000 bookings: writes wait about 0.3 s (allow about
+   10x on a hosted instance). `CREATE INDEX CONCURRENTLY` cannot be used, because
+   `supabase db push` runs each file in one transaction.
    - Verify: `tests/db/booking-create-idempotency.sql`.
    - Rollback: re-apply the body from `20260124_fix_booking_rpc_day_of_week.sql`, then
      `DROP INDEX public.bookings_restaurant_idempotency_key_unique;`. To restore the old keys,
@@ -169,15 +175,25 @@ first wherever a note says so.
     - Verify: `tests/db/booking-email-intent-settle-generation.sql`.
     - Rollback: redeploy the previous build, then
       `DROP FUNCTION IF EXISTS public.settle_booking_email_intent_v2(uuid, uuid, text, bigint, text, integer);`.
-20. `20260927250000_backfill_booking_owner_binding.sql` (**data backfill**): links each existing
-    unlinked booking to the single confirmed, non-anonymous auth user with the same normalized
-    email. This keeps signed-in guests' pre-release bookings in "My bookings", which on `main`
-    matched by email. Every link is recorded in `booking_owner_backfill_audit` (service-role
-    SELECT only, RLS on). Requires 200100.
+20. `20260927250000_backfill_booking_owner_binding.sql` (**operator-run data backfill**):
+    creates `booking_owner_backfill_audit` (service-role SELECT only, RLS on) and the
+    operator-only `backfill_booking_owner_binding_v1()`. **Applying the migration links
+    nothing.** The function links each existing unlinked booking to the single confirmed,
+    non-anonymous auth user with the same normalized email, which keeps signed-in guests'
+    pre-release bookings in "My bookings" (on `main` it matched by email). Requires 200100.
+    - **Run the backfill only after this check, per project:** in the Supabase dashboard,
+      Authentication → Providers → Email → "Confirm email" is **enabled** (GoTrue
+      `mailer_autoconfirm` is off). Then, as the database owner:
+      `select public.backfill_booking_owner_binding_v1();`. With autoconfirm on,
+      `email_confirmed_at` does not prove mailbox ownership, so an account registered with
+      someone else's email would be linked to their bookings and could cancel them. **If the
+      check fails or is unclear, skip the backfill.** Guests then re-link a booking by opening
+      its emailed link.
     - Pre-flight: run the read-only count query in the file header first, and record
       `bookings_to_link`.
-    - Verify: `tests/db/booking-owner-backfill.sql`. After applying, the audit row count equals
-      the pre-flight count, and the header's mismatch queries return 0.
+    - Verify: `tests/db/booking-owner-backfill.sql` (it calls the function explicitly). After
+      the operator run, the audit row count equals the pre-flight count, and the header's
+      mismatch queries return 0. If the backfill was skipped, the audit table stays empty.
     - Rollback: null exactly the audited links that still carry the audited user, then drop
       `backfill_booking_owner_binding_v1(uuid)` and the audit table (SQL in the file header).
 

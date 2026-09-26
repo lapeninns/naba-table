@@ -8,7 +8,16 @@ import { queryKeys } from '@/lib/query/keys';
 
 import { useBookingLifecycle, type BookingLifecycleAction } from './useBookingLifecycle';
 
+import type { LifecycleResponse } from '@/services/ops/bookings';
+
+export { undoNoShowCopy, undoNoShowNeedsTable } from './useBookingLifecycle';
+
 export type FloorPlanLifecycleAction = 'check-in' | 'complete' | 'no-show' | 'undo-no-show';
+
+/** `queued`: offline, runs on reconnect. `done` carries the server response (table restoration). */
+export type FloorPlanLifecycleOutcome =
+  | { status: 'done'; result: LifecycleResponse }
+  | { status: 'queued' };
 
 const TO_LIFECYCLE: Record<FloorPlanLifecycleAction, BookingLifecycleAction> = {
   'check-in': 'check-in',
@@ -69,11 +78,15 @@ export function useOpsFloorPlanLifecycle({
   }, [pendingActions]);
 
   /**
-   * Resolves 'queued' when the device is offline (the action runs on reconnect, so callers must
-   * not report it as done). Rejects with the server error when the action fails.
+   * Resolves `queued` when the device is offline (the action runs on reconnect, so callers must
+   * not report it as done), or `done` with the server response. Rejects with the server error when
+   * the action fails.
    */
   const run = useCallback(
-    async (action: FloorPlanLifecycleAction, bookingId: string): Promise<'done' | 'queued'> => {
+    async (
+      action: FloorPlanLifecycleAction,
+      bookingId: string,
+    ): Promise<FloorPlanLifecycleOutcome> => {
       if (!restaurantId) throw new Error('Restaurant id is required');
       const outcome = await runLifecycle({
         action: TO_LIFECYCLE[action],
@@ -87,7 +100,7 @@ export function useOpsFloorPlanLifecycle({
           queryKey: queryKeys.opsTables.timelinePrefix(restaurantId),
         });
       }
-      return outcome.status;
+      return outcome;
     },
     [date, queryClient, restaurantId, runLifecycle],
   );

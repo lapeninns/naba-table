@@ -3,7 +3,8 @@
 -- Adds transactional RPCs for the canonical menu hierarchy so that multi-row writes are atomic
 -- and ordering is computed on the server:
 --   * create_restaurant_menu_item_v1        item + extensions (+ options) in one transaction,
---                                          optional per-restaurant idempotency key, server-side
+--                                          optional per-restaurant idempotency key bound to a
+--                                          fingerprint of the request payload, server-side
 --                                          display_order (max + 1) when none is supplied.
 --   * update_restaurant_menu_item_v1        item + extensions in one transaction. Accepts full
 --                                          replacement values and shallow jsonb merge patches
@@ -24,8 +25,12 @@
 --   23505 unique violations (for example restaurant_id + external_item_id) pass through.
 --
 -- Schema change: restaurant_menu_items.create_idempotency_key (nullable text) with a partial
--- unique index on (restaurant_id, create_idempotency_key). New column, so no existing row can
--- conflict; no data is rewritten.
+-- unique index on (restaurant_id, create_idempotency_key), and
+-- restaurant_menu_items.create_request_fingerprint (nullable text): md5 of the normalised jsonb
+-- create payload (item + extensions + options). A retry with the same key replays the original
+-- item only when the fingerprint matches; an edited payload under the same key is refused with
+-- menu_idempotency_key_reused (the route answers 409 IDEMPOTENCY_KEY_REUSED). New columns, so no
+-- existing row can conflict; no data is rewritten.
 --
 -- Every function is SECURITY DEFINER with a pinned search_path and is executable by
 -- service_role only, like delete_restaurant_menu_hierarchy.
@@ -41,12 +46,16 @@
 --   DROP FUNCTION IF EXISTS public.restaurant_menu_item_snapshot_v1(uuid, uuid);
 --   DROP FUNCTION IF EXISTS public.restaurant_menu_order_matches_v1(uuid[], uuid[]);
 --   DROP INDEX IF EXISTS public.restaurant_menu_items_create_idempotency_key_idx;
+--   ALTER TABLE public.restaurant_menu_items DROP COLUMN IF EXISTS create_request_fingerprint;
 --   ALTER TABLE public.restaurant_menu_items DROP COLUMN IF EXISTS create_idempotency_key;
 -- The application falls back to nothing: roll the app back first (the previous repository did
 -- not call these functions).
 
 ALTER TABLE public.restaurant_menu_items
   ADD COLUMN IF NOT EXISTS create_idempotency_key text;
+
+ALTER TABLE public.restaurant_menu_items
+  ADD COLUMN IF NOT EXISTS create_request_fingerprint text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS restaurant_menu_items_create_idempotency_key_idx
   ON public.restaurant_menu_items (restaurant_id, create_idempotency_key)
@@ -83,7 +92,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   SELECT jsonb_build_object(
-    'item', to_jsonb(i) - 'create_idempotency_key',
+    'item', to_jsonb(i) - 'create_idempotency_key' - 'create_request_fingerprint',
     'extension', (
       SELECT to_jsonb(e)
       FROM public.restaurant_menu_item_extensions e
@@ -129,6 +138,7 @@ DECLARE
   v_extensions jsonb := coalesce(p_extensions, '{}'::jsonb);
   v_options jsonb := coalesce(p_options, '[]'::jsonb);
   v_category text;
+  v_fingerprint text;
 BEGIN
   IF p_item IS NULL OR jsonb_typeof(p_item) <> 'object'
     OR jsonb_typeof(v_extensions) <> 'object'
@@ -141,6 +151,12 @@ BEGIN
     AND (btrim(p_idempotency_key) = '' OR length(p_idempotency_key) > 200) THEN
     RAISE EXCEPTION 'menu_invalid_argument' USING ERRCODE = '22023';
   END IF;
+
+  -- What this request asks for. jsonb text is normalised (sorted keys, no insignificant
+  -- whitespace), so the same draft always gives the same fingerprint.
+  v_fingerprint := md5(
+    jsonb_build_object('item', p_item, 'extensions', v_extensions, 'options', v_options)::text
+  );
 
   -- Locks the parent: validates tenant scope and serialises display_order allocation.
   SELECT * INTO v_section
@@ -208,7 +224,8 @@ BEGIN
       local_media,
       image_url,
       legacy_source,
-      create_idempotency_key
+      create_idempotency_key,
+      create_request_fingerprint
     )
     VALUES (
       p_restaurant_id,
@@ -230,7 +247,8 @@ BEGIN
       coalesce(p_item -> 'local_media', '{}'::jsonb),
       p_item ->> 'image_url',
       coalesce(p_item -> 'legacy_source', '{}'::jsonb),
-      p_idempotency_key
+      p_idempotency_key,
+      CASE WHEN p_idempotency_key IS NULL THEN NULL ELSE v_fingerprint END
     )
     ON CONFLICT (restaurant_id, create_idempotency_key)
       WHERE create_idempotency_key IS NOT NULL
@@ -293,9 +311,13 @@ BEGIN
     END IF;
   END IF;
 
+  -- A replay must be the same request: same parent and same payload. Anything else (the user
+  -- edited the draft after an ambiguous failure, or a client reused a key) is refused rather than
+  -- silently answered with the original item.
   IF v_replayed AND (
     v_item.menu_id IS DISTINCT FROM p_menu_id
     OR v_item.section_id IS DISTINCT FROM p_section_id
+    OR v_item.create_request_fingerprint IS DISTINCT FROM v_fingerprint
   ) THEN
     RAISE EXCEPTION 'menu_idempotency_key_reused' USING ERRCODE = 'P0001';
   END IF;

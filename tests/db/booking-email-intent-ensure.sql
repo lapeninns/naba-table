@@ -15,6 +15,10 @@ DECLARE
   v_again record;
   v_mod1 record;
   v_mod2 record;
+  v_rev_a record;
+  v_rev_b record;
+  v_rev_c record;
+  v_lock_key bigint;
   v_claimed public.email_dispatch_intents%ROWTYPE;
   v_status text;
   v_count bigint;
@@ -138,7 +142,68 @@ BEGIN
     RAISE EXCEPTION 'Superseding touched a sent modification email' USING ERRCODE = 'NB001';
   END IF;
 
-  IF has_function_privilege('authenticated', 'public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[])', 'EXECUTE')
+  -- Out-of-order arrival: modification A committed before B (older booking
+  -- revision), but B's intent was ensured first. A must not supersede B; it is
+  -- recorded as cancelled on arrival and B stays the one pending email.
+  SELECT * INTO v_rev_b FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'updated', 'nb-rev-b', NULL, 5, ARRAY['updated', 'modification_pending'],
+    TIMESTAMPTZ '2026-09-01 10:00:02+00');
+  SELECT * INTO v_rev_a FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'modification_pending', 'nb-rev-a', NULL, 5, ARRAY['updated', 'modification_pending'],
+    TIMESTAMPTZ '2026-09-01 10:00:01+00');
+  IF (SELECT status FROM public.email_dispatch_intents WHERE id = v_rev_b.intent_id) <> 'pending' THEN
+    RAISE EXCEPTION 'An older modification superseded a newer one' USING ERRCODE = 'NB001';
+  END IF;
+  IF v_rev_a.intent_status <> 'cancelled'
+     OR (SELECT status FROM public.email_dispatch_intents WHERE dedupe_key = 'nb-rev-a') <> 'cancelled' THEN
+    RAISE EXCEPTION 'A stale modification email was left sendable (%)', v_rev_a.intent_status USING ERRCODE = 'NB001';
+  END IF;
+  IF (SELECT payload->>'bookingRevision' FROM public.email_dispatch_intents WHERE id = v_rev_b.intent_id) IS NULL THEN
+    RAISE EXCEPTION 'The booking revision was not recorded on the intent' USING ERRCODE = 'NB001';
+  END IF;
+  -- Replaying the stale one changes nothing.
+  SELECT * INTO v_rev_a FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'modification_pending', 'nb-rev-a', NULL, 5, ARRAY['updated', 'modification_pending'],
+    TIMESTAMPTZ '2026-09-01 10:00:01+00');
+  IF v_rev_a.created OR v_rev_a.intent_status <> 'cancelled'
+     OR (SELECT status FROM public.email_dispatch_intents WHERE id = v_rev_b.intent_id) <> 'pending' THEN
+    RAISE EXCEPTION 'Replaying a stale modification email revived it or cancelled the newer one' USING ERRCODE = 'NB001';
+  END IF;
+  -- A caller without a revision cannot supersede a revisioned intent either.
+  PERFORM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'updated', 'nb-rev-none', NULL, 5, ARRAY['updated', 'modification_pending']);
+  IF (SELECT status FROM public.email_dispatch_intents WHERE id = v_rev_b.intent_id) <> 'pending'
+     OR (SELECT status FROM public.email_dispatch_intents WHERE dedupe_key = 'nb-rev-none') <> 'cancelled' THEN
+    RAISE EXCEPTION 'An unrevisioned modification superseded a revisioned one' USING ERRCODE = 'NB001';
+  END IF;
+  -- A genuinely newer revision still supersedes.
+  SELECT * INTO v_rev_c FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'updated', 'nb-rev-c', NULL, 5, ARRAY['updated', 'modification_pending'],
+    TIMESTAMPTZ '2026-09-01 10:00:03+00');
+  IF v_rev_c.intent_status <> 'pending'
+     OR (SELECT status FROM public.email_dispatch_intents WHERE id = v_rev_b.intent_id) <> 'cancelled'
+     OR (SELECT count(*) FROM public.email_dispatch_intents
+         WHERE booking_id = v_booking_id AND email_type IN ('updated', 'modification_pending')
+           AND status = 'pending') <> 1 THEN
+    RAISE EXCEPTION 'A newer revision did not supersede the older pending one' USING ERRCODE = 'NB001';
+  END IF;
+  -- Ensures are serialised per booking: the call holds the booking's transaction
+  -- advisory lock, so two concurrent ensures cannot interleave their stale check and
+  -- supersede.
+  v_lock_key := hashtextextended('ensure_booking_email_intent:' || v_booking_id::text, 0);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_locks AS lock
+    WHERE lock.locktype = 'advisory'
+      AND lock.pid = pg_backend_pid()
+      AND lock.granted
+      AND lock.classid = ((v_lock_key >> 32) & 4294967295)::bigint::oid
+      AND lock.objid = (v_lock_key & 4294967295)::bigint::oid
+      AND lock.objsubid = 1
+  ) THEN
+    RAISE EXCEPTION 'ensure_booking_email_intent did not take the per-booking lock' USING ERRCODE = 'NB001';
+  END IF;
+
+  IF has_function_privilege('authenticated', 'public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[], timestamptz)', 'EXECUTE')
      OR has_function_privilege('anon', 'public.claim_booking_email_intent(text, uuid)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public.settle_booking_email_intent(uuid, uuid, text, integer, text, integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Email intent functions are executable by an API role' USING ERRCODE = 'NB001';

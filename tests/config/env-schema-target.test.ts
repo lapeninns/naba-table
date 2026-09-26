@@ -80,7 +80,39 @@ describe('production env schema', () => {
     TURNSTILE_SECRET_KEY: 'turnstile-secret',
     AUTH_AUDIT_HASH_SECRET: 'auth-audit-secret',
     CRON_SECRET: 'cron-secret',
+    SESSION_RECOVERY_ACCESS_TOKEN_SECRET: 'booking-link-secret',
   };
+
+  it('requires the booking link secret for production targets @contract @security @local-only', () => {
+    const withoutSecret = Object.fromEntries(
+      Object.entries(productionEnv).filter(
+        ([key]) => key !== 'SESSION_RECOVERY_ACCESS_TOKEN_SECRET',
+      ),
+    );
+    const result = envSchemas.production.safeParse({
+      ...withoutSecret,
+      ALLOW_MEMORY_RATE_LIMIT_IN_PROD: 'true',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path.join('.'))).toContain(
+        'SESSION_RECOVERY_ACCESS_TOKEN_SECRET',
+      );
+    }
+  });
+
+  it('keeps the booking link secret optional for development and test targets @contract @local-only', () => {
+    const base = {
+      NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'anon',
+      SUPABASE_SERVICE_ROLE_KEY: 'service-role',
+    };
+    expect(envSchemas.development.safeParse({ ...base, NODE_ENV: 'development' }).success).toBe(
+      true,
+    );
+    expect(envSchemas.test.safeParse({ ...base, NODE_ENV: 'test' }).success).toBe(true);
+  });
 
   it('requires PostHog browser configuration for production targets @contract @local-only', () => {
     const input = Object.fromEntries(

@@ -7,7 +7,7 @@ const table = vi.hoisted(() => ({ rows: [] as Array<Record<string, unknown>> }))
 
 /**
  * A tiny in-memory `bookings` table: enough of the PostgREST builder for the
- * claim (`update().eq().eq().is()`) and for fetchMyBookingsPage (`select().eq()...range()`).
+ * claim (`update().eq().eq().is().select()`) and for fetchMyBookingsPage (`select().eq()...range()`).
  */
 vi.mock('@/server/supabase', () => {
   function updateChain(patch: Record<string, unknown>) {
@@ -17,12 +17,29 @@ vi.mock('@/server/supabase', () => {
         filters.push((row) => row[column] === value);
         return chain;
       },
-      async is(column: string, value: unknown) {
+      is(column: string, value: unknown) {
         filters.push((row) => (row[column] ?? null) === value);
+        const matched: Array<Record<string, unknown>> = [];
         for (const row of table.rows) {
-          if (filters.every((match) => match(row))) Object.assign(row, patch);
+          if (filters.every((match) => match(row))) {
+            Object.assign(row, patch);
+            matched.push(row);
+          }
         }
-        return { error: null };
+        const result = { error: null };
+        return {
+          // `await update()...is()` (no representation) still resolves like PostgREST.
+          then(resolve: (value: { error: null }) => unknown) {
+            return Promise.resolve(result).then(resolve);
+          },
+          // `.select('id')` returns the changed rows, as PostgREST does with Prefer: return=representation.
+          select(_columns: string) {
+            return Promise.resolve({
+              data: matched.map((row) => ({ id: row.id })),
+              error: null,
+            });
+          },
+        };
       },
     };
     return chain;
@@ -152,6 +169,32 @@ describe('bindCreatedBookingToSessionOwner', () => {
     });
     expect(after).toMatchObject({ ok: true, total: 1 });
     expect(after.ok && after.rows[0]?.id).toBe(booking.id);
+  });
+
+  it('does not report a bind when a concurrent claim won the conditional update (0 rows)', async () => {
+    const booking = newBooking();
+    // Another request bound the row after this booking object was read.
+    table.rows.push({ ...booking, auth_user_id: 'someone-else' });
+    const infoSpy = vi.spyOn(logger, 'info');
+
+    const result = await bindCreatedBookingToSessionOwner({
+      booking,
+      createOrigin: 'inserted',
+      isOpsWalkIn: false,
+      sessionUserResolver: async () => ({
+        id: USER_ID,
+        email: 'alex@example.com',
+        email_confirmed_at: CONFIRMED,
+      }),
+    });
+
+    expect(result).toBe(booking);
+    expect(result.auth_user_id).toBeNull();
+    expect(table.rows[0]?.auth_user_id).toBe('someone-else');
+    expect(infoSpy).not.toHaveBeenCalledWith(
+      'bookings.create.owner_binding.bound',
+      expect.anything(),
+    );
   });
 
   it.each([

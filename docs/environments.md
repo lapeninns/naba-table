@@ -27,6 +27,10 @@
   - `APP_ENV=production` but `NODE_ENV` is not `production`.
   - Non‑prod env uses production Supabase or booking API values matching `PRODUCTION_*` vars.
   - Production targets are missing `NEXT_PUBLIC_POSTHOG_KEY` or `NEXT_PUBLIC_POSTHOG_HOST`.
+  - Production targets (`APP_ENV=production` or `VERCEL_ENV=production`) are missing
+    `SESSION_RECOVERY_ACCESS_TOKEN_SECRET`, which signs guest booking links and the
+    `__Host-nt_bk.<bookingId>` cookie. Without it bookings still commit but guests can never
+    open or manage them. It stays optional for development, staging-as-development and test.
 - Override (not recommended): `ALLOW_PROD_RESOURCES_IN_NONPROD=true`.
 
 ### Retired variables

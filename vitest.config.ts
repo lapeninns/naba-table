@@ -105,6 +105,20 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsGoogleBusinessProfile.ts',
       ),
+      // The floor-plan controller imports these by alias (tests render it with them mocked).
+      '@/hooks/ops/useOpsFloorPlan': path.resolve(rootDir, 'src/hooks/ops/useOpsFloorPlan.ts'),
+      '@/hooks/ops/useOpsFloorPlanAssignments': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsFloorPlanAssignments.ts',
+      ),
+      '@/hooks/ops/useOpsFloorPlanLayout': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsFloorPlanLayout.ts',
+      ),
+      '@/hooks/ops/useOpsFloorPlanLifecycle': path.resolve(
+        rootDir,
+        'src/hooks/ops/useOpsFloorPlanLifecycle.ts',
+      ),
       '@/hooks/ops/useOpsDualSync': path.resolve(rootDir, 'src/hooks/ops/useOpsDualSync.ts'),
       '@/hooks/ops/useOpsTodaySummary': path.resolve(
         rootDir,
