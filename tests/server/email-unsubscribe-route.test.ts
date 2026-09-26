@@ -18,8 +18,8 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
 
-import { GET, POST } from '@/src/app/api/email/unsubscribe/route';
 import { createUnsubscribeToken } from '@/server/emails/unsubscribe-token';
+import { GET, POST } from '@/src/app/api/email/unsubscribe/route';
 
 const BASE = 'https://www.nabatable.com/api/email/unsubscribe';
 
@@ -72,6 +72,11 @@ describe('POST /api/email/unsubscribe (one-click)', () => {
     const res = await POST(new NextRequest(urlWithToken('garbage'), { method: 'POST' }));
 
     expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Invalid or expired unsubscribe link.',
+      code: 'INVALID_UNSUBSCRIBE_LINK',
+      message: 'Invalid or expired unsubscribe link.',
+    });
     expect(addEmailToSuppressionListMock).not.toHaveBeenCalled();
   });
 
@@ -80,14 +85,24 @@ describe('POST /api/email/unsubscribe (one-click)', () => {
     const res = await POST(new NextRequest(urlWithToken('anything'), { method: 'POST' }));
 
     expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'UNSUBSCRIBE_NOT_CONFIGURED',
+      retryable: true,
+    });
     expect(addEmailToSuppressionListMock).not.toHaveBeenCalled();
   });
 
   it('returns 500 when suppression storage fails', async () => {
-    addEmailToSuppressionListMock.mockRejectedValue(new Error('db down'));
+    addEmailToSuppressionListMock.mockRejectedValue(
+      new Error('SECRET_DB_DETAIL suppression insert failed for guest@example.com'),
+    );
     const res = await POST(new NextRequest(urlWithToken(validToken()), { method: 'POST' }));
 
     expect(res.status).toBe(500);
+    const text = await res.text();
+    expect(text).not.toContain('SECRET_DB_DETAIL');
+    expect(text).not.toContain('guest@example.com');
+    expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });
 

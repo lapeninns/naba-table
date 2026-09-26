@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 
 import config from '@/config';
-import { internalError } from '@/lib/api/errors';
+import { apiError, internalError } from '@/lib/api/errors';
 import { env } from '@/lib/env';
 import { sanitizeLogText } from '@/lib/logger';
 import { addEmailToSuppressionList } from '@/server/emails/email-suppression-list';
@@ -117,9 +117,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if ('error' in resolved) {
     if (resolved.error === 'not_configured') {
-      return NextResponse.json({ error: 'Unsubscribe not configured' }, { status: 503 });
+      return apiError(503, 'UNSUBSCRIBE_NOT_CONFIGURED', 'Unsubscribe not configured.', {
+        retryable: true,
+      });
     }
-    return NextResponse.json({ error: 'Invalid or expired unsubscribe link' }, { status: 400 });
+    return apiError(400, 'INVALID_UNSUBSCRIBE_LINK', 'Invalid or expired unsubscribe link.');
   }
 
   try {

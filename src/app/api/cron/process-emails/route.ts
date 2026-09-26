@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { logger } from '@/lib/logger';
+import { apiError, internalError, validationError } from '@/lib/api/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { recordObservabilityEvent } from '@/server/observability';
 import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
@@ -24,10 +25,12 @@ const JOB_NAME = 'process-emails';
 const MAX_EMAIL_DRAIN_JOBS = 100;
 const MAX_EMAIL_POST_JOBS = 25;
 const ALLOWED_TYPES: ReadonlySet<EmailJobType> = new Set(EMAIL_JOB_TYPE_VALUES);
+const MAX_REPORTED_INVALID_TYPES = 10;
+const MAX_REPORTED_TYPE_LENGTH = 64;
 
 function parseTypeFilter(typesParam: string | null): {
   types: Set<EmailJobType> | null;
-  error?: string;
+  invalidTypes?: string[];
 } {
   if (!typesParam) {
     return { types: null };
@@ -46,7 +49,9 @@ function parseTypeFilter(typesParam: string | null): {
   if (invalidTypes.length > 0) {
     return {
       types: null,
-      error: `Unsupported email types: ${invalidTypes.join(', ')}.`,
+      invalidTypes: invalidTypes
+        .slice(0, MAX_REPORTED_INVALID_TYPES)
+        .map((value) => value.slice(0, MAX_REPORTED_TYPE_LENGTH)),
     };
   }
 
@@ -62,17 +67,17 @@ export async function GET(request: Request) {
   await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, JOB_NAME, async (auth) => {
     const url = new URL(request.url);
-    const { types: allowedTypes, error: typesError } = parseTypeFilter(
-      url.searchParams.get('types'),
-    );
+    const { types: allowedTypes, invalidTypes } = parseTypeFilter(url.searchParams.get('types'));
     const maxJobsParam = url.searchParams.get('maxJobs');
     const requestedMaxJobs =
       typeof maxJobsParam === 'string' && maxJobsParam.trim().length > 0
         ? Number.parseInt(maxJobsParam, 10)
         : null;
     const maxJobs = clampLimit(requestedMaxJobs, MAX_EMAIL_DRAIN_JOBS);
-    if (typesError) {
-      return NextResponse.json({ error: typesError }, { status: 400 });
+    if (invalidTypes) {
+      return apiError(400, 'UNSUPPORTED_EMAIL_TYPES', 'Unsupported email types.', {
+        details: { invalidTypes, allowedTypes: EMAIL_JOB_TYPE_VALUES },
+      });
     }
 
     try {
@@ -161,7 +166,9 @@ export async function GET(request: Request) {
           route: ROUTE,
           jobName: auth.jobName,
           runId: auth.runId,
-          error: reconcileError instanceof Error ? reconcileError.message : String(reconcileError),
+          error: sanitizeLogText(
+            reconcileError instanceof Error ? reconcileError.message : String(reconcileError),
+          ),
         });
       }
 
@@ -192,21 +199,13 @@ export async function GET(request: Request) {
 
       return NextResponse.json({ ...result, channels, reconciliation: reconcileReport });
     } catch (error) {
-      logger.error('[cron][process-emails] Error:', {
-        route: ROUTE,
-        jobName: auth.jobName,
-        runId: auth.runId,
-        error,
-      });
       captureServerException(error, {
         properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cron email processing failed.',
-        },
-        { status: 500 },
+      return internalError(
+        error,
+        { route: ROUTE, method: 'GET', jobName: auth.jobName, runId: auth.runId },
+        'Cron email processing failed.',
       );
     }
   });
@@ -215,18 +214,19 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   await flushPosthogLogsAfterResponse();
   return requireCronAuthAndRun(request, `${JOB_NAME}:post`, async (auth) => {
+    let raw: unknown;
     try {
-      const raw = (await request.json()) as unknown;
+      raw = await request.json();
+    } catch {
+      // Malformed JSON is a caller error, not a processing failure (it used to surface as a 500).
+      return apiError(400, 'INVALID_REQUEST_BODY', 'Invalid request body.');
+    }
+
+    try {
       const parsed = processEmailJobsRequestSchema.safeParse(raw);
 
       if (!parsed.success) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: parsed.error.issues.map((issue) => issue.message).join('; '),
-          },
-          { status: 400 },
-        );
+        return validationError(parsed.error, 'Invalid email job batch.');
       }
 
       const jobs = parsed.data.jobs.slice(0, MAX_EMAIL_POST_JOBS);
@@ -266,21 +266,13 @@ export async function POST(request: Request) {
         results: result.results,
       });
     } catch (error) {
-      logger.error('[cron][process-emails] POST error:', {
-        route: ROUTE,
-        jobName: auth.jobName,
-        runId: auth.runId,
-        error,
-      });
       captureServerException(error, {
         properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Cron email processing failed.',
-        },
-        { status: 500 },
+      return internalError(
+        error,
+        { route: ROUTE, method: 'POST', jobName: auth.jobName, runId: auth.runId },
+        'Cron email processing failed.',
       );
     }
   });

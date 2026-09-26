@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { internalError } from '@/lib/api/errors';
+import { internalError, notFound } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
@@ -26,7 +26,7 @@ export async function GET() {
     }
 
     if (!data) {
-      return NextResponse.json({ error: 'Service policy not configured' }, { status: 404 });
+      return notFound('SERVICE_POLICY_NOT_CONFIGURED', 'Service policy not configured.');
     }
 
     return NextResponse.json({

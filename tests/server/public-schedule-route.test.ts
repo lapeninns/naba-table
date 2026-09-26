@@ -66,7 +66,13 @@ describe('public restaurant schedule route', () => {
     );
 
     expect(invalid.status).toBe(400);
+    await expect(invalid.json()).resolves.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      error: 'Invalid query parameters.',
+      fields: { date: expect.any(Array) },
+    });
     expect(farFuture.status).toBe(400);
+    await expect(farFuture.json()).resolves.toMatchObject({ code: 'BEYOND_BOOKING_HORIZON' });
     expect(getRestaurantBySlugMock).not.toHaveBeenCalled();
     expect(getRestaurantScheduleMock).not.toHaveBeenCalled();
   });
@@ -142,5 +148,43 @@ describe('public restaurant schedule route', () => {
       date: '2026-07-01',
     });
     expect(getGuestBookingScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it('returns RESTAURANT_NOT_FOUND for an unknown slug', async () => {
+    getRestaurantBySlugMock.mockResolvedValue(null);
+
+    const response = await GET(
+      new NextRequest('https://www.nabatable.com/api/restaurants/missing/schedule'),
+      { params: Promise.resolve({ slug: 'missing' }) },
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'RESTAURANT_NOT_FOUND',
+      error: 'Restaurant not found.',
+    });
+  });
+
+  it('returns a generic 500 without raw failure text when the schedule lookup throws', async () => {
+    getRestaurantBySlugMock.mockResolvedValue({ id: 'restaurant-1' });
+    getRestaurantScheduleMock.mockRejectedValue(
+      new Error('SECRET_DB_DETAIL relation restaurant_service_periods does not exist'),
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'https://www.nabatable.com/api/restaurants/the-bell/schedule?date=2026-10-01',
+      ),
+      { params: Promise.resolve({ slug: 'the-bell' }) },
+    );
+
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain('SECRET_DB_DETAIL');
+    expect(JSON.parse(text)).toEqual({
+      error: 'Unable to load schedule.',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to load schedule.',
+    });
   });
 });

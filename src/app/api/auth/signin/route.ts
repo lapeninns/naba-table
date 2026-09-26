@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
+  apiError,
+  fieldsFromIssues,
+  forbidden,
+  internalError,
+  rateLimited,
+} from '@/lib/api/errors';
+import {
   buildAuthCallbackUrl,
   defaultRedirectForHost,
   parseHostname,
@@ -9,7 +16,7 @@ import {
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
-import { logger } from '@/lib/logger';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { isMagicLinkDeliveryError, sendAuthMagicLink } from '@/server/auth/magic-link-email';
 import { recordMagicLinkSigninAudit } from '@/server/auth/signin-audit';
@@ -107,7 +114,8 @@ async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupSta
   if (profileError && profileError.code !== 'PGRST116') {
     logger.error('[Auth/signin] Failed to lookup profile for magic link', {
       route: ROUTE,
-      error: profileError.message,
+      errorKind: profileError.code,
+      error: sanitizeLogText(profileError.message),
     });
     return 'error';
   }
@@ -126,7 +134,8 @@ async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupSta
   if (userProfileError && userProfileError.code !== 'PGRST116') {
     logger.error('[Auth/signin] Failed to lookup user profile for magic link', {
       route: ROUTE,
-      error: userProfileError.message,
+      errorKind: userProfileError.code,
+      error: sanitizeLogText(userProfileError.message),
     });
     return 'error';
   }
@@ -137,7 +146,7 @@ async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupSta
 export async function POST(req: NextRequest) {
   try {
     if (!validateCsrfToken(req)) {
-      return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
+      return forbidden('CSRF_INVALID', 'Invalid or missing CSRF token.');
     }
 
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'localhost';
@@ -157,16 +166,19 @@ export async function POST(req: NextRequest) {
     try {
       parsedBody = await req.json();
     } catch {
-      return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+      return apiError(400, 'INVALID_REQUEST_BODY', 'Invalid request body.');
     }
 
     const validated = requestSchema.safeParse(parsedBody);
     if (!validated.success) {
+      // The first issue's message and `details.field` stay: OpsSignInForm pins a
+      // password issue to the password input from them.
       const issue = validated.error.issues[0];
-      return NextResponse.json(
-        { message: issue.message, details: { field: issue.path[0] ?? undefined } },
-        { status: 400 },
-      );
+      const field = issue?.path[0];
+      return apiError(400, 'VALIDATION_FAILED', issue?.message ?? 'Some fields need attention.', {
+        fields: fieldsFromIssues(validated.error.issues),
+        details: { field: typeof field === 'string' ? field : undefined },
+      });
     }
 
     const { email, password, mode, redirectedFrom, rememberMe, captchaToken } = validated.data;
@@ -183,11 +195,10 @@ export async function POST(req: NextRequest) {
       });
 
       if (!rateResult.ok) {
-        const response = NextResponse.json(
-          { message: 'Too many attempts. Please try again later.' },
-          { status: 429 },
+        const response = rateLimited(
+          resolveRetryAfter(rateResult.resetAt),
+          'Too many attempts. Please try again later.',
         );
-        response.headers.set('Retry-After', resolveRetryAfter(rateResult.resetAt).toString());
         return setRateHeaders(response, rateResult);
       }
 
@@ -199,11 +210,24 @@ export async function POST(req: NextRequest) {
 
       if (error) {
         const status = normalizeHttpStatus(error.status, 500);
-        const message =
-          status === 401 || status === 400
-            ? 'Invalid email or password'
-            : 'Unable to sign in right now. Please try again.';
-        const response = NextResponse.json({ message }, { status: status === 400 ? 401 : status });
+        const invalidCredentials = status === 401 || status === 400;
+        if (!invalidCredentials) {
+          logger.warn('[Auth/signin] Password sign-in failed at the auth provider', {
+            route: ROUTE,
+            status,
+            errorKind: typeof error.code === 'string' ? error.code : undefined,
+          });
+        }
+        const response = invalidCredentials
+          ? apiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password')
+          : apiError(
+              status,
+              'SIGNIN_UNAVAILABLE',
+              'Unable to sign in right now. Please try again.',
+              {
+                retryable: status >= 500 || status === 429,
+              },
+            );
         return setRateHeaders(response, rateResult);
       }
 
@@ -220,10 +244,9 @@ export async function POST(req: NextRequest) {
       throttleResult.checks[0]?.result;
 
     if (!primaryRateResult) {
-      return NextResponse.json(
-        { message: 'Unable to process request right now.' },
-        { status: 503 },
-      );
+      return apiError(503, 'SIGNIN_UNAVAILABLE', 'Unable to process request right now.', {
+        retryable: true,
+      });
     }
 
     if (!throttleResult.ok) {
@@ -241,13 +264,9 @@ export async function POST(req: NextRequest) {
         throttleResetAt: throttleResult.blocked.result.resetAt,
       });
 
-      const response = NextResponse.json(
-        { message: 'Too many attempts. Please try again later.' },
-        { status: 429 },
-      );
-      response.headers.set(
-        'Retry-After',
-        resolveRetryAfter(throttleResult.blocked.result.resetAt).toString(),
+      const response = rateLimited(
+        resolveRetryAfter(throttleResult.blocked.result.resetAt),
+        'Too many attempts. Please try again later.',
       );
       response.headers.set('X-RateLimit-Scope', blockedScope);
       return setRateHeaders(response, throttleResult.blocked.result);
@@ -268,13 +287,7 @@ export async function POST(req: NextRequest) {
           throttleResetAt: primaryRateResult.resetAt,
         });
 
-        const response = NextResponse.json(
-          {
-            message: 'Complete verification and try again.',
-            code: 'CAPTCHA_REQUIRED',
-          },
-          { status: 403 },
-        );
+        const response = forbidden('CAPTCHA_REQUIRED', 'Complete verification and try again.');
         return setRateHeaders(response, primaryRateResult);
       }
 
@@ -305,13 +318,13 @@ export async function POST(req: NextRequest) {
           captchaErrorCodes: captchaResult.errorCodes,
         });
 
-        const response = NextResponse.json(
+        const response = apiError(
+          403,
+          'CAPTCHA_INVALID',
+          'Verification failed. Please try again.',
           {
-            message: 'Verification failed. Please try again.',
-            code: 'CAPTCHA_INVALID',
             details: { reason: captchaResult.reason },
           },
-          { status: 403 },
         );
         return setRateHeaders(response, primaryRateResult);
       }
@@ -358,7 +371,7 @@ export async function POST(req: NextRequest) {
       logger.error('[Auth/signin] Magic link delivery failed', {
         route: ROUTE,
         status: isMagicLinkDeliveryError(error) ? error.status : undefined,
-        error: sendErrorReason,
+        error: sanitizeLogText(sendErrorReason),
       });
 
       await recordMagicLinkSigninAudit({
@@ -401,10 +414,9 @@ export async function POST(req: NextRequest) {
     );
     return setRateHeaders(response, primaryRateResult);
   } catch (err) {
-    logger.error('[Auth/signin] Unhandled error:', { route: ROUTE, error: err });
     captureServerException(err, {
       properties: { source: 'auth', path: '/api/auth/signin' },
     });
-    return NextResponse.json({ message: 'Internal server error' }, { status: 500 });
+    return internalError(err, { route: ROUTE });
   }
 }
