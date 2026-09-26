@@ -31,6 +31,14 @@ function maskName(value: string | null | undefined): string {
   return `${normalized.slice(0, 1)}***`;
 }
 
+/**
+ * The guest name as shown to this caller, on every guest surface (JSON DTO,
+ * confirmation PDF): token (link or cookie) access sees only the initial.
+ */
+export function guestVisibleName(name: string | null | undefined, access: GuestAccessKind): string {
+  return access.kind === 'token' ? maskName(name) : (name ?? '');
+}
+
 export function toGuestBookingDTO(
   booking: GuestBookingSource,
   options: { restaurantName?: string | null; exposure?: GuestBookingExposure } = {},
@@ -126,7 +134,7 @@ export function toGuestAccessBookingDTO(
     booking_type: booking.booking_type ?? 'dinner',
     seating_preference: booking.seating_preference ?? null,
     status: booking.status ?? 'pending',
-    customer_name: masked ? maskName(booking.customer_name) : (booking.customer_name ?? ''),
+    customer_name: guestVisibleName(booking.customer_name, access),
     // The reservation adapter validates the email shape, so a masked email is
     // sent as an empty string rather than a partial address.
     customer_email: masked ? '' : (booking.customer_email ?? ''),

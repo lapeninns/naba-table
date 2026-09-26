@@ -38,7 +38,7 @@ export function GuestDashboardClient() {
           <GuestError
             description="We couldn't fetch your reservations. Please try again."
             onRetry={() => {
-              queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+              queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
               queryClient.invalidateQueries({ queryKey: queryKeys.profile.self() });
             }}
           />

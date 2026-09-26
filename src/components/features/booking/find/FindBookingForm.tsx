@@ -25,6 +25,10 @@ const TURNSTILE_SCRIPT_SRC =
   'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim() ?? '';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** How long to wait for the Turnstile script before calling the check failed. */
+const CAPTCHA_LOAD_TIMEOUT_MS = 15_000;
+const CAPTCHA_FAILED_MESSAGE =
+  'The security check didn’t load. Turn off content blockers for this page or check your connection, then try the check again.';
 
 export type FindBookingVenue = { slug: string; name: string };
 
@@ -40,6 +44,8 @@ const ERROR_COPY: Partial<Record<string, string>> = {
   RESTAURANT_NOT_FOUND: 'We couldn’t find that venue. Choose it from the list.',
   RATE_LIMITED: 'Too many requests from this device. Wait a few minutes and try again.',
   CSRF_INVALID: 'Your session expired. Refresh the page and try again.',
+  BOOKING_LINKS_UNAVAILABLE:
+    'Booking links are temporarily unavailable. Contact the venue to manage your booking.',
 };
 
 /**
@@ -61,6 +67,7 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
   const [captchaScriptReady, setCaptchaScriptReady] = useState(
     () => typeof window !== 'undefined' && Boolean(window.turnstile),
   );
+  const [captchaFailed, setCaptchaFailed] = useState(false);
   const captchaContainerRef = useRef<HTMLDivElement | null>(null);
   const captchaWidgetIdRef = useRef<string | null>(null);
 
@@ -70,11 +77,41 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
     captchaWidgetIdRef.current = window.turnstile.render(captchaContainerRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
       action: TURNSTILE_ACTION,
-      callback: (token) => setCaptchaToken(token),
+      callback: (token) => {
+        // A slow script can load after the timeout alert; a passed check clears it.
+        setCaptchaFailed(false);
+        setCaptchaToken(token);
+      },
       'expired-callback': () => setCaptchaToken(null),
-      'error-callback': () => setCaptchaToken(null),
+      'error-callback': () => {
+        setCaptchaToken(null);
+        setCaptchaFailed(true);
+      },
     });
   }, [isCaptchaEnabled, captchaScriptReady]);
+
+  // A blocked script fires neither onLoad nor (always) onError; give up after a while.
+  useEffect(() => {
+    if (!isCaptchaEnabled || captchaScriptReady || captchaFailed) return;
+    const timer = window.setTimeout(() => setCaptchaFailed(true), CAPTCHA_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [isCaptchaEnabled, captchaScriptReady, captchaFailed]);
+
+  const retryCaptcha = () => {
+    setCaptchaFailed(false);
+    setCaptchaToken(null);
+    setFormError(null);
+    if (window.turnstile && captchaWidgetIdRef.current) {
+      window.turnstile.reset(captchaWidgetIdRef.current);
+      return;
+    }
+    if (window.turnstile) {
+      setCaptchaScriptReady(true);
+      return;
+    }
+    // The script never arrived: reloading the page is the only way to fetch it again.
+    window.location.reload();
+  };
 
   const resetCaptcha = () => {
     if (!isCaptchaEnabled) return;
@@ -95,7 +132,7 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
     if (nextFieldError.venue || nextFieldError.email) return;
 
     if (isCaptchaEnabled && !captchaToken) {
-      setFormError('Complete the check to continue.');
+      setFormError(captchaFailed ? null : 'Complete the check to continue.');
       return;
     }
 
@@ -148,6 +185,7 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
           src={TURNSTILE_SCRIPT_SRC}
           strategy="afterInteractive"
           onLoad={() => setCaptchaScriptReady(true)}
+          onError={() => setCaptchaFailed(true)}
         />
       ) : null}
 
@@ -210,6 +248,27 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
         />
       ) : null}
 
+      {isCaptchaEnabled && captchaFailed ? (
+        <Alert
+          variant="destructive"
+          aria-live="assertive"
+          data-testid="find-booking-captcha-failed"
+        >
+          <AlertDescription>
+            <p>{CAPTCHA_FAILED_MESSAGE}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={retryCaptcha}
+            >
+              Try the check again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {formError ? (
         <Alert variant="destructive" aria-live="assertive">
           <AlertDescription>{formError}</AlertDescription>
@@ -221,7 +280,7 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
         size="guest-lg"
         variant="guest-primary"
         className="pg-action pg-focus-ring pg-touch w-full font-semibold sm:w-auto"
-        disabled={isSubmitting || (isCaptchaEnabled && (!captchaScriptReady || !captchaToken))}
+        disabled={isSubmitting}
       >
         {isSubmitting ? 'Sending…' : 'Email me a link'}
       </Button>

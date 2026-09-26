@@ -6,6 +6,7 @@ import {
   finalizeGuestAccessResponse,
   resolveGuestBookingAccess,
 } from '@/server/bookings/guest-booking-access';
+import { guestVisibleName } from '@/server/bookings/guest-booking-dto';
 import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -69,7 +70,7 @@ export async function GET(
 
   const file = buildReservationConfirmationPdfBuffer({
     reference,
-    guestName: booking.customer_name,
+    guestName: guestVisibleName(booking.customer_name, resolution.access),
     startAt: booking.start_at,
     bookingDate: booking.booking_date,
     startTime: booking.start_time,

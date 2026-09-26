@@ -5,7 +5,7 @@
  * with real bk1 tokens. Only persistence and side effects are faked.
  */
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const authGetUserMock = vi.hoisted(() => vi.fn());
 const listMembershipsMock = vi.hoisted(() => vi.fn());
@@ -160,6 +160,7 @@ vi.mock('@/server/supabase', () => {
 });
 
 import { isVerifiedBookingOwner } from '@/server/bookings/guest-booking-access';
+import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
 import { GET as historyGET } from '@/src/app/api/bookings/[id]/history/route';
 import { DELETE, GET, PUT } from '@/src/app/api/bookings/[id]/route';
 import { GET as pdfGET } from '@/src/app/api/reservations/[id]/confirmation/route';
@@ -607,6 +608,12 @@ describe('rate limits (§15)', () => {
   });
 
   it('charges undecodable cookies per IP and rate limits only that IP', async () => {
+    const previousTrust = process.env.TRUST_FORWARDED_IP_HEADERS;
+    process.env.TRUST_FORWARDED_IP_HEADERS = 'true';
+    onTestFinished(() => {
+      if (previousTrust === undefined) delete process.env.TRUST_FORWARDED_IP_HEADERS;
+      else process.env.TRUST_FORWARDED_IP_HEADERS = previousTrust;
+    });
     const statuses: number[] = [];
     for (let index = 0; index < 31; index += 1) {
       const response = await GET(
@@ -617,9 +624,14 @@ describe('rate limits (§15)', () => {
     }
     expect(statuses.slice(0, 30).every((status) => status === 401)).toBe(true);
     expect(statuses[30]).toBe(429);
-    expect(
-      [...rateBuckets.keys()].some((key) => key.startsWith('bookings:guest-token-invalid:')),
-    ).toBe(true);
+    expect([...rateBuckets.keys()]).toContain('bookings:guest-token-invalid:v4:203.0.113.9');
+
+    // A neighbour in the same /16 keeps its own bucket.
+    const neighbour = await GET(
+      req('GET', `/api/bookings/${A}`, { cookies: [accessCookie(A, 'x')], ip: '203.0.7.9' }),
+      params(A),
+    );
+    expect(neighbour.status).toBe(401);
 
     const other = await GET(
       req('GET', `/api/bookings/${A}`, {
@@ -629,6 +641,21 @@ describe('rate limits (§15)', () => {
       params(A),
     );
     expect(other.status).toBe(200);
+  });
+
+  it('does not pool undecodable cookies from clients with no known IP into one bucket', async () => {
+    const statuses: number[] = [];
+    for (let index = 0; index < 31; index += 1) {
+      const response = await GET(
+        req('GET', `/api/bookings/${A}`, { cookies: [accessCookie(A, 'x')] }),
+        params(A),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses.every((status) => status === 401)).toBe(true);
+    expect(
+      [...rateBuckets.keys()].some((key) => key.startsWith('bookings:guest-token-invalid:')),
+    ).toBe(false);
   });
 
   it('keys token reads by booking, not by IP', async () => {
@@ -689,6 +716,31 @@ describe('token path responses', () => {
     const sessionBody = await sessionResponse.json();
     expect(sessionBody.booking.customer_email).toBe('alex@example.com');
     expect(sessionBody.booking).not.toHaveProperty('idempotency_key');
+  });
+
+  it('§16 the confirmation PDF masks the guest name for token access, like the JSON DTO', async () => {
+    const buildPdf = vi.mocked(buildReservationConfirmationPdfBuffer);
+    buildPdf.mockClear();
+    const tokenResponse = await pdfGET(
+      req('GET', `/api/reservations/${A}/confirmation`, {
+        cookies: [tokenCookieFor(makeBooking())],
+      }),
+      params(A),
+    );
+    expect(tokenResponse.status).toBe(200);
+    expect(buildPdf).toHaveBeenLastCalledWith(expect.objectContaining({ guestName: 'A***' }));
+
+    db.bookings[0] = makeBooking({ auth_user_id: 'user-1' });
+    authGetUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'alex@example.com' } },
+      error: null,
+    });
+    const sessionResponse = await pdfGET(
+      req('GET', `/api/reservations/${A}/confirmation`),
+      params(A),
+    );
+    expect(sessionResponse.status).toBe(200);
+    expect(buildPdf).toHaveBeenLastCalledWith(expect.objectContaining({ guestName: 'Alex Guest' }));
   });
 
   it('§17 a token PUT that changes email or phone is 422 and writes nothing', async () => {

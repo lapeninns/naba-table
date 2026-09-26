@@ -19,6 +19,7 @@ import { useCreateReservation } from '../api/useCreateReservation';
 import { useWizardDependencies } from '../di';
 import { createSelectionSummary } from '../model/selectors';
 import { useWizardStore } from '../model/store';
+import { TIMEOUT_EMAIL_GUIDANCE_ALERT } from '../model/timeoutGuidance';
 import { buildReservationDraft, reservationToApiBooking } from '../model/transformers';
 
 import type { ReservationSubmissionResult } from '../api/types';
@@ -134,8 +135,7 @@ export function getTimeoutContactGuidance(draft: Pick<ReservationDraft, 'email'>
     return {
       error:
         'We could not confirm the booking in time. Please check your email before trying again.',
-      alert:
-        'If you received a confirmation email you are all set. No email? You can request your booking link at /bookings/find, or retry now.',
+      alert: TIMEOUT_EMAIL_GUIDANCE_ALERT,
     };
   }
   return {

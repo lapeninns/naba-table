@@ -246,6 +246,61 @@ describe('runBookingCreatePrecommitContext', () => {
     expect(deps.recoveredRecordResolver).not.toHaveBeenCalled();
   });
 
+  it('replays a same-key retry before the schedule gate, even when the gate would now refuse', async () => {
+    const committed = { ...keyedBooking, start_time: '18:30:00' } as BookingRecord;
+    const deps = buildContinueDeps({
+      keyedBookingFinder: vi.fn(async () => committed) as BookingCreateKeyedBookingFinder,
+      scheduleGateRunner: vi.fn(async () => ({
+        kind: 'response',
+        body: { error: 'That time has passed.' },
+        init: { status: 422 },
+      })) as BookingCreateScheduleGateRunner,
+    });
+
+    await expect(
+      runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request,
+        requestContext,
+        restaurantId,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'continue',
+      booking: committed,
+      idempotencyKey: HEADER_KEY,
+      reusedExisting: true,
+      createOrigin: 'key_replay',
+    });
+
+    expect(deps.scheduleGateRunner).not.toHaveBeenCalled();
+    expect(deps.keyedBookingFinder).toHaveBeenCalledTimes(1);
+    expect(deps.capacityPrechecker).not.toHaveBeenCalled();
+    expect(deps.customerContextResolver).not.toHaveBeenCalled();
+  });
+
+  it('still runs the gate for a keyed booking that does not match the requested time exactly', async () => {
+    const deps = buildContinueDeps({
+      keyedBookingFinder: vi.fn(async () => keyedBooking) as BookingCreateKeyedBookingFinder,
+    });
+
+    await runBookingCreatePrecommitContext({
+      ...deps,
+      client,
+      clientIp: '192.0.2.10',
+      pastTimeBlocking: true,
+      request,
+      requestContext,
+      restaurantId,
+    });
+
+    expect(deps.scheduleGateRunner).toHaveBeenCalledTimes(1);
+    // The pre-gate lookup is reused by the post-gate check, not repeated.
+    expect(deps.keyedBookingFinder).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
     const deps = buildContinueDeps({
       keyedBookingFinder: vi.fn(async () => ({

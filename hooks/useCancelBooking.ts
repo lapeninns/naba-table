@@ -5,6 +5,7 @@ import { type QueryKey, useMutation, useQueryClient } from '@tanstack/react-quer
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
 import { fetchJson } from '@/lib/http/fetchJson';
+import { shouldRedirectToSignInOnUnauthenticated } from '@/lib/http/sessionRedirect';
 import { queryKeys } from '@/lib/query/keys';
 import { reservationKeys } from '@shared/api/queryKeys';
 
@@ -38,6 +39,7 @@ export function useCancelBooking() {
       try {
         const response = await fetchJson<CancelBookingResponse>(`/api/bookings/${id}`, {
           method: 'DELETE',
+          authRedirect: shouldRedirectToSignInOnUnauthenticated(),
         });
         emit('booking_cancel_success', { bookingId: id });
         return response;
@@ -46,11 +48,13 @@ export function useCancelBooking() {
       }
     },
     onMutate: async ({ id }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.bookings.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.bookings.list() });
       await queryClient.cancelQueries({ queryKey: queryKeys.bookings.detail(id) });
       await queryClient.cancelQueries({ queryKey: reservationKeys.detail(id) });
 
-      const lists = queryClient.getQueriesData<BookingsPage>({ queryKey: queryKeys.bookings.all });
+      const lists = queryClient.getQueriesData<BookingsPage>({
+        queryKey: queryKeys.bookings.list(),
+      });
       const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(id));
       const reservationDetail = queryClient.getQueryData<Reservation>(reservationKeys.detail(id));
 
@@ -104,8 +108,12 @@ export function useCancelBooking() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+      // Only what this booking change affects: every guest list page (the `{}` params
+      // prefix-match all of them), this booking's detail and its history. Other
+      // bookings' detail and history queries are left alone.
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.history(variables.id) });
       queryClient.invalidateQueries({ queryKey: reservationKeys.detail(variables.id) });
     },
   });

@@ -35,7 +35,7 @@ describe('useCancelBooking', () => {
       pageInfo: { page: 1, pageSize: 10, total: 1, hasNext: false },
     };
 
-    queryClient.setQueryData(queryKeys.bookings.all, page);
+    queryClient.setQueryData(queryKeys.bookings.list(), page);
     queryClient.setQueryData(queryKeys.bookings.detail(booking.id), booking);
 
     vi.mocked(fetchJson).mockResolvedValue({ id: booking.id, status: 'cancelled' } as never);
@@ -44,10 +44,13 @@ describe('useCancelBooking', () => {
 
     await result.current.mutateAsync({ id: booking.id });
 
-    const list = queryClient.getQueryData<BookingsPage>(queryKeys.bookings.all);
+    const list = queryClient.getQueryData<BookingsPage>(queryKeys.bookings.list());
     const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(booking.id));
 
-    expect(fetchJson).toHaveBeenCalledWith(`/api/bookings/${booking.id}`, { method: 'DELETE' });
+    expect(fetchJson).toHaveBeenCalledWith(`/api/bookings/${booking.id}`, {
+      method: 'DELETE',
+      authRedirect: true,
+    });
     expect(list?.items[0]?.status).toBe('cancelled');
     expect(detail?.status).toBe('cancelled');
   });
@@ -70,7 +73,7 @@ describe('useCancelBooking', () => {
       pageInfo: { page: 1, pageSize: 10, total: 1, hasNext: false },
     };
 
-    queryClient.setQueryData(queryKeys.bookings.all, page);
+    queryClient.setQueryData(queryKeys.bookings.list(), page);
     queryClient.setQueryData(queryKeys.bookings.detail(booking.id), booking);
 
     vi.mocked(fetchJson).mockRejectedValue(
@@ -81,7 +84,7 @@ describe('useCancelBooking', () => {
 
     await expect(result.current.mutateAsync({ id: booking.id })).rejects.toThrow('Locked');
 
-    const list = queryClient.getQueryData<BookingsPage>(queryKeys.bookings.all);
+    const list = queryClient.getQueryData<BookingsPage>(queryKeys.bookings.list());
     const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(booking.id));
 
     expect(list?.items[0]?.status).toBe('confirmed');

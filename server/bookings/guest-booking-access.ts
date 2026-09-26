@@ -15,7 +15,7 @@ import {
 } from '@/server/security/booking-access-token';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
-import { anonymizeIp, extractClientIp } from '@/server/security/request';
+import { extractClientIp, rateLimitIpKey } from '@/server/security/request';
 import {
   getRouteHandlerSupabaseClient,
   getServerComponentSupabaseClient,
@@ -544,9 +544,14 @@ async function checkBookingToken(
  * per-booking charge would let them lock the real link holder out.
  */
 async function consumeInvalidTokenLimit(req: NextRequest): Promise<NextResponse | null> {
+  // Keyed per IPv4 address or IPv6 /64. With no usable IP nothing is charged:
+  // an undecodable cookie grants nothing and costs no database read, while a
+  // shared "unknown" bucket would let one client 429 every guest.
+  const ipKey = rateLimitIpKey(extractClientIp(req));
+  if (!ipKey) return null;
   try {
     const result = await consumeRateLimit({
-      identifier: `bookings:guest-token-invalid:${anonymizeIp(extractClientIp(req))}`,
+      identifier: `bookings:guest-token-invalid:${ipKey}`,
       limit: INVALID_TOKEN_LIMIT.limit,
       windowMs: INVALID_TOKEN_LIMIT.windowMs,
     });
@@ -813,9 +818,15 @@ export type ClaimOutcome = 'claimed' | 'skipped' | 'failed';
 
 /**
  * Binds a booking to the signed-in user after a link redeem: only when the
- * booking is unbound and the user's email equals the booking email. The
- * update is conditional on `auth_user_id IS NULL` and the restaurant id, so it
- * never steals a booking already bound to someone else.
+ * booking is unbound, the user's email equals the booking email, and Supabase
+ * records that email as confirmed (`email_confirmed_at`). An unconfirmed
+ * account is only a claim to the address, so it must not turn a forwarded
+ * link into permanent, unmasked, cancel-capable ownership. The update is
+ * conditional on `auth_user_id IS NULL` and the restaurant id, so it never
+ * steals a booking already bound to someone else.
+ *
+ * Under Supabase `mailer_autoconfirm` every account is "confirmed", so this
+ * check is necessary but not sufficient; see {@link SESSION_EMAIL_MATCH_ENABLED}.
  */
 export async function claimBookingForUser(params: {
   booking: Pick<GuestBookingRow, 'id' | 'restaurant_id' | 'auth_user_id' | 'customer_email'>;
@@ -823,6 +834,7 @@ export async function claimBookingForUser(params: {
 }): Promise<ClaimOutcome> {
   const { booking, user } = params;
   if (booking.auth_user_id) return 'skipped';
+  if (!user.email_confirmed_at) return 'skipped';
   const userEmail = normalizeEmail(user.email);
   if (!userEmail || userEmail !== normalizeEmail(booking.customer_email)) return 'skipped';
 

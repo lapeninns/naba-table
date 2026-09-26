@@ -194,6 +194,30 @@ describe('finalizeBookingCreateCommit', () => {
     expect(autoAssignRetryScheduler).toHaveBeenCalled();
   });
 
+  it('keeps an audit_logs failure after commit non-fatal and still runs side effects', async () => {
+    const auditDispatcher = vi.fn(async () => {
+      throw Object.assign(new Error('insert into audit_logs failed'), { code: '23514' });
+    });
+    const inlineAutoAssignRunner = vi.fn(async () => confirmedBooking);
+    const sideEffectsDispatcher = vi.fn(async () => undefined);
+    const autoAssignRetryScheduler = vi.fn(async () => undefined);
+
+    await expect(
+      finalizeBookingCreateCommit({
+        ...baseArgs,
+        auditDispatcher,
+        inlineAutoAssignRunner,
+        sideEffectsDispatcher,
+        autoAssignRetryScheduler,
+      }),
+    ).resolves.toEqual({ booking: confirmedBooking });
+
+    expect(auditDispatcher).toHaveBeenCalledTimes(1);
+    expect(inlineAutoAssignRunner).toHaveBeenCalledTimes(1);
+    expect(sideEffectsDispatcher).toHaveBeenCalledTimes(1);
+    expect(autoAssignRetryScheduler).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps retry scheduling errors non-fatal', async () => {
     const retryError = new Error('retry failed');
     const onAutoAssignError = vi.fn();

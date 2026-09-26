@@ -55,6 +55,11 @@ export function BookingAccessExpiredState({
   signInHref?: string;
 }) {
   const copy = COPY[reason];
+  // Without the link secret no new link can be minted, so offering one would end
+  // in a "check your email" that never arrives. Lead with the account instead.
+  const canEmailNewLink = reason !== 'not_configured';
+  const accountHref = isAuthenticated ? '/guest/bookings' : signInHref;
+  const accountLabel = isAuthenticated ? 'My bookings' : 'Sign in';
   return (
     <GuestPageFrame>
       <GuestHero
@@ -63,12 +68,14 @@ export function BookingAccessExpiredState({
         title={copy.title}
         description={copy.description}
         actions={
-          <>
-            <GuestPrimaryButton href="/bookings/find">Email me a new link</GuestPrimaryButton>
-            <GuestSecondaryButton href={isAuthenticated ? '/guest/bookings' : signInHref}>
-              {isAuthenticated ? 'My bookings' : 'Sign in'}
-            </GuestSecondaryButton>
-          </>
+          canEmailNewLink ? (
+            <>
+              <GuestPrimaryButton href="/bookings/find">Email me a new link</GuestPrimaryButton>
+              <GuestSecondaryButton href={accountHref}>{accountLabel}</GuestSecondaryButton>
+            </>
+          ) : (
+            <GuestPrimaryButton href={accountHref}>{accountLabel}</GuestPrimaryButton>
+          )
         }
         meta={
           <>
@@ -93,7 +100,9 @@ export function BookingAccessExpiredState({
               <div>
                 <p className="pg-kicker">What to do next</p>
                 <p className="pg-body mt-2 text-sm">
-                  Request a new link. It goes to the email address saved on your booking.
+                  {canEmailNewLink
+                    ? 'Request a new link. It goes to the email address saved on your booking.'
+                    : 'Sign in if the booking is saved to your account, or contact the venue to manage it.'}
                 </p>
               </div>
             </div>

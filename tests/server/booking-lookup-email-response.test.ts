@@ -120,6 +120,17 @@ function createDeps(overrides: Partial<LookupEmailDeps> = {}) {
   };
 }
 
+async function withTrustedForwardedIp<T>(callback: () => Promise<T>): Promise<T> {
+  const previous = process.env.TRUST_FORWARDED_IP_HEADERS;
+  process.env.TRUST_FORWARDED_IP_HEADERS = 'true';
+  try {
+    return await callback();
+  } finally {
+    if (previous === undefined) delete process.env.TRUST_FORWARDED_IP_HEADERS;
+    else process.env.TRUST_FORWARDED_IP_HEADERS = previous;
+  }
+}
+
 async function snapshot(response: Response) {
   return {
     status: response.status,
@@ -185,15 +196,61 @@ describe('lookup-email response', () => {
   it('§39 limits per IP (429 on the 6th in 15 minutes)', async () => {
     const harness = createDeps();
     const statuses: number[] = [];
-    for (let index = 0; index < 6; index += 1) {
+    await withTrustedForwardedIp(async () => {
+      for (let index = 0; index < 6; index += 1) {
+        const response = await buildLookupEmailHttpResponse(
+          makeRequest({ restaurantId: R1, email: `guest${index}@example.com` }),
+          harness.deps,
+        );
+        statuses.push(response.status);
+      }
+    });
+    expect(statuses.slice(0, 5)).toEqual([202, 202, 202, 202, 202]);
+    expect(statuses[5]).toBe(429);
+    expect([...harness.buckets.keys()]).toContain('bookings:lookup-email:ip:v4:203.0.113.7');
+  });
+
+  it('§39 keys the IP limit per address, not per /16', async () => {
+    const harness = createDeps();
+    const statuses: number[] = [];
+    await withTrustedForwardedIp(async () => {
+      for (let index = 0; index < 6; index += 1) {
+        const response = await buildLookupEmailHttpResponse(
+          makeRequest(
+            { restaurantId: R1, email: `guest${index}@example.com` },
+            { ip: `203.0.${index}.7` },
+          ),
+          harness.deps,
+        );
+        statuses.push(response.status);
+      }
+    });
+    expect(statuses).toEqual([202, 202, 202, 202, 202, 202]);
+  });
+
+  it('§39 never pools clients with no usable IP into one shared bucket', async () => {
+    const harness = createDeps();
+    const statuses: number[] = [];
+    for (let index = 0; index < 8; index += 1) {
       const response = await buildLookupEmailHttpResponse(
         makeRequest({ restaurantId: R1, email: `guest${index}@example.com` }),
         harness.deps,
       );
       statuses.push(response.status);
     }
-    expect(statuses.slice(0, 5)).toEqual([202, 202, 202, 202, 202]);
-    expect(statuses[5]).toBe(429);
+    expect(statuses.every((status) => status === 202)).toBe(true);
+    expect([...harness.buckets.keys()].some((key) => key.includes(':ip:'))).toBe(false);
+  });
+
+  it('answers 503 BOOKING_LINKS_UNAVAILABLE, not a false 202, when links cannot be minted', async () => {
+    const harness = createDeps({ secret: null });
+    const response = await buildLookupEmailHttpResponse(
+      makeRequest({ restaurantId: R1, email: 'guest@example.com' }),
+      harness.deps,
+    );
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ code: 'BOOKING_LINKS_UNAVAILABLE' });
+    expect(harness.afterCount()).toBe(0);
   });
 
   it('§39 throttles per contact: the 4th in an hour and the 6th in a day are silent 202s', async () => {
