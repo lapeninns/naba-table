@@ -73,6 +73,12 @@ const RETRY_ERROR_RESPONSES: Record<
     message: 'The email could not be sent. Try again in a moment.',
     retryable: true,
   },
+  SEND_UNCONFIRMED: {
+    status: 502,
+    message:
+      "The email provider didn't confirm the send. Retrying is safe: it won't send a duplicate.",
+    retryable: true,
+  },
 };
 
 export async function POST(request: NextRequest) {
@@ -201,11 +207,11 @@ async function postEmailDeliveryRetry(request: NextRequest) {
     }
 
     if (error instanceof EmailDeliveryRetryError) {
-      if (error.code === 'SEND_FAILED') {
+      if (error.code === 'SEND_FAILED' || error.code === 'SEND_UNCONFIRMED') {
         captureServerEvent('email_delivery_retry_failed', {
           provider: 'resend',
           source: 'ops',
-          reason: 'send_failed',
+          reason: error.code === 'SEND_FAILED' ? 'send_failed' : 'send_unconfirmed',
         });
         logger.warn('ops.email_delivery.retry_send_failed', {
           route: ROUTE,

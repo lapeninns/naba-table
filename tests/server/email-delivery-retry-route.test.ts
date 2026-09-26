@@ -370,6 +370,28 @@ describe('POST /api/ops/email-delivery/retry', () => {
     expect(JSON.stringify(payload)).not.toContain('upstream');
   });
 
+  it('returns a retryable 502 SEND_UNCONFIRMED when the provider outcome is unknown', async () => {
+    retryEmailDeliveryLogEntryMock.mockRejectedValue(
+      new EmailDeliveryRetryError(
+        'SEND_UNCONFIRMED',
+        'The email provider did not confirm the send.',
+        {
+          cause: new Error('Resend API error (application_error): secret upstream detail'),
+        },
+      ),
+    );
+
+    const response = await POST(
+      buildRequest({ restaurantId: RESTAURANT_ID, deliveryLogId: DELIVERED_DELIVERY_LOG_ID }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload).toMatchObject({ code: 'SEND_UNCONFIRMED', retryable: true });
+    expect(payload.message).toMatch(/won't send a duplicate/);
+    expect(JSON.stringify(payload)).not.toContain('upstream');
+  });
+
   it('returns a generic 500 without raw error text for unexpected failures', async () => {
     retryEmailDeliveryLogEntryMock.mockRejectedValue(
       new Error('duplicate key value violates unique constraint "email_delivery_log_pkey"'),

@@ -113,6 +113,48 @@ BEGIN
   IF v_claim->>'outcome' <> 'claimed' OR (v_claim->>'retryAttempt')::integer <> v_attempt THEN
     RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Stale retry claim was not reclaimed with the same attempt';
   END IF;
+  -- The stale claim, reached through a SIBLING event row of the same message, is taken over
+  -- with the same row and attempt (same per-message provider key), not a fresh key on the sibling.
+  UPDATE public.email_delivery_log SET retry_claimed_at = now() - interval '10 minutes' WHERE id = v_failed_event;
+  v_claim := public.claim_email_delivery_retry_v1(v_bounced_event, v_restaurant_id);
+  IF v_claim->>'outcome' <> 'claimed' OR (v_claim->>'retryAttempt')::integer <> v_attempt
+     OR (v_claim->>'deliveryLogId')::uuid <> v_failed_event
+     OR v_claim->>'messageId' <> 'regression-msg-1' THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Sibling claim bypassed a stale in-flight resend';
+  END IF;
+  -- An ambiguous provider failure (outcome unknown) keeps the attempt: the next claim, from
+  -- either event row, reuses it.
+  IF NOT public.complete_email_delivery_retry_v1(v_failed_event, v_restaurant_id, v_attempt, 'unknown') THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Unknown retry outcome was not recorded';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.email_delivery_log
+    WHERE id = v_failed_event AND retry_status = 'failed' AND retry_outcome_unknown AND retry_claimed_at IS NULL
+  ) THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Unknown outcome state is wrong';
+  END IF;
+  v_claim := public.claim_email_delivery_retry_v1(v_bounced_event, v_restaurant_id);
+  IF v_claim->>'outcome' <> 'claimed' OR (v_claim->>'retryAttempt')::integer <> v_attempt
+     OR (v_claim->>'deliveryLogId')::uuid <> v_failed_event THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Unknown-outcome resend did not reuse its attempt';
+  END IF;
+  -- A definitive failure then lets a sibling take a fresh, message-wide attempt number.
+  IF NOT public.complete_email_delivery_retry_v1(v_failed_event, v_restaurant_id, v_attempt, 'failed') THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Definitive failure was not recorded';
+  END IF;
+  v_claim := public.claim_email_delivery_retry_v1(v_bounced_event, v_restaurant_id);
+  IF v_claim->>'outcome' <> 'claimed' OR (v_claim->>'retryAttempt')::integer <> v_attempt + 1
+     OR (v_claim->>'deliveryLogId')::uuid <> v_bounced_event THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Sibling did not take a new message-wide attempt';
+  END IF;
+  IF NOT public.complete_email_delivery_retry_v1(v_bounced_event, v_restaurant_id, v_attempt + 1, 'failed') THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Sibling failure was not recorded';
+  END IF;
+  v_claim := public.claim_email_delivery_retry_v1(v_failed_event, v_restaurant_id);
+  v_attempt := (v_claim->>'retryAttempt')::integer;
+  IF v_claim->>'outcome' <> 'claimed' OR v_attempt <> 4 THEN
+    RAISE EXCEPTION USING ERRCODE = 'NB001', MESSAGE = 'Attempt numbers are not unique per message';
+  END IF;
   -- Completion is fenced by attempt and by tenant.
   IF public.complete_email_delivery_retry_v1(v_failed_event, v_restaurant_id, v_attempt + 5, 'sent', v_delivered_event)
      OR public.complete_email_delivery_retry_v1(v_failed_event, v_other_restaurant, v_attempt, 'sent', v_delivered_event) THEN

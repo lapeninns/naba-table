@@ -37,6 +37,8 @@ const RETRY_ERROR_COPY: Partial<Record<string, string>> = {
   MISSING_RECIPIENT: 'Not sent: the booking has no email address.',
   MISSING_BOOKING: 'Not sent: the booking for this email no longer exists.',
   SEND_FAILED: "Failed: the email couldn't be sent. Try again in a moment.",
+  SEND_UNCONFIRMED:
+    "Failed: the email provider didn't confirm the send. Retrying is safe and won't send a duplicate.",
   RATE_LIMITED: 'Too many resend attempts. Wait a minute and try again.',
 };
 

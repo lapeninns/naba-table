@@ -10,8 +10,9 @@ vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
 
-import { EmailRecipientSuppressedError } from '@/libs/resend';
+import { EmailRecipientSuppressedError, ResendSendError } from '@/libs/resend';
 import {
+  buildEmailDeliveryRetryIdempotencyKey,
   EmailDeliveryRetryError,
   retryEmailDeliveryLogEntry,
   type EmailDeliveryLogEntry,
@@ -19,6 +20,8 @@ import {
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
 const DELIVERY_LOG_ID = '22222222-2222-4222-8222-222222222222';
+const SIBLING_LOG_ID = '33333333-3333-4333-8333-333333333333';
+const MESSAGE_ID = 'message-1';
 
 const sentEntry: EmailDeliveryLogEntry = {
   id: 'log-new',
@@ -53,10 +56,15 @@ const claimed = {
   outcome: 'claimed',
   retryAttempt: 2,
   deliveryLogId: DELIVERY_LOG_ID,
+  messageId: MESSAGE_ID,
   bookingId: 'booking-1',
   emailType: 'created',
   templateType: 'confirmation',
 };
+
+function sentKey(resend: ReturnType<typeof vi.fn>, call = 0): string {
+  return (resend.mock.calls[call][3] as { idempotencyKey: string }).idempotencyKey;
+}
 
 describe('retryEmailDeliveryLogEntry', () => {
   beforeEach(() => {
@@ -78,13 +86,18 @@ describe('retryEmailDeliveryLogEntry', () => {
       p_delivery_log_id: DELIVERY_LOG_ID,
       p_restaurant_id: RESTAURANT_ID,
     });
-    const [, , , options] = resend.mock.calls[0];
     expect(resend).toHaveBeenCalledWith('booking-1', 'created', 'confirmation', {
       idempotencyKey: expect.any(String),
     });
-    const key = (options as { idempotencyKey: string }).idempotencyKey;
-    expect(key.startsWith('booking-email-retry:')).toBe(true);
-    expect(Buffer.from(key.split(':')[1], 'base64url').toString()).toBe(`${DELIVERY_LOG_ID}|2`);
+    const key = sentKey(resend);
+    expect(key).toMatch(/^booking-email-retry:[A-Za-z0-9_-]{43}$/);
+    expect(key).toBe(
+      buildEmailDeliveryRetryIdempotencyKey({
+        restaurantId: RESTAURANT_ID,
+        messageId: MESSAGE_ID,
+        retryAttempt: 2,
+      }),
+    );
     expect(completeCall()).toEqual({
       p_delivery_log_id: DELIVERY_LOG_ID,
       p_restaurant_id: RESTAURANT_ID,
@@ -129,11 +142,13 @@ describe('retryEmailDeliveryLogEntry', () => {
     expect(completeCall()).toMatchObject({ p_outcome: 'failed', p_retry_attempt: 2 });
   });
 
-  it('reports a provider failure as SEND_FAILED and frees the claim for another try', async () => {
+  it('reports a definitive provider rejection as SEND_FAILED and frees the claim for a new key', async () => {
     mockClaim(claimed);
     const resend = vi
       .fn()
-      .mockRejectedValue(new Error('Resend API error (application_error): upstream down'));
+      .mockRejectedValue(
+        new ResendSendError({ name: 'rate_limit_exceeded', message: 'slow down', statusCode: 429 }),
+      );
 
     const error = await retryEmailDeliveryLogEntry({
       deliveryLogId: DELIVERY_LOG_ID,
@@ -143,8 +158,88 @@ describe('retryEmailDeliveryLogEntry', () => {
 
     expect(error).toBeInstanceOf(EmailDeliveryRetryError);
     expect(error).toMatchObject({ code: 'SEND_FAILED' });
-    expect((error as Error).message).not.toContain('upstream');
+    expect((error as Error).message).not.toContain('slow down');
     expect(completeCall()).toMatchObject({ p_outcome: 'failed' });
+  });
+
+  it.each([
+    [
+      'network failure or timeout',
+      new ResendSendError({
+        name: 'application_error',
+        message: 'Unable to fetch data.',
+        statusCode: null,
+      }),
+    ],
+    [
+      'provider 5xx',
+      new ResendSendError({
+        name: 'internal_server_error',
+        message: 'upstream down',
+        statusCode: 500,
+      }),
+    ],
+    ['thrown non-provider error', new Error('socket hang up')],
+  ])(
+    'records an ambiguous %s as unknown and reuses the same provider key on the next retry',
+    async (_label, failure) => {
+      // The DB claim hands back the same attempt after an 'unknown' completion (tests/db regression).
+      mockClaim(claimed);
+      const resend = vi.fn().mockRejectedValueOnce(failure).mockResolvedValueOnce(sentEntry);
+
+      const first = await retryEmailDeliveryLogEntry({
+        deliveryLogId: DELIVERY_LOG_ID,
+        restaurantId: RESTAURANT_ID,
+        resendBookingEmail: resend,
+      }).catch((caught: unknown) => caught);
+
+      expect(first).toMatchObject({ name: 'EmailDeliveryRetryError', code: 'SEND_UNCONFIRMED' });
+      expect((first as Error).message).not.toContain('upstream');
+      expect(completeCall()).toMatchObject({ p_outcome: 'unknown', p_retry_attempt: 2 });
+
+      await retryEmailDeliveryLogEntry({
+        deliveryLogId: DELIVERY_LOG_ID,
+        restaurantId: RESTAURANT_ID,
+        resendBookingEmail: resend,
+      });
+
+      expect(resend).toHaveBeenCalledTimes(2);
+      expect(sentKey(resend, 1)).toBe(sentKey(resend, 0));
+    },
+  );
+
+  it('completes the claim on the row the DB returned when a sibling event holds it', async () => {
+    mockClaim({ ...claimed, deliveryLogId: SIBLING_LOG_ID });
+    const resend = vi.fn().mockResolvedValue(sentEntry);
+
+    await retryEmailDeliveryLogEntry({
+      deliveryLogId: DELIVERY_LOG_ID,
+      restaurantId: RESTAURANT_ID,
+      resendBookingEmail: resend,
+    });
+
+    expect(completeCall()).toMatchObject({ p_delivery_log_id: SIBLING_LOG_ID, p_outcome: 'sent' });
+    // The key is per message, so clicking either event row yields the same key for one attempt.
+    expect(sentKey(resend)).toBe(
+      buildEmailDeliveryRetryIdempotencyKey({
+        restaurantId: RESTAURANT_ID,
+        messageId: MESSAGE_ID,
+        retryAttempt: 2,
+      }),
+    );
+  });
+
+  it('scopes the provider key by tenant and never truncates it', () => {
+    const base = { messageId: 'x'.repeat(400), retryAttempt: 1 };
+    const a = buildEmailDeliveryRetryIdempotencyKey({ restaurantId: RESTAURANT_ID, ...base });
+    const b = buildEmailDeliveryRetryIdempotencyKey({ restaurantId: SIBLING_LOG_ID, ...base });
+    const c = buildEmailDeliveryRetryIdempotencyKey({
+      restaurantId: RESTAURANT_ID,
+      ...base,
+      retryAttempt: 2,
+    });
+    expect(new Set([a, b, c]).size).toBe(3);
+    expect(a.length).toBeLessThan(100);
   });
 
   it('keeps an explicit booking error code from the send callback', async () => {
