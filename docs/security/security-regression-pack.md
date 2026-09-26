@@ -22,21 +22,21 @@ CI runs the pack from `.github/workflows/security-guards.yml` on pull requests t
 
 ## Pack Coverage
 
-| Sprint 10 pack                         | Regression files                                                                                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Account takeover and invite tests      | `tests/server/team-invitations-security.test.ts`, `tests/server/auth/signin-route-magic-link-policy.test.ts`                                     |
-| Auth callback host poisoning tests     | `tests/server/auth/callback-route-security.test.ts`                                                                                              |
-| Service-role-before-auth tests         | `tests/server/tenant-authorization-sprint2.test.ts`, `tests/server/email-processing-security.test.ts`, `pnpm run security:guard:service-role`    |
-| Cross-tenant negative tests            | `tests/server/tenant-authorization-sprint2.test.ts`, `tests/server/email-processing-security.test.ts`                                            |
-| CSRF negative tests                    | `tests/server/csrf-protected-mutations.test.ts`                                                                                                  |
-| XSS serialization and URL scheme tests | `tests/lib/security/script-json.test.ts`, `tests/lib/security/safe-url.test.ts`, `tests/server/restaurant-security-schema.test.ts`               |
-| Cron auth tests                        | `tests/server/cron-routes-auth.test.ts`                                                                                                          |
-| Recovery token flow tests              | `tests/server/security/session-recovery-access-token.test.ts`                                                                                    |
-| CSV formula tests                      | `tests/lib/csv-export.test.ts`                                                                                                                   |
-| Parameter pollution tests              | `tests/lib/query-params.test.ts`                                                                                                                 |
-| Rate-limit tests                       | `tests/server/auth/signin-throttle.test.ts`, `tests/server/auth/signin-route-magic-link-policy.test.ts`, `tests/server/cron-routes-auth.test.ts` |
-| Dual-sync side-effect ordering tests   | `tests/server/dual-sync-publish-orchestrator.test.ts`                                                                                            |
-| Security event redaction tests         | `tests/server/security-events.test.ts`                                                                                                           |
+| Sprint 10 pack                         | Regression files                                                                                                                                                                                                         |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Account takeover and invite tests      | `tests/server/team-invitations-security.test.ts`, `tests/server/auth/signin-route-magic-link-policy.test.ts`                                                                                                             |
+| Auth callback host poisoning tests     | `tests/server/auth/callback-route-security.test.ts`                                                                                                                                                                      |
+| Service-role-before-auth tests         | `tests/server/tenant-authorization-sprint2.test.ts`, `tests/server/email-processing-security.test.ts`, `pnpm run security:guard:service-role`                                                                            |
+| Cross-tenant negative tests            | `tests/server/tenant-authorization-sprint2.test.ts`, `tests/server/email-processing-security.test.ts`                                                                                                                    |
+| CSRF negative tests                    | `tests/server/csrf-protected-mutations.test.ts`                                                                                                                                                                          |
+| XSS serialization and URL scheme tests | `tests/lib/security/script-json.test.ts`, `tests/lib/security/safe-url.test.ts`, `tests/server/restaurant-security-schema.test.ts`                                                                                       |
+| Cron auth tests                        | `tests/server/cron-routes-auth.test.ts`                                                                                                                                                                                  |
+| Guest booking access tests             | `tests/server/security/booking-access-token.test.ts`, `tests/server/guest-booking-access-resolver.test.ts`, `tests/server/booking-lookup-email-response.test.ts`, `tests/server/bookings-recover-route-security.test.ts` |
+| CSV formula tests                      | `tests/lib/csv-export.test.ts`                                                                                                                                                                                           |
+| Parameter pollution tests              | `tests/lib/query-params.test.ts`                                                                                                                                                                                         |
+| Rate-limit tests                       | `tests/server/auth/signin-throttle.test.ts`, `tests/server/auth/signin-route-magic-link-policy.test.ts`, `tests/server/cron-routes-auth.test.ts`                                                                         |
+| Dual-sync side-effect ordering tests   | `tests/server/dual-sync-publish-orchestrator.test.ts`                                                                                                                                                                    |
+| Security event redaction tests         | `tests/server/security-events.test.ts`                                                                                                                                                                                   |
 
 ## Evidence Rules
 

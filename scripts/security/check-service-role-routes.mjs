@@ -32,6 +32,9 @@ const AUTHORIZATION_GUARD_PATTERNS = [
   /\bhasValidReviewLinkWebhookAuthorization\b/,
   /\bhandleGoogleBusinessProfilePush\b/,
   /\brequireRestaurantContext\b/,
+  // Booking-scoped guest access (booking cookie or owning session), see
+  // server/bookings/guest-booking-access.ts.
+  /\bresolveGuestBookingAccess\b/,
   /\blistUserRestaurantMemberships\b/,
   /\bauth\.getUser\s*\(/,
   /\bgetUser\s*\(/,

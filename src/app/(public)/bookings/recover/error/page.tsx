@@ -64,7 +64,27 @@ const copyByCode: Record<
       'The booking system has moved to safer recovery links. Use the latest email or sign in to manage the reservation.',
     action: 'Check your latest confirmation message before trying again.',
   },
+  LEGACY_LINK_EXPIRED: {
+    title: 'This booking link has been replaced',
+    description:
+      'We now send a separate, safer link for each booking. Your booking is unchanged; we just need to send you a new link.',
+    action: 'Enter your email and we will send a fresh link for your upcoming bookings.',
+  },
+  ACCESS_TOKEN_REVOKED: {
+    title: 'This booking link is no longer valid',
+    description:
+      'The contact details on this booking have changed since the link was sent, so older links stop working.',
+    action: 'Request a new link. It will go to the email address now on the booking.',
+  },
+  RATE_LIMITED: {
+    title: 'Too many attempts',
+    description:
+      'This link was opened too many times in a short period. Wait a minute and try again.',
+    action: 'Try the link again shortly, or request a new one.',
+  },
 };
+
+const FIND_BOOKING_PATH = '/bookings/find';
 
 export default async function BookingRecoverErrorPage({
   searchParams,
@@ -86,8 +106,10 @@ export default async function BookingRecoverErrorPage({
         description={content.description}
         actions={
           <>
-            <GuestPrimaryButton href={primaryAction.href}>{primaryAction.label}</GuestPrimaryButton>
-            <GuestSecondaryButton href="/bookings">Manage another booking</GuestSecondaryButton>
+            <GuestPrimaryButton href={FIND_BOOKING_PATH}>Email me a new link</GuestPrimaryButton>
+            <GuestSecondaryButton href={primaryAction.href}>
+              {primaryAction.label}
+            </GuestSecondaryButton>
           </>
         }
         meta={
@@ -132,15 +154,15 @@ export default async function BookingRecoverErrorPage({
                 {
                   icon: RefreshCw,
                   label: 'Fresh link',
-                  value: 'Ask the venue to resend confirmation if the newest link still fails.',
-                  detail: 'The restaurant can confirm the booking remains on their list.',
+                  value: 'Request a new link with the email address on your booking.',
+                  detail:
+                    'Booked by phone or with a different email? The venue can update it and resend your confirmation.',
                 },
                 {
                   icon: ShieldCheck,
                   label: 'Guest account',
-                  value: 'Sign in with the email used for the booking.',
-                  detail:
-                    'If the booking is linked to your account, it appears in booking history.',
+                  value: 'Signed in when you open a booking link? It is saved to your account.',
+                  detail: 'Bookings saved to your account appear in My bookings.',
                 },
               ]}
             />

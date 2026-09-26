@@ -8,6 +8,8 @@ import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 import { reservationKeys } from '@shared/api/queryKeys';
 
+import { toGuestBookingMutationError } from './guestBookingMutationError';
+
 import type { BookingDTO, BookingsPage } from './useBookings';
 import type { HttpError } from '@/lib/http/errors';
 import type { Reservation } from '@entities/reservation/reservation.schema';
@@ -33,12 +35,15 @@ export function useCancelBooking() {
   return useMutation<CancelBookingResponse, HttpError, CancelBookingInput, CancelContext>({
     mutationFn: async ({ id }) => {
       emit('booking_cancel_requested', { bookingId: id });
-      const response = await fetchJson<CancelBookingResponse>(`/api/bookings/${id}`, {
-        method: 'DELETE',
-      });
-
-      emit('booking_cancel_success', { bookingId: id });
-      return response;
+      try {
+        const response = await fetchJson<CancelBookingResponse>(`/api/bookings/${id}`, {
+          method: 'DELETE',
+        });
+        emit('booking_cancel_success', { bookingId: id });
+        return response;
+      } catch (error) {
+        throw toGuestBookingMutationError(error);
+      }
     },
     onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.bookings.all });
@@ -92,10 +97,7 @@ export function useCancelBooking() {
         queryClient.setQueryData(queryKeys.bookings.detail(variables.id), context.detail);
       }
       if (context?.reservationDetail) {
-        queryClient.setQueryData(
-          reservationKeys.detail(variables.id),
-          context.reservationDetail,
-        );
+        queryClient.setQueryData(reservationKeys.detail(variables.id), context.reservationDetail);
       }
       if (error.code === 'PENDING_LOCKED' || error.code === 'BOOKING_IN_PAST') {
         emit('booking_cancel_blocked', { bookingId: variables.id, code: error.code });

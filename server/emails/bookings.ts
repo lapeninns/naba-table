@@ -204,6 +204,8 @@ function resolveTemplateKey(params: {
     case 'reminder':
       return params.reminderVariant === 'short' ? 'reminder_short' : 'reminder_24h';
     case 'pending_attention':
+    case 'manage_link':
+      // Platform-fixed copy, not operator-editable.
       return null;
     default:
       return null;
@@ -283,8 +285,18 @@ function buildCalendarPayload(
     status: booking.status === 'cancelled' ? 'cancelled' : 'confirmed',
     bookingType: booking.booking_type,
     notes: booking.notes,
-    manageUrl: buildBookingManageUrl(booking),
+    // Calendar files get forwarded and synced to shared calendars: never embed a
+    // booking capability in them.
+    manageUrl: buildPlainBookingUrl(booking),
   };
+}
+
+/**
+ * The booking page URL without any access token. It only opens for a browser
+ * that already holds the booking cookie or an owning session.
+ */
+function buildPlainBookingUrl(booking: Pick<BookingRecord, 'id'>): string {
+  return `${bookingSiteUrl}/bookings/${encodeURIComponent(booking.id)}`;
 }
 
 type BookingSummary = {
@@ -319,6 +331,8 @@ function buildBookingEmailIdempotencyKey(params: {
   booking: BookingRecord;
   templateType: string;
   recipientEmail: string;
+  /** Distinguishes repeat sends of the same template (e.g. the intent dedupe key). */
+  nonce?: string | null;
 }) {
   const digest = createHash('sha256')
     .update(
@@ -329,6 +343,7 @@ function buildBookingEmailIdempotencyKey(params: {
         params.booking.updated_at ?? '',
         params.booking.start_at ?? '',
         params.booking.status ?? '',
+        ...(params.nonce ? [params.nonce] : []),
       ].join('|'),
     )
     .digest('hex')
@@ -417,6 +432,7 @@ export function renderHtml({
   iconOverwrite,
   colorOverwrite,
   emailType,
+  manageUrl: providedManageUrl,
 }: {
   booking: BookingRecord;
   venue: VenueDetails;
@@ -435,6 +451,11 @@ export function renderHtml({
   iconOverwrite?: string;
   colorOverwrite?: string;
   emailType?: string;
+  /**
+   * The footer and fallback CTA link, built once by the caller. Defaults to the
+   * plain booking URL (no access token).
+   */
+  manageUrl?: string;
 }) {
   const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
   const templateConfig = getDescription(emailType || 'created', isPending, booking.status);
@@ -445,7 +466,7 @@ export function renderHtml({
     icon: iconOverwrite || templateConfig.icon,
   };
 
-  const manageUrl = buildBookingManageUrl(booking);
+  const manageUrl = providedManageUrl ?? buildPlainBookingUrl(booking);
   const safeCtaUrl = ctaUrl ? safePublicHref(ctaUrl, manageUrl) : manageUrl;
 
   // One-tap star row: only on review requests, and only when the CTA is a genuine
@@ -599,7 +620,8 @@ type BookingEmailType =
   | 'restaurant_cancellation'
   | 'review_request'
   | 'reminder'
-  | 'pending_attention';
+  | 'pending_attention'
+  | 'manage_link';
 
 // Maps each booking email to its deliverability category. Only review requests are
 // optional (suppressible by a one-click unsubscribe); everything else is tied to an
@@ -614,6 +636,7 @@ function bookingEmailCategory(type: BookingEmailType): EmailCategory {
       return 'review_request';
     case 'pending_attention':
       return 'operational';
+    case 'manage_link':
     case 'updated':
     case 'cancelled':
     case 'modification_pending':
@@ -663,6 +686,8 @@ async function dispatchEmail(
     skipRecentDeliveryCheck?: boolean;
     /** Overrides the booking-state idempotency key (manual retries use a per-attempt key). */
     idempotencyKey?: string;
+    /** Makes the provider idempotency key unique per send (the intent dedupe key). */
+    nonce?: string | null;
     /**
      * Manual resends report why nothing was sent instead of returning null: a suppressed
      * recipient rethrows EmailRecipientSuppressedError, a missing address throws
@@ -672,7 +697,6 @@ async function dispatchEmail(
   } & BookingEmailSendOptions,
 ): Promise<EmailDeliveryLogEntry | null> {
   const venue = await resolveVenueDetails(booking.restaurant_id);
-  const manageUrl = buildBookingManageUrl(booking);
   const summary = buildSummary(booking, venue);
   const isPending = booking.status === 'pending' || booking.status === 'pending_allocation';
   const calendarPayload = buildCalendarPayload(booking, venue);
@@ -690,6 +714,8 @@ async function dispatchEmail(
   let calendarAttachmentName: string | undefined;
   if (
     calendarEventContent &&
+    type !== 'manage_link' &&
+    type !== 'pending_attention' &&
     shouldAttachCalendarEventAttachment({
       bookingStatus: booking.status,
       isPending,
@@ -716,7 +742,7 @@ async function dispatchEmail(
   let cue = '';
   let ask = '';
   let ctaLabel = '';
-  let ctaUrl = manageUrl;
+  let ctaUrlOverride: string | null = null;
   let toEmail = booking.customer_email;
   let resolvedVariantMeta: {
     id: string;
@@ -756,10 +782,28 @@ async function dispatchEmail(
       subject = `${headline} - ${venue.name}`;
       preheader = intro;
       ctaLabel = 'Review Now';
-      ctaUrl = `${bookingAppUrl}/bookings?focus=${encodeURIComponent(booking.id)}`;
+      ctaUrlOverride = `${bookingAppUrl}/bookings?focus=${encodeURIComponent(booking.id)}`;
       toEmail = venue.email || config.email.supportEmail || '';
       break;
+
+    case 'manage_link':
+      subject = `Your booking link for ${venue.name}`;
+      preheader = 'Use this link to view or manage your booking.';
+      headline = 'Manage your booking';
+      intro =
+        "Someone (hopefully you) asked for a link to manage this booking. If that wasn't you, ignore this email — nothing has changed.";
+      ctaLabel = 'View or manage booking';
+      break;
   }
+
+  // The booking capability link is built once, and only for mail going to the
+  // booking's own stored address. Anything else (staff notifications) gets the
+  // plain booking URL, which opens nothing by itself.
+  const sendsToGuest =
+    Boolean(toEmail) &&
+    toEmail.trim().toLowerCase() === (booking.customer_email ?? '').trim().toLowerCase();
+  const manageUrl = sendsToGuest ? buildBookingManageUrl(booking) : buildPlainBookingUrl(booking);
+  let ctaUrl = ctaUrlOverride ?? manageUrl;
 
   if (resolvedTemplateKey) {
     const resolvedTemplate = resolveTemplateVariant({
@@ -821,6 +865,7 @@ async function dispatchEmail(
     ask,
     ctaLabel,
     ctaUrl,
+    manageUrl,
     calendarAttachmentName,
     emailType:
       resolvedTemplateKey === 'reminder_short'
@@ -927,6 +972,7 @@ async function dispatchEmail(
           booking,
           templateType: deliveryTemplateType,
           recipientEmail: toEmail,
+          nonce: options?.nonce ?? null,
         }),
     });
   } catch (error) {
@@ -1119,6 +1165,7 @@ export function renderRestaurantBookingEmailPreview(params: {
     ask: resolvedTemplate.ask,
     ctaLabel: resolvedTemplate.ctaLabel,
     ctaUrl,
+    manageUrl,
     emailType: resolveRenderEmailType(params.templateKey),
   });
   const text = renderBookingEmailText({
@@ -1259,6 +1306,11 @@ async function resendBookingEmailByDeliveryType(
         reason: 'Retry requested from delivery log',
         ...manual,
       });
+    case 'manage_link':
+      return dispatchEmail('manage_link', booking, {
+        skipRecentDeliveryCheck: true,
+        nonce: `resend:${Date.now()}`,
+      });
     default:
       if (normalizedTemplateType === 'review_request') {
         return dispatchEmail('review_request', booking, manual);
@@ -1319,3 +1371,5 @@ export const sendBookingPendingAttentionEmail = (
   booking: BookingRecord,
   options: { reason: string },
 ) => dispatchEmail('pending_attention', booking, { reason: options.reason });
+export const sendBookingManageLinkEmail = (booking: BookingRecord, options: { nonce: string }) =>
+  dispatchEmail('manage_link', booking, { nonce: options.nonce });

@@ -37,7 +37,7 @@ describe('public bookings page', () => {
     expect(screen.getByRole('heading', { name: 'View existing bookings' })).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Use your reservation email to see upcoming bookings, past visits, and receipts.',
+        'See bookings saved to your guest account. Opening a booking link while signed in saves it there.',
       ),
     ).toBeInTheDocument();
 

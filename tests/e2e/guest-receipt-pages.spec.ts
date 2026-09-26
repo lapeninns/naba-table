@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createSessionRecoveryAccessToken } from '../../server/security/session-recovery-access-token';
+import { createBookingAccessToken } from '../../server/security/booking-access-token';
 
 const appPort = process.env.QA_APP_PORT ?? '5180';
 const appBaseUrl = `http://localhost:${appPort}`;
@@ -40,18 +40,22 @@ test.describe('guest receipt pages', () => {
   test.use({ baseURL: appBaseUrl });
 
   test.beforeEach(async ({ page, context }) => {
-    const recoveryToken = createSessionRecoveryAccessToken({
-      restaurantId,
-      email: bookingPayload.customer_email,
-      phone: bookingPayload.customer_phone,
+    // Booking-scoped access cookie. Over plain http (local QA) the app uses the
+    // non-__Host development cookie name; the server-side page gate also checks
+    // the booking row, so the QA database must hold this booking.
+    const access = createBookingAccessToken({
+      booking: bookingPayload,
       secret: recoverySecret,
-      ttlSeconds: 900,
+      source: 'redeem',
     });
+    if (!access) {
+      throw new Error('fixture booking cannot hold an access token');
+    }
 
     await context.addCookies([
       {
-        name: 'sr_access',
-        value: recoveryToken,
+        name: `nt_bk.${bookingId}`,
+        value: access.token,
         url: appBaseUrl,
       },
     ]);

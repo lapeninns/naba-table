@@ -3,7 +3,6 @@
   "generatedBy": "pnpm run security:guard:service-role -- --update-baseline",
   "allowedExistingRoutePaths": [
     "src/app/api/auth/signin/route.ts",
-    "src/app/api/bookings/confirm/route.ts",
     "src/app/api/health/route.ts",
     "src/app/api/ops/dashboard/changes/route.ts",
     "src/app/api/ops/dashboard/heatmap/route.ts",

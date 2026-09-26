@@ -1,33 +1,26 @@
 import { NextResponse } from 'next/server';
 
-import { env } from '@/lib/env';
-import { normalizeEmail } from '@/server/customers';
-import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
+import { apiError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import {
-  sessionRecoveryTokenMatchesBookingContact,
-  validateSessionRecoveryAccessToken,
-} from '@/server/security/session-recovery-access-token';
-import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+  finalizeGuestAccessResponse,
+  resolveGuestBookingAccess,
+} from '@/server/bookings/guest-booking-access';
+import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
+import { getServiceSupabaseClient } from '@/server/supabase';
 
-import type { SessionRecoveryAccessTokenPayload } from '@/server/security/session-recovery-access-token';
 import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-const unauthorized = () => NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-const notFound = () => NextResponse.json({ error: 'Reservation not found' }, { status: 404 });
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function extractSessionRecoveryAccessToken(req: NextRequest): string | null {
-  return (
-    req.headers.get('x-session-recovery-token') ??
-    req.nextUrl.searchParams.get('access_token') ??
-    req.nextUrl.searchParams.get('accessToken') ??
-    req.cookies.get('sr_access')?.value ??
-    null
-  );
-}
-
+/**
+ * GET /api/reservations/[id]/confirmation
+ *
+ * Downloads the reservation confirmation PDF. Access goes through the
+ * booking-scoped guest resolver (booking cookie or owning session).
+ */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string | string[] }> },
@@ -36,91 +29,20 @@ export async function GET(
   const normalized = Array.isArray(id) ? id[0] : id;
 
   if (!normalized) {
-    return NextResponse.json({ error: 'Reservation id required' }, { status: 400 });
+    return apiError(400, 'MISSING_BOOKING_ID', 'Reservation id required.');
   }
 
   if (!UUID_REGEX.test(normalized)) {
-    return NextResponse.json({ error: 'Invalid reservation id' }, { status: 400 });
+    return apiError(400, 'INVALID_BOOKING_ID', 'Invalid reservation id.');
   }
 
-  const recoveryToken = extractSessionRecoveryAccessToken(req);
-  let authenticatedUser: { id: string; email?: string | null } | null = null;
-  let recoveryAccess: SessionRecoveryAccessTokenPayload | null = null;
-
-  if (recoveryToken) {
-    const secret = env.security.sessionRecoveryAccessTokenSecret;
-    if (!secret) {
-      return NextResponse.json(
-        { error: 'Session recovery token not configured', code: 'ACCESS_TOKEN_NOT_CONFIGURED' },
-        { status: 503 },
-      );
-    }
-
-    const tokenResult = validateSessionRecoveryAccessToken(recoveryToken, { secret });
-    if (!tokenResult.ok) {
-      const code =
-        tokenResult.reason === 'expired' ? 'ACCESS_TOKEN_EXPIRED' : 'INVALID_ACCESS_TOKEN';
-      const status = tokenResult.reason === 'expired' ? 410 : 401;
-      return NextResponse.json({ error: 'Invalid session recovery token', code }, { status });
-    }
-
-    recoveryAccess = tokenResult.payload;
-  } else {
-    const supabase = await getRouteHandlerSupabaseClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return unauthorized();
-    }
-
-    authenticatedUser = user;
+  const resolution = await resolveGuestBookingAccess(req, normalized, { op: 'read' });
+  if (!resolution.ok) {
+    return resolution.response;
   }
 
+  const booking = resolution.booking;
   const service = getServiceSupabaseClient();
-  const { data: booking, error } = await service
-    .from('bookings')
-    .select(
-      'id, reference, auth_user_id, customer_email, customer_phone, restaurant_id, customer_name, start_at, booking_date, start_time, party_size, status, notes',
-    )
-    .eq('id', normalized)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[api.reservations.confirmation] booking lookup failed', error);
-    return NextResponse.json({ error: 'Unable to load reservation' }, { status: 500 });
-  }
-
-  if (!booking) {
-    return notFound();
-  }
-
-  if (recoveryAccess) {
-    if (
-      !sessionRecoveryTokenMatchesBookingContact({
-        payload: recoveryAccess,
-        booking: {
-          restaurantId: booking.restaurant_id,
-          email: booking.customer_email,
-          phone: booking.customer_phone,
-        },
-      })
-    ) {
-      return notFound();
-    }
-  } else {
-    const customerEmail = booking.customer_email ? normalizeEmail(booking.customer_email) : null;
-    const userEmail = authenticatedUser?.email ? normalizeEmail(authenticatedUser.email) : null;
-    const matchesAuthUser =
-      (booking.auth_user_id && booking.auth_user_id === authenticatedUser?.id) ||
-      (customerEmail && userEmail && customerEmail === userEmail);
-
-    if (!matchesAuthUser) {
-      return notFound();
-    }
-  }
 
   const reference = booking.reference ?? normalized;
   let venueName: string | null = null;
@@ -135,7 +57,9 @@ export async function GET(
       .maybeSingle();
 
     if (restaurantError) {
-      console.error('[api.reservations.confirmation] restaurant lookup failed', restaurantError);
+      logger.warn('reservations.confirmation.restaurant_lookup_failed', {
+        bookingId: normalized,
+      });
     } else if (restaurant) {
       venueName = restaurant.name ?? null;
       venueAddress = restaurant.address ?? null;
@@ -161,12 +85,16 @@ export async function GET(
     file.byteOffset + file.byteLength,
   ) as ArrayBuffer;
 
-  return new NextResponse(pdfArrayBuffer, {
+  const response = new NextResponse(pdfArrayBuffer, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="reservation-${reference}.pdf"`,
       'Cache-Control': 'no-store',
     },
+  });
+  return finalizeGuestAccessResponse(req, response, {
+    bookingId: normalized,
+    clearCookie: resolution.clearCookie,
   });
 }
