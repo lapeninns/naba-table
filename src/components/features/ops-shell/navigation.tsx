@@ -3,6 +3,7 @@ import {
   CalendarDays,
   CircleHelp,
   DoorOpen,
+  LayoutGrid,
   Mail,
   MessageSquare,
   Settings2,
@@ -49,6 +50,13 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         icon: CalendarDays,
         match: (pathname) =>
           pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+      },
+      {
+        title: 'Floor plan',
+        description: 'Seat arrivals and assign tables live',
+        href: path('/seating/floor-plan'),
+        icon: LayoutGrid,
+        match: (pathname) => pathname.startsWith(path('/seating/floor-plan')),
       },
       {
         title: 'New Bookings',

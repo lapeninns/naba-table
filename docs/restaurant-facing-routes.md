@@ -77,7 +77,7 @@ All routes are accessible at `app.nabatable.com/<route>`:
 
 - `/seating` — Seating overview
 - `/seating/capacity` — Capacity management
-- `/seating/floor-plan` — Floor plan editor
+- `/seating/floor-plan` — Floor plan: live table states, assign/move bookings, check-in, timeline, arrange layout
 
 ### Team Management
 
