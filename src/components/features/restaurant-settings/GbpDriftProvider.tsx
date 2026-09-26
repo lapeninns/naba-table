@@ -152,6 +152,20 @@ export function getGbpDriftSectionBadge(sectionStatus: GbpDriftSectionStatus): s
   return null;
 }
 
+function gbpStatusDotClass(status: GbpDriftStatus): string {
+  if (status.badgeTone === 'destructive') return 'bg-destructive';
+  switch (status.kind) {
+    case 'synced':
+      return 'bg-success-text';
+    case 'connected_with_review':
+      return 'bg-primary';
+    case 'connected_outdated':
+      return 'bg-warning-text';
+    default:
+      return 'bg-muted-foreground';
+  }
+}
+
 export function GbpDriftStatusPill({
   className,
 }: Pick<ComponentPropsWithoutRef<typeof Button>, 'className'>) {
@@ -162,19 +176,23 @@ export function GbpDriftStatusPill({
   }
 
   return (
-    <Button
-      asChild
-      variant="outline"
-      size="sm"
-      className={cn('h-7 px-2 text-xs font-medium', className)}
+    <Link
+      href={reviewHref}
+      title={status.detail}
+      aria-busy={status.isLoading || undefined}
+      className={cn(
+        'inline-flex h-8 max-w-56 items-center gap-1.5 rounded-full border border-border bg-background px-2.5 text-xs font-medium text-foreground',
+        'hover:bg-muted',
+        'outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30',
+        className,
+      )}
     >
-      <Link href={reviewHref}>
-        <Badge variant={status.badgeTone} className="mr-1.5 shrink-0 px-1.5 py-0">
-          GBP
-        </Badge>
-        <span className="min-w-0 truncate">{status.shortLabel}</span>
-      </Link>
-    </Button>
+      <span
+        className={cn('size-1.5 shrink-0 rounded-full', gbpStatusDotClass(status))}
+        aria-hidden
+      />
+      <span className="min-w-0 truncate">{status.label}</span>
+    </Link>
   );
 }
 
