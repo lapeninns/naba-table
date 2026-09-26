@@ -359,4 +359,61 @@ describe('runBookingCreatePrecommitContext', () => {
     });
     expect(deps.customerContextResolver).not.toHaveBeenCalled();
   });
+
+  it('answers a full-slot precheck as a key replay when its own first attempt just committed', async () => {
+    const response = NextResponse.json({ error: 'No capacity' }, { status: 409 });
+    const keyedBookingFinder = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(keyedBooking) as unknown as BookingCreateKeyedBookingFinder;
+    const deps = buildContinueDeps({
+      keyedBookingFinder,
+      capacityPrechecker: vi.fn(async () => ({
+        kind: 'response',
+        response,
+      })) as BookingCreatePrecommitCapacityPrechecker,
+    });
+
+    await expect(
+      runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request,
+        requestContext,
+        restaurantId,
+      }),
+    ).resolves.toMatchObject({
+      kind: 'continue',
+      booking: keyedBooking,
+      reusedExisting: true,
+      createOrigin: 'key_replay',
+    });
+    expect(keyedBookingFinder).toHaveBeenCalledTimes(2);
+    expect(deps.customerContextResolver).not.toHaveBeenCalled();
+  });
+
+  it('keeps the precheck failure for key-less requests without a second lookup', async () => {
+    const response = NextResponse.json({ error: 'No capacity' }, { status: 409 });
+    const deps = buildContinueDeps({
+      capacityPrechecker: vi.fn(async () => ({
+        kind: 'response',
+        response,
+      })) as BookingCreatePrecommitCapacityPrechecker,
+    });
+
+    await expect(
+      runBookingCreatePrecommitContext({
+        ...deps,
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        request,
+        requestContext: { ...requestContext, headerIdempotencyKey: null },
+        restaurantId,
+      }),
+    ).resolves.toEqual({ kind: 'response', response });
+    expect(deps.keyedBookingFinder).not.toHaveBeenCalled();
+  });
 });

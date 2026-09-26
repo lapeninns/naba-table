@@ -133,6 +133,7 @@ describe('booking record recovery', () => {
       { op: 'eq', column: 'restaurant_id', value: 'restaurant-1' },
       { op: 'eq', column: 'customer_id', value: 'customer-1' },
       { op: 'eq', column: 'idempotency_key', value: 'idem-1' },
+      { op: 'not', column: 'status', operator: 'in', value: '(cancelled,no_show)' },
       { op: 'maybeSingle' },
     ]);
   });
@@ -152,6 +153,7 @@ describe('booking record recovery', () => {
       { op: 'eq', column: 'restaurant_id', value: 'restaurant-1' },
       { op: 'eq', column: 'customer_id', value: 'customer-1' },
       { op: 'eq', column: 'idempotency_key', value: 'idem-1' },
+      { op: 'not', column: 'status', operator: 'in', value: '(cancelled,no_show)' },
       { op: 'maybeSingle' },
       { op: 'from', table: 'bookings' },
       { op: 'select', columns: '*' },
@@ -363,6 +365,16 @@ describe('signature recovery ignores finished bookings (create, cancel, rebook)'
     ]);
 
     await expect(recoverBookingRecord(client, rebook)).resolves.toBeNull();
+  });
+
+  it('does not return a cancelled booking found by the same derived key (key-less rebook)', async () => {
+    const client = createRowsClient([
+      { ...slot, id: 'booking-cancelled', status: 'cancelled', created_at: '2026-05-01T10:00:00Z' },
+    ]);
+
+    await expect(
+      recoverBookingRecordWithMethod(client, { ...args, idempotencyKey: slot.idempotency_key }),
+    ).resolves.toBeNull();
   });
 
   it('does not return a no-show booking in the same slot', async () => {

@@ -30,6 +30,12 @@
 --        the legacy create path no longer inserts 'confirmed' and flips it to 'pending' in a
 --        second, non-atomic write. The key is stripped before details is stored. Callers that
 --        do not send it keep the previous behaviour ('confirmed');
+--      - p_details->>'idempotency_key_kind' = 'derived' marks a server-derived key (key-less
+--        clients: sha256 of restaurant, customer, date, start, end and party size). A derived key
+--        must not claim a slot forever: when it meets a cancelled or no_show booking, that row's
+--        key is released (idempotency_key = NULL, details.idempotency_key_released_at stamped)
+--        and the insert runs, so a guest can rebook a slot they cancelled. A client-supplied key
+--        still replays its booking whatever its status. The marker is stripped before storing;
 --      - retryable BOOKING_CONFLICT payloads carry details.bookingConflict = true, because the
 --        unified validation path maps the RPC code to CAPACITY_EXCEEDED and would otherwise
 --        lose the retry signal;
@@ -44,6 +50,8 @@
 --       UPDATE public.bookings b SET idempotency_key = a.idempotency_key
 --       FROM public.booking_idempotency_key_dedupe_audit a
 --       WHERE a.booking_id = b.id AND b.idempotency_key IS NULL;
+--   * Keys released from cancelled/no_show rows by derived-key rebooks are not restored; those
+--     rows carry details.idempotency_key_released_at.
 --   * The audit table can be dropped once the rollback window has passed:
 --       DROP TABLE public.booking_idempotency_key_dedupe_audit;
 BEGIN;
@@ -154,6 +162,8 @@ DECLARE
     v_existing public.bookings%ROWTYPE;
     v_initial_status public.booking_status := 'confirmed';
     v_details jsonb := COALESCE(p_details, '{}'::jsonb);
+    v_derived_key boolean := false;
+    v_attempt integer;
 BEGIN
     -- =====================================================
     -- STEP 0: Initial status (compatible opt-in through p_details)
@@ -165,7 +175,8 @@ BEGIN
     IF v_details ->> 'initial_status' = 'pending' THEN
         v_initial_status := 'pending';
     END IF;
-    v_details := v_details - 'initial_status';
+    v_derived_key := v_details ->> 'idempotency_key_kind' = 'derived';
+    v_details := v_details - 'initial_status' - 'idempotency_key_kind';
 
     -- =====================================================
     -- STEP 1: Idempotency replay (fast path; the unique index below is the guarantee)
@@ -177,9 +188,19 @@ BEGIN
           AND idempotency_key = v_idempotency_key;
 
         IF FOUND THEN
-            RETURN public.booking_create_idempotent_replay_result(
-                v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size
-            );
+            IF v_derived_key AND v_existing.status IN ('cancelled', 'no_show') THEN
+                -- A derived key never replays a finished booking: release it and insert.
+                UPDATE public.bookings
+                SET idempotency_key = NULL,
+                    details = COALESCE(details, '{}'::jsonb)
+                        || jsonb_build_object('idempotency_key_released_at', now())
+                WHERE id = v_existing.id
+                  AND status IN ('cancelled', 'no_show');
+            ELSE
+                RETURN public.booking_create_idempotent_replay_result(
+                    v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size
+                );
+            END IF;
         END IF;
     END IF;
 
@@ -393,68 +414,70 @@ BEGIN
     -- =====================================================
     -- STEP 7: Insert Booking; the unique (restaurant_id, idempotency_key) index arbitrates races
     -- =====================================================
-    INSERT INTO bookings (
-        restaurant_id,
-        customer_id,
-        booking_date,
-        start_time,
-        end_time,
-        start_at,
-        end_at,
-        party_size,
-        booking_type,
-        seating_preference,
-        status,
-        reference,
-        customer_name,
-        customer_email,
-        customer_phone,
-        notes,
-        marketing_opt_in,
-        loyalty_points_awarded,
-        source,
-        auth_user_id,
-        idempotency_key,
-        details
-    ) VALUES (
-        p_restaurant_id,
-        p_customer_id,
-        p_booking_date,
-        p_start_time,
-        p_end_time,
-        v_start_at,
-        v_end_at,
-        p_party_size,
-        p_booking_type,
-        p_seating_preference::seating_preference_type,
-        v_initial_status,
-        v_reference,
-        p_customer_name,
-        p_customer_email,
-        p_customer_phone,
-        p_notes,
-        p_marketing_opt_in,
-        p_loyalty_points_awarded,
-        p_source,
-        p_auth_user_id,
-        v_idempotency_key,
-        jsonb_build_object(
-            'channel', 'api.capacity_safe',
-            'client_request_id', p_client_request_id,
-            'capacity_check', jsonb_build_object(
-                'service_period_id', v_service_period_id,
-                'max_covers', v_max_covers,
-                'booked_covers_before', v_booked_covers,
-                'booked_covers_after', v_booked_covers + p_party_size
-            ),
-            'timezone', v_timezone,
-            'original_timezone', NULLIF(v_timezone_raw, '')
-        ) || v_details
-    )
-    ON CONFLICT (restaurant_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
-    RETURNING id, to_jsonb(bookings.*) INTO v_booking_id, v_booking_record;
+    FOR v_attempt IN 1..2 LOOP
+        INSERT INTO bookings (
+            restaurant_id,
+            customer_id,
+            booking_date,
+            start_time,
+            end_time,
+            start_at,
+            end_at,
+            party_size,
+            booking_type,
+            seating_preference,
+            status,
+            reference,
+            customer_name,
+            customer_email,
+            customer_phone,
+            notes,
+            marketing_opt_in,
+            loyalty_points_awarded,
+            source,
+            auth_user_id,
+            idempotency_key,
+            details
+        ) VALUES (
+            p_restaurant_id,
+            p_customer_id,
+            p_booking_date,
+            p_start_time,
+            p_end_time,
+            v_start_at,
+            v_end_at,
+            p_party_size,
+            p_booking_type,
+            p_seating_preference::seating_preference_type,
+            v_initial_status,
+            v_reference,
+            p_customer_name,
+            p_customer_email,
+            p_customer_phone,
+            p_notes,
+            p_marketing_opt_in,
+            p_loyalty_points_awarded,
+            p_source,
+            p_auth_user_id,
+            v_idempotency_key,
+            jsonb_build_object(
+                'channel', 'api.capacity_safe',
+                'client_request_id', p_client_request_id,
+                'capacity_check', jsonb_build_object(
+                    'service_period_id', v_service_period_id,
+                    'max_covers', v_max_covers,
+                    'booked_covers_before', v_booked_covers,
+                    'booked_covers_after', v_booked_covers + p_party_size
+                ),
+                'timezone', v_timezone,
+                'original_timezone', NULLIF(v_timezone_raw, '')
+            ) || v_details
+        )
+        ON CONFLICT (restaurant_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+        RETURNING id, to_jsonb(bookings.*) INTO v_booking_id, v_booking_record;
 
-    IF v_booking_id IS NULL THEN
+        EXIT WHEN v_booking_id IS NOT NULL;
+
         -- A concurrent call with the same key committed first. READ COMMITTED gives this new
         -- statement a snapshot that includes the winner's row.
         SELECT * INTO v_existing
@@ -472,8 +495,29 @@ BEGIN
             );
         END IF;
 
+        IF v_derived_key AND v_attempt = 1 AND v_existing.status IN ('cancelled', 'no_show') THEN
+            -- The keyed row was finished in between: release its derived key and insert again.
+            UPDATE public.bookings
+            SET idempotency_key = NULL,
+                details = COALESCE(details, '{}'::jsonb)
+                    || jsonb_build_object('idempotency_key_released_at', now())
+            WHERE id = v_existing.id
+              AND status IN ('cancelled', 'no_show');
+            CONTINUE;
+        END IF;
+
         RETURN public.booking_create_idempotent_replay_result(
             v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size
+        );
+    END LOOP;
+
+    IF v_booking_id IS NULL THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'error', 'BOOKING_CONFLICT',
+            'message', 'Concurrent booking conflict detected. Please retry.',
+            'retryable', true,
+            'details', jsonb_build_object('bookingConflict', true)
         );
     END IF;
 

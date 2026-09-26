@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 
 import { conflict, type ApiErrorBody } from '@/lib/api/errors';
 
+import type { Json } from '@/types/supabase';
 import type { NextResponse } from 'next/server';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,15 +44,37 @@ export function coerceUuid(value: string | null): string | null {
   return UUID_REGEX.test(value) ? value : null;
 }
 
+/**
+ * Server-derived key for clients that send no `Idempotency-Key`. It covers every field the
+ * create RPC compares on replay (customer, date, start, party size), so a key-less guest who
+ * changes the party size makes a new request, never a 409 about a key they did not send.
+ */
 export function buildDeterministicIdempotencyKey(params: {
   restaurantId: string;
   customerId: string;
   bookingDate: string;
   startTime: string;
   endTime: string;
+  partySize: number;
 }): string {
-  const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}`;
+  const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}|${params.partySize}`;
   return createHash('sha256').update(payload).digest('hex').slice(0, 32);
+}
+
+/**
+ * `p_details` marker for a server-derived key. The create RPC strips it before storing and,
+ * for a derived key only, releases the key of a cancelled or no-show booking instead of
+ * replaying it, so a derived key never claims a finished slot.
+ */
+export const DERIVED_IDEMPOTENCY_KEY_DETAILS = { idempotency_key_kind: 'derived' } as const;
+
+export function withIdempotencyKeyKind(
+  details: Json | null,
+  headerIdempotencyKey: string | null,
+): Json | null {
+  if (headerIdempotencyKey) return details;
+  const base = details && typeof details === 'object' && !Array.isArray(details) ? details : {};
+  return { ...base, ...DERIVED_IDEMPOTENCY_KEY_DETAILS };
 }
 
 /** Observability-safe key reference: raw idempotency keys never leave the request. */

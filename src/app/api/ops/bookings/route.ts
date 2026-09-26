@@ -1108,6 +1108,21 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
         return buildBookingConflictRetryResponse();
       }
 
+      // A same-key retry can lose the race to its own first attempt after the key lookup
+      // above missed; validation then sees that booking filling the slot. Look the key up
+      // again before reporting the failure.
+      const lateReplay = await resolveOpsKeyReplay(service, {
+        restaurantId: payload.restaurantId,
+        idempotencyKey: normalizedIdempotencyKey,
+        bookingDate: payload.date,
+        startTime: payload.time,
+        partySize: payload.party,
+        customerEmail: emailProvided ? customerEmailForStorage : null,
+      });
+      if (lateReplay.kind === 'existing') {
+        return respondWithExistingBooking(lateReplay.booking);
+      }
+
       void recordObservabilityEvent({
         source: 'api.ops.bookings',
         eventType: 'booking.validation_failed',

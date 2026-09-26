@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   runBookingCreatePersistence,
   type BookingCreateLegacyCapacityRunner,
+  type BookingCreatePersistenceKeyedBookingFinder,
   type BookingCreateUnifiedValidationRunner,
 } from '@/server/bookings/create-persistence';
 
@@ -61,6 +62,8 @@ function buildPrecommit(
     ...overrides,
   } satisfies Extract<BookingCreatePrecommitContextResult, { kind: 'continue' }>;
 }
+
+const missingKeyedBooking = vi.fn(async () => null) as BookingCreatePersistenceKeyedBookingFinder;
 
 describe('runBookingCreatePersistence', () => {
   it('reuses precommit bookings without invoking create branches', async () => {
@@ -202,6 +205,7 @@ describe('runBookingCreatePersistence', () => {
     const result = await runBookingCreatePersistence({
       client,
       clientIp: '192.0.2.10',
+      keyedBookingFinder: missingKeyedBooking,
       pastTimeBlocking: true,
       pastTimeGraceMinutes: 5,
       precommit: buildPrecommit(),
@@ -310,6 +314,7 @@ describe('runBookingCreatePersistence', () => {
       runBookingCreatePersistence({
         client,
         clientIp: '192.0.2.10',
+        keyedBookingFinder: missingKeyedBooking,
         legacyCapacityRunner,
         pastTimeBlocking: true,
         pastTimeGraceMinutes: 5,
@@ -322,6 +327,170 @@ describe('runBookingCreatePersistence', () => {
     ).resolves.toEqual({
       kind: 'response',
       response,
+    });
+  });
+
+  describe('server-derived key marker', () => {
+    it('marks the details of a key-less request as a derived key', async () => {
+      const unifiedValidationRunner = vi.fn(async () => ({
+        kind: 'created',
+        booking: { ...booking, idempotency_key: 'deterministic-idem' },
+        reusedExisting: false,
+      })) as BookingCreateUnifiedValidationRunner;
+
+      await runBookingCreatePersistence({
+        client,
+        clientIp: '192.0.2.10',
+        pastTimeBlocking: true,
+        pastTimeGraceMinutes: 5,
+        precommit: buildPrecommit({ idempotencyKey: 'deterministic-idem' }),
+        request,
+        requestContext: {
+          ...requestContext,
+          headerIdempotencyKey: null,
+          bookingDetails: { channel: 'web' },
+        },
+        restaurantId,
+        unifiedValidationRunner,
+        useUnifiedValidation: true,
+      });
+
+      expect(unifiedValidationRunner).toHaveBeenCalledWith(
+        expect.objectContaining({
+          idempotencyKey: 'deterministic-idem',
+          bookingDetails: { channel: 'web', idempotency_key_kind: 'derived' },
+        }),
+      );
+    });
+
+    it('leaves the details of a client-keyed request untouched', async () => {
+      const legacyCapacityRunner = vi.fn(async () => ({
+        kind: 'created',
+        booking,
+        reusedExisting: false,
+        recovered: false,
+      })) as BookingCreateLegacyCapacityRunner;
+
+      await runBookingCreatePersistence({
+        client,
+        clientIp: '192.0.2.10',
+        legacyCapacityRunner,
+        pastTimeBlocking: true,
+        pastTimeGraceMinutes: 5,
+        precommit: buildPrecommit(),
+        request,
+        requestContext: { ...requestContext, bookingDetails: { channel: 'web' } },
+        restaurantId,
+        useUnifiedValidation: false,
+      });
+
+      expect(legacyCapacityRunner).toHaveBeenCalledWith(
+        expect.objectContaining({ bookingDetails: { channel: 'web' } }),
+      );
+    });
+  });
+
+  describe('same-key retry that loses the race to its own first attempt', () => {
+    const committed = {
+      ...booking,
+      id: 'booking-first-attempt',
+      restaurant_id: restaurantId,
+      customer_id: 'customer-1',
+      booking_date: request.date,
+      start_time: '18:30:00',
+      party_size: request.party,
+      idempotency_key: HEADER_KEY,
+    } as BookingRecord;
+    const capacityFailure = () =>
+      NextResponse.json({ code: 'CAPACITY_EXCEEDED', error: 'Full' }, { status: 409 });
+
+    it.each([true, false])(
+      'answers a capacity failure as a key replay when the key now holds a matching booking (unified: %s)',
+      async (useUnifiedValidation) => {
+        const failure = { kind: 'response', response: capacityFailure() } as const;
+        const unifiedValidationRunner = vi.fn(
+          async () => failure,
+        ) as unknown as BookingCreateUnifiedValidationRunner;
+        const legacyCapacityRunner = vi.fn(
+          async () => failure,
+        ) as unknown as BookingCreateLegacyCapacityRunner;
+        const keyedBookingFinder = vi.fn(async () => committed);
+
+        await expect(
+          runBookingCreatePersistence({
+            client,
+            clientIp: '192.0.2.10',
+            keyedBookingFinder,
+            legacyCapacityRunner,
+            pastTimeBlocking: true,
+            pastTimeGraceMinutes: 5,
+            precommit: buildPrecommit(),
+            request,
+            requestContext,
+            restaurantId,
+            unifiedValidationRunner,
+            useUnifiedValidation,
+          }),
+        ).resolves.toEqual({
+          kind: 'created',
+          booking: committed,
+          customer: { id: 'customer-1' },
+          idempotencyKey: HEADER_KEY,
+          reusedExisting: true,
+          createOrigin: 'key_replay',
+        });
+        expect(keyedBookingFinder).toHaveBeenCalledWith(client, {
+          restaurantId,
+          idempotencyKey: HEADER_KEY,
+        });
+      },
+    );
+
+    it('keeps the failure when the keyed booking has a different payload', async () => {
+      const failure = { kind: 'response', response: capacityFailure() } as const;
+      const unifiedValidationRunner = vi.fn(
+        async () => failure,
+      ) as unknown as BookingCreateUnifiedValidationRunner;
+
+      await expect(
+        runBookingCreatePersistence({
+          client,
+          clientIp: '192.0.2.10',
+          keyedBookingFinder: vi.fn(async () => ({ ...committed, party_size: 2 }) as BookingRecord),
+          pastTimeBlocking: true,
+          pastTimeGraceMinutes: 5,
+          precommit: buildPrecommit(),
+          request,
+          requestContext,
+          restaurantId,
+          unifiedValidationRunner,
+          useUnifiedValidation: true,
+        }),
+      ).resolves.toBe(failure);
+    });
+
+    it('does not look a key up for key-less requests', async () => {
+      const failure = { kind: 'response', response: capacityFailure() } as const;
+      const keyedBookingFinder = vi.fn(async () => committed);
+
+      await expect(
+        runBookingCreatePersistence({
+          client,
+          clientIp: '192.0.2.10',
+          keyedBookingFinder,
+          pastTimeBlocking: true,
+          pastTimeGraceMinutes: 5,
+          precommit: buildPrecommit({ idempotencyKey: 'deterministic-idem' }),
+          request,
+          requestContext: { ...requestContext, headerIdempotencyKey: null },
+          restaurantId,
+          unifiedValidationRunner: vi.fn(
+            async () => failure,
+          ) as unknown as BookingCreateUnifiedValidationRunner,
+          useUnifiedValidation: true,
+        }),
+      ).resolves.toBe(failure);
+      expect(keyedBookingFinder).not.toHaveBeenCalled();
     });
   });
 });

@@ -910,4 +910,171 @@ describe('public POST /api/bookings capacity handling', () => {
       expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(IDEMPOTENCY_KEY);
     });
   });
+
+  describe('key-less create, cancel, rebook the same slot', () => {
+    type Row = Record<string, unknown>;
+
+    function bookingRow(overrides: Row): Row {
+      return {
+        restaurant_id: '11111111-1111-4111-8111-111111111111',
+        customer_id: 'cust-1',
+        booking_date: '2026-07-01',
+        start_time: '19:00:00',
+        end_time: '20:30:00',
+        start_at: null,
+        end_at: null,
+        party_size: 4,
+        booking_type: 'dinner',
+        seating_preference: 'any',
+        status: 'pending',
+        customer_name: 'Alex Guest',
+        customer_email: 'alex@example.com',
+        customer_phone: '+447700900123',
+        notes: null,
+        marketing_opt_in: true,
+        client_request_id: '11111111-1111-4111-8111-333333333333',
+        pending_ref: null,
+        confirmation_token: null,
+        confirmation_token_expires_at: null,
+        created_at: '2026-07-01T10:00:00.000Z',
+        updated_at: '2026-07-01T10:00:00.000Z',
+        ...overrides,
+      };
+    }
+
+    /** PostgREST-shaped reads over an in-memory bookings table (eq, not in, order, limit). */
+    function bookingsTable(rows: Row[]) {
+      return () => {
+        const filters: Array<(row: Row) => boolean> = [];
+        let limitCount: number | null = null;
+        const builder = {
+          select: vi.fn(() => builder),
+          eq: vi.fn((column: string, value: unknown) => {
+            filters.push((row) => String(row[column] ?? '').slice(0, String(value).length) === String(value) && row[column] !== null);
+            return builder;
+          }),
+          not: vi.fn((column: string, operator: string, value: string) => {
+            const excluded = value.replace(/[()]/g, '').split(',');
+            filters.push((row) => !(operator === 'in' && excluded.includes(String(row[column]))));
+            return builder;
+          }),
+          order: vi.fn(() => builder),
+          limit: vi.fn((count: number) => {
+            limitCount = count;
+            return builder;
+          }),
+          maybeSingle: vi.fn(async () => {
+            let matched = rows.filter((row) => filters.every((filter) => filter(row)));
+            if (limitCount !== null) matched = matched.slice(0, limitCount);
+            if (matched.length > 1) return { data: null, error: new Error('multiple rows') };
+            return { data: matched[0] ?? null, error: null };
+          }),
+        };
+        return builder;
+      };
+    }
+
+    /** Mirrors the RPC contract proven in tests/db/booking-create-idempotency.sql. */
+    function rpcOver(rows: Row[]) {
+      let sequence = 0;
+      return async (params: {
+        restaurantId: string;
+        customerId: string;
+        bookingDate: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        idempotencyKey: string | null;
+        details?: Record<string, unknown> | null;
+      }) => {
+        const derived = params.details?.idempotency_key_kind === 'derived';
+        const existing = rows.find(
+          (row) =>
+            row.restaurant_id === params.restaurantId &&
+            params.idempotencyKey !== null &&
+            row.idempotency_key === params.idempotencyKey,
+        );
+        if (existing) {
+          if (!(derived && ['cancelled', 'no_show'].includes(String(existing.status)))) {
+            return existing.party_size === params.partySize
+              ? { success: true, duplicate: true, booking: existing }
+              : {
+                  success: false,
+                  duplicate: false,
+                  error: 'IDEMPOTENCY_KEY_REUSED',
+                  details: { idempotencyConflict: true },
+                  retryable: false,
+                };
+          }
+          existing.idempotency_key = null;
+        }
+        sequence += 1;
+        const inserted = bookingRow({
+          id: `booking-rebook-${sequence}`,
+          reference: `NBREB${sequence}`,
+          party_size: params.partySize,
+          idempotency_key: params.idempotencyKey,
+        });
+        rows.push(inserted);
+        return { success: true, duplicate: false, booking: inserted };
+      };
+    }
+
+    beforeEach(() => {
+      checkSlotAvailabilityMock.mockResolvedValue({
+        available: true,
+        metadata: { servicePeriod: 'Dinner', maxCovers: 20, bookedCovers: 0 },
+      });
+    });
+
+    it.each([
+      ['the same party size', 4],
+      ['a different party size', 2],
+    ])('inserts a NEW booking (201) after a cancel, with %s', async (_label, rebookParty) => {
+      const rows: Row[] = [];
+      const table = bookingsTable(rows);
+      fromMock.mockImplementation((name: string) => (name === 'bookings' ? table() : createQueryBuilder()));
+      createBookingWithCapacityCheckMock.mockImplementation(rpcOver(rows));
+
+      const first = await POST(buildRequest());
+      const firstBody = await first.json();
+      expect(first.status).toBe(201);
+      const firstCall = createBookingWithCapacityCheckMock.mock.calls[0]?.[0];
+      expect(firstCall.details).toMatchObject({ idempotency_key_kind: 'derived' });
+      expect(firstCall.idempotencyKey).toMatch(/^[0-9a-f]{32}$/);
+
+      const firstRow = rows.find((row) => row.id === firstBody.booking.id);
+      expect(firstRow).toBeDefined();
+      if (firstRow) firstRow.status = 'cancelled';
+
+      const rebook = await POST(buildRequest({ party: rebookParty }));
+      const rebookBody = await rebook.json();
+
+      expect(rebook.status).toBe(201);
+      expect(rebookBody.duplicate).toBe(false);
+      expect(rebookBody.code).toBeUndefined();
+      expect(rebookBody.booking.id).not.toBe(firstBody.booking.id);
+      expect(rebookBody.booking.party_size).toBe(rebookParty);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(2);
+      expect(rows.filter((row) => row.status !== 'cancelled')).toHaveLength(1);
+    });
+
+    it('still recovers the live booking for a key-less double submit (no second insert)', async () => {
+      const rows: Row[] = [];
+      const table = bookingsTable(rows);
+      fromMock.mockImplementation((name: string) => (name === 'bookings' ? table() : createQueryBuilder()));
+      createBookingWithCapacityCheckMock.mockImplementation(rpcOver(rows));
+
+      const first = await POST(buildRequest());
+      const firstBody = await first.json();
+      const second = await POST(buildRequest());
+      const secondBody = await second.json();
+
+      expect(second.status).toBe(200);
+      expect(secondBody.duplicate).toBe(true);
+      expect(secondBody.booking.id).toBe(firstBody.booking.id);
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
+      expect(rows).toHaveLength(1);
+    });
+  });
 });

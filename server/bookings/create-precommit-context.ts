@@ -137,38 +137,44 @@ export async function runBookingCreatePrecommitContext({
   // 1. The client's own key, in the scope of the unique (restaurant_id, idempotency_key) index.
   //    A replay needs neither the capacity precheck (its own booking fills the slot) nor a
   //    customer write.
-  if (headerIdempotencyKey) {
+  const resolveKeyedReplay = async (): Promise<BookingCreatePrecommitContextResult | null> => {
+    if (!headerIdempotencyKey) return null;
+
     const keyedBooking = await keyedBookingFinder(client, {
       restaurantId,
       idempotencyKey: headerIdempotencyKey,
     });
+    if (!keyedBooking) return null;
 
-    if (keyedBooking) {
-      if (
-        !matchesIdempotentCreatePayload(keyedBooking, {
-          bookingDate: request.date,
-          startTime,
-          partySize: request.party,
-          customerEmail: request.email,
-        })
-      ) {
-        return { kind: 'response', response: buildIdempotencyKeyReusedResponse() };
-      }
-
-      return {
-        kind: 'continue',
-        booking: keyedBooking,
-        bookingType,
-        customer: { id: keyedBooking.customer_id },
-        durationMinutes,
-        endTime,
-        idempotencyKey: headerIdempotencyKey,
-        reusedExisting: true,
-        createOrigin: 'key_replay',
-        scheduleTimezone,
+    if (
+      !matchesIdempotentCreatePayload(keyedBooking, {
+        bookingDate: request.date,
         startTime,
-      };
+        partySize: request.party,
+        customerEmail: request.email,
+      })
+    ) {
+      return { kind: 'response', response: buildIdempotencyKeyReusedResponse() };
     }
+
+    return {
+      kind: 'continue',
+      booking: keyedBooking,
+      bookingType,
+      customer: { id: keyedBooking.customer_id },
+      durationMinutes,
+      endTime,
+      idempotencyKey: headerIdempotencyKey,
+      reusedExisting: true,
+      createOrigin: 'key_replay',
+      scheduleTimezone,
+      startTime,
+    };
+  };
+
+  const keyedReplay = await resolveKeyedReplay();
+  if (keyedReplay) {
+    return keyedReplay;
   }
 
   // 2. Advisory capacity precheck before the customer upsert, so a full slot writes nothing.
@@ -188,7 +194,9 @@ export async function runBookingCreatePrecommitContext({
   });
 
   if (capacityPrecheck.kind === 'response') {
-    return capacityPrecheck;
+    // A same-key retry racing its own first attempt sees that booking filling the slot. Look
+    // the key up once more before calling the slot full.
+    return (await resolveKeyedReplay()) ?? capacityPrecheck;
   }
 
   const customerContext = await customerContextResolver({
@@ -197,6 +205,7 @@ export async function runBookingCreatePrecommitContext({
     bookingDate: request.date,
     startTime,
     endTime,
+    partySize: request.party,
     email: request.email,
     phone: request.phone,
     name: request.name,

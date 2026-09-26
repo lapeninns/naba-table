@@ -72,6 +72,7 @@ export async function recoverBookingRecordWithMethod(
       .eq('restaurant_id', args.restaurantId)
       .eq('customer_id', args.customerId)
       .eq('idempotency_key', args.idempotencyKey)
+      .not('status', 'in', SIGNATURE_RECOVERY_EXCLUDED_STATUS_FILTER)
       .maybeSingle();
 
     if (!error && data) {

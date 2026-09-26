@@ -425,6 +425,45 @@ describe('POST /api/ops/bookings', () => {
       });
     });
 
+    it('answers a capacity failure as a replay when its own first attempt committed meanwhile', async () => {
+      maybeSingleMock
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({
+          data: makeBooking({ idempotency_key: KEY, start_time: '19:30:00' }),
+          error: null,
+        });
+      createWithEnforcementMock.mockRejectedValueOnce(
+        new BookingValidationError({
+          ok: false,
+          issues: [{ code: 'CAPACITY_EXCEEDED', message: 'The slot is full.' }],
+        }),
+      );
+
+      const response = await postWalkIn();
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ duplicate: true, booking: { id: 'booking-1' } });
+      expect(maybeSingleMock).toHaveBeenCalledTimes(3);
+      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    });
+
+    it('keeps the capacity failure when the key still holds nothing', async () => {
+      createWithEnforcementMock.mockRejectedValueOnce(
+        new BookingValidationError({
+          ok: false,
+          issues: [{ code: 'CAPACITY_EXCEEDED', message: 'The slot is full.' }],
+        }),
+      );
+
+      const response = await postWalkIn();
+
+      expect(response.status).not.toBe(200);
+      expect(response.status).not.toBe(201);
+      await expect(response.json()).resolves.toMatchObject({ code: 'CAPACITY_EXCEEDED' });
+    });
+
     it('adds C1 fields to validation failures and keeps the issues', async () => {
       createWithEnforcementMock.mockRejectedValueOnce(
         new BookingValidationError({

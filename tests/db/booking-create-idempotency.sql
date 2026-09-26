@@ -18,6 +18,12 @@ DECLARE
   v_customer_id constant uuid := '00000000-0000-4000-8000-00000000c001';
   v_key constant text := 'regression-create-idempotency-key-1';
   v_pending_key constant text := 'regression-create-idempotency-key-2';
+  v_derived_key constant text := 'regression-create-derived-key-1';
+  v_derived jsonb := jsonb_build_object('idempotency_key_kind', 'derived');
+  v_derived_first jsonb;
+  v_derived_again jsonb;
+  v_derived_rebook jsonb;
+  v_derived_party jsonb;
   v_first jsonb;
   v_replay jsonb;
   v_reused jsonb;
@@ -134,8 +140,8 @@ BEGIN
       USING ERRCODE = 'NB001';
   END IF;
 
-  -- 4. A key replay still returns the booking after it was cancelled (key semantics, not slot
-  --    semantics); signature recovery in the app is what ignores cancelled bookings.
+  -- 4. A client-supplied key replay still returns the booking after it was cancelled (key
+  --    semantics, not slot semantics); signature recovery in the app ignores cancelled bookings.
   UPDATE public.bookings SET status = 'cancelled'
   WHERE id = v_booking_id AND restaurant_id = v_restaurant_id;
   v_replay := public.create_booking_with_capacity_check(
@@ -146,6 +152,79 @@ BEGIN
   IF (v_replay ->> 'duplicate')::boolean IS NOT TRUE
      OR v_replay -> 'booking' ->> 'status' <> 'cancelled' THEN
     RAISE EXCEPTION 'key replay after cancellation created a new booking' USING ERRCODE = 'NB001';
+  END IF;
+
+  -- 4b. A server-derived key (key-less client, p_details.idempotency_key_kind = derived) never
+  --     claims a finished slot: after a cancel or no-show the same slot books a NEW booking,
+  --     even with another party size, and the finished row gives its key up.
+  v_derived_first := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-06', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    NULL, false, v_derived_key, 'api', NULL, 'regression-request-d1', v_derived, 0
+  );
+  IF (v_derived_first ->> 'success')::boolean IS NOT TRUE
+     OR (v_derived_first ->> 'duplicate')::boolean
+     OR (v_derived_first -> 'booking' -> 'details') ? 'idempotency_key_kind' THEN
+    RAISE EXCEPTION 'derived-key create did not insert cleanly: %', v_derived_first
+      USING ERRCODE = 'NB001';
+  END IF;
+
+  v_derived_again := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-06', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    NULL, false, v_derived_key, 'api', NULL, 'regression-request-d2', v_derived, 0
+  );
+  IF (v_derived_again ->> 'duplicate')::boolean IS NOT TRUE
+     OR v_derived_again -> 'booking' ->> 'id' IS DISTINCT FROM v_derived_first -> 'booking' ->> 'id' THEN
+    RAISE EXCEPTION 'derived-key replay of a live booking was not a duplicate' USING ERRCODE = 'NB001';
+  END IF;
+
+  UPDATE public.bookings SET status = 'cancelled'
+  WHERE id = (v_derived_first -> 'booking' ->> 'id')::uuid AND restaurant_id = v_restaurant_id;
+
+  v_derived_rebook := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-06', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    NULL, false, v_derived_key, 'api', NULL, 'regression-request-d3', v_derived, 0
+  );
+  IF (v_derived_rebook ->> 'success')::boolean IS NOT TRUE
+     OR (v_derived_rebook ->> 'duplicate')::boolean
+     OR v_derived_rebook -> 'booking' ->> 'id' = v_derived_first -> 'booking' ->> 'id'
+     OR v_derived_rebook -> 'booking' ->> 'status' = 'cancelled' THEN
+    RAISE EXCEPTION 'derived-key rebook after cancel returned the cancelled booking: %', v_derived_rebook
+      USING ERRCODE = 'NB001';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.bookings
+    WHERE id = (v_derived_first -> 'booking' ->> 'id')::uuid
+      AND (idempotency_key IS NOT NULL OR NOT (details ? 'idempotency_key_released_at'))
+  ) THEN
+    RAISE EXCEPTION 'cancelled booking kept its derived key' USING ERRCODE = 'NB001';
+  END IF;
+
+  UPDATE public.bookings SET status = 'no_show'
+  WHERE id = (v_derived_rebook -> 'booking' ->> 'id')::uuid AND restaurant_id = v_restaurant_id;
+
+  v_derived_party := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-06', TIME '19:00', TIME '20:30', 3, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    NULL, false, v_derived_key, 'api', NULL, 'regression-request-d4', v_derived, 0
+  );
+  IF (v_derived_party ->> 'success')::boolean IS NOT TRUE
+     OR (v_derived_party ->> 'duplicate')::boolean
+     OR v_derived_party ->> 'error' IS NOT NULL
+     OR (v_derived_party -> 'booking' ->> 'party_size')::int <> 3 THEN
+    RAISE EXCEPTION 'derived-key rebook after no-show with another party was not a new booking: %',
+      v_derived_party USING ERRCODE = 'NB001';
+  END IF;
+
+  SELECT count(*) INTO v_count
+  FROM public.bookings
+  WHERE restaurant_id = v_restaurant_id AND idempotency_key = v_derived_key;
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'expected one live holder of the derived key, found %', v_count
+      USING ERRCODE = 'NB001';
   END IF;
 
   -- 5. The same key at another restaurant is a different intent.
