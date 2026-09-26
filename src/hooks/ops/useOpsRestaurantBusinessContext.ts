@@ -40,12 +40,21 @@ export function useOpsRestaurantBusinessContext(
   });
 }
 
+/**
+ * One Discovery save: every changed section, applied in one transaction. `expectedRevision` is
+ * the revision of the snapshot the draft is based on; the server refuses the save with
+ * 409 STALE_WRITE when another write landed since.
+ */
+export type BusinessContextSaveInput = UpdateRestaurantBusinessContextInput & {
+  expectedRevision?: number;
+};
+
 export function useOpsUpdateRestaurantBusinessContext(
   restaurantId?: string | null,
 ): UseMutationResult<
   RestaurantBusinessContextSnapshot,
   HttpError | Error,
-  UpdateRestaurantBusinessContextInput
+  BusinessContextSaveInput
 > {
   const restaurantService = useRestaurantService();
   const queryClient = useQueryClient();
@@ -53,7 +62,7 @@ export function useOpsUpdateRestaurantBusinessContext(
   return useMutation({
     // Saves for one restaurant run serially so an older response cannot land last.
     scope: restaurantId ? { id: `ops-restaurant-business-context:${restaurantId}` } : undefined,
-    mutationFn: (payload: UpdateRestaurantBusinessContextInput) => {
+    mutationFn: (payload: BusinessContextSaveInput) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
@@ -70,6 +79,7 @@ export function useOpsUpdateRestaurantBusinessContext(
       if (!restaurantId) {
         return;
       }
+      // The canonical snapshot (with its new revision) from the one transactional save.
       queryClient.setQueryData(queryKeys.opsRestaurants.businessContext(restaurantId), snapshot);
       // Dual-sync state compares the live Core snapshot against Google, so drift moves with the save.
       void queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.state(restaurantId) });

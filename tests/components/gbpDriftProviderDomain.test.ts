@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   buildGbpDriftPublishRequest,
@@ -128,7 +128,6 @@ describe('gbpDriftProviderDomain', () => {
   });
 
   it('builds the import_from_google publish request with pinned hashes', () => {
-    const now = vi.spyOn(Date, 'now').mockReturnValue(1_234);
     const [view] = deriveGbpDriftFieldViews({
       draftOverrides: {},
       fields: [
@@ -141,8 +140,8 @@ describe('gbpDriftProviderDomain', () => {
       ],
     });
 
-    expect(buildGbpDriftPublishRequest([view])).toEqual({
-      clientRequestId: 'gbp-drift-1234',
+    expect(buildGbpDriftPublishRequest([view], 'intent-1')).toEqual({
+      clientRequestId: 'intent-1',
       decisions: [
         {
           action: 'import_from_google',
@@ -153,8 +152,6 @@ describe('gbpDriftProviderDomain', () => {
         },
       ],
     });
-
-    now.mockRestore();
   });
 
   it('compares draft values structurally when possible', () => {
