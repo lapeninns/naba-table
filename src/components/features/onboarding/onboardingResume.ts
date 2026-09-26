@@ -36,8 +36,19 @@ export function applyServerResume(
 
   if (resume.resumeRestaurant) {
     const restaurant = resume.resumeRestaurant;
+    // The draft was lost (new tab or another device), so the steps show what is saved on the
+    // server rather than defaults; saving them again then keeps the owner's earlier work.
+    const setup = restaurant.setup;
     return {
       ...base,
+      ...(setup
+        ? {
+            operatingHours: setup.operatingHours,
+            servicePeriods: setup.servicePeriods,
+            zones: setup.zones,
+            tables: setup.tables,
+          }
+        : {}),
       session,
       alreadyOnboarded: false,
       restaurantId: restaurant.id,

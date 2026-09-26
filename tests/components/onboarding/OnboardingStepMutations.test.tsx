@@ -10,6 +10,10 @@ import {
   ProfileStep,
 } from '@/components/features/onboarding/OnboardingAccountProfileSteps';
 import {
+  HoursStep,
+  ServicePeriodsStep,
+} from '@/components/features/onboarding/OnboardingScheduleSteps';
+import {
   ReviewStep,
   TablesStep,
 } from '@/components/features/onboarding/OnboardingTablesReviewSteps';
@@ -250,13 +254,61 @@ describe('ProfileStep create vs update', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     await waitFor(() => expect(screen.getByTestId('step')).toHaveTextContent('3'));
+    // Only the changed field goes to the onboarding profile route; the unchanged slug is
+    // not re-sent, so it cannot trip the slug check.
     expect(fetchCalls).toEqual([
-      expect.objectContaining({
-        url: `/api/ops/restaurants/${RESTAURANT_ID}`,
+      {
+        url: `/api/onboarding/restaurant/${RESTAURANT_ID}/profile`,
         method: 'PATCH',
-        body: expect.objectContaining({ name: 'The New Local', slug: 'the-local' }),
-      }),
+        body: { name: 'The New Local' },
+      },
     ]);
+  });
+
+  it('puts a slug clash from the update on the slug field', async () => {
+    respond = () =>
+      jsonResponse(409, {
+        error: 'That web address is taken. Try a different slug.',
+        code: 'SLUG_TAKEN',
+        message: 'That web address is taken. Try a different slug.',
+        fields: { slug: ['That web address is taken. Try a different slug.'] },
+      });
+    renderStep(<ProfileStep onComplete={vi.fn()} />, {
+      step: 2,
+      restaurantId: RESTAURANT_ID,
+      profile: SAVED_PROFILE,
+    });
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Slug' }), {
+      target: { value: 'taken-slug' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(
+      await screen.findAllByText('That web address is taken. Try a different slug.'),
+    ).toHaveLength(2);
+    expect(fetchCalls[0]?.body).toEqual({ slug: 'taken-slug' });
+    expect(screen.getByTestId('step')).toHaveTextContent('2');
+  });
+
+  it('catches a malformed slug before any request', async () => {
+    renderStep(<ProfileStep onComplete={vi.fn()} />, {
+      step: 2,
+      restaurantId: RESTAURANT_ID,
+      profile: SAVED_PROFILE,
+    });
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Slug' }), {
+      target: { value: 'My Slug' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(
+      await screen.findByText(
+        'Use lowercase letters, numbers and single hyphens, like the-old-crown',
+      ),
+    ).toBeInTheDocument();
+    expect(fetchCalls).toHaveLength(0);
   });
 
   it('puts a taken slug on the slug field', async () => {
@@ -324,6 +376,126 @@ describe('TablesStep layout replace', () => {
         'This restaurant already has bookings, so change its tables from Tables in the dashboard.',
       ),
     );
+  });
+});
+
+describe('TablesStep table numbers', () => {
+  it('never repeats a number after remove-then-add', async () => {
+    renderStep(<TablesStep onComplete={vi.fn()} />, {
+      step: 5,
+      restaurantId: RESTAURANT_ID,
+      tables: [
+        { tableNumber: 'T1', capacity: 2 },
+        { tableNumber: 'T2', capacity: 2 },
+        { tableNumber: 'T3', capacity: 2 },
+      ],
+    });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove table' })[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Add table' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByPlaceholderText('T1').map((input) => (input as HTMLInputElement).value),
+      ).toEqual(['T2', 'T3', 'T4']),
+    );
+  });
+
+  it('shows duplicate table numbers inline without calling the API', async () => {
+    renderStep(<TablesStep onComplete={vi.fn()} />, {
+      step: 5,
+      restaurantId: RESTAURANT_ID,
+      tables: [
+        { tableNumber: 'T3', capacity: 2 },
+        { tableNumber: 'T3', capacity: 4 },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByText('Table T3 is already in the list.')).toBeInTheDocument();
+    expect(fetchCalls).toHaveLength(0);
+  });
+
+  it('puts server field errors on the matching table input', async () => {
+    respond = () =>
+      jsonResponse(400, {
+        error: 'Some fields need attention.',
+        code: 'VALIDATION_FAILED',
+        message: 'Some fields need attention.',
+        fields: { 'tables.0.tableNumber': ['Table number is too long.'] },
+      });
+    renderStep(<TablesStep onComplete={vi.fn()} />, { step: 5, restaurantId: RESTAURANT_ID });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByText('Table number is too long.')).toBeInTheDocument();
+    expect(screen.getByTestId('step')).toHaveTextContent('5');
+  });
+});
+
+describe('Schedule steps validation', () => {
+  it('shows an overlap inline on the service-period form without calling the API', async () => {
+    renderStep(<ServicePeriodsStep onComplete={vi.fn()} />, {
+      step: 4,
+      restaurantId: RESTAURANT_ID,
+      servicePeriods: [
+        { name: 'Lunch', dayOfWeek: 1, startTime: '12:00', endTime: '15:00', bookingOption: 'lunch' },
+        { name: 'Dinner', dayOfWeek: 1, startTime: '14:00', endTime: '22:00', bookingOption: 'dinner' },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(
+      await screen.findByText('Overlaps "Lunch" on the same day. Adjust the times.'),
+    ).toBeInTheDocument();
+    expect(fetchCalls).toHaveLength(0);
+  });
+
+  it('puts server 400 fields for service periods on the form', async () => {
+    respond = () =>
+      jsonResponse(400, {
+        error: 'Some fields need attention.',
+        code: 'VALIDATION_FAILED',
+        message: 'Some fields need attention.',
+        fields: { 'servicePeriods.0.endTime': ['End time must be after the start time.'] },
+      });
+    renderStep(<ServicePeriodsStep onComplete={vi.fn()} />, {
+      step: 4,
+      restaurantId: RESTAURANT_ID,
+      servicePeriods: [
+        { name: 'Dinner', dayOfWeek: null, startTime: '17:00', endTime: '22:00', bookingOption: 'dinner' },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByText('End time must be after the start time.')).toBeInTheDocument();
+    expect(fetchCalls).toHaveLength(1);
+  });
+
+  it('flags an open day with equal times inline and does not save', async () => {
+    const hours = Array.from({ length: 7 }, (_, day) => ({
+      dayOfWeek: day,
+      opensAt: day === 1 ? '09:00' : null,
+      closesAt: day === 1 ? '09:00' : null,
+      isClosed: day !== 1,
+      notes: null,
+    }));
+    renderStep(<HoursStep onComplete={vi.fn()} />, {
+      step: 3,
+      restaurantId: RESTAURANT_ID,
+      operatingHours: hours,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(
+      await screen.findByText('Closing time must differ from the opening time.'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('error')).toHaveTextContent('Check the highlighted days.');
+    expect(fetchCalls).toHaveLength(0);
   });
 });
 

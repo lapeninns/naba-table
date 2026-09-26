@@ -57,11 +57,13 @@ export type OnboardingProfileFields = {
   bookingPolicy: string | null;
 };
 
-export type SaveProfileVariables = {
-  /** Null creates the restaurant; an id updates the one this owner already created. */
-  restaurantId: string | null;
-  profile: OnboardingProfileFields;
-};
+/**
+ * `restaurantId: null` creates the restaurant. An id updates the one this owner already
+ * created, sending only the changed fields.
+ */
+export type SaveProfileVariables =
+  | { restaurantId: null; profile: OnboardingProfileFields }
+  | { restaurantId: string; changes: Partial<OnboardingProfileFields> };
 
 export type SavedRestaurant = { id: string; name: string; slug: string; timezone: string };
 
@@ -70,16 +72,16 @@ export function useSaveOnboardingProfile() {
   return useMutation({
     scope: ONBOARDING_SCOPE,
     meta: INLINE_ERRORS,
-    mutationFn: async ({ restaurantId, profile }: SaveProfileVariables) => {
-      if (restaurantId) {
+    mutationFn: async (variables: SaveProfileVariables) => {
+      if (variables.restaurantId !== null) {
         // Back navigation after the restaurant exists: update it instead of re-creating it
         // (the create route refuses a second restaurant with 409).
         const response = await fetchJson<{ restaurant: SavedRestaurant }>(
-          `/api/ops/restaurants/${encodeURIComponent(restaurantId)}`,
+          `/api/onboarding/restaurant/${encodeURIComponent(variables.restaurantId)}/profile`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(profile),
+            body: JSON.stringify(variables.changes),
           },
         );
         return response.restaurant;
@@ -89,7 +91,7 @@ export function useSaveOnboardingProfile() {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
+          body: JSON.stringify(variables.profile),
         },
       );
       return response.restaurant;

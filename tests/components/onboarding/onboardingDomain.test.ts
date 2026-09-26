@@ -4,7 +4,11 @@ import { getMissingRequirements } from '@/components/features/onboarding/onboard
 import { applyServerResume } from '@/components/features/onboarding/onboardingResume';
 import {
   getMaxAccessibleStep,
+  getProfileChanges,
   hasProfileChanged,
+  profileSchema,
+  servicePeriodsFormSchema,
+  tablesFormSchema,
 } from '@/components/features/onboarding/onboardingWizardDomain';
 import { HttpError } from '@/lib/http/errors';
 
@@ -69,6 +73,7 @@ describe('applyServerResume', () => {
           name: 'The Local',
           slug: 'the-local',
           timezone: 'Europe/London',
+          setup: null,
         },
       },
       DEFAULTS,
@@ -76,6 +81,47 @@ describe('applyServerResume', () => {
     expect(next.restaurantId).toBe(RESTAURANT_ID);
     expect(next.profile).toMatchObject({ name: 'The Local', slug: 'the-local' });
     expect(getMaxAccessibleStep(next)).toBe(6);
+    // Setup could not be read: the steps keep their defaults.
+    expect(next.zones).toEqual([]);
+  });
+
+  it('loads the saved hours, service periods and layout of a resumed restaurant', () => {
+    const setup = {
+      operatingHours: [
+        { dayOfWeek: 1, opensAt: '12:00', closesAt: '22:00', isClosed: false, notes: null },
+      ],
+      servicePeriods: [
+        {
+          id: 'sp-1',
+          name: 'Dinner',
+          dayOfWeek: null,
+          startTime: '17:00',
+          endTime: '22:00',
+          bookingOption: 'dinner',
+        },
+      ],
+      zones: [{ id: 'zone-1', name: 'Terrace', sortOrder: 0, active: true }],
+      tables: [{ id: 'table-1', tableNumber: 'T7', capacity: 4, zoneId: 'zone-1' }],
+    };
+    const next = applyServerResume(
+      { ...DEFAULTS, step: 5 },
+      {
+        session: { email: null },
+        memberRestaurantIds: [RESTAURANT_ID],
+        resumeRestaurant: {
+          id: RESTAURANT_ID,
+          name: 'The Local',
+          slug: 'the-local',
+          timezone: 'Europe/London',
+          setup,
+        },
+      },
+      DEFAULTS,
+    );
+    expect(next.operatingHours).toEqual(setup.operatingHours);
+    expect(next.servicePeriods).toEqual(setup.servicePeriods);
+    expect(next.zones).toEqual(setup.zones);
+    expect(next.tables).toEqual(setup.tables);
   });
 
   it('keeps a draft whose restaurant belongs to the signed-in user', () => {
@@ -178,5 +224,65 @@ describe('getMissingRequirements', () => {
       getMissingRequirements(new HttpError({ status: 409, code: 'OTHER', message: 'x' })),
     ).toBeNull();
     expect(getMissingRequirements(new Error('x'))).toBeNull();
+  });
+});
+
+describe('getProfileChanges', () => {
+  const saved = {
+    name: 'The Local',
+    slug: 'the-local',
+    timezone: 'Europe/London',
+    contactEmail: 'a@example.com',
+    contactPhone: null,
+    bookingPolicy: '',
+  };
+
+  it('returns only the fields that changed, with blanks as null', () => {
+    expect(
+      getProfileChanges(saved, {
+        name: 'The Local ',
+        slug: 'the-local-2',
+        timezone: 'Europe/London',
+        contactEmail: '',
+        contactPhone: '',
+        bookingPolicy: '',
+      }),
+    ).toEqual({ slug: 'the-local-2', contactEmail: null });
+  });
+});
+
+describe('wizard form schemas mirror the API rules', () => {
+  it('rejects a slug the API would refuse', () => {
+    const result = profileSchema.safeParse({
+      name: 'X',
+      slug: 'My Slug',
+      timezone: 'Europe/London',
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['slug']);
+  });
+
+  it('flags overlapping service periods on the later one', () => {
+    const result = servicePeriodsFormSchema.safeParse({
+      servicePeriods: [
+        { name: 'Lunch', dayOfWeek: 1, startTime: '12:00', endTime: '15:00', bookingOption: 'lunch' },
+        { name: 'Dinner', dayOfWeek: 1, startTime: '14:00', endTime: '22:00', bookingOption: 'dinner' },
+      ],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([
+      ['servicePeriods', 1, 'startTime'],
+    ]);
+  });
+
+  it('flags duplicate table numbers', () => {
+    const result = tablesFormSchema.safeParse({
+      tables: [
+        { tableNumber: 'T3', capacity: 2 },
+        { tableNumber: 'T3', capacity: 4 },
+      ],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([['tables', 1, 'tableNumber']]);
   });
 });

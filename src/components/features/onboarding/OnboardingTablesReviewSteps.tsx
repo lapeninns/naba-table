@@ -21,9 +21,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Heading, Text } from '@/components/ui/typography';
 import { toUserMessage } from '@/lib/http/userMessage';
+import { nextTableNumber } from '@/lib/onboarding/scheduleRules';
 import { writeBrowserOpsRestaurantCookie } from '@/lib/ops/session';
 
 import { useOnboarding } from './context/OnboardingContext';
+import { applyServerFieldErrors } from './formErrors';
 import {
   toLayoutVariables,
   useCompleteOnboarding,
@@ -100,6 +102,8 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
         onComplete();
       },
       onError: (error) => {
+        // The PUT's field paths (`tables.2.tableNumber`) match the form's names.
+        applyServerFieldErrors(tablesForm, error, (name) => /^tables\.\d+\./.test(name));
         setError(
           toUserMessage(error, {
             copy: LAYOUT_ERROR_COPY,
@@ -203,7 +207,12 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => append({ tableNumber: `T${fields.length + 1}`, capacity: 2 })}
+            onClick={() =>
+              append({
+                tableNumber: nextTableNumber(tablesForm.getValues('tables')),
+                capacity: 2,
+              })
+            }
           >
             <Plus className="size-4" />
             Add table

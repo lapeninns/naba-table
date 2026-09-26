@@ -144,6 +144,9 @@ describe('replaceOnboardingLayout', () => {
     expect(migration).toContain('FROM public.bookings WHERE restaurant_id = p_restaurant_id');
     expect(migration).toContain('ON CONFLICT (restaurant_id, lower(name))');
     expect(migration).toContain('ON CONFLICT (restaurant_id, table_number)');
+    // Refuses to apply where the ON CONFLICT target indexes are missing (schema drift).
+    expect(migration).toContain("LIKE '%(restaurant_id, lower(name))'");
+    expect(migration).toContain("LIKE '%(restaurant_id, table_number)'");
     expect(migration).toContain('FROM authenticated');
     expect(migration).toContain('TO service_role');
   });

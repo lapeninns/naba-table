@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { apiError, validationError } from '@/lib/api/errors';
+import { findServicePeriodIssues } from '@/lib/onboarding/scheduleRules';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
 import { onboardingInternalError } from '@/server/onboarding/errors';
@@ -26,9 +27,21 @@ const periodSchema = z.object({
   bookingOption: z.string().trim().min(1).max(MAX_ONBOARDING_BOOKING_OPTION_LENGTH),
 });
 
-const requestSchema = z.object({
-  servicePeriods: z.array(periodSchema).max(MAX_ONBOARDING_SERVICE_PERIODS),
-});
+// Same rules the writer enforces (times, start < end, no same-day overlap), checked here so
+// a fixable mistake is a 400 with field paths instead of a 500 from updateServicePeriods.
+const requestSchema = z
+  .object({
+    servicePeriods: z.array(periodSchema).max(MAX_ONBOARDING_SERVICE_PERIODS),
+  })
+  .superRefine((value, context) => {
+    for (const issue of findServicePeriodIssues(value.servicePeriods)) {
+      context.addIssue({
+        code: 'custom',
+        path: ['servicePeriods', ...issue.path],
+        message: issue.message,
+      });
+    }
+  });
 
 export async function PATCH(req: NextRequest, context: RouteContext) {
   const { id: restaurantId } = await context.params;

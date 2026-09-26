@@ -29,7 +29,41 @@
 -- No table, index or data is created by this migration, so dropping the function restores
 -- the previous state. The app route that calls it (PUT /api/onboarding/restaurant/[id]/layout)
 -- must be reverted with it.
+--
+-- Precondition: the ON CONFLICT targets need a non-partial unique index on
+-- zones (restaurant_id, lower(name)) and on table_inventory (restaurant_id, table_number).
+-- No repo migration creates them (they come from the baseline schema), so the migration
+-- checks for them first and refuses to apply where either is missing, instead of shipping
+-- a function that fails at runtime with 42P10.
 BEGIN;
+
+DO $precondition$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    WHERE i.indrelid = 'public.zones'::regclass
+      AND i.indisunique
+      AND i.indpred IS NULL
+      AND pg_get_indexdef(i.indexrelid) LIKE '%(restaurant_id, lower(name))'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_replace_layout requires a unique index on public.zones (restaurant_id, lower(name))'
+      USING ERRCODE = '55000';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index i
+    WHERE i.indrelid = 'public.table_inventory'::regclass
+      AND i.indisunique
+      AND i.indpred IS NULL
+      AND pg_get_indexdef(i.indexrelid) LIKE '%(restaurant_id, table_number)'
+  ) THEN
+    RAISE EXCEPTION 'onboarding_replace_layout requires a unique index on public.table_inventory (restaurant_id, table_number)'
+      USING ERRCODE = '55000';
+  END IF;
+END
+$precondition$;
 
 CREATE OR REPLACE FUNCTION public.onboarding_replace_layout(
   p_restaurant_id uuid,

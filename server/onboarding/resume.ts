@@ -4,10 +4,112 @@ import { logger } from '@/lib/logger';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { getRequestUser } from '@/server/auth/request-user';
 import { getOnboardingReadiness } from '@/server/onboarding/readiness';
+import { canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
 
-import type { OnboardingResume } from '@/components/features/onboarding/types';
+import type {
+  OnboardingResume,
+  OnboardingSavedSetup,
+  OperatingHour,
+} from '@/components/features/onboarding/types';
+import type { Database } from '@/types/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+type DbClient = SupabaseClient<Database>;
+
+const DAYS_IN_WEEK = 7;
+
+function toTime(value: string | null | undefined): string | null {
+  return canonicalizeFromDb(value) ?? null;
+}
+
+/**
+ * The hours, service periods, zones and tables already saved for the restaurant. Without
+ * this a resumed wizard would show client defaults and saving would overwrite (and, for the
+ * replace-style layout, delete) the owner's earlier work. Every read is scoped by
+ * restaurant_id. Returns null when any read fails, and the caller logs it.
+ */
+export async function loadOnboardingSavedSetup(
+  client: DbClient,
+  restaurantId: string,
+): Promise<OnboardingSavedSetup | null> {
+  const [hours, periods, zones, tables] = await Promise.all([
+    client
+      .from('restaurant_operating_hours')
+      .select('day_of_week, opens_at, closes_at, is_closed, notes')
+      .eq('restaurant_id', restaurantId)
+      .is('effective_date', null)
+      .order('day_of_week', { ascending: true }),
+    client
+      .from('restaurant_service_periods')
+      .select('id, name, day_of_week, start_time, end_time, booking_option')
+      .eq('restaurant_id', restaurantId)
+      .order('day_of_week', { ascending: true })
+      .order('start_time', { ascending: true }),
+    client
+      .from('zones')
+      .select('id, name, sort_order, active')
+      .eq('restaurant_id', restaurantId)
+      .order('sort_order', { ascending: true })
+      .order('name', { ascending: true }),
+    client
+      .from('table_inventory')
+      .select('id, table_number, capacity, zone_id')
+      .eq('restaurant_id', restaurantId)
+      .order('table_number', { ascending: true }),
+  ]);
+
+  const failed = [hours, periods, zones, tables].find((result) => result.error);
+  if (failed) {
+    logger.warn('onboarding.resume_setup_unavailable', {
+      restaurantId,
+      dbCode: failed.error?.code,
+    });
+    return null;
+  }
+
+  const byDay = new Map<number, OperatingHour>();
+  for (const row of hours.data ?? []) {
+    if (row.day_of_week === null || byDay.has(row.day_of_week)) continue;
+    byDay.set(row.day_of_week, {
+      dayOfWeek: row.day_of_week,
+      opensAt: row.is_closed ? null : toTime(row.opens_at),
+      closesAt: row.is_closed ? null : toTime(row.closes_at),
+      isClosed: row.is_closed,
+      notes: row.notes ?? null,
+    });
+  }
+  const operatingHours = Array.from({ length: DAYS_IN_WEEK }, (_, day) => {
+    return (
+      byDay.get(day) ?? { dayOfWeek: day, opensAt: null, closesAt: null, isClosed: true, notes: null }
+    );
+  });
+
+  return {
+    operatingHours,
+    servicePeriods: (periods.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      dayOfWeek: row.day_of_week,
+      startTime: toTime(row.start_time) ?? '',
+      endTime: toTime(row.end_time) ?? '',
+      bookingOption: row.booking_option,
+    })),
+    zones: (zones.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      sortOrder: row.sort_order,
+      active: row.active,
+    })),
+    tables: (tables.data ?? []).map((row) => ({
+      id: row.id,
+      tableNumber: row.table_number,
+      capacity: row.capacity,
+      zoneId: row.zone_id,
+    })),
+  };
+}
 
 /**
  * Server facts the onboarding wizard needs to resume: who is signed in, which restaurants
@@ -63,6 +165,7 @@ export async function loadOnboardingResume(): Promise<OnboardingResume | undefin
         name: restaurant.name,
         slug: restaurant.slug,
         timezone: restaurant.timezone,
+        setup: await loadOnboardingSavedSetup(client, restaurant.id),
       },
     };
   } catch (error) {

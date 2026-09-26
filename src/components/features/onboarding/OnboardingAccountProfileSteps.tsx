@@ -27,20 +27,24 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
-import { getFieldErrors, toUserMessage } from '@/lib/http/userMessage';
+import { toUserMessage } from '@/lib/http/userMessage';
 
 import { useOnboarding } from './context/OnboardingContext';
-import { useOnboardingSignup, useSaveOnboardingProfile } from './hooks/useOnboardingMutations';
+import { applyServerFieldErrors } from './formErrors';
+import {
+  useOnboardingSignup,
+  useSaveOnboardingProfile,
+  type SaveProfileVariables,
+} from './hooks/useOnboardingMutations';
 import {
   ONBOARDING_STEPS,
   STEP_PATHS,
   accountSchema,
-  hasProfileChanged,
+  getProfileChanges,
   profileSchema,
 } from './onboardingWizardDomain';
 import { OnboardingNavigation } from './ui/OnboardingNavigation';
 
-import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
 import type { z } from 'zod';
 
 const SIGNUP_ERROR_COPY = {
@@ -54,22 +58,6 @@ const PROFILE_ERROR_COPY = {
     'This account already has a restaurant. Reload the page to continue setting it up.',
   UNAUTHENTICATED: 'Confirm your email and sign in to continue.',
 };
-
-/** Puts server field messages (C1 `fields`) on the matching form inputs. */
-function applyServerFieldErrors<T extends FieldValues>(
-  form: UseFormReturn<T>,
-  error: unknown,
-  names: ReadonlyArray<Path<T>>,
-) {
-  const fields = getFieldErrors(error);
-  if (!fields) return;
-  for (const name of names) {
-    const message = fields[name]?.[0];
-    if (message) {
-      form.setError(name, { type: 'server', message });
-    }
-  }
-}
 
 function SignedInPanel({ email, onContinue }: { email: string | null; onContinue: () => void }) {
   return (
@@ -303,15 +291,19 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
       onComplete();
     };
 
-    // Back navigation after the restaurant exists: nothing to write when nothing changed.
-    if (state.restaurantId && !hasProfileChanged(state.profile, values)) {
-      advance();
-      return;
-    }
-
-    saveProfile.mutate(
-      {
-        restaurantId: state.restaurantId,
+    // Back navigation after the restaurant exists: send only what changed, and nothing at
+    // all when nothing changed.
+    let variables: SaveProfileVariables;
+    if (state.restaurantId) {
+      const changes = getProfileChanges(state.profile, values);
+      if (Object.keys(changes).length === 0) {
+        advance();
+        return;
+      }
+      variables = { restaurantId: state.restaurantId, changes };
+    } else {
+      variables = {
+        restaurantId: null,
         profile: {
           name: values.name,
           slug: values.slug,
@@ -320,8 +312,10 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
           contactPhone: values.contactPhone || null,
           bookingPolicy: values.bookingPolicy || null,
         },
-      },
-      {
+      };
+    }
+
+    saveProfile.mutate(variables, {
         onSuccess: (restaurant) => {
           // The server may have suffixed the slug to keep it unique.
           setProfile({ ...state.profile, ...values, slug: restaurant.slug });
@@ -344,8 +338,7 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
             }),
           );
         },
-      },
-    );
+    });
   });
 
   return (

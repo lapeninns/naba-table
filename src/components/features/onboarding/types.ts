@@ -76,7 +76,26 @@ export type OnboardingResume = {
   /** Restaurants the signed-in user belongs to. */
   memberRestaurantIds: string[];
   /** The owner's only restaurant while it is still missing setup; the wizard continues it. */
-  resumeRestaurant: { id: string; name: string; slug: string; timezone: string } | null;
+  resumeRestaurant: {
+    id: string;
+    name: string;
+    slug: string;
+    timezone: string;
+    /**
+     * What is already saved for the restaurant, so a resumed wizard shows (and re-saves) it
+     * instead of client defaults. Null when it could not be read.
+     */
+    setup: OnboardingSavedSetup | null;
+  } | null;
+};
+
+/** Saved hours, service periods and layout for a restaurant being resumed. */
+export type OnboardingSavedSetup = {
+  /** All seven days; days without a saved row are closed. */
+  operatingHours: OperatingHour[];
+  servicePeriods: ServicePeriod[];
+  zones: Zone[];
+  tables: TableInventoryItem[];
 };
 
 export type OnboardingState = {

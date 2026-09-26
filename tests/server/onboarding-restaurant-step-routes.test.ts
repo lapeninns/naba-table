@@ -11,6 +11,7 @@ const createZoneMock = vi.hoisted(() => vi.fn());
 const insertTableMock = vi.hoisted(() => vi.fn());
 const getOnboardingReadinessMock = vi.hoisted(() => vi.fn());
 const replaceOnboardingLayoutMock = vi.hoisted(() => vi.fn());
+const updateOnboardingProfileMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: getRouteHandlerSupabaseClientMock,
@@ -71,6 +72,14 @@ vi.mock('@/server/onboarding/layout', async () => {
   return { ...actual, replaceOnboardingLayout: replaceOnboardingLayoutMock };
 });
 
+// Keep the real error class; stub only the writer.
+vi.mock('@/server/onboarding/profile', async () => {
+  const actual = await vi.importActual<typeof OnboardingProfileModule>(
+    '@/server/onboarding/profile',
+  );
+  return { ...actual, updateOnboardingProfile: updateOnboardingProfileMock };
+});
+
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import {
@@ -78,15 +87,18 @@ import {
   OnboardingLayoutLockedError,
   OnboardingLayoutWriteError,
 } from '@/server/onboarding/layout';
+import { OnboardingSlugTakenError } from '@/server/onboarding/profile';
 import { MembershipAccessError } from '@/server/team/access';
 import { POST as completePOST } from '@/src/app/api/onboarding/restaurant/[id]/complete/route';
 import { PATCH as hoursPATCH } from '@/src/app/api/onboarding/restaurant/[id]/hours/route';
 import { PUT as layoutPUT } from '@/src/app/api/onboarding/restaurant/[id]/layout/route';
+import { PATCH as profilePATCH } from '@/src/app/api/onboarding/restaurant/[id]/profile/route';
 import { PATCH as servicePeriodsPATCH } from '@/src/app/api/onboarding/restaurant/[id]/service-periods/route';
 import { POST as tablesPOST } from '@/src/app/api/onboarding/restaurant/[id]/tables/route';
 import { POST as zonesPOST } from '@/src/app/api/onboarding/restaurant/[id]/zones/route';
 
 import type * as OnboardingLayoutModule from '@/server/onboarding/layout';
+import type * as OnboardingProfileModule from '@/server/onboarding/profile';
 import type * as TeamAccessModule from '@/server/team/access';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -173,6 +185,13 @@ const STEPS: StepDefinition[] = [
     },
     invalidBody: { zones: [], tables: [{ tableNumber: 'T1', capacity: 0 }] },
   },
+  {
+    name: 'profile',
+    method: 'PATCH',
+    handler: profilePATCH,
+    validBody: { name: 'The Old Crown' },
+    invalidBody: { slug: 'My Slug' },
+  },
 ];
 
 const STEP_TABLE = STEPS.map((step) => [step.name, step] as const);
@@ -248,6 +267,7 @@ function expectNoMutationBoundaryCalls() {
   expect(insertTableMock).not.toHaveBeenCalled();
   expect(getOnboardingReadinessMock).not.toHaveBeenCalled();
   expect(replaceOnboardingLayoutMock).not.toHaveBeenCalled();
+  expect(updateOnboardingProfileMock).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
@@ -261,6 +281,7 @@ beforeEach(() => {
   insertTableMock.mockReset();
   getOnboardingReadinessMock.mockReset();
   replaceOnboardingLayoutMock.mockReset();
+  updateOnboardingProfileMock.mockReset();
 
   getRouteHandlerSupabaseClientMock.mockResolvedValue(buildRouteHandlerClient());
   getServiceSupabaseClientMock.mockReturnValue(SERVICE_CLIENT);
@@ -409,6 +430,73 @@ describe('onboarding restaurant step routes payload validation', () => {
     expectNoMutationBoundaryCalls();
   });
 
+  it('rejects overlapping and inverted service periods with 400 field paths, not 500 @p1 @api @contract', async () => {
+    const step = STEPS[2];
+
+    const response = await step.handler(
+      stepRequest(step, {
+        servicePeriods: [
+          {
+            name: 'Lunch',
+            dayOfWeek: 1,
+            startTime: '12:00',
+            endTime: '15:00',
+            bookingOption: 'lunch',
+          },
+          {
+            name: 'Dinner',
+            dayOfWeek: 1,
+            startTime: '14:00',
+            endTime: '22:00',
+            bookingOption: 'dinner',
+          },
+          {
+            name: 'Late',
+            dayOfWeek: 2,
+            startTime: '23:00',
+            endTime: '22:00',
+            bookingOption: 'dinner',
+          },
+        ],
+      }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('VALIDATION_FAILED');
+    expect(body.fields).toEqual({
+      'servicePeriods.1.startTime': ['Overlaps "Lunch" on the same day. Adjust the times.'],
+      'servicePeriods.2.endTime': ['End time must be after the start time.'],
+    });
+    expectNoMutationBoundaryCalls();
+  });
+
+  it('rejects open days without distinct opening and closing times with 400 field paths @p1 @api @contract', async () => {
+    const step = STEPS[1];
+
+    const response = await step.handler(
+      stepRequest(step, {
+        operatingHours: [
+          { dayOfWeek: 1, opensAt: '09:00', closesAt: '09:00', isClosed: false },
+          { dayOfWeek: 2, opensAt: null, closesAt: '22:00', isClosed: false },
+          { dayOfWeek: 3, opensAt: null, closesAt: null, isClosed: true },
+          { dayOfWeek: 3, opensAt: null, closesAt: null, isClosed: true },
+        ],
+      }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields).toEqual({
+      'operatingHours.0.closesAt': ['Closing time must differ from the opening time.'],
+      'operatingHours.1.opensAt': ['Enter a time like 09:00.'],
+      'operatingHours.3.dayOfWeek': ['Each day can only appear once.'],
+    });
+    expectNoMutationBoundaryCalls();
+  });
+
   it('rejects onboarding tables that omit a zone reference @p2 @api @contract', async () => {
     const step = STEPS[3];
 
@@ -424,6 +512,82 @@ describe('onboarding restaurant step routes payload validation', () => {
       message: 'Each onboarding table must reference a zone',
     });
     expect(insertTableMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('onboarding profile update route', () => {
+  const step = () => STEPS.find((entry) => entry.name === 'profile') as StepDefinition;
+  const SAVED = { id: RESTAURANT_ID, name: 'The Old Crown', slug: 'old-crown', timezone: 'Europe/London' };
+
+  it('updates only the fields sent and returns the canonical basics @p1 @api', async () => {
+    updateOnboardingProfileMock.mockResolvedValue(SAVED);
+
+    const response = await profilePATCH(
+      stepRequest(step(), { name: 'The Old Crown', timezone: 'europe/london' }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ restaurant: SAVED });
+    expect(updateOnboardingProfileMock).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      { name: 'The Old Crown', timezone: 'Europe/London' },
+      SERVICE_CLIENT,
+    );
+    expect(requireApiRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'onboarding:profile', tenantId: RESTAURANT_ID }),
+    );
+  });
+
+  it('maps a slug clash to 409 SLUG_TAKEN on the slug field @p1 @api @contract', async () => {
+    updateOnboardingProfileMock.mockRejectedValue(new OnboardingSlugTakenError());
+
+    const response = await profilePATCH(stepRequest(step(), { slug: 'taken' }), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('SLUG_TAKEN');
+    expect(body.fields).toEqual({ slug: ['That web address is taken. Try a different slug.'] });
+  });
+
+  it('returns C1 field errors for a malformed slug and an invalid timezone @p1 @api @contract', async () => {
+    const slugResponse = await profilePATCH(
+      stepRequest(step(), { slug: 'My Slug!' }),
+      routeContext(),
+    );
+    const slugBody = await slugResponse.json();
+    expect(slugResponse.status).toBe(400);
+    expect(slugBody.code).toBe('VALIDATION_FAILED');
+    expect(Object.keys(slugBody.fields)).toEqual(['slug']);
+
+    const tzResponse = await profilePATCH(
+      stepRequest(step(), { timezone: 'Mars/Olympus' }),
+      routeContext(),
+    );
+    const tzBody = await tzResponse.json();
+    expect(tzResponse.status).toBe(400);
+    expect(tzBody.fields).toEqual({ timezone: ['Choose a valid timezone.'] });
+    expect(updateOnboardingProfileMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses an empty patch and unknown fields @p2 @api', async () => {
+    const empty = await profilePATCH(stepRequest(step(), {}), routeContext());
+    expect(empty.status).toBe(400);
+    const unknown = await profilePATCH(stepRequest(step(), { isActive: false }), routeContext());
+    expect(unknown.status).toBe(400);
+    expect(updateOnboardingProfileMock).not.toHaveBeenCalled();
+  });
+
+  it('returns a generic 500 without database text @p1 @api @security', async () => {
+    updateOnboardingProfileMock.mockRejectedValue(
+      new Error('Failed to update restaurant: permission denied for table restaurants'),
+    );
+
+    const response = await profilePATCH(stepRequest(step(), { name: 'X' }), routeContext());
+    const text = await response.text();
+
+    expect(response.status).toBe(500);
+    expect(text).not.toContain('permission denied');
   });
 });
 
