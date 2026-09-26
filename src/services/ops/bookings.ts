@@ -410,11 +410,6 @@ export type ManualAssignmentContext = {
   serverNow?: string | null;
 };
 
-export type ManualReleaseHoldPayload = {
-  holdId: string;
-  bookingId: string;
-};
-
 export type ManualAssignmentSession = {
   id: string;
   bookingId: string;
@@ -1107,11 +1102,14 @@ export function createBrowserBookingService(): BookingService {
       return fetchJson<OpsBookingDialogBundle>(`/api/ops/bookings/${bookingId}/dialog`);
     },
     async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
-      return fetchJson<TableAssignmentWriteResponse>(`/api/ops/bookings/${bookingId}/assign-tables`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableIds, idempotencyKey, requireAdjacency }),
-      });
+      return fetchJson<TableAssignmentWriteResponse>(
+        `/api/ops/bookings/${bookingId}/assign-tables`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tableIds, idempotencyKey, requireAdjacency }),
+        },
+      );
     },
     async unassignTablesDirect({ bookingId, tableIds }) {
       return fetchJson<{ success: true; removedCount: number }>(

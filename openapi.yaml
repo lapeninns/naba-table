@@ -74,6 +74,7 @@ paths:
     post:
       tags: [Profile]
       summary: Upload profile image
+      description: No app caller since the avatar upload hook was removed; deletion candidate.
       responses:
         '200': { description: OK }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -82,17 +83,14 @@ paths:
   /bookings:
     get:
       tags: [Bookings]
-      summary: List bookings by contact or current user
+      summary: List the signed-in guest's own bookings
+      description: >-
+        Only `me=1` is supported. Any other query, including the former email or phone
+        contact lookup, returns 410 CONTACT_LOOKUP_REMOVED.
       parameters:
         - in: query
           name: me
           schema: { type: string, enum: ['1'] }
-        - in: query
-          name: email
-          schema: { type: string, format: email }
-        - in: query
-          name: phone
-          schema: { type: string }
         - in: query
           name: page
           schema: { type: integer, minimum: 1, default: 1 }
@@ -103,10 +101,20 @@ paths:
         '200': { description: OK }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '410': { $ref: '#/components/responses/Gone' }
         '500': { $ref: '#/components/responses/Internal' }
     post:
       tags: [Bookings]
       summary: Create a new booking
+      description: >-
+        Idempotent at the database level. A replay with the same Idempotency-Key returns
+        the original booking; the same key with a different request returns 409
+        IDEMPOTENCY_KEY_REUSED.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: false
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -114,45 +122,110 @@ paths:
             schema:
               type: object
       responses:
-        '201': { description: Created }
+        '201': { description: Created, or the replayed original booking }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/Internal' }
+  /bookings/lookup-email:
+    post:
+      tags: [Bookings]
+      summary: Email a manage link for upcoming bookings at one venue
+      description: >-
+        Sends the link to the address stored on each booking. The 202 is neutral: it is the
+        same whether or not any booking matched. Requires the CSRF token header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 320 }
+                restaurantId: { type: string, format: uuid }
+                restaurantSlug: { type: string, maxLength: 120 }
+                turnstileToken: { type: string, maxLength: 4096 }
+      responses:
+        '202': { description: Accepted (neutral) }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/Internal' }
+        '503': { $ref: '#/components/responses/Internal' }
+  /bookings/confirm:
+    get:
+      tags: [Bookings]
+      summary: Retired confirmation-token exchange
+      deprecated: true
+      responses:
+        '410': { $ref: '#/components/responses/Gone' }
+    post:
+      tags: [Bookings]
+      summary: Retired confirmation-token exchange
+      deprecated: true
+      responses:
+        '410': { $ref: '#/components/responses/Gone' }
 components:
+  schemas:
+    ApiError:
+      type: object
+      description: C1 error body (lib/api/errors.ts). `error` repeats `message` for older readers.
+      required: [error, code, message]
+      properties:
+        error: { type: string }
+        code: { type: string, description: SCREAMING_SNAKE domain code }
+        message: { type: string, description: Safe, user-presentable text }
+        fields:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+        retryable: { type: boolean }
+        retryAfter: { type: integer, description: Seconds }
+        details: {}
   responses:
     BadRequest:
-      description: Bad request
+      description: Invalid input (for example VALIDATION_FAILED with fields)
       content:
         application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  code: { type: string }
-                  message: { type: string }
-                  details: {}
+          schema: { $ref: '#/components/schemas/ApiError' }
     Unauthorized:
-      description: Unauthorized
+      description: No session or an expired session (UNAUTHENTICATED)
       content:
         application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  code: { type: string }
-                  message: { type: string }
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Forbidden:
+      description: Not allowed (for example CSRF_INVALID)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: Not found, or not visible to the caller
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Conflict:
+      description: State or uniqueness conflict (for example IDEMPOTENCY_KEY_REUSED)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Gone:
+      description: Retired endpoint or query form
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    TooManyRequests:
+      description: RATE_LIMITED, retryable, with a Retry-After header
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
     Internal:
-      description: Internal server error
+      description: Unexpected failure (INTERNAL_ERROR); never contains raw database or provider text
       content:
         application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  code: { type: string }
-                  message: { type: string }
+          schema: { $ref: '#/components/schemas/ApiError' }

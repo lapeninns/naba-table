@@ -253,6 +253,7 @@ BEGIN
       '+447000000031', 'REG-IDEMP-DUP', v_key
     );
   EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
     WHEN unique_violation THEN
       v_duplicate_rejected := true;
   END;

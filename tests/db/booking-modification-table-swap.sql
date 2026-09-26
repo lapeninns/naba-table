@@ -77,14 +77,14 @@ BEGIN
     WHEN SQLSTATE 'P0004' THEN NULL;
   END;
   BEGIN
-    PERFORM public.modify_booking_with_table_swap(gen_random_uuid(), v_restaurant_id, v_patch, h, 'confirmed', 'nb-swap-5');
+    PERFORM public.modify_booking_with_table_swap('00000000-0000-4000-8000-0000004d0001'::uuid, v_restaurant_id, v_patch, h, 'confirmed', 'nb-swap-5');
     RAISE EXCEPTION 'Swap of a missing booking succeeded' USING ERRCODE = 'NB001';
   EXCEPTION
     WHEN SQLSTATE 'NB001' THEN RAISE;
     WHEN SQLSTATE 'P0004' THEN NULL;
   END;
   BEGIN
-    PERFORM public.modify_booking_with_table_swap(b, v_restaurant_id, v_patch, gen_random_uuid(), 'confirmed', 'nb-swap-6');
+    PERFORM public.modify_booking_with_table_swap(b, v_restaurant_id, v_patch, '00000000-0000-4000-8000-0000004d0002'::uuid, 'confirmed', 'nb-swap-6');
     RAISE EXCEPTION 'Swap with a missing hold succeeded' USING ERRCODE = 'NB001';
   EXCEPTION
     WHEN SQLSTATE 'NB001' THEN RAISE;
@@ -132,7 +132,11 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'booking-modification-table-swap regression PASSED';
-END
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: booking-modification-table-swap FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
+END;
 $regression$;
 
 ROLLBACK;

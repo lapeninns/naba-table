@@ -7,8 +7,8 @@ DECLARE
   v_other_restaurant_id constant uuid := '00000000-0000-4000-8000-00000000a002';
   v_actor_id constant uuid := '00000000-0000-4000-8000-0000000000f1';
   v_second_actor_id constant uuid := '00000000-0000-4000-8000-0000000000f2';
-  v_phone constant text := '+447000000101';
-  v_new_phone constant text := '+447000000102';
+  v_phone constant text := '+447000000091';
+  v_new_phone constant text := '+447000000092';
   v_result jsonb;
   v_row public.restaurants%ROWTYPE;
   v_stamp timestamptz;
@@ -129,7 +129,9 @@ BEGIN
       v_restaurant_id, jsonb_build_object('manager_daily_summary_enabled', true), NULL, v_actor_id
     );
     RAISE EXCEPTION 'daily summary without a phone was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN invalid_parameter_value THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN invalid_parameter_value THEN
     GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
     IF v_message <> 'MANAGER_PHONE_REQUIRED' THEN
       RAISE EXCEPTION 'unexpected refusal: %', v_message USING ERRCODE = 'NB001';
@@ -142,14 +144,16 @@ BEGIN
   BEGIN
     PERFORM public.update_restaurant_profile_v1(v_restaurant_id, '{}'::jsonb, 'enable', v_actor_id);
     RAISE EXCEPTION 'enable without a phone was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN invalid_parameter_value THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN invalid_parameter_value THEN
     GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
     IF v_message <> 'MANAGER_PHONE_REQUIRED' THEN
       RAISE EXCEPTION 'unexpected refusal: %', v_message USING ERRCODE = 'NB001';
     END IF;
   END;
 
-  -- 6. A taken slug raises 23505 on restaurants_slug_key and writes nothing (no partial commit).
+  -- 6. A taken slug raises 23505 on restaurants_slug_key and writes nothing (no partial write).
   BEGIN
     PERFORM public.update_restaurant_profile_v1(
       v_restaurant_id,
@@ -160,7 +164,9 @@ BEGIN
       'Should not be saved'
     );
     RAISE EXCEPTION 'duplicate slug was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN unique_violation THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN unique_violation THEN
     GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
     IF v_constraint <> 'restaurants_slug_key' THEN
       RAISE EXCEPTION 'unexpected constraint: %', v_constraint USING ERRCODE = 'NB001';
@@ -214,7 +220,9 @@ BEGIN
       'Must not persist either'
     );
     RAISE EXCEPTION 'capacity 0 was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN check_violation THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN check_violation THEN
     GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
     IF v_constraint <> 'restaurants_capacity_check' THEN
       RAISE EXCEPTION 'unexpected check: %', v_constraint USING ERRCODE = 'NB001';
@@ -246,13 +254,17 @@ BEGIN
       v_restaurant_id, jsonb_build_object('manager_whatsapp_consent_actor_id', v_actor_id)
     );
     RAISE EXCEPTION 'consent column accepted in patch' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN invalid_parameter_value THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN invalid_parameter_value THEN
     NULL;
   END;
   BEGIN
     PERFORM public.update_restaurant_profile_v1('00000000-0000-4000-8000-0000000000ff', '{}'::jsonb);
     RAISE EXCEPTION 'missing restaurant accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN no_data_found THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN no_data_found THEN
     NULL;
   END;
 
@@ -270,6 +282,10 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'atomic-restaurant-profile-update regression PASSED';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: atomic-restaurant-profile-update FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
 END;
 $regression$;
 

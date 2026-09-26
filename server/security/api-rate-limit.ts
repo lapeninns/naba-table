@@ -1,10 +1,9 @@
-import { NextResponse } from 'next/server';
-
+import { apiError, rateLimited } from '@/lib/api/errors';
 import { recordSecurityEvent } from '@/server/security/events';
 import { consumeRateLimit } from '@/server/security/rate-limit';
 import { anonymizeIp, extractClientIp } from '@/server/security/request';
 
-import type { NextRequest } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 
 type ApiRateLimitParams = {
   request: NextRequest;
@@ -14,6 +13,7 @@ type ApiRateLimitParams = {
   tenantId?: string | null;
   userId?: string | null;
   parts?: readonly (string | null | undefined)[];
+  /** Safe, user-presentable 429 copy. Defaults to the C1 `rateLimited()` message. */
   message?: string;
 };
 
@@ -25,7 +25,7 @@ export async function requireApiRateLimit({
   tenantId,
   userId,
   parts = [],
-  message = 'Too many requests',
+  message,
 }: ApiRateLimitParams): Promise<NextResponse | null> {
   const clientIp = extractClientIp(request);
   const identifier = [
@@ -61,22 +61,11 @@ export async function requireApiRateLimit({
     });
 
     const retryAfterSeconds = Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000));
-    return NextResponse.json(
-      {
-        error: message,
-        code: 'RATE_LIMITED',
-        retryAfter: retryAfterSeconds,
-      },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': retryAfterSeconds.toString(),
-          'X-RateLimit-Limit': result.limit.toString(),
-          'X-RateLimit-Remaining': result.remaining.toString(),
-          'X-RateLimit-Reset': result.resetAt.toString(),
-        },
-      },
-    );
+    const response = rateLimited(retryAfterSeconds, message);
+    response.headers.set('X-RateLimit-Limit', result.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', result.resetAt.toString());
+    return response;
   } catch (error) {
     console.error('[api][rate-limit] unavailable', {
       scope,
@@ -85,6 +74,8 @@ export async function requireApiRateLimit({
       ipScope: anonymizeIp(clientIp),
       message: error instanceof Error ? error.message : String(error),
     });
-    return NextResponse.json({ error: 'Rate limit unavailable' }, { status: 503 });
+    return apiError(503, 'RATE_LIMIT_UNAVAILABLE', 'Service temporarily unavailable. Try again.', {
+      retryable: true,
+    });
   }
 }

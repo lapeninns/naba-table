@@ -3,24 +3,6 @@
   "entries": [
     {
       "kind": "content",
-      "signature": "components/ops/restaurants/CreateRestaurantDialog.tsx#googleMapUrl",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 4
-    },
-    {
-      "kind": "content",
-      "signature": "components/ops/restaurants/CreateRestaurantDialog.tsx#googleReviewUrl",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
       "signature": "components/ops/restaurants/details/ContactLocationSubform.tsx#googleMapUrl",
       "owner": "data-governance",
       "category": "repository-wide-provider-content",
@@ -49,24 +31,6 @@
     {
       "kind": "content",
       "signature": "components/ops/restaurants/details/shared.tsx#gbpFieldVerifications",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
-      "signature": "components/ops/restaurants/EditRestaurantDialog.tsx#googleMapUrl",
-      "owner": "data-governance",
-      "category": "repository-wide-provider-content",
-      "retentionAction": "delete with tenant or provider disconnect according to policy",
-      "classification": "storage",
-      "expectedCount": 1
-    },
-    {
-      "kind": "content",
-      "signature": "components/ops/restaurants/EditRestaurantDialog.tsx#googleReviewUrl",
       "owner": "data-governance",
       "category": "repository-wide-provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
@@ -12023,7 +11987,7 @@
       "category": "repository-wide-provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 3
+      "expectedCount": 2
     },
     {
       "kind": "content",
@@ -12032,7 +11996,7 @@
       "category": "repository-wide-provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 3
+      "expectedCount": 2
     },
     {
       "kind": "mutation",
@@ -13427,7 +13391,7 @@
       "category": "provider-content",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
-      "expectedCount": 2
+      "expectedCount": 4
     },
     {
       "kind": "content",
@@ -16557,6 +16521,69 @@
       "signature": "vitest.config.ts#@/hooks/ops/useOpsGoogleBusinessProfile",
       "owner": "data-governance",
       "category": "repository-wide-provider-content",
+      "retentionAction": "delete with tenant or provider disconnect according to policy",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "src/app/api/ops/restaurants/[id]/_restaurantDto.ts#googleMapUrl",
+      "owner": "data-governance",
+      "category": "repository-wide-provider-content",
+      "retentionAction": "delete with tenant or provider disconnect according to policy",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "src/app/api/ops/restaurants/[id]/_restaurantDto.ts#googleReviewUrl",
+      "owner": "data-governance",
+      "category": "repository-wide-provider-content",
+      "retentionAction": "delete with tenant or provider disconnect according to policy",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "src/components/features/restaurant-settings/profile/profileSections.ts#googleMapUrl",
+      "owner": "data-governance",
+      "category": "repository-wide-provider-content",
+      "retentionAction": "delete with tenant or provider disconnect according to policy",
+      "classification": "storage",
+      "expectedCount": 2
+    },
+    {
+      "kind": "content",
+      "signature": "src/components/features/restaurant-settings/profile/profileSections.ts#googleReviewUrl",
+      "owner": "data-governance",
+      "category": "repository-wide-provider-content",
+      "retentionAction": "delete with tenant or provider disconnect according to policy",
+      "classification": "storage",
+      "expectedCount": 2
+    },
+    {
+      "kind": "content",
+      "signature": "lib/query/keys.ts#simulateEmailDeliveryError",
+      "owner": "data-governance",
+      "category": "browser-persistence",
+      "retentionAction": "remove on logout and cache expiry",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "server/dual-sync/publish/orchestrator-idempotency.ts#candidate",
+      "owner": "data-governance",
+      "category": "provider-content",
+      "retentionAction": "delete with tenant or provider disconnect according to policy",
+      "classification": "storage",
+      "expectedCount": 1
+    },
+    {
+      "kind": "content",
+      "signature": "supabase/migrations/20260927170000_business_context_atomic_save.sql#external_profile_id",
+      "owner": "data-governance",
+      "category": "db-schema",
       "retentionAction": "delete with tenant or provider disconnect according to policy",
       "classification": "storage",
       "expectedCount": 1

@@ -104,7 +104,9 @@ BEGIN
       v_restaurant_id, v_menu_id, v_second_section_id,
       jsonb_build_object('external_item_id', 'syn-item-3', 'item_name', 'Three', 'labels', v_label),
       '{}'::jsonb, '[]'::jsonb, 'syn-create-key-0001');
-  EXCEPTION WHEN sqlstate 'P0001' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN sqlstate 'P0001' THEN
     v_raised := SQLERRM = 'menu_idempotency_key_reused';
   END;
   IF NOT v_raised THEN
@@ -123,7 +125,9 @@ BEGIN
         jsonb_build_object('external_option_id', 'syn-dup', 'labels', v_label)
       ),
       'syn-create-key-atomic');
-  EXCEPTION WHEN unique_violation THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN unique_violation THEN
     v_raised := true;
   END;
   IF NOT v_raised OR EXISTS (
@@ -140,7 +144,9 @@ BEGIN
       v_restaurant_id, v_other_menu_id, v_other_section_id,
       jsonb_build_object('external_item_id', 'syn-item-x', 'item_name', 'X', 'labels', v_label),
       '{}'::jsonb, '[]'::jsonb, NULL);
-  EXCEPTION WHEN sqlstate 'P0002' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN sqlstate 'P0002' THEN
     v_raised := SQLERRM = 'menu_section_not_found';
   END;
   IF NOT v_raised THEN
@@ -183,7 +189,9 @@ BEGIN
     PERFORM public.update_restaurant_menu_item_v1(
       v_other_restaurant_id, v_menu_id, v_section_id, v_second_item_id,
       '{"active":true}'::jsonb, NULL, NULL, NULL);
-  EXCEPTION WHEN sqlstate 'P0002' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN sqlstate 'P0002' THEN
     v_raised := true;
   END;
   IF NOT v_raised THEN
@@ -206,7 +214,9 @@ BEGIN
   BEGIN
     PERFORM public.create_restaurant_menu_section_v1(
       v_restaurant_id, v_other_menu_id, jsonb_build_object('labels', v_label));
-  EXCEPTION WHEN sqlstate 'P0002' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN sqlstate 'P0002' THEN
     v_raised := true;
   END;
   IF NOT v_raised THEN
@@ -254,7 +264,9 @@ BEGIN
     BEGIN
       PERFORM public.reorder_restaurant_menu_items_v1(
         v_restaurant_id, v_menu_id, v_section_id, v_row.ids);
-    EXCEPTION WHEN sqlstate 'P0001' THEN
+    EXCEPTION
+      WHEN SQLSTATE 'NB001' THEN RAISE;
+      WHEN sqlstate 'P0001' THEN
       v_raised := SQLERRM = 'menu_order_stale';
     END;
     IF NOT v_raised THEN
@@ -269,7 +281,9 @@ BEGIN
   BEGIN
     PERFORM public.reorder_restaurant_menu_sections_v1(
       v_other_restaurant_id, v_menu_id, v_section_ids);
-  EXCEPTION WHEN sqlstate 'P0002' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN sqlstate 'P0002' THEN
     v_raised := SQLERRM = 'menu_not_found';
   END;
   IF NOT v_raised THEN
@@ -287,6 +301,10 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'menu-mutation-integrity regression PASSED';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: menu-mutation-integrity FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
 END;
 $regression$;
 

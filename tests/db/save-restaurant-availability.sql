@@ -38,7 +38,7 @@ BEGIN
   -- Monday 12:00-22:00, every other day closed.
   SELECT jsonb_agg(
     jsonb_build_object(
-      'id', gen_random_uuid(),
+      'id', ('00000000-0000-4000-8000-0000004a00' || lpad(d::text, 2, '0'))::uuid,
       'day_of_week', d,
       'effective_date', NULL,
       'opens_at', CASE WHEN d = 1 THEN '12:00' END,
@@ -134,7 +134,9 @@ BEGIN
       v_revision
     );
     RAISE EXCEPTION 'duplicate turn bands were accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN raise_exception THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN raise_exception THEN
     NULL; -- 'duplicate turn-band replacement row' from replace_restaurant_turn_bands
   END;
   SELECT closes_at INTO v_closes FROM public.restaurant_operating_hours
@@ -167,7 +169,9 @@ BEGIN
       NULL
     );
     RAISE EXCEPTION 'unknown booking option was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN foreign_key_violation THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN foreign_key_violation THEN
     NULL;
   END;
   IF public.restaurant_availability_revision(v_restaurant_id) <> v_revision THEN
@@ -194,7 +198,9 @@ BEGIN
       v_revision
     );
     RAISE EXCEPTION 'meal time outside hours was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN SQLSTATE 'NT422' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN SQLSTATE 'NT422' THEN
     NULL;
   END;
   IF public.restaurant_availability_revision(v_restaurant_id) <> v_revision THEN
@@ -219,7 +225,9 @@ BEGIN
       v_revision
     );
     RAISE EXCEPTION 'stale write was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN SQLSTATE 'NT409' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN SQLSTATE 'NT409' THEN
     NULL;
   END;
   IF (SELECT reservation_interval_minutes FROM public.restaurants WHERE id = v_restaurant_id) <> 30 THEN
@@ -231,7 +239,9 @@ BEGIN
   v_result := public.save_restaurant_availability(
     v_restaurant_id,
     (
-      SELECT jsonb_agg(row || jsonb_build_object('id', gen_random_uuid()))
+      SELECT jsonb_agg(row || jsonb_build_object(
+        'id', ('00000000-0000-4000-8000-0000004b00' || lpad(row ->> 'day_of_week', 2, '0'))::uuid
+      ))
       FROM jsonb_array_elements(v_narrow_hours) AS row
     ),
     NULL,
@@ -281,7 +291,9 @@ BEGIN
       NULL
     );
     RAISE EXCEPTION 'cross-tenant turn band was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN raise_exception THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN raise_exception THEN
     NULL;
   END;
   IF EXISTS (SELECT 1 FROM public.restaurant_turn_bands WHERE restaurant_id = v_other_restaurant_id) THEN
@@ -292,7 +304,9 @@ BEGIN
   BEGIN
     PERFORM public.save_restaurant_availability(v_restaurant_id, NULL, NULL, NULL, NULL, NULL);
     RAISE EXCEPTION 'empty command was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN SQLSTATE 'NT400' THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN SQLSTATE 'NT400' THEN
     NULL;
   END;
   BEGIN
@@ -300,7 +314,9 @@ BEGIN
       '00000000-0000-4000-8000-0000000000ff', NULL, NULL, NULL, '{}'::jsonb, NULL
     );
     RAISE EXCEPTION 'missing restaurant was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN no_data_found THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN no_data_found THEN
     NULL;
   END;
 
@@ -328,7 +344,9 @@ BEGIN
       NULL
     );
     RAISE EXCEPTION 'duplicate occasion was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN unique_violation THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN unique_violation THEN
     NULL;
   END;
   IF (SELECT label FROM public.booking_occasions WHERE key = 'nb_regression_type') <> 'Regression type' THEN
@@ -398,7 +416,7 @@ BEGIN
     v_other_restaurant_id,
     jsonb_build_array(
       jsonb_build_object(
-        'id', gen_random_uuid(), 'name', 'Other', 'day_of_week', 2,
+        'id', '00000000-0000-4000-8000-0000004c0001'::uuid, 'name', 'Other', 'day_of_week', 2,
         'start_time', '18:00', 'end_time', '20:00', 'booking_option', 'nb_regression_other'
       )
     )
@@ -429,13 +447,15 @@ BEGIN
       v_other_restaurant_id,
       jsonb_build_array(
         jsonb_build_object(
-          'id', gen_random_uuid(), 'name', 'Other', 'day_of_week', 2,
+          'id', '00000000-0000-4000-8000-0000004c0002'::uuid, 'name', 'Other', 'day_of_week', 2,
           'start_time', '18:00', 'end_time', '20:00', 'booking_option', 'nb_regression_other'
         )
       )
     );
     RAISE EXCEPTION 'meal time with a removed type was accepted' USING ERRCODE = 'NB001';
-  EXCEPTION WHEN foreign_key_violation THEN
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN foreign_key_violation THEN
     NULL;
   END;
   IF has_function_privilege('authenticated', 'public.delete_booking_occasion(text, uuid)', 'EXECUTE')
@@ -445,7 +465,11 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'save-restaurant-availability regression PASSED';
-END
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: save-restaurant-availability FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
+END;
 $regression$;
 
 ROLLBACK;
