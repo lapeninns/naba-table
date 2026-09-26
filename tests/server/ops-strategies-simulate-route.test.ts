@@ -67,7 +67,11 @@ describe('POST /api/ops/strategies/simulate', () => {
     const response = await POST(postRequest(JSON.stringify(VALID_PAYLOAD)));
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sign in to continue.',
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue.',
+    });
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
   });
 
@@ -87,6 +91,7 @@ describe('POST /api/ops/strategies/simulate', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Authentication required',
       code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
     });
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
   });
@@ -101,7 +106,11 @@ describe('POST /api/ops/strategies/simulate', () => {
       JSON.stringify({
         restaurantId: RESTAURANT_ID,
         strategies: [
-          { key: 'k', label: 'L', weights: { scarcity: 99999, demandMultiplier: 1, futureConflictPenalty: 0 } },
+          {
+            key: 'k',
+            label: 'L',
+            weights: { scarcity: 99999, demandMultiplier: 1, futureConflictPenalty: 0 },
+          },
         ],
       }),
     ],
@@ -111,7 +120,12 @@ describe('POST /api/ops/strategies/simulate', () => {
     const response = await POST(postRequest(body));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid request body' });
+    const json = await response.json();
+    expect(json).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Some fields need attention.',
+    });
+    expect(json.fields).toEqual(expect.any(Object));
     expect(requireAdminMembershipMock).not.toHaveBeenCalled();
   });
 
@@ -122,7 +136,11 @@ describe('POST /api/ops/strategies/simulate', () => {
     const response = await POST(postRequest(JSON.stringify(VALID_PAYLOAD)));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({
+      error: "You don't have permission to do that.",
+      code: 'FORBIDDEN',
+      message: "You don't have permission to do that.",
+    });
     expect(requireAdminMembershipMock).toHaveBeenCalledWith({
       userId: 'user-123',
       restaurantId: RESTAURANT_ID,
@@ -154,10 +172,15 @@ describe('POST /api/ops/strategies/simulate', () => {
     });
   });
 
-  it('@api rejects GET with 405 Not implemented', async () => {
+  it('@api rejects GET with 405 METHOD_NOT_ALLOWED', async () => {
     const response = GET();
 
     expect(response.status).toBe(405);
-    await expect(response.json()).resolves.toEqual({ error: 'Not implemented' });
+    expect(response.headers.get('Allow')).toBe('POST');
+    await expect(response.json()).resolves.toEqual({
+      error: 'Method not allowed.',
+      code: 'METHOD_NOT_ALLOWED',
+      message: 'Method not allowed.',
+    });
   });
 });

@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { internalError } from '@/lib/api/errors';
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -13,6 +19,10 @@ import { requireAdminMembership, requireMembershipForRestaurant } from '@/server
 import type { NextRequest } from 'next/server';
 
 const ROUTE = '/api/ops/settings/strategic-config';
+
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : typeof err;
+}
 
 const getQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -52,7 +62,7 @@ export async function GET(request: NextRequest) {
     Object.fromEntries(request.nextUrl.searchParams.entries()),
   );
   if (!query.success) {
-    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+    return validationError(query.error);
   }
 
   const { restaurantId } = query.data;
@@ -64,29 +74,26 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    logger.error('[ops/settings][strategic-config][GET] auth lookup failed', {
-      route: ROUTE,
-      error: error.message,
-    });
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('[ops/settings][strategic-config][GET] auth lookup failed', {
+      route: ROUTE,
+      status: mapped.status,
+    });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {
     await requireMembershipForRestaurant({ userId: user.id, restaurantId });
   } catch (membershipError) {
-    logger.error('[ops/settings][strategic-config][GET] membership check failed', {
+    logger.warn('[ops/settings][strategic-config][GET] membership check failed', {
       route: ROUTE,
-      error: membershipError,
+      errorName: errorName(membershipError),
     });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return forbidden();
   }
 
   try {
@@ -112,7 +119,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const payload = payloadSchema.safeParse(await request.json().catch(() => null));
   if (!payload.success) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return validationError(payload.error);
   }
 
   const { restaurantId } = payload.data;
@@ -124,38 +131,33 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    logger.error('[ops/settings][strategic-config][POST] auth lookup failed', {
-      route: ROUTE,
-      error: error.message,
-    });
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('[ops/settings][strategic-config][POST] auth lookup failed', {
+      route: ROUTE,
+      status: mapped.status,
+    });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
   } catch (membershipError) {
-    logger.error('[ops/settings][strategic-config][POST] membership check failed', {
+    logger.warn('[ops/settings][strategic-config][POST] membership check failed', {
       route: ROUTE,
-      error: membershipError,
+      errorName: errorName(membershipError),
     });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return forbidden();
   }
 
   clearStrategicCaches();
 
-  return NextResponse.json(
-    {
-      error:
-        'Strategic configuration is now defined in code/env. Deploy a change to update weights.',
-    },
-    { status: 501 },
+  return apiError(
+    501,
+    'STRATEGIC_CONFIG_READ_ONLY',
+    'Strategic settings are read-only. Deploy a configuration change to update weights.',
   );
 }

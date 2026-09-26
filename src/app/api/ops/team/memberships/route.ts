@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { internalError } from '@/lib/api/errors';
+import { apiError, internalError, unauthenticated } from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -19,16 +19,13 @@ export async function GET() {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    logger.error('[team/memberships] auth error', { route: ROUTE, error: authError.message });
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('[team/memberships] auth error', { route: ROUTE, status: mapped.status });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {

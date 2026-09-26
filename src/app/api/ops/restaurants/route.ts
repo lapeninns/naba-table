@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { apiError, conflict, internalError } from '@/lib/api/errors';
+import {
+  apiError,
+  conflict,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
@@ -33,16 +39,16 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    logger.warn('ops.restaurants.auth_failed', { route: '/api/ops/restaurants', error: authError });
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('ops.restaurants.auth_failed', {
+      route: '/api/ops/restaurants',
+      status: mapped.status,
+    });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const rawParams = {
@@ -54,10 +60,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = listRestaurantsQuerySchema.safeParse(rawParams);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid query', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   const params = parsed.data;
@@ -152,15 +155,12 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'Request body must be valid JSON.');
   }
 
   const parsed = createRestaurantSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   const input = parsed.data;

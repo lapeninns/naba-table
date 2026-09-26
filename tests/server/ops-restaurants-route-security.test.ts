@@ -36,7 +36,7 @@ import {
   RestaurantCreateValidationError,
   RestaurantSlugUnavailableError,
 } from '@/server/restaurants/create-errors';
-import { POST } from '@/src/app/api/ops/restaurants/route';
+import { GET, POST } from '@/src/app/api/ops/restaurants/route';
 
 const PLATFORM_USER_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -161,6 +161,36 @@ describe('POST /api/ops/restaurants security', () => {
     );
   });
 
+  it('rejects malformed JSON with 400 INVALID_JSON', async () => {
+    withPlatformAdminAuthorizationMock.mockResolvedValue(authorized());
+
+    const response = await POST(request('{not-json'));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Request body must be valid JSON.',
+      code: 'INVALID_JSON',
+      message: 'Request body must be valid JSON.',
+    });
+    expect(createRestaurantMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid payload with 400 VALIDATION_FAILED and field messages', async () => {
+    withPlatformAdminAuthorizationMock.mockResolvedValue(authorized());
+
+    const response = await POST(request({ slug: 'test-restaurant' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Some fields need attention.',
+      fields: { name: [expect.any(String)] },
+    });
+    expect(body).not.toHaveProperty('details');
+    expect(createRestaurantMock).not.toHaveBeenCalled();
+  });
+
   describe('creation errors (C1)', () => {
     const SECRET = 'SECRET_DB_DETAIL owner@example.com';
     let consoleError: ReturnType<typeof vi.spyOn>;
@@ -224,5 +254,92 @@ describe('POST /api/ops/restaurants security', () => {
         error: 'Choose a valid timezone.',
       });
     });
+  });
+});
+
+function listRequest(query = '') {
+  return new NextRequest(`https://app.nabatable.com/api/ops/restaurants${query}`);
+}
+
+function mockRouteSupabase(
+  user: { id: string } | null,
+  error: { status?: number; message?: string } | null = null,
+) {
+  return { auth: { getUser: vi.fn().mockResolvedValue({ data: { user }, error }) } };
+}
+
+describe('GET /api/ops/restaurants errors (C1)', () => {
+  beforeEach(() => {
+    getRouteHandlerSupabaseClientMock.mockReset();
+    getServiceSupabaseClientMock.mockReset();
+    listRestaurantsForOpsMock.mockReset();
+    getServiceSupabaseClientMock.mockReturnValue({ tag: 'service-client' });
+  });
+
+  it('returns 401 UNAUTHENTICATED without a session', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockRouteSupabase(null));
+
+    const response = await GET(listRequest());
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sign in to continue.',
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue.',
+    });
+    expect(listRestaurantsForOpsMock).not.toHaveBeenCalled();
+  });
+
+  it('maps a supabase auth failure to 401 UNAUTHENTICATED', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(
+      mockRouteSupabase(null, { status: 401, message: 'invalid JWT' }),
+    );
+
+    const response = await GET(listRequest());
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Authentication required',
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
+  });
+
+  it('rejects an invalid query with 400 VALIDATION_FAILED and no raw zod details', async () => {
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockRouteSupabase({ id: 'user-1' }));
+
+    const response = await GET(listRequest('?page=0'));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { page: [expect.any(String)] },
+    });
+    expect(body).not.toHaveProperty('details');
+    expect(listRestaurantsForOpsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not leak an unexpected list failure to the client or logs', async () => {
+    const SECRET = 'SECRET_DB_DETAIL owner@example.com';
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockRouteSupabase({ id: 'user-1' }));
+    listRestaurantsForOpsMock.mockRejectedValue(new Error(`list failed: ${SECRET}`));
+
+    try {
+      const response = await GET(listRequest());
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(JSON.parse(text)).toEqual({
+        error: 'Unable to fetch restaurants',
+        code: 'INTERNAL_ERROR',
+        message: 'Unable to fetch restaurants',
+      });
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('owner@example.com');
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
