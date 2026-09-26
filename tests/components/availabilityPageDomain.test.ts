@@ -19,10 +19,7 @@ import {
   validateAvailabilityDraft,
 } from '@/components/features/restaurant-settings/availability/availabilityPageValidation';
 import { formatTimeRanges } from '@/components/features/restaurant-settings/availability/availabilityPreviewModel';
-import {
-  hasNarrowedWeeklyHours,
-  planAvailabilitySave,
-} from '@/components/features/restaurant-settings/availability/availabilitySavePlan';
+import { planAvailabilitySave } from '@/components/features/restaurant-settings/availability/availabilitySavePlan';
 import { availabilityErrorGroup } from '@/components/features/restaurant-settings/availability/useAvailabilityPageController';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
@@ -196,7 +193,18 @@ describe('availability page draft', () => {
     };
 
     expect(getDirtyAvailabilityGroups(saved, withDefault)).toEqual(['types']);
-    expect(planAvailabilitySave(saved, withDefault)).toEqual(['types']);
+    expect(
+      planAvailabilitySave({
+        saved,
+        draft: withDefault,
+        canEditCatalog: false,
+        savedServicePeriods: [],
+      }),
+    ).toMatchObject({
+      groups: ['types'],
+      catalog: { upserts: false, deletes: false },
+      command: { rules: { reservationDefaultDurationMinutes: 105 } },
+    });
     const groups = describeAvailabilityChanges(saved, withDefault);
     expect(groups.find((group) => group.id === 'types')!.changes).toEqual([
       { label: 'Default table time', was: '90 min', now: '105 min' },
@@ -248,34 +256,94 @@ describe('availability page draft', () => {
 });
 
 describe('availability save plan', () => {
-  it('writes booking types first and booking rules last', () => {
+  const plan = (
+    saved: AvailabilityPageDraft,
+    draft: AvailabilityPageDraft,
+    canEditCatalog = true,
+    expectedRevision: string | null = null,
+  ) =>
+    planAvailabilitySave({
+      saved,
+      draft,
+      canEditCatalog,
+      savedServicePeriods: [],
+      expectedRevision,
+    });
+
+  it('sends every restaurant-owned change in one command, with only the changed parts', () => {
     const saved = buildSaved();
     const draft = {
       ...patchWeekday(saved, 2, { closesAt: '23:00' }),
-      occasions: [...saved.occasions, occasion('brunch')],
-      rules: { ...saved.rules, reservationIntervalMinutes: '30' },
+      rules: { ...saved.rules, reservationIntervalMinutes: '30', bookingPolicy: '  Call us  ' },
     };
-    expect(planAvailabilitySave(saved, draft)).toEqual(['types', 'hours', 'rules']);
+
+    const result = plan(saved, draft, false, 'rev-1');
+
+    expect(result.groups).toEqual(['hours', 'rules']);
+    expect(result.commandGroups).toEqual(['hours', 'rules']);
+    expect(result.command).toMatchObject({
+      expectedRevision: 'rev-1',
+      rules: {
+        reservationIntervalMinutes: 30,
+        reservationLastSeatingBufferMinutes: 60,
+        reservationLifecycleGraceMinutes: 15,
+        bookingPolicy: 'Call us',
+      },
+    });
+    expect(result.command!.hours!.weekly.find((row) => row.dayOfWeek === 2)?.closesAt).toBe(
+      '23:00',
+    );
+    expect(result.command).not.toHaveProperty('servicePeriods');
+    expect(result.command).not.toHaveProperty('turnBands');
+    expect(result.catalog).toEqual({ upserts: false, deletes: false });
   });
 
-  it('writes meal times before hours when a day closes earlier or closes altogether', () => {
+  it('sends hours and meal times together, so narrowing both is one atomic write', () => {
     const saved = buildSaved();
     const narrowed = patchMeal(patchWeekday(saved, 2, { closesAt: '21:00' }), 2, 'dinner', {
       endTime: '21:00',
     });
-    expect(hasNarrowedWeeklyHours(saved, narrowed)).toBe(true);
-    expect(planAvailabilitySave(saved, narrowed)).toEqual(['meals', 'hours']);
 
-    const closed = patchWeekday(saved, 2, { isClosed: true });
-    expect(planAvailabilitySave(saved, closed)).toEqual(['meals', 'hours']);
+    const result = plan(saved, narrowed);
+
+    expect(result.commandGroups).toEqual(['hours', 'meals']);
+    expect(result.command!.servicePeriods).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ dayOfWeek: 2, bookingOption: 'dinner', endTime: '21:00' }),
+      ]),
+    );
   });
 
-  it('writes hours before meal times when hours widen', () => {
+  it('@security never plans booking-type writes for staff who are not platform admins', () => {
     const saved = buildSaved();
-    const widened = patchMeal(patchWeekday(saved, 2, { closesAt: '23:00' }), 2, 'dinner', {
-      endTime: '22:30',
+    const draft = {
+      ...saved,
+      occasions: [...saved.occasions, occasion('brunch')],
+      turnBands: { lunch: [{ maxPartySize: 4, durationMinutes: 75 }] },
+    };
+
+    const staff = plan(saved, draft, false);
+    expect(staff.catalog).toEqual({ upserts: false, deletes: false });
+    expect(staff.command).toMatchObject({
+      turnBands: { lunch: [{ maxPartySize: 4, durationMinutes: 75 }] },
     });
-    expect(planAvailabilitySave(saved, widened)).toEqual(['hours', 'meals']);
+
+    const admin = plan(saved, draft, true);
+    expect(admin.catalog).toEqual({ upserts: true, deletes: false });
+  });
+
+  it('plans admin removals as a separate step after the command', () => {
+    const saved = buildSaved([
+      occasion('lunch'),
+      occasion('dinner'),
+      { ...occasion('brunch'), isBuiltin: false },
+    ]);
+    const draft = { ...saved, occasions: saved.occasions.filter((item) => item.key !== 'brunch') };
+
+    const result = plan(saved, draft, true);
+
+    expect(result.catalog).toEqual({ upserts: false, deletes: true });
+    expect(result.command).toBeNull();
   });
 });
 

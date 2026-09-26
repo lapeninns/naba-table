@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 
 import { TOUCH_TARGET_CLASS } from './availability/AvailabilityFields';
+import { BOOKING_TYPES_MANAGED_NOTE } from './availability/availabilitySaveErrorCopy';
 import { AvailabilityOccasionDialog } from './AvailabilityOccasionDialog';
 import {
   buildOccasionSubmitResult,
@@ -66,6 +67,11 @@ type AvailabilityOccasionsEditorProps = {
   onTurnBandsChange: (optionKey: string, next: TurnBandInput[]) => void;
   /** Opens a booking type's dialog from elsewhere on the page (Needs attention). */
   editRequest?: { key: string; nonce: number } | null;
+  /**
+   * Nabatable platform admin: may add, edit, turn off and remove booking types (a global
+   * catalog). Otherwise the rows are read-only and only this restaurant's table times can change.
+   */
+  canEditCatalog?: boolean;
 };
 
 export function AvailabilityOccasionsEditor({
@@ -77,6 +83,7 @@ export function AvailabilityOccasionsEditor({
   turnBandDefaults,
   onTurnBandsChange,
   editRequest,
+  canEditCatalog = true,
 }: AvailabilityOccasionsEditorProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<OccasionFormState>(() => createEmptyOccasionForm());
@@ -149,6 +156,17 @@ export function AvailabilityOccasionsEditor({
   );
 
   const handleSubmit = () => {
+    if (!canEditCatalog) {
+      // Table times only: the booking type itself is not changed.
+      const bands = validateTurnBandRows(form.turnBands);
+      if (!bands.ok || !editingKey) {
+        setBandErrors(bands.ok ? undefined : bands.errors);
+        return;
+      }
+      onTurnBandsChange(editingKey, form.turnBands);
+      closeDialog();
+      return;
+    }
     const result = buildOccasionSubmitResult(form, editingKey);
     const bands = validateTurnBandRows(form.turnBands);
     if (
@@ -192,18 +210,27 @@ export function AvailabilityOccasionsEditor({
 
   return (
     <div className="flex flex-col">
-      <div className="flex justify-end px-4 pb-3 sm:px-5">
-        <Button
-          type="button"
-          variant="outline"
-          className={TOUCH_TARGET_CLASS}
-          onClick={openForCreate}
-          data-booking-type-add
+      {canEditCatalog ? (
+        <div className="flex justify-end px-4 pb-3 sm:px-5">
+          <Button
+            type="button"
+            variant="outline"
+            className={TOUCH_TARGET_CLASS}
+            onClick={openForCreate}
+            data-booking-type-add
+          >
+            <Plus data-icon="inline-start" aria-hidden />
+            Add booking type
+          </Button>
+        </div>
+      ) : (
+        <p
+          className="px-4 pb-3 text-sm text-muted-foreground sm:px-5"
+          data-testid="booking-types-managed-note"
         >
-          <Plus data-icon="inline-start" aria-hidden />
-          Add booking type
-        </Button>
-      </div>
+          {BOOKING_TYPES_MANAGED_NOTE} You can change the table times for each one.
+        </p>
+      )}
       {sortedOccasions.length === 0 ? (
         <div className="flex flex-col gap-1 border-t border-border/60 px-4 py-6 sm:px-5">
           <p className="font-medium text-foreground">No booking types</p>
@@ -250,35 +277,45 @@ export function AvailabilityOccasionsEditor({
                     {formatAvailabilitySummary(occasion.availability)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id={switchId}
-                    checked={occasion.isActive}
-                    aria-label={`${occasion.label} available to book`}
-                    onCheckedChange={(checked) =>
-                      onChange(
-                        sortedOccasions.map((item) =>
-                          item.key === occasion.key ? { ...item, isActive: checked } : item,
-                        ),
-                      )
-                    }
-                  />
+                {canEditCatalog ? (
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id={switchId}
+                      checked={occasion.isActive}
+                      aria-label={`${occasion.label} available to book`}
+                      onCheckedChange={(checked) =>
+                        onChange(
+                          sortedOccasions.map((item) =>
+                            item.key === occasion.key ? { ...item, isActive: checked } : item,
+                          ),
+                        )
+                      }
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      {occasion.isActive ? 'On' : 'Off'}
+                    </span>
+                  </div>
+                ) : (
                   <span className="text-xs text-muted-foreground">
-                    {occasion.isActive ? 'On' : 'Off'}
+                    {occasion.isActive ? 'Available to book' : 'Not available to book'}
                   </span>
-                </div>
+                )}
                 <div className="flex items-center gap-1.5">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className={TOUCH_TARGET_CLASS}
-                    aria-label={`Edit ${occasion.label}`}
+                    aria-label={
+                      canEditCatalog
+                        ? `Edit ${occasion.label}`
+                        : `Edit table times for ${occasion.label}`
+                    }
                     onClick={() => openForEdit(occasion)}
                   >
-                    Edit
+                    {canEditCatalog ? 'Edit' : 'Table times'}
                   </Button>
-                  {occasion.isBuiltin ? null : (
+                  {!canEditCatalog || occasion.isBuiltin ? null : (
                     <Button
                       type="button"
                       variant="ghost"
@@ -308,6 +345,7 @@ export function AvailabilityOccasionsEditor({
         onFormChange={setForm}
         onOpenChange={guardOpenChange((open) => (!open ? closeDialog() : setDialogOpen(true)))}
         onSubmit={handleSubmit}
+        mode={canEditCatalog ? 'full' : 'tableTimes'}
       />
 
       <ConfirmDialog
@@ -320,7 +358,7 @@ export function AvailabilityOccasionsEditor({
         }
         description={
           pendingDeleteOccasion
-            ? `${pendingDeleteOccasion.label} will be removed when you save. Existing bookings keep their type. To keep it, choose Cancel or turn it off instead.`
+            ? `${pendingDeleteOccasion.label} will be removed for every restaurant when you save. It can only be removed while no upcoming booking or meal time uses it; if one does, it is kept and the save tells you why. Past bookings keep their type. To keep it, choose Cancel or turn it off instead.`
             : undefined
         }
         confirmLabel="Remove booking type"

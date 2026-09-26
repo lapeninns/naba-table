@@ -59,6 +59,16 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({ useGlobalShortcuts: vi.fn() }));
 
+vi.mock('@/contexts/ops-session', () => ({
+  useOpsSession: () => ({ permissions: { isPlatformAdmin: false } }),
+}));
+
+// The revision only feeds the save precondition; it never blocks loading the page.
+vi.mock('@src/hooks/ops/useOpsSaveAvailability', () => ({
+  useOpsAvailabilityRevision: () => ({ data: 'rev-1', error: null }),
+  useOpsSaveAvailability: () => ({ isPending: false, mutateAsync: async () => undefined }),
+}));
+
 vi.mock('@/hooks/ops/useOccasions', () => ({
   useOpsOccasions: () => state.occasions,
 }));

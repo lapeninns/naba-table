@@ -20,13 +20,23 @@ import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 
 import type { OpsAccountSnapshot, OpsMembership, OpsPermissionSet, OpsUser } from '@/types/ops';
 
+/**
+ * Session permissions. `isPlatformAdmin` is computed on the server from the platform-admin env
+ * lists (`isPlatformAdminUser`) and is a UI hint only: platform-admin API routes re-check it.
+ * Defined here rather than in `@/types/ops` (another stream owns that file this wave); the
+ * integrator may fold `isPlatformAdmin` into `OpsPermissionSet`.
+ */
+export type OpsSessionPermissions = OpsPermissionSet & {
+  isPlatformAdmin: boolean;
+};
+
 export type OpsSessionContextValue = {
   user: OpsUser | null;
   memberships: OpsMembership[];
   activeRestaurantId: string | null;
   activeMembership: OpsMembership | null;
   accountSnapshot: OpsAccountSnapshot;
-  permissions: OpsPermissionSet;
+  permissions: OpsSessionPermissions;
   setActiveRestaurantId: (restaurantId: string | null) => void;
   syncActiveRestaurantIdFromRoute: (restaurantId: string | null) => void;
   resetRestaurantSelection: () => void;
@@ -70,6 +80,8 @@ export type OpsSessionProviderProps = {
   user: OpsUser | null;
   memberships: OpsMembership[];
   initialRestaurantId?: string | null;
+  /** Server-computed platform-admin flag (UI hint only). Defaults to false. */
+  isPlatformAdmin?: boolean;
   children: ReactNode;
 };
 
@@ -77,6 +89,7 @@ export function OpsSessionProvider({
   user,
   memberships,
   initialRestaurantId = null,
+  isPlatformAdmin = false,
   children,
 }: OpsSessionProviderProps) {
   const membershipRestaurantIds = useMemo(
@@ -173,13 +186,14 @@ export function OpsSessionProvider({
 
   const activeIsAdmin = activeMembership ? isRestaurantAdminRole(activeMembership.role) : false;
 
-  const permissions: OpsPermissionSet = useMemo(
+  const permissions: OpsSessionPermissions = useMemo(
     () => ({
       isAdminAnywhere,
       canManageTeam: activeIsAdmin,
       canManageSettings: activeIsAdmin,
+      isPlatformAdmin,
     }),
-    [activeIsAdmin, isAdminAnywhere],
+    [activeIsAdmin, isAdminAnywhere, isPlatformAdmin],
   );
 
   const accountSnapshot: OpsAccountSnapshot = useMemo(

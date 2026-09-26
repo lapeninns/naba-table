@@ -18,7 +18,9 @@ export type AvailabilityAttentionAction =
   | { kind: 'create-required-types' }
   | { kind: 'open-day'; dayOfWeek: number }
   | { kind: 'edit-type'; key: string }
-  | { kind: 'google' };
+  | { kind: 'google' }
+  /** Nothing the viewer can do on this page (e.g. only Nabatable can add booking types). */
+  | { kind: 'none' };
 
 export type AvailabilityAttentionItem = {
   id: string;
@@ -35,6 +37,8 @@ export type AvailabilityAttentionInput = {
   offeredCount: (dayOfWeek: number, meal: MealKey) => number;
   /** Google Business Profile fields for hours and meal times that differ and need a decision. */
   googleDriftCount: number;
+  /** Nabatable platform admin: may create booking types. Defaults to true. */
+  canEditCatalog?: boolean;
 };
 
 const inMealWindow = (minutes: string, start: string, end: string) => {
@@ -49,6 +53,7 @@ export function buildAvailabilityAttention({
   errors,
   offeredCount,
   googleDriftCount,
+  canEditCatalog = true,
 }: AvailabilityAttentionInput): AvailabilityAttentionItem[] {
   const items: AvailabilityAttentionItem[] = [];
   const issueCount = Object.keys(errors).length;
@@ -64,13 +69,23 @@ export function buildAvailabilityAttention({
 
   const hasRequired = hasRequiredBookingTypes(draft.occasions);
   if (!hasRequired) {
-    items.push({
-      id: 'required-types',
-      tone: 'issue',
-      text: 'Lunch and Dinner booking types are missing. Guests can’t request meal times until they exist.',
-      action: { kind: 'create-required-types' },
-      actionLabel: 'Create Lunch and Dinner',
-    });
+    items.push(
+      canEditCatalog
+        ? {
+            id: 'required-types',
+            tone: 'issue',
+            text: 'Lunch and Dinner booking types are missing. Guests can’t request meal times until they exist.',
+            action: { kind: 'create-required-types' },
+            actionLabel: 'Create Lunch and Dinner',
+          }
+        : {
+            id: 'required-types',
+            tone: 'issue',
+            text: 'Lunch and Dinner booking types are missing, and guests can’t request meal times until they exist. Booking types are managed by Nabatable: contact Nabatable to add them.',
+            action: { kind: 'none' },
+            actionLabel: '',
+          },
+    );
   }
 
   for (const dayOfWeek of WEEK_ORDER) {

@@ -8,6 +8,7 @@ import {
   OPS_ACTIVE_RESTAURANT_COOKIE_NAME,
   resolvePreferredOpsRestaurantId,
 } from '@/lib/ops/session';
+import { isPlatformAdminUser } from '@/server/auth/guards';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
 import { getRequestUser } from '@/server/auth/request-user';
 import { resolveOpsEnvBanner } from '@/server/ops/resolve-ops-env-banner';
@@ -121,12 +122,17 @@ export default async function OpsAppLayout({ children }: OpsAppLayoutProps) {
     cookieStore.get(OPS_ACTIVE_RESTAURANT_COOKIE_NAME)?.value ?? null,
   );
   const opsEnvBanner = resolveOpsEnvBanner();
+  // UI hint only (e.g. the global booking-type editor); the API guard stays authoritative. The
+  // QA fixture user goes through the same env-list check, so local QA can opt in by listing
+  // QA_OPS_USER_ID in PLATFORM_ADMIN_USER_IDS. The lists themselves never reach the client.
+  const isPlatformAdmin = isPlatformAdminUser(supabaseUser);
 
   return (
     <OpsSessionProvider
       user={supabaseUser}
       memberships={opsMemberships}
       initialRestaurantId={initialRestaurantId}
+      isPlatformAdmin={isPlatformAdmin}
     >
       <OpsServicesProvider>
         {/* Query, session and analytics providers come from the root layout; mounting

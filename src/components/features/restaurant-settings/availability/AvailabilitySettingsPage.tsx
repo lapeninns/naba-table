@@ -17,6 +17,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useOpsSession } from '@/contexts/ops-session';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
@@ -24,23 +25,6 @@ import { AvailabilityOccasionsEditor } from '../AvailabilityOccasionsEditor';
 import { updateTurnBandsDraft } from '../availabilityScheduleDraftDomain';
 import { extractRequiredOccasionKeys } from '../availabilityScheduleManagerUtils';
 import { getRestaurantSettingsAvailabilityAlias, RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
-import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
-import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
-import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
-import { SettingsSaveBar } from '../shared/SettingsSaveBar';
-import { getSettingsSaveReasonCode, pluralise } from '../shared/settingsSaveSequence';
-import {
-  scrollToSettingsSection,
-  type RestaurantSettingsCommandRailItem,
-} from '../shared/SettingsSectionNav';
-import { SettingsStatusLine } from '../shared/SettingsStatusLine';
-import { useSettingsSectionSpy } from '../shared/useSettingsSectionSpy';
-import { DAYS_OF_WEEK, type OverrideRow } from '../types';
-import {
-  buildAvailabilityAttention,
-  type AvailabilityAttentionAction,
-} from './availabilityAttention';
-import { AvailabilityAttentionSection } from './AvailabilityAttentionSection';
 import {
   AVAILABILITY_SAVE_GROUP_NAMES,
   MEAL_KEYS,
@@ -64,6 +48,24 @@ import {
   previewAvailabilityDate,
   type AvailabilityPreviewSource,
 } from './availabilityPreviewModel';
+import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
+import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
+import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
+import { SettingsSaveBar } from '../shared/SettingsSaveBar';
+import { getSettingsSaveReasonCode, pluralise } from '../shared/settingsSaveSequence';
+import {
+  scrollToSettingsSection,
+  type RestaurantSettingsCommandRailItem,
+} from '../shared/SettingsSectionNav';
+import { SettingsStatusLine } from '../shared/SettingsStatusLine';
+import { useSettingsSectionSpy } from '../shared/useSettingsSectionSpy';
+import { DAYS_OF_WEEK, type OverrideRow } from '../types';
+import {
+  buildAvailabilityAttention,
+  type AvailabilityAttentionAction,
+} from './availabilityAttention';
+import { AvailabilityAttentionSection } from './AvailabilityAttentionSection';
+import { describeAvailabilitySaveFailure } from './availabilitySaveErrorCopy';
 import { BookingPreviewPanel } from './BookingPreviewPanel';
 import { BOOKING_RULES_SECTION_ID, BookingRulesSection } from './BookingRulesSection';
 import { CopyWeekdayDialog } from './CopyWeekdayDialog';
@@ -114,7 +116,11 @@ function focusField(id: string) {
 }
 
 export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: string | null }) {
-  const controller = useAvailabilityPageController(restaurantId);
+  const { permissions } = useOpsSession();
+  const controller = useAvailabilityPageController(restaurantId, {
+    canEditCatalog: permissions.isPlatformAdmin,
+  });
+  const saveFailureCopy = describeAvailabilitySaveFailure(controller.saveFailure?.reasonCode);
   const pathname = usePathname();
   const alias = getRestaurantSettingsAvailabilityAlias(pathname);
   const [aliasDismissed, setAliasDismissed] = useState(false);
@@ -183,8 +189,16 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       errors,
       offeredCount: (dayOfWeek, meal) => counts.get(`${dayOfWeek}-${meal}`) ?? 0,
       googleDriftCount: controller.googleDrift.fields.length,
+      canEditCatalog: controller.canEditCatalog,
     });
-  }, [controller.googleDrift.fields.length, draft, errors, previewSources, today]);
+  }, [
+    controller.canEditCatalog,
+    controller.googleDrift.fields.length,
+    draft,
+    errors,
+    previewSources,
+    today,
+  ]);
 
   const weekdays: WeekdayView[] = useMemo(() => {
     if (!draft || !saved) return [];
@@ -306,6 +320,7 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
           setEditRequest({ key: action.key, nonce: Date.now() });
           break;
         case 'google':
+        case 'none':
           break;
       }
     },
@@ -466,6 +481,13 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       {controller.refreshError ? (
         <SettingsRefreshErrorAlert error={controller.refreshError} onRetry={controller.retryLoad} />
       ) : null}
+      {controller.saveFailure && saveFailureCopy ? (
+        <Alert variant="destructive" role="alert" data-testid="availability-save-failure">
+          <AlertTriangle aria-hidden />
+          <AlertTitle>{controller.saveFailure.failedSection} not saved</AlertTitle>
+          <AlertDescription>{saveFailureCopy}</AlertDescription>
+        </Alert>
+      ) : null}
       {alias && !aliasDismissed ? (
         <Alert variant="info" role="status" className="pr-12">
           <Info aria-hidden />
@@ -599,6 +621,7 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
                 turnBands={draft.turnBands}
                 turnBandDefaults={controller.turnBandDefaults}
                 editRequest={editRequest}
+                canEditCatalog={controller.canEditCatalog}
                 onChange={(occasions) => updateDraft((current) => ({ ...current, occasions }))}
                 onTurnBandsChange={(key, bands) =>
                   updateDraft((current) => ({
