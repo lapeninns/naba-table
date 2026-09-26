@@ -109,7 +109,9 @@ function FieldRow({
   const reasonsId = reasons.length ? `gbp-field-reasons-${field.fieldKey}` : undefined;
 
   let action;
-  if (!isGbpFieldDifferent(field)) {
+  if (field.state === null) {
+    action = <span className="text-sm text-muted-foreground">Not compared yet</span>;
+  } else if (!isGbpFieldDifferent(field)) {
     action = (
       <span className="inline-flex min-h-9 items-center gap-1.5 text-sm text-muted-foreground">
         <Equal className="size-4" aria-hidden />
@@ -242,6 +244,11 @@ function SectionBulkSelect({
  * "Review differences": every compared field in one table, sections as bands, with the choice
  * for each difference in a fixed column. Matching fields are hidden unless asked for.
  */
+/** Shown without "Show matching fields": differences, and fields not compared with Google yet. */
+function needsReview(field: DualSyncFieldSummary): boolean {
+  return isGbpFieldDifferent(field) || field.state === null;
+}
+
 export function GbpReviewTable({
   workspace,
   sendBlockReason,
@@ -257,10 +264,10 @@ export function GbpReviewTable({
     key,
     fields: workspace.fieldsBySection.get(key) ?? [],
   }));
-  const shown = sections.filter(
-    (section) => showMatching || section.fields.some(isGbpFieldDifferent),
+  const shown = sections.filter((section) => showMatching || section.fields.some(needsReview));
+  const matchingSections = sections.filter((section) =>
+    section.fields.every((field) => field.state === 'in_sync'),
   );
-  const matchingSections = sections.filter((section) => !section.fields.some(isGbpFieldDifferent));
 
   return (
     <div className="@container flex min-w-0 flex-col gap-3" data-testid="gbp-review">
@@ -314,7 +321,7 @@ export function GbpReviewTable({
           </div>
           {shown.map(({ key, fields }, index) => {
             const section = summarizeGbpSection(fields);
-            const rows = showMatching ? fields : fields.filter(isGbpFieldDifferent);
+            const rows = showMatching ? fields : fields.filter(needsReview);
             const headingId = `gbp-section-${key.replaceAll('.', '-')}`;
             return (
               <section

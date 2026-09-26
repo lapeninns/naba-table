@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { hasUnknownGbpPublishOutcome } from '../../dual-sync/gbpPublishOutcomeDomain';
-import { formatGbpTime } from '../gbpPageModel';
+import { formatGbpTime, type GbpReconnectReason } from '../gbpPageModel';
 
 import type { GbpConnectionStateResponseV1, GbpPublishResponseV1 } from '@/services/ops/dual-sync';
 import type { ReactNode } from 'react';
@@ -34,7 +34,8 @@ export type GbpAlertsProps = {
   readonly operatorUnavailable: boolean;
   readonly onRetryOperator: () => void;
   readonly reauth: {
-    readonly needed: boolean;
+    /** Why Google must be reconnected; null when it need not be. */
+    readonly reason: GbpReconnectReason | null;
     readonly account: string;
     readonly onReconnect: Action;
   } | null;
@@ -140,7 +141,29 @@ export function GbpAlerts({
     );
   }
 
-  if (reauth?.needed) {
+  if (reauth?.reason === 'access_lost') {
+    alerts.push(
+      <Alert key="reauth" variant="destructive" data-testid="gbp-alert-reauth">
+        <TriangleAlert className="size-4" aria-hidden />
+        <AlertTitle>Reconnect Google: access to this listing was lost</AlertTitle>
+        <AlertDescription>
+          Google refused access to this listing
+          {operator?.reasonCode ? (
+            <>
+              {' '}
+              (<span className="font-mono">{operator.reasonCode}</span>)
+            </>
+          ) : null}
+          , so Nabatable can’t read or compare it. This usually means {reauth.account} is no longer
+          an owner or manager of the listing on Google. Reconnect with a Google account that manages
+          it. The listing stays linked, and your Nabatable settings are unchanged.
+          <Actions>
+            <ActionButton action={reauth.onReconnect} primary />
+          </Actions>
+        </AlertDescription>
+      </Alert>,
+    );
+  } else if (reauth?.reason === 'expired') {
     alerts.push(
       <Alert key="reauth" variant="destructive" data-testid="gbp-alert-reauth">
         <TriangleAlert className="size-4" aria-hidden />
@@ -166,7 +189,8 @@ export function GbpAlerts({
     );
   }
 
-  if (syncError !== null) {
+  // Retrying cannot fix lost or expired access, so the reconnect alert replaces the sync error.
+  if (syncError !== null && !reauth?.reason) {
     alerts.push(
       <Alert key="sync-error" variant="destructive" data-testid="gbp-alert-sync-error">
         <CircleAlert className="size-4" aria-hidden />

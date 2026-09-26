@@ -19,13 +19,17 @@ import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants
 // The shell controller, decision state, review table, decision bar and publish dialogs run for real.
 const mocks = vi.hoisted(() => ({
   useOpsDualSync: vi.fn(),
+  startAuthorization: vi.fn(),
   toast: { error: vi.fn(), info: vi.fn(), success: vi.fn(), warning: vi.fn(), message: vi.fn() },
 }));
 
 vi.mock('@/hooks/ops/useOpsDualSync', () => ({ useOpsDualSync: mocks.useOpsDualSync }));
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => ({ data: connection(), isFetching: false }),
-  useOpsStartGoogleBusinessProfileAuthorization: () => ({ isPending: false, mutate: vi.fn() }),
+  useOpsStartGoogleBusinessProfileAuthorization: () => ({
+    isPending: false,
+    mutate: mocks.startAuthorization,
+  }),
 }));
 vi.mock('sonner', () => ({ toast: mocks.toast }));
 
@@ -280,7 +284,10 @@ function exactPreviewResponse() {
   };
 }
 
-function operator(writeState: 'eligible' | 'blocked' = 'eligible'): GbpOperatorQueries {
+function operator(
+  writeState: 'eligible' | 'blocked' = 'eligible',
+  reasonCode: string | null = writeState === 'eligible' ? null : 'writes_turned_off',
+): GbpOperatorQueries {
   return {
     connectionQuery: query({
       version: 'v1',
@@ -290,7 +297,7 @@ function operator(writeState: 'eligible' | 'blocked' = 'eligible'): GbpOperatorQ
       writeState,
       connectionGeneration: 7,
       consentEpoch: 4,
-      reasonCode: writeState === 'eligible' ? null : 'writes_turned_off',
+      reasonCode,
       rollout: { eligible: true, cohort: 'canary', evaluatedAt: '2026-09-26T12:00:00.000Z' },
       pendingUpdates: { version: 'v1', restaurantId: 'restaurant-1', state: 'none' },
       notifications: { enabled: true, refCount: 2 },
@@ -311,11 +318,16 @@ function operator(writeState: 'eligible' | 'blocked' = 'eligible'): GbpOperatorQ
   } as unknown as GbpOperatorQueries;
 }
 
-function renderWorkspace(options: { operator?: GbpOperatorQueries | null } = {}) {
+function renderWorkspace(
+  options: {
+    operator?: GbpOperatorQueries | null;
+    connection?: Partial<GoogleBusinessProfileConnection>;
+  } = {},
+) {
   return render(
     <GbpSyncWorkspace
       restaurantId="restaurant-1"
-      section={section()}
+      section={section(options.connection)}
       operator={options.operator ?? null}
     />,
   );
@@ -327,6 +339,7 @@ function decisionBar() {
 
 beforeEach(() => {
   mocks.useOpsDualSync.mockReset();
+  mocks.startAuthorization.mockReset();
   Object.values(mocks.toast).forEach((fn) => fn.mockReset());
 });
 
@@ -560,6 +573,54 @@ describe('GbpSyncWorkspace', () => {
       'Google writes are off. Turn them on under Operations.',
     );
     expect(screen.getByText('Google writes')).toBeInTheDocument();
+  });
+
+  it('@contract asks to reconnect, not to retry, when Google has refused access to the listing', async () => {
+    const user = userEvent.setup();
+    mocks.useOpsDualSync.mockReturnValue(dualSync());
+
+    renderWorkspace({
+      operator: operator('blocked', 'provider_access_lost_403'),
+      connection: {
+        status: 'sync_error',
+        lastError: 'Google Business Profile sync failed unexpectedly.',
+      },
+    });
+
+    const alert = screen.getByTestId('gbp-alert-reauth');
+    expect(alert).toHaveTextContent('Google refused access to this listing');
+    expect(alert).toHaveTextContent('owner or manager');
+    expect(screen.queryByTestId('gbp-alert-sync-error')).toBeNull();
+    expect(screen.getByText('Access lost')).toBeInTheDocument();
+    // The alert explains the problem; the generic sync error would contradict it.
+    expect(screen.queryByText(/Last error:/)).toBeNull();
+    // Getting the latest can only repeat Google's refusal, so reconnecting is the one way on.
+    for (const button of screen.getAllByRole('button', { name: /get latest from google/i })) {
+      expect(button).toBeDisabled();
+    }
+
+    await user.click(within(alert).getByRole('button', { name: 'Reconnect Google' }));
+    expect(mocks.startAuthorization).toHaveBeenCalledTimes(1);
+  });
+
+  it('@contract says Google has not been checked yet instead of listing unchecked fields as differences', () => {
+    mocks.useOpsDualSync.mockReturnValue(
+      dualSync({
+        stateQuery: query(
+          state([
+            field({ state: null, gbpValue: null, gbpCanonicalHash: null }),
+            field({ fieldKey: 'profile.website', label: 'Website', state: null, gbpValue: null }),
+          ]),
+        ),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByText('Google hasn’t been checked yet')).toBeInTheDocument();
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Publish decisions' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Review differences' })).toBeInTheDocument();
   });
 
   it('offers section bulk choices only for fields that need a choice', async () => {

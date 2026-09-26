@@ -10,9 +10,9 @@ import type { DualSyncSectionKey } from '@/server/dual-sync';
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
 // The dev harness fixtures: every section, a Google-owned field, a list value and menu items.
-const fields = gbpDualSyncStateFor('linked').fields;
+const linkedFields = gbpDualSyncStateFor('linked').fields;
 
-function workspace(overrides: Record<string, unknown> = {}) {
+function workspace(overrides: Record<string, unknown> = {}, fields = linkedFields) {
   const fieldsBySection = new Map<DualSyncSectionKey, DualSyncFieldSummary[]>();
   for (const field of fields) {
     const key = field.sectionKey as DualSyncSectionKey;
@@ -30,11 +30,17 @@ function workspace(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function Table({ sendBlockReason = null }: { sendBlockReason?: string | null }) {
+function Table({
+  sendBlockReason = null,
+  fields = linkedFields,
+}: {
+  sendBlockReason?: string | null;
+  fields?: typeof linkedFields;
+}) {
   const [showMatching, setShowMatching] = useState(false);
   return (
     <GbpReviewTable
-      workspace={workspace()}
+      workspace={workspace({}, fields)}
       sendBlockReason={sendBlockReason}
       choicesLocked={false}
       checkedAt="2026-09-26T12:58:00.000Z"
@@ -95,5 +101,21 @@ describe('GbpReviewTable', () => {
     for (const radio of screen.getAllByRole('radio', { name: 'Send to Google' })) {
       expect(radio).toBeDisabled();
     }
+  });
+
+  it('shows fields not compared yet by default, and never claims a partly compared listing matches', () => {
+    const fields = linkedFields.map((field) =>
+      field.fieldKey === 'profile.phone'
+        ? { ...field, state: null }
+        : { ...field, state: 'in_sync' as const },
+    );
+    render(<Table fields={fields} />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      '0 differences in 0 sections · 0 of 0 decided',
+    );
+    const phone = screen.getByText('Contact phone').closest('[data-gbp-field]') as HTMLElement;
+    expect(within(phone).getAllByText('Not compared yet').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Nabatable and Google match/)).toBeNull();
   });
 });

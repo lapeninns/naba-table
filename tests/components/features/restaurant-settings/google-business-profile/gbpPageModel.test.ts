@@ -4,7 +4,10 @@ import {
   describeGbpConnection,
   describeGbpFieldNotes,
   describeGbpWrites,
+  getGbpReconnectReason,
   getGbpSendBlockReason,
+  hasGbpComparison,
+  isGbpFieldDifferent,
   summarizeGbpReview,
   summarizeGbpSection,
 } from '@/components/features/restaurant-settings/google-business-profile/gbpPageModel';
@@ -196,5 +199,74 @@ describe('summarizeGbpReview and summarizeGbpSection', () => {
     expect(summarizeGbpSection(fields.filter((f) => f.sectionKey === 'operatingHours')).label).toBe(
       'All match',
     );
+  });
+});
+
+describe('getGbpReconnectReason', () => {
+  it('asks to reconnect when Google access expired', () => {
+    expect(getGbpReconnectReason({ connectionStatus: 'reauth_required', operator: null })).toBe(
+      'expired',
+    );
+    expect(
+      getGbpReconnectReason({
+        connectionStatus: 'sync_error',
+        operator: operator({ writeState: 'reauth_required' }),
+      }),
+    ).toBe('expired');
+  });
+
+  it('asks to reconnect when Google refused access to the listing, even while reported as a sync error', () => {
+    expect(
+      getGbpReconnectReason({
+        connectionStatus: 'sync_error',
+        operator: operator({ writeState: 'blocked', reasonCode: 'provider_access_lost_403' }),
+      }),
+    ).toBe('access_lost');
+  });
+
+  it('does not ask to reconnect for other problems', () => {
+    expect(getGbpReconnectReason({ connectionStatus: 'sync_error', operator: null })).toBeNull();
+    expect(
+      getGbpReconnectReason({
+        connectionStatus: 'linked',
+        operator: operator({ writeState: 'blocked', reasonCode: 'writes_turned_off' }),
+      }),
+    ).toBeNull();
+  });
+
+  it('names lost access on the connection pill and as the reason nothing can be sent', () => {
+    expect(describeGbpConnection('sync_error', 'access_lost')).toEqual({
+      label: 'Access lost',
+      tone: 'bad',
+    });
+    expect(
+      getGbpSendBlockReason({
+        operator: operator({ writeState: 'blocked', reasonCode: 'provider_access_lost_403' }),
+        operatorUnavailable: false,
+        connectionStatus: 'sync_error',
+        syncPaused: false,
+      }),
+    ).toMatch(/Google refused access to this listing\. Reconnect Google/);
+  });
+});
+
+describe('fields never compared with Google', () => {
+  const unchecked = field({ fieldKey: 'u', state: null });
+
+  it('are not differences, and a review with only them has no comparison', () => {
+    expect(isGbpFieldDifferent(unchecked)).toBe(false);
+    expect(summarizeGbpReview([unchecked], {})).toMatchObject({ differences: 0, toDecide: 0 });
+    expect(hasGbpComparison([unchecked])).toBe(false);
+    expect(hasGbpComparison([unchecked, field({ state: 'in_sync' })])).toBe(true);
+  });
+
+  it('are named in the section summary instead of claiming a match', () => {
+    expect(summarizeGbpSection([unchecked, field({ state: 'in_sync' })]).label).toBe(
+      '1 not compared yet',
+    );
+    expect(
+      summarizeGbpSection([unchecked, field({ state: 'core_dirty' }), field({ state: 'in_sync' })])
+        .label,
+    ).toBe('1 of 3 differ, 1 not compared yet');
   });
 });
