@@ -13,6 +13,8 @@ DECLARE
   v_key constant text := 'email__confirmation__00000000-0000-4000-8000-00000000b002';
   v_first record;
   v_again record;
+  v_mod1 record;
+  v_mod2 record;
   v_claimed public.email_dispatch_intents%ROWTYPE;
   v_status text;
   v_count bigint;
@@ -46,7 +48,7 @@ BEGIN
   END IF;
 
   -- Simulated provider failure: the intent returns to pending for the queue.
-  v_status := public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'retry', 'INLINE_SEND_FAILED', 60);
+  v_status := public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'retry', 1, 'INLINE_SEND_FAILED', 60);
   IF v_status <> 'pending' OR (SELECT scheduled_for <= clock_timestamp() + interval '50 seconds'
        FROM public.email_dispatch_intents WHERE id = v_first.intent_id) THEN
     RAISE EXCEPTION 'Failed inline send was not left retryable with a delay' USING ERRCODE = 'NB001';
@@ -62,11 +64,17 @@ BEGIN
   IF v_claimed.id IS DISTINCT FROM v_first.intent_id OR v_claimed.attempts_made <> 2 THEN
     RAISE EXCEPTION 'Retry claim did not take the intent' USING ERRCODE = 'NB001';
   END IF;
-  IF public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'sent') <> 'sent' THEN
+  -- Fencing: the attempt-1 owner (lease lost, re-claimed as attempt 2) cannot settle.
+  IF public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'sent', 1) IS NOT NULL
+     OR public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'retry', 1) IS NOT NULL
+     OR (SELECT status FROM public.email_dispatch_intents WHERE id = v_first.intent_id) <> 'processing' THEN
+    RAISE EXCEPTION 'A stale owner settled an intent re-claimed by another attempt' USING ERRCODE = 'NB001';
+  END IF;
+  IF public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'sent', 2) <> 'sent' THEN
     RAISE EXCEPTION 'Sent outcome was not recorded' USING ERRCODE = 'NB001';
   END IF;
   -- Settling twice is a no-op.
-  IF public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'retry') IS NOT NULL THEN
+  IF public.settle_booking_email_intent(v_first.intent_id, v_restaurant_id, 'retry', 2) IS NOT NULL THEN
     RAISE EXCEPTION 'A settled intent was settled again' USING ERRCODE = 'NB001';
   END IF;
 
@@ -104,9 +112,35 @@ BEGIN
     WHEN unique_violation THEN NULL;
   END;
 
-  IF has_function_privilege('authenticated', 'public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer)', 'EXECUTE')
+  -- Modification emails supersede each other: only the latest pending one survives,
+  -- the confirmation (another type) and a sent one are untouched.
+  SELECT * INTO v_mod1 FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'updated', 'nb-mod-1', NULL, 5, ARRAY['updated', 'request_received']);
+  SELECT * INTO v_mod2 FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'updated', 'nb-mod-2', NULL, 5, ARRAY['updated', 'request_received']);
+  IF (SELECT status FROM public.email_dispatch_intents WHERE id = v_mod1.intent_id) <> 'cancelled'
+     OR (SELECT status FROM public.email_dispatch_intents WHERE id = v_mod2.intent_id) <> 'pending'
+     OR (SELECT status FROM public.email_dispatch_intents WHERE id = v_first.intent_id) <> 'pending' THEN
+    RAISE EXCEPTION 'A newer modification email did not supersede the older one' USING ERRCODE = 'NB001';
+  END IF;
+  -- Re-ensuring the latest key (a retry) keeps it and never revives the old one.
+  SELECT * INTO v_again FROM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'updated', 'nb-mod-2', NULL, 5, ARRAY['updated', 'request_received']);
+  IF v_again.created OR v_again.intent_status <> 'pending'
+     OR (SELECT count(*) FROM public.email_dispatch_intents
+         WHERE booking_id = v_booking_id AND email_type = 'updated' AND status = 'pending') <> 1 THEN
+    RAISE EXCEPTION 'Re-ensuring the latest modification email changed the pending set' USING ERRCODE = 'NB001';
+  END IF;
+  UPDATE public.email_dispatch_intents SET status = 'sent' WHERE id = v_mod2.intent_id;
+  PERFORM public.ensure_booking_email_intent(
+    v_booking_id, v_restaurant_id, 'request_received', 'nb-mod-3', NULL, 5, ARRAY['updated', 'request_received']);
+  IF (SELECT status FROM public.email_dispatch_intents WHERE id = v_mod2.intent_id) <> 'sent' THEN
+    RAISE EXCEPTION 'Superseding touched a sent modification email' USING ERRCODE = 'NB001';
+  END IF;
+
+  IF has_function_privilege('authenticated', 'public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[])', 'EXECUTE')
      OR has_function_privilege('anon', 'public.claim_booking_email_intent(text, uuid)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.settle_booking_email_intent(uuid, uuid, text, text, integer)', 'EXECUTE') THEN
+     OR has_function_privilege('authenticated', 'public.settle_booking_email_intent(uuid, uuid, text, integer, text, integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Email intent functions are executable by an API role' USING ERRCODE = 'NB001';
   END IF;
 

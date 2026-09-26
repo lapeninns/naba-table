@@ -1,38 +1,52 @@
 -- Booking side-effect reliability: atomic claims for capacity_outbox and for
 -- single booking email intents, plus an insert-if-absent intent writer.
 --
--- 1. claim_capacity_outbox_batch(p_limit, p_lease_seconds)
+-- 1. claim_capacity_outbox_batch(p_limit, p_lease_seconds, p_max_attempts)
 --    Replaces the app-side SELECT-then-UPDATE claim in server/outbox.ts, which let
 --    two workers process the same row. Rows are claimed with FOR UPDATE SKIP LOCKED
 --    and moved to status 'processing' in the same statement. next_attempt_at becomes
 --    the lease expiry while a row is processing, so a crashed worker's rows are only
---    re-claimed once their lease has elapsed. attempt_count is incremented on claim,
---    so a worker that dies mid-handler still moves the row towards 'dead'.
+--    re-claimed once their lease has elapsed. attempt_count is incremented on claim;
+--    a candidate whose attempt_count has reached p_max_attempts (default 10, the
+--    app's OUTBOX_MAX_ATTEMPTS) is moved to 'dead' in the same statement instead of
+--    being returned, so an event that crashes or times out the worker is not
+--    re-claimed forever. Settles are fenced on attempt_count by the app, so a worker
+--    whose lease expired cannot overwrite the row after another worker re-claimed it.
 -- 2. ensure_booking_email_intent(...)
 --    Inserts an email_dispatch_intents row only when its dedupe_key is absent
 --    (ON CONFLICT DO NOTHING), after checking the booking belongs to the restaurant.
 --    Safe to call on every booking create and every idempotent replay: a sent,
---    processing or cancelled intent is never reset.
+--    processing or cancelled intent is never reset. With p_supersede_types it also
+--    cancels the booking's other still-pending intents of those types (used for
+--    modification emails, so only the latest modification's email is sent).
 -- 3. claim_booking_email_intent(p_dedupe_key, p_restaurant_id)
 --    Atomic claim of one intent (pending, or processing with a claim older than the
 --    15 minute lease used by claim_due_email_dispatch_intents). A concurrent cron
 --    drain and an inline sender can never both own the same intent.
 -- 4. settle_booking_email_intent(...)
 --    Finishes an inline attempt: sent/skipped, or back to pending with a delay so
---    the cron drain retries it (failed once max_attempts is reached).
+--    the cron drain retries it (failed once max_attempts is reached). The caller
+--    passes the attempts_made value its claim returned; the settle only matches that
+--    claim (fencing token), so a sender whose lease expired and was re-claimed by
+--    the cron drain cannot overwrite the new owner's state.
 --
+-- Rollout order: apply 20260927160000 and 20260927160100 to staging, then
+-- production (pnpm db:plan-remote first), BEFORE the app change that calls them is
+-- merged: under Option A a merge deploys the web app. Without 20260927160100 the app
+-- refuses table-changing modifications with a 409 MODIFICATION_UNAVAILABLE.
 -- No table, column, index, constraint or data changes.
 -- Rollback:
---   DROP FUNCTION IF EXISTS public.claim_capacity_outbox_batch(integer, integer);
---   DROP FUNCTION IF EXISTS public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer);
+--   DROP FUNCTION IF EXISTS public.claim_capacity_outbox_batch(integer, integer, integer);
+--   DROP FUNCTION IF EXISTS public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[]);
 --   DROP FUNCTION IF EXISTS public.claim_booking_email_intent(text, uuid);
---   DROP FUNCTION IF EXISTS public.settle_booking_email_intent(uuid, uuid, text, text, integer);
+--   DROP FUNCTION IF EXISTS public.settle_booking_email_intent(uuid, uuid, text, integer, text, integer);
 --   and redeploy the previous server/outbox.ts and server/jobs/booking-side-effects.ts.
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.claim_capacity_outbox_batch(
   p_limit integer DEFAULT 100,
-  p_lease_seconds integer DEFAULT 300
+  p_lease_seconds integer DEFAULT 300,
+  p_max_attempts integer DEFAULT 10
 )
 RETURNS SETOF public.capacity_outbox
 LANGUAGE plpgsql
@@ -42,11 +56,16 @@ AS $$
 DECLARE
   v_limit integer := GREATEST(1, LEAST(COALESCE(p_limit, 100), 500));
   v_lease interval := make_interval(secs => GREATEST(30, LEAST(COALESCE(p_lease_seconds, 300), 3600)));
+  v_max_attempts integer := GREATEST(1, COALESCE(p_max_attempts, 10));
   v_now timestamptz := clock_timestamp();
 BEGIN
   RETURN QUERY
   WITH candidate AS (
-    SELECT outbox.id
+    SELECT outbox.id,
+           -- A row whose attempts are used up is never handed out again. This is what
+           -- stops a poison event that crashes or times out the worker (so the handler
+           -- never gets to mark it dead) from being re-claimed every lease forever.
+           outbox.attempt_count >= v_max_attempts AS exhausted
     FROM public.capacity_outbox AS outbox
     WHERE (
         outbox.status = 'pending'
@@ -68,6 +87,16 @@ BEGIN
     ORDER BY outbox.next_attempt_at ASC NULLS FIRST, outbox.created_at ASC
     FOR UPDATE SKIP LOCKED
     LIMIT v_limit
+  ),
+  dead_lettered AS (
+    UPDATE public.capacity_outbox AS outbox
+    SET status = 'dead',
+        next_attempt_at = NULL,
+        updated_at = v_now
+    FROM candidate
+    WHERE outbox.id = candidate.id
+      AND candidate.exhausted
+    RETURNING outbox.id
   )
   UPDATE public.capacity_outbox AS outbox
   SET status = 'processing',
@@ -76,12 +105,13 @@ BEGIN
       updated_at = v_now
   FROM candidate
   WHERE outbox.id = candidate.id
+    AND NOT candidate.exhausted
   RETURNING outbox.*;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.claim_capacity_outbox_batch(integer, integer) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.claim_capacity_outbox_batch(integer, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.claim_capacity_outbox_batch(integer, integer, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_capacity_outbox_batch(integer, integer, integer) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.ensure_booking_email_intent(
   p_booking_id uuid,
@@ -89,7 +119,8 @@ CREATE OR REPLACE FUNCTION public.ensure_booking_email_intent(
   p_email_type text,
   p_dedupe_key text,
   p_scheduled_for timestamptz DEFAULT NULL,
-  p_max_attempts integer DEFAULT 5
+  p_max_attempts integer DEFAULT 5,
+  p_supersede_types text[] DEFAULT NULL
 )
 RETURNS TABLE(intent_id uuid, created boolean, intent_status text)
 LANGUAGE plpgsql
@@ -100,6 +131,7 @@ DECLARE
   v_id uuid;
   v_booking_id uuid;
   v_status text;
+  v_created boolean := false;
   v_now timestamptz := clock_timestamp();
 BEGIN
   IF p_booking_id IS NULL OR p_restaurant_id IS NULL
@@ -151,27 +183,45 @@ BEGIN
   RETURNING id INTO v_id;
 
   IF v_id IS NOT NULL THEN
-    RETURN QUERY SELECT v_id, true, 'pending'::text;
-    RETURN;
+    v_created := true;
+    v_status := 'pending';
+  ELSE
+    SELECT intent.id, intent.booking_id, intent.status
+    INTO v_id, v_booking_id, v_status
+    FROM public.email_dispatch_intents AS intent
+    WHERE intent.dedupe_key = p_dedupe_key;
+
+    IF v_booking_id IS DISTINCT FROM p_booking_id THEN
+      RAISE EXCEPTION 'Email intent dedupe key belongs to another booking'
+        USING ERRCODE = '23505';
+    END IF;
   END IF;
 
-  SELECT intent.id, intent.booking_id, intent.status
-  INTO v_id, v_booking_id, v_status
-  FROM public.email_dispatch_intents AS intent
-  WHERE intent.dedupe_key = p_dedupe_key;
-
-  IF v_booking_id IS DISTINCT FROM p_booking_id THEN
-    RAISE EXCEPTION 'Email intent dedupe key belongs to another booking'
-      USING ERRCODE = '23505';
+  -- Superseded intents: a newer modification replaces an unsent older one, so the
+  -- guest gets one email about the latest state. Only 'pending' rows are withdrawn;
+  -- one already being sent (processing) cannot be recalled.
+  IF p_supersede_types IS NOT NULL AND cardinality(p_supersede_types) > 0 THEN
+    UPDATE public.email_dispatch_intents AS intent
+    SET status = 'cancelled',
+        cancelled_at = v_now,
+        processed_at = v_now,
+        claimed_at = NULL,
+        updated_at = v_now
+    WHERE intent.booking_id = p_booking_id
+      AND intent.restaurant_id = p_restaurant_id
+      AND intent.email_type = ANY (p_supersede_types)
+      AND intent.dedupe_key <> p_dedupe_key
+      AND intent.status = 'pending'
+      AND intent.cancelled_at IS NULL;
   END IF;
 
-  RETURN QUERY SELECT v_id, false, v_status;
+  RETURN QUERY SELECT v_id, v_created, v_status;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer)
+REVOKE ALL ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[])
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer)
+GRANT EXECUTE ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[])
   TO service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_booking_email_intent(
@@ -216,6 +266,7 @@ CREATE OR REPLACE FUNCTION public.settle_booking_email_intent(
   p_intent_id uuid,
   p_restaurant_id uuid,
   p_outcome text,
+  p_expected_attempts integer,
   p_error_code text DEFAULT NULL,
   p_retry_delay_seconds integer DEFAULT 60
 )
@@ -231,6 +282,10 @@ BEGIN
   IF p_outcome NOT IN ('sent', 'skipped', 'retry') THEN
     RAISE EXCEPTION 'Unsupported email intent outcome' USING ERRCODE = '22023';
   END IF;
+  IF p_expected_attempts IS NULL THEN
+    RAISE EXCEPTION 'settle_booking_email_intent requires the claim attempt number'
+      USING ERRCODE = '22023';
+  END IF;
 
   IF p_outcome IN ('sent', 'skipped') THEN
     UPDATE public.email_dispatch_intents AS intent
@@ -242,6 +297,7 @@ BEGIN
     WHERE intent.id = p_intent_id
       AND intent.restaurant_id = p_restaurant_id
       AND intent.status = 'processing'
+      AND intent.attempts_made = p_expected_attempts
     RETURNING intent.status INTO v_status;
     RETURN v_status;
   END IF;
@@ -259,14 +315,15 @@ BEGIN
   WHERE intent.id = p_intent_id
     AND intent.restaurant_id = p_restaurant_id
     AND intent.status = 'processing'
+    AND intent.attempts_made = p_expected_attempts
   RETURNING intent.status INTO v_status;
   RETURN v_status;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.settle_booking_email_intent(uuid, uuid, text, text, integer)
+REVOKE ALL ON FUNCTION public.settle_booking_email_intent(uuid, uuid, text, integer, text, integer)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.settle_booking_email_intent(uuid, uuid, text, text, integer)
+GRANT EXECUTE ON FUNCTION public.settle_booking_email_intent(uuid, uuid, text, integer, text, integer)
   TO service_role;
 
 NOTIFY pgrst, 'reload schema';

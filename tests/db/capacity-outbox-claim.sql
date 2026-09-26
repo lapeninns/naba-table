@@ -13,6 +13,7 @@ DECLARE
   future_row constant uuid := '00000000-0000-4000-8000-0000000c0b02';
   done_row constant uuid := '00000000-0000-4000-8000-0000000c0b03';
   legacy_row constant uuid := '00000000-0000-4000-8000-0000000c0b04';
+  poison_row constant uuid := '00000000-0000-4000-8000-0000000c0b05';
   v_claimed uuid[];
   v_row public.capacity_outbox%ROWTYPE;
 BEGIN
@@ -77,8 +78,30 @@ BEGIN
     RAISE EXCEPTION 'Stale lease-less processing row was not recovered: %', v_claimed USING ERRCODE = 'NB001';
   END IF;
 
-  IF has_function_privilege('authenticated', 'public.claim_capacity_outbox_batch(integer, integer)', 'EXECUTE')
-     OR has_function_privilege('anon', 'public.claim_capacity_outbox_batch(integer, integer)', 'EXECUTE') THEN
+  -- A row whose attempts are used up (its worker kept crashing before settling) is
+  -- dead-lettered by the claim instead of being handed out again.
+  UPDATE public.capacity_outbox SET status = 'done' WHERE id = legacy_row;
+  INSERT INTO public.capacity_outbox (
+    id, event_type, dedupe_key, restaurant_id, booking_id, payload, status, attempt_count,
+    next_attempt_at, created_at, updated_at
+  ) VALUES (
+    poison_row, 'capacity.assignment.sync', 'nb-outbox-claim-poison', v_restaurant_id, v_booking_id,
+    '{}'::jsonb, 'processing', 10, clock_timestamp() - interval '1 second',
+    TIMESTAMPTZ '2000-01-01 00:00:04+00', TIMESTAMPTZ '2000-01-01 00:00:04+00'
+  );
+  SELECT array_agg(claimed.id) INTO v_claimed
+  FROM public.claim_capacity_outbox_batch(1, 300, 10) AS claimed;
+  IF v_claimed IS NOT NULL
+     OR (SELECT status FROM public.capacity_outbox WHERE id = poison_row) <> 'dead'
+     OR (SELECT attempt_count FROM public.capacity_outbox WHERE id = poison_row) <> 10 THEN
+    RAISE EXCEPTION 'Exhausted row was re-claimed instead of dead-lettered: %', v_claimed USING ERRCODE = 'NB001';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.claim_capacity_outbox_batch(5, 300, 10) AS claimed WHERE claimed.id = poison_row) THEN
+    RAISE EXCEPTION 'Dead-lettered row was claimed' USING ERRCODE = 'NB001';
+  END IF;
+
+  IF has_function_privilege('authenticated', 'public.claim_capacity_outbox_batch(integer, integer, integer)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.claim_capacity_outbox_batch(integer, integer, integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Outbox claim is executable by an API role' USING ERRCODE = 'NB001';
   END IF;
 

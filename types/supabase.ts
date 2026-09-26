@@ -8089,7 +8089,7 @@ export type Database = {
         Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
       };
       claim_capacity_outbox_batch: {
-        Args: { p_limit?: number; p_lease_seconds?: number };
+        Args: { p_limit?: number; p_lease_seconds?: number; p_max_attempts?: number };
         Returns: Database['public']['Tables']['capacity_outbox']['Row'][];
       };
       claim_due_email_dispatch_intents: {
@@ -8279,6 +8279,7 @@ export type Database = {
           p_max_attempts?: number;
           p_restaurant_id: string;
           p_scheduled_for?: string | null;
+          p_supersede_types?: string[] | null;
         };
         Returns: { created: boolean; intent_id: string; intent_status: string }[];
       };
@@ -8508,6 +8509,7 @@ export type Database = {
       settle_booking_email_intent: {
         Args: {
           p_error_code?: string | null;
+          p_expected_attempts: number;
           p_intent_id: string;
           p_outcome: string;
           p_restaurant_id: string;

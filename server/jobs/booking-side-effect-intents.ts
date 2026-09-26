@@ -63,6 +63,11 @@ export async function ensureBookingEmailIntent(
     type: EmailJobType;
     dedupeKey: string;
     scheduledFor?: string | null;
+    /**
+     * Also cancel this booking's other still-pending intents of these types (same
+     * statement). Used by modification emails so only the latest one is sent.
+     */
+    supersedeTypes?: readonly EmailJobType[];
   },
 ): Promise<EnsureBookingEmailIntentResult> {
   try {
@@ -72,6 +77,7 @@ export async function ensureBookingEmailIntent(
       p_email_type: params.type,
       p_dedupe_key: params.dedupeKey,
       p_scheduled_for: params.scheduledFor ?? null,
+      p_supersede_types: params.supersedeTypes?.length ? [...params.supersedeTypes] : null,
     });
     if (error) {
       throw error;
@@ -127,6 +133,8 @@ export async function settleBookingEmailIntent(
   params: {
     intentId: string;
     restaurantId: string;
+    /** attempts_made returned by the claim: the settle only matches that claim. */
+    expectedAttempts: number;
     outcome: 'sent' | 'skipped' | 'retry';
     errorCode?: string | null;
     retryDelaySeconds?: number;
@@ -137,13 +145,22 @@ export async function settleBookingEmailIntent(
       p_intent_id: params.intentId,
       p_restaurant_id: params.restaurantId,
       p_outcome: params.outcome,
+      p_expected_attempts: params.expectedAttempts,
       p_error_code: params.errorCode ?? null,
       p_retry_delay_seconds: params.retryDelaySeconds ?? 60,
     });
     if (error) {
       throw error;
     }
-    return typeof data === 'string' ? data : null;
+    if (typeof data !== 'string') {
+      // No row matched: the intent was re-claimed (lease expired) or already settled.
+      logger.warn('[jobs][email-intent] settle matched no claim', {
+        intentId: params.intentId,
+        outcome: params.outcome,
+      });
+      return null;
+    }
+    return data;
   } catch (error) {
     // The intent stays 'processing'; claim_due_email_dispatch_intents re-claims it
     // after its 15 minute lease, so it is still retried.
@@ -188,6 +205,9 @@ export async function runClaimedBookingEmailIntent(
   }
 
   const intentId = claim.intent.id;
+  // Fencing token: if this attempt outlives its 15 minute lease and the cron drain
+  // re-claims the intent, attempts_made moves on and this settle matches nothing.
+  const expectedAttempts = claim.intent.attempts_made;
   let outcome: 'sent' | 'skipped';
   try {
     outcome = await send();
@@ -200,6 +220,7 @@ export async function runClaimedBookingEmailIntent(
     await settleBookingEmailIntent(client, {
       intentId,
       restaurantId: params.restaurantId,
+      expectedAttempts,
       outcome: 'retry',
       errorCode: 'INLINE_SEND_FAILED',
       retryDelaySeconds: params.retryDelaySeconds,
@@ -210,6 +231,7 @@ export async function runClaimedBookingEmailIntent(
   await settleBookingEmailIntent(client, {
     intentId,
     restaurantId: params.restaurantId,
+    expectedAttempts,
     outcome,
   });
   return outcome;

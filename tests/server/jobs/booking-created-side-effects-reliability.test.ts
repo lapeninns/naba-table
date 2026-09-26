@@ -106,7 +106,14 @@ function createIntentStore(options: { failEnsure?: boolean } = {}) {
     }
     if (name === 'settle_booking_email_intent') {
       const intent = [...intents.values()].find((row) => row.id === args.p_intent_id);
-      if (!intent || intent.status !== 'processing') return { data: null, error: null };
+      // Fenced on the claim's attempt number, like the SQL function.
+      if (
+        !intent ||
+        intent.status !== 'processing' ||
+        intent.attempts_made !== args.p_expected_attempts
+      ) {
+        return { data: null, error: null };
+      }
       intent.status = args.p_outcome === 'retry' ? 'pending' : (args.p_outcome as string);
       return { data: intent.status, error: null };
     }

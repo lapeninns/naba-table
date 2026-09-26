@@ -68,6 +68,8 @@ const updatesOf = (queries: RecordedQuery[]) =>
       payload: q.calls[0]!.args[0] as Record<string, unknown>,
       id: q.calls.find((c) => c.method === 'eq' && c.args[0] === 'id')?.args[1],
       statusGuard: q.calls.find((c) => c.method === 'eq' && c.args[0] === 'status')?.args[1],
+      attemptGuard: q.calls.find((c) => c.method === 'eq' && c.args[0] === 'attempt_count')
+        ?.args[1],
     }));
 
 /** A row as returned by claim_capacity_outbox_batch: already leased, attempt counted. */
@@ -93,12 +95,20 @@ function createProcessingClient(options: {
   rows?: unknown[] | null;
   claimError?: unknown;
   lostLeaseIds?: string[];
+  /** attempt_count the row has in the DB now (another worker re-claimed it). */
+  currentAttempts?: Record<string, number>;
 }) {
   return createSupabaseStub(
     (query) => {
       if (firstMethod(query) === 'update') {
         const id = query.calls.find((c) => c.method === 'eq' && c.args[0] === 'id')?.args[1];
-        const lost = typeof id === 'string' && options.lostLeaseIds?.includes(id);
+        const attemptGuard = query.calls.find(
+          (c) => c.method === 'eq' && c.args[0] === 'attempt_count',
+        )?.args[1];
+        const current = typeof id === 'string' ? options.currentAttempts?.[id] : undefined;
+        const lost =
+          (typeof id === 'string' && options.lostLeaseIds?.includes(id)) ||
+          (current !== undefined && attemptGuard !== current);
         return { data: lost ? [] : [{ id }], error: null };
       }
       return { error: null };
@@ -240,6 +250,7 @@ describe('processOutboxBatch', () => {
     expect(stub.rpc).toHaveBeenCalledWith('claim_capacity_outbox_batch', {
       p_limit: 100,
       p_lease_seconds: 300,
+      p_max_attempts: 10,
     });
     // No app-side SELECT-then-UPDATE claim any more.
     expect(stub.queries.some((q) => firstMethod(q) === 'select')).toBe(false);
@@ -251,6 +262,7 @@ describe('processOutboxBatch', () => {
         payload: { status: 'done', next_attempt_at: null, updated_at: NOW },
         id: 'evt-1',
         statusGuard: 'processing',
+        attemptGuard: 1,
       },
     ]);
     expect(summary).toEqual({ processed: 1, failed: 0, dead: 0, pending: 0 });
@@ -278,6 +290,7 @@ describe('processOutboxBatch', () => {
     expect(stub.rpc).toHaveBeenCalledWith('claim_capacity_outbox_batch', {
       p_limit: 7,
       p_lease_seconds: 60,
+      p_max_attempts: 10,
     });
     expect(recordObservabilityEventMock).toHaveBeenCalledWith({
       source: 'capacity.sync',
@@ -335,6 +348,7 @@ describe('processOutboxBatch', () => {
       },
       id: 'evt-bad',
       statusGuard: 'processing',
+      attemptGuard: 1,
     });
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({ eventType: 'outbox.batch', severity: 'warning' }),
@@ -384,6 +398,26 @@ describe('processOutboxBatch', () => {
     expect(loggerMock.warn).toHaveBeenCalledWith(
       '[outbox] lease lost before settle',
       expect.objectContaining({ outboxId: 'evt-lost' }),
+    );
+  });
+
+  it('@worker @contract a stale worker cannot settle a row another worker re-claimed (attempt fencing)', async () => {
+    // This worker claimed evt-stale as attempt 1; its lease expired and another
+    // worker re-claimed it (attempt_count is now 2) while the row is still processing.
+    const stub = createProcessingClient({
+      rows: [claimedRow({ id: 'evt-stale', attempt_count: 1 })],
+      currentAttempts: { 'evt-stale': 2 },
+    });
+
+    const summary = await processOutboxBatch({ client: stub.client });
+
+    expect(updatesOf(stub.queries)).toEqual([
+      expect.objectContaining({ id: 'evt-stale', statusGuard: 'processing', attemptGuard: 1 }),
+    ]);
+    expect(summary).toEqual({ processed: 0, failed: 0, dead: 0, pending: 1 });
+    expect(loggerMock.warn).toHaveBeenCalledWith(
+      '[outbox] lease lost before settle',
+      expect.objectContaining({ outboxId: 'evt-stale' }),
     );
   });
 

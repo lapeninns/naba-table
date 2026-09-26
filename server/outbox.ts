@@ -119,20 +119,24 @@ async function handleEvent(row: OutboxRow): Promise<void> {
 }
 
 /**
- * Settles a claimed row. The `status = 'processing'` guard means a worker whose
- * lease expired (and whose row was re-claimed by another worker) cannot overwrite
- * the new owner's state. Returns false when the guard matched nothing.
+ * Settles a claimed row. The claim's attempt_count is the fencing token: every
+ * claim (including a re-claim after an expired lease) increments it, so a worker
+ * whose lease expired and whose row was re-claimed by another worker matches
+ * nothing here and cannot overwrite the new owner's state. Returns false when the
+ * guard matched nothing.
  */
 async function settleClaimedRow(
   supabase: DbClient,
-  rowId: string,
+  claimed: Pick<OutboxRow, 'id' | 'attempt_count'>,
   patch: { status: 'done' | 'pending' | 'dead'; next_attempt_at: string | null },
 ): Promise<boolean> {
+  const rowId = claimed.id;
   const { data, error } = await supabase
     .from('capacity_outbox')
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('id', rowId)
     .eq('status', 'processing')
+    .eq('attempt_count', claimed.attempt_count)
     .select('id');
   if (error) {
     logger.error('[outbox] settle failed', {
@@ -162,6 +166,9 @@ export async function processOutboxBatch(params?: {
   const { data, error } = await supabase.rpc('claim_capacity_outbox_batch', {
     p_limit: limit,
     p_lease_seconds: leaseSeconds,
+    // Rows whose attempts are used up (the worker kept dying before settling) are
+    // dead-lettered by the claim instead of being re-claimed forever.
+    p_max_attempts: OUTBOX_MAX_ATTEMPTS,
   });
 
   if (error) {
@@ -186,7 +193,7 @@ export async function processOutboxBatch(params?: {
       const attempts = row.attempt_count ?? 1;
       const isDead = attempts >= OUTBOX_MAX_ATTEMPTS;
       const next = isDead ? null : new Date(Date.now() + computeBackoffMs(attempts)).toISOString();
-      const settled = await settleClaimedRow(supabase, row.id, {
+      const settled = await settleClaimedRow(supabase, row, {
         status: isDead ? 'dead' : 'pending',
         next_attempt_at: next,
       });
@@ -206,7 +213,7 @@ export async function processOutboxBatch(params?: {
       continue;
     }
 
-    if (await settleClaimedRow(supabase, row.id, { status: 'done', next_attempt_at: null })) {
+    if (await settleClaimedRow(supabase, row, { status: 'done', next_attempt_at: null })) {
       processed += 1;
     }
   }
