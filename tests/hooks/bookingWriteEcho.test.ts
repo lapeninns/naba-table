@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   BOOKING_WRITE_ECHO_WINDOW_MS,
+  ID_LESS_DELETE_ECHO_WINDOW_MS,
   bookingIdFromRealtimePayload,
   isOwnBookingWriteEcho,
   recordBookingWrite,
@@ -150,5 +151,60 @@ describe('bookingWriteEcho', () => {
     recordBookingWrite(first, 'b1', { status: 'checked_in' });
 
     expect(isOwnBookingWriteEcho(second, 'bookings', bookingsPayload('checked_in'))).toBe(false);
+  });
+
+  it('@contract matches an id-less DELETE echo (old row carries only the primary key) inside a short window', () => {
+    const queryClient = createTestQueryClient();
+    const now = 1_000_000;
+    const deletePayload = { eventType: 'DELETE', new: {}, old: { id: 'allocation-1' } };
+
+    // No own write: someone else's delete, refetch.
+    expect(isOwnBookingWriteEcho(queryClient, 'allocations', deletePayload, now)).toBe(false);
+
+    recordBookingWrite(queryClient, 'b1', { status: 'confirmed' }, now);
+    expect(isOwnBookingWriteEcho(queryClient, 'allocations', deletePayload, now + 100)).toBe(true);
+    expect(isOwnBookingWriteEcho(queryClient, 'table_holds', deletePayload, now + 100)).toBe(true);
+    expect(
+      isOwnBookingWriteEcho(
+        queryClient,
+        'allocations',
+        deletePayload,
+        now + ID_LESS_DELETE_ECHO_WINDOW_MS + 1,
+      ),
+    ).toBe(false);
+    // Only DELETEs lose the booking id; an id-less INSERT is not ours to guess.
+    expect(
+      isOwnBookingWriteEcho(
+        queryClient,
+        'allocations',
+        { eventType: 'INSERT', new: { id: 'allocation-2' }, old: {} },
+        now + 100,
+      ),
+    ).toBe(false);
+  });
+
+  it('@contract matches an id-less DELETE while any booking write is in flight', async () => {
+    const queryClient = createTestQueryClient();
+    let release!: () => void;
+    const pending = queryClient
+      .getMutationCache()
+      .build(queryClient, {
+        mutationFn: () =>
+          new Promise<void>((resolve) => {
+            release = resolve;
+          }),
+      })
+      .execute({ bookingId: 'b1' });
+    await vi.waitFor(() => expect(release).toBeTypeOf('function'));
+
+    expect(
+      isOwnBookingWriteEcho(queryClient, 'allocations', {
+        eventType: 'DELETE',
+        old: { id: 'allocation-1' },
+      }),
+    ).toBe(true);
+
+    release();
+    await pending;
   });
 });

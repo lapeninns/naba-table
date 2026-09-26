@@ -9,6 +9,8 @@ import { queryKeys } from '@/lib/query/keys';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 import { patchDashboardSummaryBooking } from '@/utils/ops/dashboardSummary';
 
+import { recordBookingWrite } from './bookingWriteEcho';
+
 import type { PendingAssignment } from '@/components/features/floor-plan/model/floorPlanState';
 import type { ListTablesResult } from '@/services/ops/tables';
 import type { OpsBookingStatus, OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
@@ -303,6 +305,12 @@ export function useOpsFloorPlanAssignments({
         withTables(b, next, variables.kind, tables),
       );
       return { summaryKey, previous };
+    },
+    onSuccess: (_data, variables) => {
+      // Mark the write so its realtime echoes (allocation and assignment rows) do not refetch
+      // the timeline and tables again; onSettled already refreshes them once. The status is
+      // unknown here, so no `bookings` row event is suppressed.
+      recordBookingWrite(queryClient, variables.bookingId);
     },
     onError: (error, variables, context) => {
       if (!context?.previous) return;
