@@ -71,6 +71,28 @@ describe('email template access helpers', () => {
     expect(body).toMatchObject({ code: 'FORBIDDEN' });
   });
 
+  it.each([
+    ['read', () => ensureTemplateReadAccess(RESTAURANT_ID), requireMembershipForRestaurantMock],
+    ['write', () => ensureTemplateWriteAccess(RESTAURANT_ID), requireAdminMembershipMock],
+  ] as const)(
+    'returns a retryable 503 when membership cannot be verified (%s)',
+    async (_label, call, membershipMock) => {
+      membershipMock.mockRejectedValue(
+        new MembershipAccessError({
+          status: 503,
+          code: 'MEMBERSHIP_VALIDATION_UNAVAILABLE',
+          message: 'membership lookup timed out on pg-internal-host',
+        }),
+      );
+
+      const { status, body } = await bodyOf(await call());
+
+      expect(status).toBe(503);
+      expect(body).toMatchObject({ code: 'MEMBERSHIP_UNAVAILABLE', retryable: true });
+      expect(JSON.stringify(body)).not.toContain('pg-internal-host');
+    },
+  );
+
   it('reports a venue load failure as a 500, not as forbidden', async () => {
     getRestaurantEmailTemplateVenueMock.mockRejectedValue(
       new Error('column restaurants.email_templates does not exist'),

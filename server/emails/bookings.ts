@@ -21,6 +21,7 @@ import { getTrustedAppOrigin, getTrustedSiteOrigin } from '@/lib/site-url';
 import { type VenueDetails } from '@/lib/venue';
 import {
   createEmailIdempotencyKey,
+  createHashedEmailIdempotencyKey,
   sendEmail,
   type EmailAttachment,
   isEmailRecipientSuppressedError,
@@ -340,11 +341,12 @@ function buildBookingEmailIdempotencyKey(params: {
 }
 
 function buildBookingTemplateTestIdempotencyKey(params: {
+  restaurantId: string;
   templateKey: RestaurantBookingEmailTemplateKey;
   recipientEmail: string;
   requestKey?: string | null;
 }) {
-  return createEmailIdempotencyKey({
+  return createHashedEmailIdempotencyKey({
     scope: 'booking-email-template-test',
     parts: buildBookingTemplateTestIdempotencyParts(params),
   });
@@ -1187,6 +1189,7 @@ export async function sendRestaurantBookingEmailTest(params: {
       { name: 'restaurant_id', value: params.venue.id },
     ],
     idempotencyKey: buildBookingTemplateTestIdempotencyKey({
+      restaurantId: params.venue.id,
       templateKey: params.templateKey,
       recipientEmail: params.toEmail,
       requestKey: params.requestKey,

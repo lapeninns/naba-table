@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { forbidden, unauthenticated } from '@/lib/api/errors';
+import { apiError, forbidden, unauthenticated } from '@/lib/api/errors';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import {
   BOOKING_EMAIL_TEMPLATE_VARIABLE_TOKENS,
@@ -88,6 +88,19 @@ function isMembershipDenied(error: unknown): boolean {
   return error instanceof MembershipAccessError && error.status === 403;
 }
 
+/** A transient membership-check outage: retryable, and distinct from a bug (500). */
+function membershipUnavailable(error: unknown): NextResponse | null {
+  if (error instanceof MembershipAccessError && error.status === 503) {
+    return apiError(
+      503,
+      'MEMBERSHIP_UNAVAILABLE',
+      'Access could not be verified right now. Try again shortly.',
+      { retryable: true },
+    );
+  }
+  return null;
+}
+
 async function loadVenue(restaurantId: string): Promise<VenueDetails | NextResponse> {
   try {
     return await getRestaurantEmailTemplateVenue(restaurantId);
@@ -119,6 +132,10 @@ export async function ensureTemplateReadAccess(restaurantId: string): Promise<
   } catch (error) {
     if (isMembershipDenied(error)) {
       return forbidden();
+    }
+    const unavailable = membershipUnavailable(error);
+    if (unavailable) {
+      return unavailable;
     }
     return templateRouteFailure(error, { operation: 'access', stage: 'membership', restaurantId });
   }
@@ -159,6 +176,10 @@ export async function ensureTemplateWriteAccess(
         'ADMIN_ROLE_REQUIRED',
         'Only owners and managers can change email templates.',
       );
+    }
+    const unavailable = membershipUnavailable(error);
+    if (unavailable) {
+      return unavailable;
     }
     return templateRouteFailure(error, { operation: 'access', stage: 'membership', restaurantId });
   }
