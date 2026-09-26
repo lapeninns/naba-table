@@ -181,7 +181,6 @@ import {
 import { GET as getServicePeriodsRoute } from '@/src/app/api/ops/restaurants/[id]/service-periods/route';
 import { GET as getTurnBands } from '@/src/app/api/ops/restaurants/[id]/turn-bands/route';
 
-
 import type * as LoggerModule from '@/lib/logger';
 
 const RESTAURANT_ID = 'rest-1';
@@ -507,7 +506,7 @@ describe('restaurant settings routes never echo raw exception text', () => {
 
   it('GBP link does not classify an untyped error by its message', async () => {
     linkLocationMock.mockRejectedValue(
-      new Error(`${SENTINEL} The selected location is no longer available.`),
+      new Error(`${SENTINEL} The selected location is no longer available for ${STAFF_EMAIL}.`),
     );
 
     const response = await gbpPUT(
@@ -520,10 +519,8 @@ describe('restaurant settings routes never echo raw exception text', () => {
       routeContext(),
     );
 
-    const text = await response.text();
-    expect(response.status).toBe(500);
-    expect(text).not.toContain(SENTINEL);
-    expect((JSON.parse(text) as { code: string }).code).toBe('INTERNAL_ERROR');
+    // Untyped errors fall through to internalError: fixed body, no PII in the body or logs.
+    await expectGbpInternalFailure(response);
   });
 
   it('GBP link returns a fixed 500 for unexpected failures', async () => {

@@ -55,11 +55,12 @@ export const DISCOVERY_SAVE_CONFLICT_MESSAGE =
   'Someone else changed these details. The latest version is loaded; review and save again.';
 
 /**
- * Availability keeps the draft (and the revision it was based on) while it has unsaved edits, so
- * retrying would be refused again: discarding loads the latest saved settings.
+ * Availability does not refetch after a conflict: the cached snapshot (and its revision) stays in
+ * place, so retrying or discarding would be refused again. Only a page reload fetches the latest
+ * saved settings and their new revision, so the copy says exactly that.
  */
 export const AVAILABILITY_SAVE_CONFLICT_MESSAGE =
-  'Someone else changed these settings. Discard your changes to load the latest, then make your edits again.';
+  'Someone else changed these settings. Reload the page to load the latest, then make your edits again. Saving again without reloading will not work.';
 
 const BAR_CLASS =
   'z-20 flex shrink-0 flex-col gap-2 border-t border-border/60 bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between sm:gap-4';
