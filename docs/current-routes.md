@@ -78,11 +78,11 @@ All routes under `/app/(app)/*` require authentication. Unauthenticated users ar
 
 ##### Seating Management
 
-| Route                     | Description         | File Path                                       |
-| ------------------------- | ------------------- | ----------------------------------------------- |
-| `/app/seating`            | Seating overview    | `src/app/app/(app)/seating/page.tsx`            |
-| `/app/seating/capacity`   | Capacity management | `src/app/app/(app)/seating/capacity/page.tsx`   |
-| `/app/seating/floor-plan` | Floor plan editor   | `src/app/app/(app)/seating/floor-plan/page.tsx` |
+| Route                     | Description                                         | File Path                                       |
+| ------------------------- | --------------------------------------------------- | ----------------------------------------------- |
+| `/app/seating`            | Seating overview                                    | `src/app/app/(app)/seating/page.tsx`            |
+| `/app/seating/capacity`   | Capacity management                                 | `src/app/app/(app)/seating/capacity/page.tsx`   |
+| `/app/seating/floor-plan` | Floor plan (live service, timeline, arrange layout) | `src/app/app/(app)/seating/floor-plan/page.tsx` |
 
 ##### Team Management
 

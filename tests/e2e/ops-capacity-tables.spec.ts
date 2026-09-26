@@ -279,15 +279,27 @@ test.describe('ops capacity and table shipped routes', () => {
     });
   });
 
-  test('legacy seating routes redirect to the authenticated dashboard @p1 @browser @smoke @local-only', async ({
+  test('legacy seating route redirects to the authenticated dashboard @p1 @browser @smoke @local-only', async ({
     page,
   }) => {
-    for (const legacyRoute of ['/seating', '/seating/floor-plan']) {
-      await page.goto(legacyRoute, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+    await page.goto('/seating', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-      await expect(page).toHaveURL(/app\.localhost:\d+\/dashboard/);
-      await expect(page.getByRole('heading', { name: 'Operations' })).toBeVisible();
-    }
+    await expect(page).toHaveURL(/app\.localhost:\d+\/dashboard/);
+    await expect(page.getByRole('heading', { name: 'Operations' })).toBeVisible();
+  });
+
+  test('floor plan route renders for an authenticated operator @p1 @browser @smoke @local-only', async ({
+    page,
+  }) => {
+    await page.goto('/seating/floor-plan', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/seating\/floor-plan/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Floor plan' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Floor plan' }).first()).toHaveAttribute(
+      'href',
+      /\/seating\/floor-plan$/,
+    );
   });
 });

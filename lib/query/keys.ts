@@ -61,6 +61,13 @@ export const queryKeys = {
     allowedCapacities: (restaurantId: string) =>
       ['ops', 'tables', restaurantId, 'allowed-capacities'] as const,
     zones: (restaurantId: string) => ['ops', 'tables', restaurantId, 'zones'] as const,
+    timelinePrefix: (restaurantId: string) => ['ops', 'tables', restaurantId, 'timeline'] as const,
+  },
+  /** Mutation keys, so pending floor-plan changes can be read with useMutationState. */
+  opsFloorPlan: {
+    assignments: (restaurantId: string) =>
+      ['ops', 'floor-plan', restaurantId, 'assignment'] as const,
+    layout: (restaurantId: string) => ['ops', 'floor-plan', restaurantId, 'layout'] as const,
   },
   opsOperationsHub: {
     detail: (restaurantId: string) => ['ops', 'operations-hub', 'detail', restaurantId] as const,
