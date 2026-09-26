@@ -10,6 +10,7 @@ import { getTodayInTimezone } from '@/lib/utils/datetime';
 import { useBookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
 import { useOpsBookingDialogBundle } from '@src/hooks/ops/useOpsBookingDialogBundle';
 import { useOpsCancelBooking } from '@src/hooks/ops/useOpsCancelBooking';
+import { shouldCloseCancelConfirmation } from '@src/hooks/ops/useOpsCancelBookingController';
 import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
 
 import type { BookingDTO } from '@/hooks/useBookings';
@@ -214,7 +215,9 @@ export function BookingDetailsDialogWrapper({
   const handleCancel = async (): Promise<boolean> => {
     if (!restaurantId || !bookingId) return false;
     const outcome = await cancel({ bookingId, restaurantId });
-    return outcome.status === 'done';
+    // Close after success and after failures a retry cannot fix (not cancellable, gone,
+    // changed elsewhere); stay open only when a retry can succeed.
+    return shouldCloseCancelConfirmation(outcome);
   };
 
   if (!open) return null;
@@ -223,9 +226,7 @@ export function BookingDetailsDialogWrapper({
       booking={booking}
       summary={summary}
       isLoading={showSkeleton}
-      errorMessage={
-        isError ? toUserMessage(error, { fallback: 'Unable to load booking.' }) : null
-      }
+      errorMessage={isError ? toUserMessage(error, { fallback: 'Unable to load booking.' }) : null}
       onRetry={() => refetch()}
       onCheckIn={handleCheckIn}
       onCheckOut={handleCheckOut}

@@ -15,7 +15,6 @@ import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQue
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 
-
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '22222222-2222-4222-8222-222222222222';
 const targetDate = '2026-07-11';
@@ -64,6 +63,7 @@ vi.mock('@/components/features/dashboard/BookingDetailsDialog', async () => {
 
 import { BookingDetailsDialogWrapper } from '@/components/features/bookings/BookingDetailsDialogWrapper';
 import { useOpsDashboardBookingActions } from '@/components/features/dashboard/useOpsDashboardBookingActions';
+import { HttpError } from '@/lib/http/errors';
 import { useBookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
 import { useOpsBookingsLifecycleHandlers } from '@src/hooks/ops/useOpsBookingsLifecycleHandlers';
 import { useOpsBookingsList } from '@src/hooks/ops/useOpsBookingsList';
@@ -325,6 +325,31 @@ describe('ops booking network waterfall', () => {
     calls.list = [];
     return queryClient;
   }
+
+  it('@contract dialog cancel closes its confirmation after a terminal failure, not after a retryable one', async () => {
+    await renderDialog();
+
+    bookingService.cancelBooking = vi.fn(async () => {
+      throw new HttpError({
+        message: 'Already seated',
+        status: 409,
+        code: 'BOOKING_NOT_CANCELLABLE',
+      });
+    });
+    let close: boolean | void = undefined;
+    await act(async () => {
+      close = await harness.props?.onCancel?.();
+    });
+    expect(close).toBe(true);
+
+    bookingService.cancelBooking = vi.fn(async () => {
+      throw new HttpError({ message: 'Down', status: 503, code: 'HTTP_503' });
+    });
+    await act(async () => {
+      close = await harness.props?.onCancel?.();
+    });
+    expect(close).toBe(false);
+  });
 
   it('@contract dialog check-in costs one POST and no GET', async () => {
     await renderDialog();

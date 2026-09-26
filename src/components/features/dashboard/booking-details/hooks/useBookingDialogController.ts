@@ -170,14 +170,15 @@ export function useBookingDialogController({
 
   const handleCancel = useCallback(async () => {
     if (!onCancel) return;
-    let succeeded = false;
+    let shouldClose = false;
     try {
-      succeeded = (await onCancel()) !== false;
+      shouldClose = (await onCancel()) !== false;
     } catch {
-      succeeded = false;
+      shouldClose = false;
     }
-    // Keep the confirmation open after a failure so the user can retry or keep the booking.
-    if (succeeded) setConfirmCancel(false);
+    // onCancel resolves true after success or a failure a retry cannot fix. Otherwise keep the
+    // confirmation open so the user can retry or keep the booking.
+    if (shouldClose) setConfirmCancel(false);
   }, [onCancel]);
 
   const primaryAction: BookingDialogPrimaryAction = useMemo(() => {
