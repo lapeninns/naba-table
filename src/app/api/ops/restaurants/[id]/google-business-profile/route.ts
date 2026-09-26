@@ -5,13 +5,17 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
-import { logger } from '@/lib/logger';
+import { apiError, internalError, validationError } from '@/lib/api/errors';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
 } from '@/server/auth/password-confirmation';
 import { loadGbpOperatorConnectionState } from '@/server/dual-sync/freshness/operator-connection-state';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
+import {
+  classifyGoogleBusinessProfileRouteError,
+  type GoogleBusinessProfileRouteAction,
+} from '@/server/google-business-profile/routeErrors';
 import {
   disconnectGoogleBusinessProfileConnection,
   getGoogleBusinessProfileConnectionState,
@@ -38,31 +42,56 @@ type RouteContext = {
   params: Promise<{ id: string | string[] }>;
 };
 
-function errorResponse(message: string, status: number, extra?: Record<string, unknown>) {
-  return gbpNoStoreJson({ message, error: message, ...extra }, { status });
+const ROUTE = 'ops.restaurants.google-business-profile';
+
+function missingRestaurantId() {
+  return gbpNoStoreResponse(apiError(400, 'MISSING_RESTAURANT_ID', 'Missing restaurant id.'));
 }
 
-// The status is still derived from the domain message, but the response carries fixed copy and a
-// stable code only: the message can carry provider or database internals.
-function unexpectedErrorResponse(
+async function readJsonBody(req: NextRequest): Promise<unknown> {
+  return req.json().catch(() => undefined);
+}
+
+function invalidBody(body: unknown, error?: z.ZodError) {
+  if (body === undefined) {
+    return gbpNoStoreResponse(apiError(400, 'INVALID_JSON', 'Request body must be valid JSON.'));
+  }
+  return gbpNoStoreResponse(
+    error ? validationError(error) : apiError(400, 'VALIDATION_FAILED', 'Invalid payload.'),
+  );
+}
+
+function passwordConfirmationFailure(error: PasswordConfirmationError) {
+  return gbpNoStoreResponse(apiError(error.status, error.code, error.message));
+}
+
+/**
+ * Known GBP failures are classified by `GoogleBusinessProfileError.code` (never by message);
+ * anything else is logged and returned as a generic 500.
+ */
+function serviceFailure(
   error: unknown,
   restaurantId: string,
-  action: 'link' | 'sync' | 'disconnect',
-  response: { message: string; status: number; code: string },
+  action: GoogleBusinessProfileRouteAction,
+  fallbackMessage: string,
 ) {
-  logger.error(`ops.restaurants.google-business-profile.${action} failed`, {
-    route: 'ops.restaurants.google-business-profile',
-    restaurantId,
-    status: response.status,
-    errorName: error instanceof Error ? error.name : 'UnknownError',
-  });
-  return errorResponse(response.message, response.status, { code: response.code });
+  const known = classifyGoogleBusinessProfileRouteError(error, action);
+  if (known) {
+    return gbpNoStoreResponse(
+      apiError(known.status, known.code, known.message, {
+        retryable: known.retryable,
+      }),
+    );
+  }
+  return gbpNoStoreResponse(
+    internalError(error, { route: ROUTE, restaurantId, action }, fallbackMessage),
+  );
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return errorResponse('Missing restaurant id', 400);
+    return missingRestaurantId();
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile');
@@ -88,17 +117,20 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       connection: state,
     });
     return gbpNoStoreJson(response);
-  } catch {
-    return errorResponse('Unable to load Google Business Profile connection.', 500, {
-      code: 'GBP_CONNECTION_STATE_FAILED',
-    });
+  } catch (error) {
+    return serviceFailure(
+      error,
+      restaurantId,
+      'read',
+      'Unable to load Google Business Profile connection.',
+    );
   }
 }
 
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return errorResponse('Missing restaurant id', 400);
+    return missingRestaurantId();
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
@@ -106,40 +138,21 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     return gbpNoStoreResponse(access);
   }
 
-  let payload: z.infer<typeof linkSchema>;
-  try {
-    const parsed = linkSchema.parse(await req.json());
-    payload = parsed;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return gbpNoStoreJson(
-        { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return errorResponse('Invalid payload', 400);
+  const body = await readJsonBody(req);
+  const parsed = linkSchema.safeParse(body);
+  if (!parsed.success) {
+    return invalidBody(body, parsed.error);
   }
 
   try {
-    const state = await linkGoogleBusinessProfileLocation(restaurantId, payload);
+    const state = await linkGoogleBusinessProfileLocation(restaurantId, parsed.data);
     return gbpNoStoreJson(state);
   } catch (error) {
-    const message = error instanceof Error ? error.message : '';
-    return unexpectedErrorResponse(
+    return serviceFailure(
       error,
       restaurantId,
       'link',
-      message.includes('no longer available')
-        ? {
-            message: 'The selected Google Business Profile location is no longer available.',
-            status: 404,
-            code: 'GBP_LOCATION_NOT_FOUND',
-          }
-        : {
-            message: 'Unable to link Google Business Profile location.',
-            status: 500,
-            code: 'GBP_LINK_FAILED',
-          },
+      'Unable to link Google Business Profile location.',
     );
   }
 }
@@ -147,7 +160,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 export async function POST(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return errorResponse('Missing restaurant id', 400);
+    return missingRestaurantId();
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
@@ -155,18 +168,12 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return gbpNoStoreResponse(access);
   }
 
-  let payload: z.infer<typeof syncSchema>;
-  try {
-    payload = syncSchema.parse(await req.json());
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return gbpNoStoreJson(
-        { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return errorResponse('Invalid payload', 400);
+  const body = await readJsonBody(req);
+  const parsed = syncSchema.safeParse(body);
+  if (!parsed.success) {
+    return invalidBody(body, parsed.error);
   }
+  const payload = parsed.data;
 
   try {
     await verifyUserPasswordConfirmation({
@@ -187,36 +194,13 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
     return gbpNoStoreJson(state);
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
-      return gbpNoStoreJson(
-        { message: error.message, error: error.message, code: error.code },
-        { status: error.status },
-      );
+      return passwordConfirmationFailure(error);
     }
-
-    const message = error instanceof Error ? error.message : '';
-    return unexpectedErrorResponse(
+    return serviceFailure(
       error,
       restaurantId,
       'sync',
-      message.includes('Link a Google Business Profile location') ||
-        message.includes('not connected')
-        ? {
-            message:
-              'Connect Google and link a Google Business Profile location before syncing business information.',
-            status: 409,
-            code: 'GBP_LOCATION_NOT_LINKED',
-          }
-        : message.includes('authorization') || message.includes('reconnect')
-          ? {
-              message: 'Reconnect Google Business Profile, then try again.',
-              status: 409,
-              code: 'GBP_REAUTH_REQUIRED',
-            }
-          : {
-              message: 'Unable to sync Google Business Profile business information.',
-              status: 500,
-              code: 'GBP_SYNC_FAILED',
-            },
+      'Unable to sync Google Business Profile business information.',
     );
   }
 }
@@ -224,7 +208,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return errorResponse('Missing restaurant id', 400);
+    return missingRestaurantId();
   }
 
   const access = await ensureRestaurantAdminAccess(restaurantId, 'google-business-profile', req);
@@ -232,18 +216,12 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return gbpNoStoreResponse(access);
   }
 
-  let payload: z.infer<typeof disconnectSchema>;
-  try {
-    payload = disconnectSchema.parse(await req.json());
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return gbpNoStoreJson(
-        { message: 'Invalid payload', error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return errorResponse('Invalid payload', 400);
+  const body = await readJsonBody(req);
+  const parsed = disconnectSchema.safeParse(body);
+  if (!parsed.success) {
+    return invalidBody(body, parsed.error);
   }
+  const payload = parsed.data;
 
   try {
     await verifyUserPasswordConfirmation({
@@ -255,16 +233,13 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     return gbpNoStoreJson(state);
   } catch (error) {
     if (error instanceof PasswordConfirmationError) {
-      return gbpNoStoreJson(
-        { message: error.message, error: error.message, code: error.code },
-        { status: error.status },
-      );
+      return passwordConfirmationFailure(error);
     }
-
-    return unexpectedErrorResponse(error, restaurantId, 'disconnect', {
-      message: 'Unable to disconnect Google Business Profile.',
-      status: 500,
-      code: 'GBP_DISCONNECT_FAILED',
-    });
+    return serviceFailure(
+      error,
+      restaurantId,
+      'disconnect',
+      'Unable to disconnect Google Business Profile.',
+    );
   }
 }

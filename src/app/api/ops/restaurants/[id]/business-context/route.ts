@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { logger } from '@/lib/logger';
+import { apiError, conflict, internalError, validationError } from '@/lib/api/errors';
 import { RESTAURANT_EDITABLE_LINK_TYPES } from '@/lib/ops/restaurant-link-types';
 import { captureServerException } from '@/lib/posthog/server';
 import {
+  BusinessContextStaleWriteError,
+  BusinessContextValidationError,
   getRestaurantBusinessContext,
   updateRestaurantBusinessContext,
 } from '@/server/restaurants/businessContext';
@@ -48,8 +50,15 @@ const attributeValueTypeSchema = z.preprocess(
 );
 const linkTypeSchema = z.enum(RESTAURANT_EDITABLE_LINK_TYPES);
 
+const ROUTE = 'ops.restaurants.business-context';
+
 const updateBusinessContextSchema = z
   .object({
+    /**
+     * Revision the editor's draft is based on (from the GET snapshot). When present, a save that
+     * lands after another write is refused with 409 STALE_WRITE instead of overwriting it.
+     */
+    expectedRevision: z.number().int().nonnegative().optional(),
     businessDetails: z
       .object({
         openingDate: z
@@ -153,10 +162,25 @@ const updateBusinessContextSchema = z
     },
   );
 
+function missingRestaurantId() {
+  return apiError(400, 'MISSING_RESTAURANT_ID', 'Missing restaurant id.');
+}
+
+function databaseErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) {
+    return null;
+  }
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
+/** Postgres classes for values the database rejected: invalid text representation, dates, checks. */
+const INVALID_VALUE_CODES = new Set(['22P02', '22007', '22008', '23514', '22001']);
+
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
   }
 
   const auth = await ensureRestaurantAdminAccess(restaurantId, 'restaurant-business-context');
@@ -168,18 +192,14 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     const snapshot = await getRestaurantBusinessContext(restaurantId);
     return NextResponse.json(snapshot);
   } catch (error) {
-    logger.error('ops.restaurants.business-context.get failed', {
-      route: 'ops.restaurants.business-context',
-      restaurantId,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-    });
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-restaurant-business-context' },
     });
-    return NextResponse.json(
-      { error: 'Unable to load restaurant business context', code: 'INTERNAL_ERROR' },
-      { status: 500 },
+    return internalError(
+      error,
+      { route: ROUTE, method: 'GET', restaurantId },
+      'Unable to load restaurant business context.',
     );
   }
 }
@@ -187,7 +207,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
   }
 
   const auth = await ensureRestaurantAdminAccess(
@@ -199,23 +219,21 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     return auth;
   }
 
-  const body = await request.json().catch(() => null);
-  if (!body) {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  const body: unknown = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return apiError(400, 'INVALID_JSON', 'Request body must be valid JSON.');
   }
 
   const parsed = updateBusinessContextSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid payload', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
+  const { expectedRevision, ...input } = parsed.data;
   try {
     const snapshot = await updateRestaurantBusinessContext(
       restaurantId,
-      parsed.data as Parameters<typeof updateRestaurantBusinessContext>[1],
+      input as Parameters<typeof updateRestaurantBusinessContext>[1],
       undefined,
       {
         changeOrigin: 'owner',
@@ -223,19 +241,41 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         changedVia: 'ops_business_context_api',
         changeReason: 'Owner/admin business-context update from ops settings.',
       },
+      { expectedRevision: expectedRevision ?? null },
     );
     return NextResponse.json(snapshot);
   } catch (error) {
-    // Domain validation and database failures both arrive as plain Errors here, so the 400
-    // status is kept, but the message is never echoed: it can carry database internals.
-    logger.error('ops.restaurants.business-context.put failed', {
-      route: 'ops.restaurants.business-context',
-      restaurantId,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-    });
-    return NextResponse.json(
-      { error: 'Unable to update restaurant business context.', code: 'SETTINGS_REQUEST_FAILED' },
-      { status: 400 },
+    if (error instanceof BusinessContextValidationError) {
+      // Domain messages are fixed copy written for staff (no database or guest text).
+      return apiError(400, 'VALIDATION_FAILED', 'Some fields need attention.', {
+        fields: { [error.field]: [error.message] },
+      });
+    }
+    if (error instanceof BusinessContextStaleWriteError) {
+      return conflict(
+        'STALE_WRITE',
+        'These details changed since you loaded them. Reload to see the latest, then reapply your edits.',
+        { details: { currentRevision: error.currentRevision } },
+      );
+    }
+    const dbCode = databaseErrorCode(error);
+    if (dbCode === '23505') {
+      return conflict(
+        'BUSINESS_CONTEXT_CONFLICT',
+        'These details clash with a saved entry. Reload and try again.',
+      );
+    }
+    if (dbCode && INVALID_VALUE_CODES.has(dbCode)) {
+      return apiError(
+        400,
+        'VALIDATION_FAILED',
+        'Some details were not accepted. Check them and try again.',
+      );
+    }
+    return internalError(
+      error,
+      { route: ROUTE, method: 'PUT', restaurantId },
+      'Unable to update restaurant business context.',
     );
   }
 }

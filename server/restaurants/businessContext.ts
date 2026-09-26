@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { logger } from '@/lib/logger';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database } from '@/types/supabase';
@@ -55,7 +56,42 @@ type BusinessContextValueMetadata = {
   displayName: string | null;
 };
 
+/** Invalid business-context input. `field` is a dot path into the request body. */
+export class BusinessContextValidationError extends Error {
+  readonly field: string;
+
+  constructor(field: string, message: string) {
+    super(message);
+    this.name = 'BusinessContextValidationError';
+    this.field = field;
+  }
+}
+
+/** The stored revision moved since the caller loaded it; nothing was written. */
+export class BusinessContextStaleWriteError extends Error {
+  readonly currentRevision: number;
+
+  constructor(currentRevision: number) {
+    super('Business context changed since it was loaded.');
+    this.name = 'BusinessContextStaleWriteError';
+    this.currentRevision = currentRevision;
+  }
+}
+
+export type UpdateRestaurantBusinessContextOptions = {
+  /**
+   * Revision the caller's draft is based on. When set, the write is refused with
+   * {@link BusinessContextStaleWriteError} if another write landed since.
+   */
+  expectedRevision?: number | null;
+};
+
 export type RestaurantBusinessContextSnapshot = {
+  /**
+   * Per-restaurant save revision (0 before the first atomic save). Absent while the revision
+   * RPC is not deployed.
+   */
+  revision?: number;
   core: {
     businessDetails?: {
       id: string;
@@ -474,49 +510,96 @@ type BusinessContextReplacement = {
   serviceItems?: ServiceItemInsert[];
 };
 
-type BusinessContextReplacementRpcClient = DbClient & {
-  rpc(
-    fn: 'replace_restaurant_business_context_core',
-    args: {
-      p_restaurant_id: string;
-      p_business_details: BusinessDetailsInsert | null;
-      p_links: LinkInsert[] | null;
-      p_categories: CategoryInsert[] | null;
-      p_service_areas: ServiceAreaInsert[] | null;
-      p_attributes: AttributeInsert[] | null;
-      p_service_items: ServiceItemInsert[] | null;
-    },
-  ): Promise<{ error: { message?: string } | null }>;
+type BusinessContextReplacementArgs = {
+  p_restaurant_id: string;
+  p_business_details: BusinessDetailsInsert | null;
+  p_links: LinkInsert[] | null;
+  p_categories: CategoryInsert[] | null;
+  p_service_areas: ServiceAreaInsert[] | null;
+  p_attributes: AttributeInsert[] | null;
+  p_service_items: ServiceItemInsert[] | null;
 };
 
-function normalizeOptionalUuid(value: string | null | undefined, label: string): string {
+type RpcError = { code?: string; message?: string };
+
+/**
+ * The business-context RPCs are not in the generated `Database` types (like the core RPC before
+ * them), so they are typed here.
+ */
+type BusinessContextRpcClient = {
+  rpc(
+    fn: 'replace_restaurant_business_context_core',
+    args: BusinessContextReplacementArgs,
+  ): PromiseLike<{ error: RpcError | null }>;
+  rpc(
+    fn: 'replace_restaurant_business_context_v2',
+    args: BusinessContextReplacementArgs & {
+      p_change_log_rows: ProfileChangeLogInsert[];
+      p_expected_revision: number | null;
+    },
+  ): PromiseLike<{ data: unknown; error: RpcError | null }>;
+  rpc(
+    fn: 'get_restaurant_business_context_revision_v1',
+    args: { p_restaurant_id: string },
+  ): PromiseLike<{ data: unknown; error: RpcError | null }>;
+};
+
+function asBusinessContextRpcClient(client: DbClient): BusinessContextRpcClient {
+  return client as unknown as BusinessContextRpcClient;
+}
+
+/** PostgREST (PGRST202) or Postgres (42883): the function is not deployed yet. */
+function isMissingRpcError(error: RpcError | null): boolean {
+  return error?.code === 'PGRST202' || error?.code === '42883';
+}
+
+function readRevision(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+function normalizeOptionalUuid(
+  value: string | null | undefined,
+  label: string,
+  field: string,
+): string {
   const normalized = normalizeText(value);
   if (!normalized) {
     return randomUUID();
   }
   if (!UUID_PATTERN.test(normalized)) {
-    throw new Error(`${label} must be a valid UUID`);
+    throw new BusinessContextValidationError(field, `${label} must be a valid UUID`);
   }
   return normalized;
 }
 
-function assertUniqueRowIds(rows: Array<{ id?: string }>, label: string) {
+function assertUniqueRowIds(rows: Array<{ id?: string }>, label: string, family: string) {
   const seen = new Set<string>();
-  rows.forEach((row) => {
+  rows.forEach((row, index) => {
     if (!row.id) {
       return;
     }
     if (seen.has(row.id)) {
-      throw new Error(`Duplicate ${label} id ${row.id}`);
+      throw new BusinessContextValidationError(
+        `${family}.${index}.id`,
+        `Duplicate ${label} id ${row.id}`,
+      );
     }
     seen.add(row.id);
   });
 }
 
-function normalizeServiceAreaType(value: string | null | undefined): string {
+function normalizeServiceAreaType(value: string | null | undefined, field: string): string {
   const normalized = normalizeText(value)?.toLowerCase() ?? 'region';
   if (!SERVICE_AREA_TYPES.has(normalized)) {
-    throw new Error(
+    throw new BusinessContextValidationError(
+      field,
       `Service area type must be one of ${Array.from(SERVICE_AREA_TYPES).join(', ')}`,
     );
   }
@@ -526,11 +609,13 @@ function normalizeServiceAreaType(value: string | null | undefined): string {
 function normalizeAttributeValueType(
   value: string | null | undefined,
   attributeKey: string,
+  field: string,
 ): string {
   const normalized = normalizeText(value)?.toLowerCase();
   const mapped = normalized ? ATTRIBUTE_VALUE_TYPE_ALIASES.get(normalized) : null;
   if (!mapped) {
-    throw new Error(
+    throw new BusinessContextValidationError(
+      field,
       `Attribute "${attributeKey}" value type must be one of boolean, text, uri, enum, or multienum`,
     );
   }
@@ -540,36 +625,114 @@ function normalizeAttributeValueType(
 function assertSinglePrimaryCategory(rows: CategoryInsert[]) {
   const primaryCount = rows.filter((row) => row.is_primary).length;
   if (primaryCount > 1) {
-    throw new Error('Only one business category can be marked as primary');
+    throw new BusinessContextValidationError(
+      'categories',
+      'Only one business category can be marked as primary',
+    );
   }
 }
 
-async function replaceCoreBusinessContext(
+function toReplacementArgs(
   restaurantId: string,
   replacement: BusinessContextReplacement,
-  client: DbClient,
-) {
-  const { error } = await (client as BusinessContextReplacementRpcClient).rpc(
-    'replace_restaurant_business_context_core',
-    {
-      p_restaurant_id: restaurantId,
-      p_business_details: replacement.businessDetails ?? null,
-      p_links: replacement.links ?? null,
-      p_categories: replacement.categories ?? null,
-      p_service_areas: replacement.serviceAreas ?? null,
-      p_attributes: replacement.attributes ?? null,
-      p_service_items: replacement.serviceItems ?? null,
-    },
-  );
-
-  if (error) {
-    throw error;
-  }
+): BusinessContextReplacementArgs {
+  return {
+    p_restaurant_id: restaurantId,
+    p_business_details: replacement.businessDetails ?? null,
+    p_links: replacement.links ?? null,
+    p_categories: replacement.categories ?? null,
+    p_service_areas: replacement.serviceAreas ?? null,
+    p_attributes: replacement.attributes ?? null,
+    p_service_items: replacement.serviceItems ?? null,
+  };
 }
 
+type ReplacementOutcome = { applied: true; revision: number | undefined };
+
+/**
+ * Applies the replacement and its change-log rows in one transaction
+ * (`replace_restaurant_business_context_v2`). While that RPC is not deployed, falls back to the
+ * core RPC followed by a separate change-log insert, the pre-v2 behaviour, without a revision.
+ */
+async function replaceBusinessContextAtomically(
+  restaurantId: string,
+  replacement: BusinessContextReplacement,
+  changeLogRows: ProfileChangeLogInsert[],
+  expectedRevision: number | null,
+  client: DbClient,
+): Promise<ReplacementOutcome> {
+  const rpcClient = asBusinessContextRpcClient(client);
+  const args = toReplacementArgs(restaurantId, replacement);
+  const { data, error } = await rpcClient.rpc('replace_restaurant_business_context_v2', {
+    ...args,
+    p_change_log_rows: changeLogRows,
+    p_expected_revision: expectedRevision,
+  });
+
+  if (!error) {
+    const result = normalizeRecord(data);
+    const revision = readRevision(result?.revision);
+    if (result?.status === 'stale') {
+      throw new BusinessContextStaleWriteError(revision ?? 0);
+    }
+    if (result?.status !== 'applied') {
+      throw new Error('Unexpected business-context replacement result');
+    }
+    return { applied: true, revision };
+  }
+
+  if (!isMissingRpcError(error)) {
+    throw error;
+  }
+
+  logger.warn('business_context.atomic_rpc_missing', {
+    restaurantId,
+    preconditionIgnored: expectedRevision !== null,
+  });
+  if (Object.keys(replacement).length > 0) {
+    const legacy = await rpcClient.rpc('replace_restaurant_business_context_core', args);
+    if (legacy.error) {
+      throw legacy.error;
+    }
+  }
+  await insertBusinessContextChangeLogRows(changeLogRows, client);
+  return { applied: true, revision: undefined };
+}
+
+async function readBusinessContextRevision(
+  restaurantId: string,
+  client: DbClient,
+): Promise<number | undefined> {
+  const { data, error } = await asBusinessContextRpcClient(client).rpc(
+    'get_restaurant_business_context_revision_v1',
+    { p_restaurant_id: restaurantId },
+  );
+  if (error) {
+    if (isMissingRpcError(error)) {
+      return undefined;
+    }
+    throw error;
+  }
+  return readRevision(data);
+}
+
+/**
+ * The saved business context with its revision. The revision is read before the rows, so a
+ * write that lands between the two reads makes the revision older than the rows: the next save
+ * is then refused as stale rather than silently overwriting that write.
+ */
 export async function getRestaurantBusinessContext(
   restaurantId: string,
   client: DbClient = getServiceSupabaseClient(),
+): Promise<RestaurantBusinessContextSnapshot> {
+  const revision = await readBusinessContextRevision(restaurantId, client);
+  const snapshot = await readBusinessContextRows(restaurantId, client);
+  return revision === undefined ? snapshot : { revision, ...snapshot };
+}
+
+async function readBusinessContextRows(
+  restaurantId: string,
+  client: DbClient,
 ): Promise<RestaurantBusinessContextSnapshot> {
   const [
     businessDetailsResult,
@@ -657,11 +820,17 @@ export async function getRestaurantBusinessContext(
   };
 }
 
+/**
+ * Replaces the given sections, writes their change-log rows and bumps the revision in one
+ * transaction. Throws {@link BusinessContextValidationError} for invalid input (before any
+ * write) and {@link BusinessContextStaleWriteError} when `options.expectedRevision` is stale.
+ */
 export async function updateRestaurantBusinessContext(
   restaurantId: string,
   input: UpdateRestaurantBusinessContextInput,
   client: DbClient = getServiceSupabaseClient(),
   provenance?: RestaurantBusinessContextChangeProvenance,
+  options: UpdateRestaurantBusinessContextOptions = {},
 ): Promise<RestaurantBusinessContextSnapshot> {
   const now = new Date().toISOString();
   const canonicalProvenance = resolveChangeProvenance(provenance);
@@ -706,16 +875,22 @@ export async function updateRestaurantBusinessContext(
     const rows = input.links.map<LinkInsert>((row, index) => {
       const linkType = normalizeText(row.linkType);
       if (!linkType) {
-        throw new Error('Link type is required');
+        throw new BusinessContextValidationError(
+          `links.${index}.linkType`,
+          'Link type is required',
+        );
       }
 
       const url = normalizeText(row.url);
       if (!url) {
-        throw new Error(`URL is required for ${linkType}`);
+        throw new BusinessContextValidationError(
+          `links.${index}.url`,
+          `URL is required for ${linkType}`,
+        );
       }
 
       return {
-        id: normalizeOptionalUuid(row.id, 'Link id'),
+        id: normalizeOptionalUuid(row.id, 'Link id', `links.${index}.id`),
         restaurant_id: restaurantId,
         link_type: linkType,
         link_status: normalizeText(row.linkStatus ?? null) ?? 'current',
@@ -730,7 +905,7 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
-    assertUniqueRowIds(rows, 'link');
+    assertUniqueRowIds(rows, 'link', 'links');
 
     replacement.links = rows;
     changeLogRows.push({
@@ -756,11 +931,14 @@ export async function updateRestaurantBusinessContext(
     const rows = input.categories.map<CategoryInsert>((row, index) => {
       const displayName = normalizeText(row.displayName);
       if (!displayName) {
-        throw new Error('Category display name is required');
+        throw new BusinessContextValidationError(
+          `categories.${index}.displayName`,
+          'Category display name is required',
+        );
       }
 
       return {
-        id: normalizeOptionalUuid(row.id, 'Category id'),
+        id: normalizeOptionalUuid(row.id, 'Category id', `categories.${index}.id`),
         restaurant_id: restaurantId,
         display_name: displayName,
         category_code: normalizeText(row.categoryCode ?? null),
@@ -774,7 +952,7 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
-    assertUniqueRowIds(rows, 'category');
+    assertUniqueRowIds(rows, 'category', 'categories');
     assertSinglePrimaryCategory(rows);
 
     replacement.categories = rows;
@@ -801,14 +979,17 @@ export async function updateRestaurantBusinessContext(
     const rows = input.serviceAreas.map<ServiceAreaInsert>((row, index) => {
       const displayName = normalizeText(row.displayName);
       if (!displayName) {
-        throw new Error('Service area display name is required');
+        throw new BusinessContextValidationError(
+          `serviceAreas.${index}.displayName`,
+          'Service area display name is required',
+        );
       }
 
       return {
-        id: normalizeOptionalUuid(row.id, 'Service area id'),
+        id: normalizeOptionalUuid(row.id, 'Service area id', `serviceAreas.${index}.id`),
         restaurant_id: restaurantId,
         display_name: displayName,
-        area_type: normalizeServiceAreaType(row.areaType),
+        area_type: normalizeServiceAreaType(row.areaType, `serviceAreas.${index}.areaType`),
         region_code: normalizeText(row.regionCode ?? null),
         google_place_id: normalizeText(row.googlePlaceId ?? null),
         google_place_resource_name: normalizeText(row.googlePlaceResourceName ?? null),
@@ -822,7 +1003,7 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
-    assertUniqueRowIds(rows, 'service area');
+    assertUniqueRowIds(rows, 'service area', 'serviceAreas');
 
     replacement.serviceAreas = rows;
     changeLogRows.push({
@@ -848,13 +1029,20 @@ export async function updateRestaurantBusinessContext(
     const rows = input.attributes.map<AttributeInsert>((row, index) => {
       const attributeKey = normalizeText(row.attributeKey);
       if (!attributeKey) {
-        throw new Error('Attribute key is required');
+        throw new BusinessContextValidationError(
+          `attributes.${index}.attributeKey`,
+          'Attribute key is required',
+        );
       }
 
-      const valueType = normalizeAttributeValueType(row.valueType, attributeKey);
+      const valueType = normalizeAttributeValueType(
+        row.valueType,
+        attributeKey,
+        `attributes.${index}.valueType`,
+      );
 
       return {
-        id: normalizeOptionalUuid(row.id, 'Attribute id'),
+        id: normalizeOptionalUuid(row.id, 'Attribute id', `attributes.${index}.id`),
         restaurant_id: restaurantId,
         attribute_group: normalizeText(row.attributeGroup ?? null),
         attribute_key: attributeKey,
@@ -886,7 +1074,7 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
-    assertUniqueRowIds(rows, 'attribute');
+    assertUniqueRowIds(rows, 'attribute', 'attributes');
 
     replacement.attributes = rows;
     changeLogRows.push({
@@ -912,11 +1100,14 @@ export async function updateRestaurantBusinessContext(
     const rows = input.serviceItems.map<ServiceItemInsert>((row, index) => {
       const itemKey = normalizeText(row.itemKey);
       if (!itemKey) {
-        throw new Error('Service item key is required');
+        throw new BusinessContextValidationError(
+          `serviceItems.${index}.itemKey`,
+          'Service item key is required',
+        );
       }
 
       return {
-        id: normalizeOptionalUuid(row.id, 'Service item id'),
+        id: normalizeOptionalUuid(row.id, 'Service item id', `serviceItems.${index}.id`),
         restaurant_id: restaurantId,
         item_key: itemKey,
         item_type: normalizeText(row.itemType ?? null),
@@ -932,7 +1123,7 @@ export async function updateRestaurantBusinessContext(
         last_manual_override_at: now,
       };
     });
-    assertUniqueRowIds(rows, 'service item');
+    assertUniqueRowIds(rows, 'service item', 'serviceItems');
 
     replacement.serviceItems = rows;
     changeLogRows.push({
@@ -954,11 +1145,19 @@ export async function updateRestaurantBusinessContext(
     });
   }
 
-  if (Object.keys(replacement).length > 0) {
-    await replaceCoreBusinessContext(restaurantId, replacement, client);
+  const outcome = await replaceBusinessContextAtomically(
+    restaurantId,
+    replacement,
+    changeLogRows,
+    options.expectedRevision ?? null,
+    client,
+  );
+
+  if (outcome.revision === undefined) {
+    return getRestaurantBusinessContext(restaurantId, client);
   }
-
-  await insertBusinessContextChangeLogRows(changeLogRows, client);
-
-  return getRestaurantBusinessContext(restaurantId, client);
+  // The revision this write produced. Rows read afterwards can only be the same or newer, so a
+  // concurrent write can make the next save stale, never silently lost.
+  const snapshot = await readBusinessContextRows(restaurantId, client);
+  return { revision: outcome.revision, ...snapshot };
 }

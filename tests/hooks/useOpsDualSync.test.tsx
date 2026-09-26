@@ -275,6 +275,7 @@ describe('useOpsDualSync', () => {
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+      exact: true,
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
@@ -297,6 +298,7 @@ describe('useOpsDualSync', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+      exact: true,
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['dual-sync-operations', restaurantId],
@@ -325,6 +327,7 @@ describe('useOpsDualSync', () => {
 
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+      exact: true,
     });
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: ['dual-sync-publish-jobs', restaurantId],
@@ -507,7 +510,7 @@ describe('useOpsDualSync', () => {
   it.each([
     ['refreshMutation', () => undefined],
     ['publishMutation', () => ({ decisions: [] })],
-    ['exactPublishMutation', () => ({})],
+    ['exactPublishMutation', () => ({ decisions: [] })],
     ['autoExportMutation', () => undefined],
   ] as const)(
     '@contract %s invalidates exactly the restaurant integration surface it can change',

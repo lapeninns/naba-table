@@ -1,11 +1,16 @@
 import { compareCanonical, isGbpComparableSection } from '@/lib/dual-sync/compare-field';
+import { publishFailedFieldKeys } from '@/lib/dual-sync/publish-outcome';
 
 import { GBP_DRIFT_SECTION_ORDER } from './sectionLabels';
 import { fieldNeedsOperatorChoice } from '../dual-sync/workspace-progress';
 
 import type { GbpDriftFieldView, GbpDriftOpenOptions } from './types';
 import type { DualSyncSectionKey } from '@/server/dual-sync';
-import type { DualSyncFieldSummary, DualSyncPublishRequest } from '@/services/ops/dual-sync';
+import type {
+  DualSyncFieldSummary,
+  DualSyncPublishRequest,
+  DualSyncPublishResponse,
+} from '@/services/ops/dual-sync';
 
 export const EMPTY_DRIFT_COUNTS = Object.freeze(
   GBP_DRIFT_SECTION_ORDER.reduce<Record<DualSyncSectionKey, number>>(
@@ -119,9 +124,10 @@ export function filterImportableGbpDriftViews(
 
 export function buildGbpDriftPublishRequest(
   fields: ReadonlyArray<GbpDriftFieldView>,
+  clientRequestId: string,
 ): DualSyncPublishRequest {
   return {
-    clientRequestId: `gbp-drift-${Date.now()}`,
+    clientRequestId,
     decisions: fields.map((view) => ({
       fieldKey: view.fieldKey,
       sectionKey: view.sectionKey,
@@ -130,4 +136,68 @@ export function buildGbpDriftPublishRequest(
       pinnedGbpHash: view.field.gbpCanonicalHash,
     })),
   };
+}
+
+/**
+ * Identifies one import intent: the same fields pinned to the same values. A retry of the same
+ * intent reuses its request id, so the server replays instead of importing twice.
+ */
+export function gbpDriftImportIntentKey(decisions: DualSyncPublishRequest['decisions']): string {
+  return decisions
+    .map((decision) => `${decision.fieldKey}|${decision.pinnedCoreHash}|${decision.pinnedGbpHash}`)
+    .sort()
+    .join('\n');
+}
+
+export type GbpDriftImportOutcome = {
+  readonly kind: 'success' | 'partial' | 'failed';
+  readonly total: number;
+  readonly succeededFieldKeys: ReadonlyArray<string>;
+  readonly failedFieldKeys: ReadonlyArray<string>;
+};
+
+export function summarizeGbpDriftImport(
+  request: DualSyncPublishRequest,
+  response: DualSyncPublishResponse,
+): GbpDriftImportOutcome {
+  const failed = publishFailedFieldKeys(response);
+  const requested = request.decisions.map((decision) => decision.fieldKey);
+  const failedFieldKeys = requested.filter((fieldKey) => failed.has(fieldKey));
+  const succeededFieldKeys = requested.filter((fieldKey) => !failed.has(fieldKey));
+  const kind =
+    failedFieldKeys.length === 0
+      ? 'success'
+      : succeededFieldKeys.length === 0
+        ? 'failed'
+        : 'partial';
+  return { kind, total: requested.length, succeededFieldKeys, failedFieldKeys };
+}
+
+function formatFieldList(labels: ReadonlyArray<string>): string {
+  if (labels.length <= 1) {
+    return labels[0] ?? '';
+  }
+  return `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}`;
+}
+
+/**
+ * Staff-facing copy for an import outcome. Names fields by their labels only: provider failure
+ * messages are never shown.
+ */
+export function formatGbpDriftImportMessage(
+  outcome: GbpDriftImportOutcome,
+  labelFor: (fieldKey: string) => string,
+): string {
+  if (outcome.kind === 'success') {
+    return outcome.total === 1
+      ? 'Google field imported to Nabatable.'
+      : `${outcome.total} Google fields imported to Nabatable.`;
+  }
+  const failedLabels = formatFieldList(outcome.failedFieldKeys.map(labelFor));
+  if (outcome.kind === 'partial') {
+    return `Imported ${outcome.succeededFieldKeys.length} of ${outcome.total} Google fields. Not imported: ${failedLabels}.`;
+  }
+  return outcome.total === 1
+    ? `Google field could not be imported: ${failedLabels}.`
+    : `Google fields could not be imported: ${failedLabels}.`;
 }

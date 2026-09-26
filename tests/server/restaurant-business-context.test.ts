@@ -3,9 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { updateRestaurantBusinessContext } from '@/server/restaurants/businessContext';
 
 describe('restaurant business context writer', () => {
-  it('uses the atomic replacement RPC and writes a profile change-log row for canonical attributes', async () => {
+  it('uses the atomic replacement RPC and writes the profile change-log rows inside it', async () => {
     const inserts: Array<{ table: string; rows: unknown[] }> = [];
-    const rpc = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn(async (fn: string) =>
+      fn === 'replace_restaurant_business_context_v2'
+        ? { data: { status: 'applied', revision: 1 }, error: null }
+        : { data: 0, error: null },
+    );
 
     class Query {
       constructor(private readonly table: string) {}
@@ -79,7 +83,7 @@ describe('restaurant business context writer', () => {
       },
     );
 
-    expect(rpc).toHaveBeenCalledWith('replace_restaurant_business_context_core', {
+    expect(rpc).toHaveBeenCalledWith('replace_restaurant_business_context_v2', {
       p_restaurant_id: 'rest-1',
       p_business_details: null,
       p_links: null,
@@ -100,16 +104,7 @@ describe('restaurant business context writer', () => {
         }),
       ],
       p_service_items: null,
-    });
-
-    expect(inserts.some((entry) => entry.table === 'restaurant_service_areas')).toBe(false);
-    expect(inserts.some((entry) => entry.table === 'restaurant_attributes')).toBe(false);
-    const changeLogInsert = inserts.find(
-      (entry) => entry.table === 'restaurant_profile_change_log',
-    );
-
-    expect(changeLogInsert?.rows).toEqual(
-      expect.arrayContaining([
+      p_change_log_rows: expect.arrayContaining([
         expect.objectContaining({
           restaurant_id: 'rest-1',
           entity_table: 'restaurant_attributes',
@@ -121,7 +116,11 @@ describe('restaurant business context writer', () => {
           status: 'applied',
         }),
       ]),
-    );
+      p_expected_revision: null,
+    });
+
+    // Rows and audit rows are written by the RPC transaction; nothing is inserted directly.
+    expect(inserts).toEqual([]);
   });
 
   it('rejects malformed persisted row ids before replacement', async () => {

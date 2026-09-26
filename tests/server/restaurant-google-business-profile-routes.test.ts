@@ -317,7 +317,7 @@ describe('restaurant google business profile routes', () => {
     await expect(response.json()).resolves.toMatchObject({
       message: 'Unable to load Google Business Profile connection.',
       error: 'Unable to load Google Business Profile connection.',
-      code: 'GBP_CONNECTION_STATE_FAILED',
+      code: 'INTERNAL_ERROR',
     });
   });
 

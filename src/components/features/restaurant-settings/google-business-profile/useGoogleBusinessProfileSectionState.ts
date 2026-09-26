@@ -2,7 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -81,16 +81,15 @@ export function useGoogleBusinessProfileSectionState({
     [data, selectedLocationValue],
   );
 
+  // Invalidation refetches every active query once (connection, locations when shown, operator
+  // and dual-sync state). A second explicit refetch() would cancel and repeat those requests
+  // against the rate-limited Google endpoints.
   const refreshHandler = useCallback(() => {
     setPersistentError(null);
     if (restaurantId) {
       invalidateOpsIntegrationQueries(queryClient, restaurantId);
     }
-    void connectionQuery.refetch();
-    if (shouldLoadLocations) {
-      void locationsQuery.refetch();
-    }
-  }, [connectionQuery, locationsQuery, queryClient, restaurantId, shouldLoadLocations]);
+  }, [queryClient, restaurantId]);
 
   const handleRequestDisconnect = useCallback(() => {
     setDisconnectDialogOpen(true);
@@ -124,12 +123,18 @@ export function useGoogleBusinessProfileSectionState({
     [disconnectMutation],
   );
 
+  // A ref, not only `isPending`: two clicks in the same frame both see the pre-render state.
+  const linkInFlightRef = useRef(false);
   const handleLinkLocation = useCallback(() => {
+    if (linkInFlightRef.current || linkMutation.isPending) {
+      return;
+    }
     if (!selectedLocation) {
       toast.error('Choose a location before linking.');
       return;
     }
 
+    linkInFlightRef.current = true;
     linkMutation.mutate(
       {
         accountName: selectedLocation.accountName,
@@ -147,6 +152,9 @@ export function useGoogleBusinessProfileSectionState({
           const message = getSafeSettingsErrorMessage(error, 'The location could not be linked.');
           setPersistentError({ kind: 'link', title: 'Location link failed', message });
           toast.error(message);
+        },
+        onSettled: () => {
+          linkInFlightRef.current = false;
         },
       },
     );

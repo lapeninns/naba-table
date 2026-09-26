@@ -157,6 +157,7 @@ describe('restaurant business-context routes', () => {
         changedByUserId: 'user-1',
         changedVia: 'ops_business_context_api',
       }),
+      { expectedRevision: null },
     );
   });
 

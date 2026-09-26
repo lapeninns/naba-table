@@ -1,14 +1,19 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import {
   useOpsRestaurantBusinessContext,
   useOpsUpdateRestaurantBusinessContext,
+  type BusinessContextSaveInput,
 } from '@/hooks/ops/useOpsRestaurantBusinessContext';
 
+import {
+  getBusinessContextRevision,
+  type BusinessContextDrafts,
+} from './businessContextDraftState';
 import {
   buildBusinessContextFamilyPayload,
   deriveFamilyCounts,
@@ -21,7 +26,6 @@ import { RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from './routes';
 import { formatSettingsSectionList, useSettingsSaveSequence } from './shared/settingsSaveSequence';
 import { useBusinessContextEditorDraftState } from './useBusinessContextEditorDraftState';
 
-import type { SettingsSaveStep } from './shared/settingsSaveSequence';
 import type { RestaurantBusinessContextFamily } from '@/services/ops/restaurants';
 
 /** Latest `updatedAt` across saved discovery rows: when these details were last saved. */
@@ -55,6 +59,49 @@ export function formatDiscoverySaveToast(savedSections: readonly string[]): stri
   return `Saved ${formatSettingsSectionList(savedSections)}. Each section replaces its full list.`;
 }
 
+/**
+ * The one request body for a page save: every dirty section, each a full replacement, plus the
+ * revision the draft is based on. The service-location switch is stored with business details,
+ * so it travels in `businessDetails` even though staff edit it under Where you serve.
+ */
+export function buildDiscoverySavePayload(
+  families: readonly FamilyKey[],
+  drafts: BusinessContextDrafts,
+  expectedRevision: number | undefined,
+): BusinessContextSaveInput {
+  const payload: BusinessContextSaveInput = {};
+  for (const family of families) {
+    Object.assign(payload, buildBusinessContextFamilyPayload(family, drafts));
+  }
+  if (expectedRevision !== undefined) {
+    payload.expectedRevision = expectedRevision;
+  }
+  return payload;
+}
+
+/**
+ * Section names for the save step and toast, as staff see them: a change to the
+ * service-location switch alone is named Where you serve, not Business status.
+ */
+export function discoverySaveSectionNames(
+  dirtyFamilies: readonly FamilyKey[],
+  serviceLocationOnly: boolean,
+): string[] {
+  return DISCOVERY_SECTION_ORDER.filter((family) => {
+    if (serviceLocationOnly && family === 'businessDetails') return false;
+    if (serviceLocationOnly && family === 'serviceAreas') return true;
+    return dirtyFamilies.includes(family);
+  }).map((family) => DISCOVERY_SECTION_TITLES[family]);
+}
+
+/** Copy for a rebase where newer saved values replaced some staff edits. */
+export function formatDiscoveryRebaseConflictToast(families: readonly FamilyKey[]): string {
+  const names = formatSettingsSectionList(
+    families.map((family) => DISCOVERY_SECTION_TITLES[family]),
+  );
+  return `Newer saved details replaced some of your edits in ${names}. Review them and save again.`;
+}
+
 export function useRestaurantBusinessContextEditor({
   restaurantId,
 }: {
@@ -64,7 +111,15 @@ export function useRestaurantBusinessContextEditor({
   const updateMutation = useOpsUpdateRestaurantBusinessContext(restaurantId);
   const draft = useBusinessContextEditorDraftState({ restaurantId, snapshot: contextQuery.data });
   const saveSequence = useSettingsSaveSequence();
-  const { applySavedSnapshot, dirtyFamilies, drafts, resetFamilies, savedDrafts } = draft;
+  const {
+    applySavedSnapshot,
+    baseline,
+    dirtyFamilies,
+    drafts,
+    rebaseConflict,
+    resetFamilies,
+    savedDrafts,
+  } = draft;
   const { mutateAsync } = updateMutation;
   const { run: runSaveSequence, clearFailure } = saveSequence;
 
@@ -73,6 +128,14 @@ export function useRestaurantBusinessContextEditor({
     draft.isDirty,
     'You have unsaved discovery detail changes. Leave without saving them?',
   );
+
+  // Tell staff once per rebase when a newer saved value (another editor, a Google import) won
+  // over one of their edits.
+  useEffect(() => {
+    if (rebaseConflict) {
+      toast.warning(formatDiscoveryRebaseConflictToast(rebaseConflict.families));
+    }
+  }, [rebaseConflict]);
 
   const providerCounts = useMemo(
     () => deriveFamilyCounts(contextQuery.data?.providerSnapshot),
@@ -84,57 +147,46 @@ export function useRestaurantBusinessContextEditor({
   );
 
   /**
-   * Sends every section with changes, one after another, through the existing endpoint. Each
-   * request replaces that section's full list; a failure stops the sequence and keeps the edits.
-   * When only the service-location switch changed, its business details request runs inside the
-   * Where you serve step, where staff edit it.
+   * Sends every section with changes in one request, which the server applies in one
+   * transaction together with its audit rows. A failure leaves every section unsaved and keeps
+   * the edits; a 409 means the details changed since they were loaded.
    */
   const saveAll = useCallback(async () => {
-    const saveFamily = async (family: FamilyKey) => {
-      const saved = await mutateAsync(buildBusinessContextFamilyPayload(family, drafts));
-      // Anything typed while this request was in flight stays as the newer draft.
-      applySavedSnapshot(family, saved, drafts);
-    };
+    if (dirtyFamilies.length === 0) {
+      return null;
+    }
     const serviceLocationOnly =
       dirtyFamilies.includes('businessDetails') &&
       isOnlyServiceLocationChanged(savedDrafts, drafts);
-
-    const steps: SettingsSaveStep[] = [];
-    for (const family of DISCOVERY_SECTION_ORDER) {
-      if (family === 'businessDetails' && serviceLocationOnly) {
-        continue;
-      }
-      if (family === 'serviceAreas' && serviceLocationOnly) {
-        const areasChanged = dirtyFamilies.includes('serviceAreas');
-        steps.push({
-          id: family,
-          name: DISCOVERY_SECTION_TITLES[family],
-          run: async () => {
-            await saveFamily('businessDetails');
-            if (areasChanged) {
-              await saveFamily('serviceAreas');
-            }
-          },
-        });
-        continue;
-      }
-      if (dirtyFamilies.includes(family)) {
-        steps.push({
-          id: family,
-          name: DISCOVERY_SECTION_TITLES[family],
-          run: () => saveFamily(family),
-        });
-      }
-    }
-    if (steps.length === 0) {
-      return null;
-    }
-    const outcome = await runSaveSequence(steps);
+    const sectionNames = discoverySaveSectionNames(dirtyFamilies, serviceLocationOnly);
+    const families = [...dirtyFamilies];
+    const sent = drafts;
+    const outcome = await runSaveSequence([
+      {
+        id: 'discovery',
+        name: formatSettingsSectionList(sectionNames),
+        run: async () => {
+          const saved = await mutateAsync(
+            buildDiscoverySavePayload(families, sent, getBusinessContextRevision(baseline)),
+          );
+          // Anything typed while this request was in flight stays as the newer draft.
+          applySavedSnapshot(families, saved, sent);
+        },
+      },
+    ]);
     if (outcome?.ok) {
-      toast.success(formatDiscoverySaveToast(outcome.saved));
+      toast.success(formatDiscoverySaveToast(sectionNames));
     }
     return outcome;
-  }, [applySavedSnapshot, dirtyFamilies, drafts, mutateAsync, runSaveSequence, savedDrafts]);
+  }, [
+    applySavedSnapshot,
+    baseline,
+    dirtyFamilies,
+    drafts,
+    mutateAsync,
+    runSaveSequence,
+    savedDrafts,
+  ]);
 
   const resetFamily = useCallback(
     (family: FamilyKey) => {
