@@ -16,6 +16,7 @@ import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 const bookingService = vi.hoisted(() => ({
   assignTablesDirect: vi.fn(),
   unassignTablesDirect: vi.fn(),
+  moveBookingTables: vi.fn(),
 }));
 
 vi.mock('@/contexts/ops-services', () => ({
@@ -101,6 +102,7 @@ function setup(bookings: OpsTodayBooking[]) {
 beforeEach(() => {
   bookingService.assignTablesDirect.mockReset();
   bookingService.unassignTablesDirect.mockReset();
+  bookingService.moveBookingTables.mockReset();
 });
 
 describe('nextStatusAfter', () => {
@@ -196,111 +198,112 @@ describe('useOpsFloorPlanAssignments', () => {
     expect(queryClient.getQueryState(summaryKey)?.isInvalidated).toBe(true);
   });
 
-  it('moves by releasing the old tables then assigning the new ones', async () => {
-    bookingService.unassignTablesDirect.mockResolvedValue({ success: true, removedCount: 1 });
-    bookingService.assignTablesDirect.mockResolvedValue({ success: true });
+  it('moves in one atomic request, optimistically, keeping the booking status', async () => {
+    const request = deferred();
+    bookingService.moveBookingTables.mockReturnValue(request.promise);
     const { queryClient, hook } = setup([makeBooking('b1', 'confirmed', ['T3'])]);
 
+    let done!: Promise<void>;
+    act(() => {
+      done = hook.result.current.move('b1', ['T3'], ['T4']);
+    });
+    await waitFor(() => expect(tableIdsOf(queryClient, 'b1').tableIds).toEqual(['T4']));
+    await waitFor(() =>
+      expect(hook.result.current.pending).toEqual([
+        { bookingId: 'b1', kind: 'move', tableIds: ['T4'], previousTableIds: ['T3'] },
+      ]),
+    );
+
     await act(async () => {
-      await hook.result.current.move('b1', ['T3'], ['T4']);
+      request.resolve({ success: true });
+      await done;
     });
 
-    expect(bookingService.unassignTablesDirect).toHaveBeenCalledWith({
+    expect(bookingService.moveBookingTables).toHaveBeenCalledTimes(1);
+    expect(bookingService.moveBookingTables).toHaveBeenCalledWith({
       bookingId: 'b1',
-      tableIds: ['T3'],
+      restaurantId,
+      fromTableIds: ['T3'],
+      toTableIds: ['T4'],
+      idempotencyKey: expect.any(String),
     });
-    expect(bookingService.assignTablesDirect).toHaveBeenCalledWith(
-      expect.objectContaining({ bookingId: 'b1', tableIds: ['T4'] }),
-    );
-    expect(bookingService.unassignTablesDirect.mock.invocationCallOrder[0]).toBeLessThan(
-      bookingService.assignTablesDirect.mock.invocationCallOrder[0]!,
-    );
+    expect(bookingService.unassignTablesDirect).not.toHaveBeenCalled();
+    expect(bookingService.assignTablesDirect).not.toHaveBeenCalled();
     expect(tableIdsOf(queryClient, 'b1')).toMatchObject({ tableIds: ['T4'], status: 'confirmed' });
   });
 
-  it('only touches the tables that change when a joined booking moves', async () => {
-    bookingService.unassignTablesDirect.mockResolvedValue({ success: true, removedCount: 1 });
-    bookingService.assignTablesDirect.mockResolvedValue({ success: true });
+  it('sends the full from/to sets when a joined booking moves', async () => {
+    bookingService.moveBookingTables.mockResolvedValue({ success: true });
     const { hook } = setup([makeBooking('b1', 'checked_in', ['T3', 'T4'])]);
 
     await act(async () => {
       await hook.result.current.move('b1', ['T3', 'T4'], ['T3', 'T5']);
     });
 
-    expect(bookingService.unassignTablesDirect).toHaveBeenCalledWith({
-      bookingId: 'b1',
-      tableIds: ['T4'],
-    });
-    expect(bookingService.assignTablesDirect).toHaveBeenCalledWith(
-      expect.objectContaining({ tableIds: ['T5'] }),
+    expect(bookingService.moveBookingTables).toHaveBeenCalledWith(
+      expect.objectContaining({ fromTableIds: ['T3', 'T4'], toTableIds: ['T3', 'T5'] }),
     );
   });
 
-  it('restores the original tables when the new ones are refused', async () => {
-    bookingService.unassignTablesDirect.mockResolvedValue({ success: true, removedCount: 1 });
-    bookingService.assignTablesDirect
-      .mockRejectedValueOnce(
-        new HttpError({ message: 'Table T4 is too small', status: 422, code: 'CAPACITY' }),
-      )
-      .mockResolvedValueOnce({ success: true });
+  it('keeps the original tables when the move is refused, with a safe message', async () => {
+    bookingService.moveBookingTables.mockRejectedValue(
+      new HttpError({
+        message: 'Those tables are taken.',
+        status: 409,
+        code: 'TABLES_UNAVAILABLE',
+        details: { reason: 'CONFLICT', tableIds: ['T4'] },
+      }),
+    );
     const { queryClient, hook } = setup([makeBooking('b1', 'confirmed', ['T3'])]);
 
     let caught: unknown;
     await act(async () => {
-      caught = await hook.result.current
-        .move('b1', ['T3'], ['T4'])
-        .catch((error: unknown) => error);
+      caught = await hook.result.current.move('b1', ['T3'], ['T4']).catch((error: unknown) => error);
     });
 
-    expect(caught).toMatchObject({
-      code: 'VALIDATION',
-      restored: true,
-      message: 'Table T4 is too small',
-    });
-    const restoreCall = bookingService.assignTablesDirect.mock.calls[1]![0];
-    expect(restoreCall).toMatchObject({ bookingId: 'b1', tableIds: ['T3'] });
-    expect(restoreCall.idempotencyKey).not.toBe(
-      bookingService.assignTablesDirect.mock.calls[0]![0].idempotencyKey,
-    );
+    expect(caught).toMatchObject({ code: 'CONFLICT', restored: true });
     expect(tableIdsOf(queryClient, 'b1')).toMatchObject({ tableIds: ['T3'], status: 'confirmed' });
   });
 
-  it('reports a booking left without a table when the restore also fails', async () => {
-    bookingService.unassignTablesDirect.mockResolvedValue({ success: true, removedCount: 1 });
-    bookingService.assignTablesDirect.mockRejectedValue(new TypeError('Failed to fetch'));
-    const { queryClient, hook } = setup([makeBooking('b1', 'confirmed', ['T3'])]);
+  it('maps a stale move (tables changed elsewhere) to a refresh message', async () => {
+    bookingService.moveBookingTables.mockRejectedValue(
+      new HttpError({
+        message: 'Booking changed.',
+        status: 409,
+        code: 'BOOKING_STATE_CONFLICT',
+        details: { currentStatus: 'confirmed', reason: 'ASSIGNMENTS_CHANGED' },
+      }),
+    );
+    const { hook } = setup([makeBooking('b1', 'confirmed', ['T3'])]);
 
     let caught: unknown;
     await act(async () => {
-      caught = await hook.result.current
-        .move('b1', ['T3'], ['T4'])
-        .catch((error: unknown) => error);
+      caught = await hook.result.current.move('b1', ['T3'], ['T4']).catch((error: unknown) => error);
     });
 
-    expect(caught).toMatchObject({ code: 'NETWORK', restored: false });
-    expect(tableIdsOf(queryClient, 'b1')).toMatchObject({
-      tableIds: [],
-      status: 'pending',
-      requiresTableAssignment: true,
+    expect(caught).toMatchObject({
+      code: 'CONFLICT',
+      message: 'This booking changed on another device. The plan has been refreshed.',
     });
   });
 
-  it('keeps the original tables when releasing them fails', async () => {
-    bookingService.unassignTablesDirect.mockRejectedValue(
-      new HttpError({ message: 'x', status: 500 }),
+  it('shows the server’s safe validation message for a refused selection', async () => {
+    bookingService.moveBookingTables.mockRejectedValue(
+      new HttpError({
+        message: 'Table T4 is too small',
+        status: 422,
+        code: 'TABLE_SELECTION_INVALID',
+        details: { reason: 'CAPACITY' },
+      }),
     );
-    const { queryClient, hook } = setup([makeBooking('b1', 'confirmed', ['T3'])]);
+    const { hook } = setup([makeBooking('b1', 'confirmed', ['T3'])]);
 
     let caught: unknown;
     await act(async () => {
-      caught = await hook.result.current
-        .move('b1', ['T3'], ['T4'])
-        .catch((error: unknown) => error);
+      caught = await hook.result.current.move('b1', ['T3'], ['T4']).catch((error: unknown) => error);
     });
 
-    expect(caught).toMatchObject({ code: 'UNKNOWN', restored: true });
-    expect(bookingService.assignTablesDirect).not.toHaveBeenCalled();
-    expect(tableIdsOf(queryClient, 'b1').tableIds).toEqual(['T3']);
+    expect(caught).toMatchObject({ code: 'VALIDATION', message: 'Table T4 is too small' });
   });
 
   it('unassigns and reopens a confirmed booking', async () => {
