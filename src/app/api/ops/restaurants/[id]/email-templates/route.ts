@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 
-import { buildTemplateGroups, ensureTemplateReadAccess, resolveRestaurantId, type RouteParams } from './_shared';
+import { apiError } from '@/lib/api/errors';
+
+import {
+  buildTemplateGroups,
+  ensureTemplateReadAccess,
+  resolveRestaurantId,
+  type RouteParams,
+} from './_shared';
 
 import type { RestaurantEmailTemplatesResponse } from '../../schema';
 import type { NextRequest } from 'next/server';
@@ -8,7 +15,7 @@ import type { NextRequest } from 'next/server';
 export async function GET(_req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Missing restaurant id.');
   }
 
   const access = await ensureTemplateReadAccess(restaurantId);

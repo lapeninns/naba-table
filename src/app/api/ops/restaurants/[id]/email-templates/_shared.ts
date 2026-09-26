@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { forbidden, unauthenticated } from '@/lib/api/errors';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import {
   BOOKING_EMAIL_TEMPLATE_VARIABLE_TOKENS,
@@ -16,7 +17,13 @@ import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getRestaurantEmailTemplateVenue } from '@/server/restaurants/emailTemplates';
 import { validateCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
-import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
+import {
+  MembershipAccessError,
+  requireAdminMembership,
+  requireMembershipForRestaurant,
+} from '@/server/team/access';
+
+import { templateRouteFailure } from './_errors';
 
 import type { RestaurantEmailTemplateDTO, RestaurantEmailTemplateGroupDTO } from '../../schema';
 import type { VenueDetails } from '@/lib/venue';
@@ -51,13 +58,12 @@ export async function resolveTemplateKeyParam(
   return null;
 }
 
-export async function ensureTemplateReadAccess(restaurantId: string): Promise<
-  | {
-      venue: VenueDetails;
-      canEdit: boolean;
-    }
-  | NextResponse
-> {
+type AuthenticatedRouteClient = {
+  supabase: Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>;
+  userId: string;
+};
+
+async function resolveAuthenticatedUser(): Promise<AuthenticatedRouteClient | NextResponse> {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
     data: { user },
@@ -66,31 +72,63 @@ export async function ensureTemplateReadAccess(restaurantId: string): Promise<
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return mapped.status === 401
+      ? unauthenticated()
+      : templateRouteFailure(authError, { operation: 'access', stage: 'auth' });
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
+  return { supabase, userId: user.id };
+}
+
+function isMembershipDenied(error: unknown): boolean {
+  return error instanceof MembershipAccessError && error.status === 403;
+}
+
+async function loadVenue(restaurantId: string): Promise<VenueDetails | NextResponse> {
+  try {
+    return await getRestaurantEmailTemplateVenue(restaurantId);
+  } catch (error) {
+    return templateRouteFailure(error, { operation: 'access', stage: 'venue', restaurantId });
+  }
+}
+
+export async function ensureTemplateReadAccess(restaurantId: string): Promise<
+  | {
+      venue: VenueDetails;
+      canEdit: boolean;
+    }
+  | NextResponse
+> {
+  const auth = await resolveAuthenticatedUser();
+  if (auth instanceof NextResponse) {
+    return auth;
+  }
+
+  let role: string;
   try {
     const membership = await requireMembershipForRestaurant({
-      userId: user.id,
+      userId: auth.userId,
       restaurantId,
-      client: supabase,
+      client: auth.supabase,
     });
-    const venue = await getRestaurantEmailTemplateVenue(restaurantId);
-    return {
-      venue,
-      canEdit: isRestaurantAdminRole(membership.role),
-    };
+    role = membership.role;
   } catch (error) {
-    console.error('[ops][restaurants][email-templates] membership guard failed', error);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (isMembershipDenied(error)) {
+      return forbidden();
+    }
+    return templateRouteFailure(error, { operation: 'access', stage: 'membership', restaurantId });
   }
+
+  const venue = await loadVenue(restaurantId);
+  if (venue instanceof NextResponse) {
+    return venue;
+  }
+
+  return { venue, canEdit: isRestaurantAdminRole(role) };
 }
 
 export async function ensureTemplateWriteAccess(
@@ -104,38 +142,28 @@ export async function ensureTemplateWriteAccess(
     }
   }
 
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  const auth = await resolveAuthenticatedUser();
+  if (auth instanceof NextResponse) {
+    return auth;
   }
 
   try {
     await requireAdminMembership({
-      userId: user.id,
+      userId: auth.userId,
       restaurantId,
-      client: supabase,
+      client: auth.supabase,
     });
-    return getRestaurantEmailTemplateVenue(restaurantId);
   } catch (error) {
-    console.error('[ops][restaurants][email-templates] admin guard failed', error);
-    return NextResponse.json(
-      { error: 'Forbidden: Owner or manager role required' },
-      { status: 403 },
-    );
+    if (isMembershipDenied(error)) {
+      return forbidden(
+        'ADMIN_ROLE_REQUIRED',
+        'Only owners and managers can change email templates.',
+      );
+    }
+    return templateRouteFailure(error, { operation: 'access', stage: 'membership', restaurantId });
   }
+
+  return loadVenue(restaurantId);
 }
 
 export function buildTemplateDto(

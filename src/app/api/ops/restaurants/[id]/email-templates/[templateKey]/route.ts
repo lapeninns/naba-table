@@ -5,13 +5,14 @@ import {
   updateRestaurantEmailTemplateSchema,
   type RestaurantEmailTemplateResponse,
 } from '@/app/api/ops/restaurants/schema';
-import { logger } from '@/lib/logger';
+import { apiError, validationError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   resetRestaurantEmailTemplate,
   upsertRestaurantEmailTemplate,
 } from '@/server/restaurants/emailTemplates';
 
+import { templateRouteFailure, unknownTemplateKey } from '../_errors';
 import {
   buildTemplateDto,
   ensureTemplateWriteAccess,
@@ -25,14 +26,14 @@ import type { NextRequest } from 'next/server';
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Missing restaurant id.');
   }
 
   const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
     await resolveTemplateKeyParam(params),
   );
   if (!parsedTemplateKey.success) {
-    return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
+    return unknownTemplateKey();
   }
 
   const venueOrResponse = await ensureTemplateWriteAccess(restaurantId, req);
@@ -44,15 +45,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Invalid JSON body.');
   }
 
   const parsedBody = updateRestaurantEmailTemplateSchema.safeParse(body);
   if (!parsedBody.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsedBody.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsedBody.error);
   }
 
   try {
@@ -70,18 +68,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    logger.error('ops.restaurants.email-templates.patch failed', {
-      route: 'ops.restaurants.email-templates',
-      restaurantId,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-    });
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-email-templates' },
     });
-    return NextResponse.json(
-      { error: 'Unable to save template.', code: 'INTERNAL_ERROR' },
-      { status: 500 },
+    return templateRouteFailure(
+      error,
+      { operation: 'patch', restaurantId },
+      "The template couldn't be saved. Try again.",
     );
   }
 }
@@ -89,14 +83,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'INVALID_REQUEST', 'Missing restaurant id.');
   }
 
   const parsedTemplateKey = restaurantEmailTemplateKeySchema.safeParse(
     await resolveTemplateKeyParam(params),
   );
   if (!parsedTemplateKey.success) {
-    return NextResponse.json({ error: 'Unknown template key' }, { status: 400 });
+    return unknownTemplateKey();
   }
 
   const venueOrResponse = await ensureTemplateWriteAccess(restaurantId, _req);
@@ -114,18 +108,14 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json(response);
   } catch (error) {
-    logger.error('ops.restaurants.email-templates.delete failed', {
-      route: 'ops.restaurants.email-templates',
-      restaurantId,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-    });
     captureServerException(error, {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-email-templates' },
     });
-    return NextResponse.json(
-      { error: 'Unable to reset template.', code: 'INTERNAL_ERROR' },
-      { status: 500 },
+    return templateRouteFailure(
+      error,
+      { operation: 'delete', restaurantId },
+      "The template couldn't be reset. Try again.",
     );
   }
 }
