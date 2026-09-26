@@ -6,6 +6,11 @@ import React, { useMemo } from 'react';
 import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
 
 import { useWizardActions, useWizardState } from '../../context/WizardContext';
+import {
+  buildFindBookingPath,
+  FIND_BOOKING_LINK_LABEL,
+  TIMEOUT_EMAIL_GUIDANCE_ALERT,
+} from '../../model/timeoutGuidance';
 import { StepErrorBoundary } from '../ErrorBoundary';
 import { WizardStep } from '../WizardStep';
 import { PlanStepForm } from './plan-step/PlanStepForm';
@@ -106,7 +111,26 @@ export function PlanStep({
             <AlertIcon>
               <AlertTriangle className="size-4" aria-hidden />
             </AlertIcon>
-            <AlertDescription aria-live="polite">{alertMessage}</AlertDescription>
+            <AlertDescription aria-live="polite">
+              {alertMessage === TIMEOUT_EMAIL_GUIDANCE_ALERT ? (
+                <>
+                  <p>If you received a confirmation email you are all set.</p>
+                  <p>
+                    No email?{' '}
+                    {/* Plain anchor: the standalone reserve app has no Next.js router. */}
+                    <a
+                      className="font-medium underline underline-offset-4"
+                      href={buildFindBookingPath(state.details.restaurantSlug)}
+                    >
+                      {FIND_BOOKING_LINK_LABEL}
+                    </a>
+                    , or retry now.
+                  </p>
+                </>
+              ) : (
+                alertMessage
+              )}
+            </AlertDescription>
           </Alert>
         )}
 

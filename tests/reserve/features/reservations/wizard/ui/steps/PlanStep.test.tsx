@@ -3,11 +3,12 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WizardProvider } from '@features/reservations/wizard/context/WizardContext';
+import { getTimeoutContactGuidance } from '@features/reservations/wizard/hooks/useReservationWizard';
 import { getInitialState, type State } from '@features/reservations/wizard/model/reducer';
 import { PlanStep } from '@features/reservations/wizard/ui/steps/PlanStep';
 
-import type { PlanStepFormProps } from '@features/reservations/wizard/ui/steps/plan-step/types';
 import type { WizardActions } from '@features/reservations/wizard/model/store';
+import type { PlanStepFormProps } from '@features/reservations/wizard/ui/steps/plan-step/types';
 
 // PlanStepForm has its own suite (react-query + schedule fetching); PlanStep's
 // job is the timezone-aware minimum date, the alert channel, and the shell.
@@ -124,5 +125,27 @@ describe('PlanStep', () => {
   it('renders no alert when the state is clean @contract', () => {
     renderPlanStep(makeState());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+describe('PlanStep timeout guidance', () => {
+  it('renders the find-booking guidance as a real link scoped to the venue', () => {
+    const guidance = getTimeoutContactGuidance({ email: 'guest@example.com' });
+    expect(guidance.alert).not.toContain('/bookings/find');
+
+    renderPlanStep(makeState(), { planAlert: guidance.alert });
+
+    expect(screen.getByRole('link', { name: 'Request your booking link' })).toHaveAttribute(
+      'href',
+      '/bookings/find?restaurant=the-old-crown',
+    );
+  });
+
+  it('keeps plain alerts as text', () => {
+    renderPlanStep(makeState(), { planAlert: 'Draft expired—let’s refresh availability.' });
+    expect(screen.getByText('Draft expired—let’s refresh availability.')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Request your booking link' }),
+    ).not.toBeInTheDocument();
   });
 });
