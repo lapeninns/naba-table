@@ -114,9 +114,9 @@ export default defineConfig({
         rootDir,
         'src/hooks/ops/useOpsBookingsLifecycleHandlers.ts',
       ),
-      '@/hooks/ops/useOpsEmailTemplatesPageState': path.resolve(
+      '@/hooks/ops/useOpsEmailTemplatesEditor': path.resolve(
         rootDir,
-        'src/hooks/ops/useOpsEmailTemplatesPageState.ts',
+        'src/hooks/ops/useOpsEmailTemplatesEditor.ts',
       ),
       // Transitive imports of the four hooks above (they also only exist in src/).
       '@/hooks/ops/useOpsBooking': path.resolve(rootDir, 'src/hooks/ops/useOpsBooking.ts'),

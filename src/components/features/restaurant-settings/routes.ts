@@ -271,4 +271,6 @@ export const RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS = {
   'staff-communications': 'restaurant-staff-communications',
   // Registered by the floor plan controller while layout drafts are unsaved.
   'table-layout': 'floor-plan-layout',
+  // Registered by useOpsEmailTemplatesEditor while any email has unsaved copy.
+  'email-templates': 'restaurant-email-templates',
 } as const satisfies Partial<Record<RestaurantSettingsView, string>>;

@@ -18,7 +18,7 @@ export function OpsEmailTemplatesDevHarness() {
     <OpsDevProviders factories={factories} initialRestaurantId={DEV_RESTAURANT_ID}>
       <GbpDriftProvider>
         <RestaurantSettingsFocusedShell title="Email templates" workspace>
-          <OpsEmailTemplatesClient embedded />
+          <OpsEmailTemplatesClient />
         </RestaurantSettingsFocusedShell>
       </GbpDriftProvider>
     </OpsDevProviders>

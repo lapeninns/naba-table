@@ -202,7 +202,7 @@ export function OpsRestaurantSettingsClient({
       <StaffCommunicationsSection restaurantId={restaurantId} />
     ),
     'table-layout': () => <FloorLayoutWorkspace />,
-    'email-templates': () => <OpsEmailTemplatesClient embedded />,
+    'email-templates': () => <OpsEmailTemplatesClient />,
   };
 
   const workspace = RESTAURANT_SETTINGS_ROUTE_MAP[view].layout === 'workspace';
