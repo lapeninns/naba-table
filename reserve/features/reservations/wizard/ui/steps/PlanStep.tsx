@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 import { Alert, AlertDescription, AlertIcon } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 import { useWizardActions, useWizardState } from '../../context/WizardContext';
 import {
@@ -117,13 +118,16 @@ export function PlanStep({
                   <p>If you received a confirmation email you are all set.</p>
                   <p>
                     No email?{' '}
-                    {/* Plain anchor: the standalone reserve app has no Next.js router. */}
-                    <a
-                      className="font-medium underline underline-offset-4"
-                      href={buildFindBookingPath(state.details.restaurantSlug)}
+                    {/* Plain anchor (no next/link): the standalone reserve app has no Next.js router. */}
+                    <Button
+                      asChild
+                      variant="link"
+                      className="h-auto p-0 align-baseline font-medium text-inherit underline underline-offset-4"
                     >
-                      {FIND_BOOKING_LINK_LABEL}
-                    </a>
+                      <a href={buildFindBookingPath(state.details.restaurantSlug)}>
+                        {FIND_BOOKING_LINK_LABEL}
+                      </a>
+                    </Button>
                     , or retry now.
                   </p>
                 </>
