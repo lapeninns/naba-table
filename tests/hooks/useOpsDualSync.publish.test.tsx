@@ -107,6 +107,8 @@ describe('useOpsDualSync publish', () => {
       expect.arrayContaining([
         key(queryKeys.opsRestaurants.detail(restaurantId)),
         key(queryKeys.opsRestaurants.businessContext(restaurantId)),
+        // The restaurant switcher and shell show the profile name from the list cache.
+        key(queryKeys.opsRestaurants.list()),
       ]),
     );
     expect(invalidated()).not.toContain(key(queryKeys.opsRestaurants.hours(restaurantId)));
@@ -144,6 +146,27 @@ describe('useOpsDualSync publish', () => {
 
     await act(async () => {
       await result.current.a.publishMutation.mutateAsync({
+        decisions: [decision('profile.name', 'profile')],
+      });
+    });
+
+    expect(invalidated()).not.toContain(
+      key(queryKeys.opsRestaurants.businessContext(restaurantId)),
+    );
+  });
+
+  it('@contract treats a failed stored operation as a failure even when failures is empty (replay)', async () => {
+    const replay = {
+      ...summary(),
+      failedCount: 1,
+      operations: [{ fieldKey: 'profile.name', status: 'failed' }],
+    } as unknown as DualSyncPublishResponse;
+    vi.mocked(publishDualSyncDecisions).mockResolvedValue(replay);
+    const { result, invalidated } = setup();
+
+    await act(async () => {
+      await result.current.a.publishMutation.mutateAsync({
+        clientRequestId: 'intent-1',
         decisions: [decision('profile.name', 'profile')],
       });
     });

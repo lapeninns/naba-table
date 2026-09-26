@@ -1,4 +1,5 @@
 import { compareCanonical, isGbpComparableSection } from '@/lib/dual-sync/compare-field';
+import { publishFailedFieldKeys } from '@/lib/dual-sync/publish-outcome';
 
 import { GBP_DRIFT_SECTION_ORDER } from './sectionLabels';
 import { fieldNeedsOperatorChoice } from '../dual-sync/workspace-progress';
@@ -159,7 +160,7 @@ export function summarizeGbpDriftImport(
   request: DualSyncPublishRequest,
   response: DualSyncPublishResponse,
 ): GbpDriftImportOutcome {
-  const failed = new Set(response.failures.map((failure) => failure.fieldKey));
+  const failed = publishFailedFieldKeys(response);
   const requested = request.decisions.map((decision) => decision.fieldKey);
   const failedFieldKeys = requested.filter((fieldKey) => failed.has(fieldKey));
   const succeededFieldKeys = requested.filter((fieldKey) => !failed.has(fieldKey));

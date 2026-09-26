@@ -10,6 +10,7 @@
 
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { publishFailedFieldKeys } from '@/lib/dual-sync/publish-outcome';
 import {
   getDualSyncMetrics,
   getDualSyncPublishJobDetail,
@@ -210,7 +211,7 @@ export function useOpsDualSync({
         invalidateOpsIntegrationQueries(queryClient, restaurantId);
       }
       // Imports write Nabatable data. On failure the outcome is unknown, so refresh every target.
-      const failed = new Set(response?.failures.map((failure) => failure.fieldKey) ?? []);
+      const failed = publishFailedFieldKeys(response);
       invalidateNabatableImportTargets(queryClient, restaurantId, request.decisions, failed);
     },
   });

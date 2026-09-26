@@ -200,4 +200,35 @@ describe('GbpDriftProvider import outcome', () => {
     });
     expect(sentRequest(2).clientRequestId).not.toBe(firstId);
   });
+
+  it('@contract a replayed retry whose stored operation failed is a warning, not success', async () => {
+    // The first attempt threw after the server started the batch; the retry reuses the id and
+    // the server replays the stored batch. Only operations[].status carries the real result.
+    mutateAsync.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    mutateAsync.mockResolvedValueOnce({
+      ...response([]),
+      succeededCount: 1,
+      failedCount: 1,
+      operations: [
+        { fieldKey: 'profile.name', status: 'succeeded' },
+        { fieldKey: 'profile.businessDescription', status: 'failed' },
+      ],
+    } as unknown as DualSyncPublishResponse);
+    renderProvider();
+
+    await act(async () => {
+      await drift.applyAllFromGoogle();
+    });
+    await act(async () => {
+      await drift.applyAllFromGoogle();
+    });
+
+    expect(sentRequest(1).clientRequestId).toBe(sentRequest(0).clientRequestId);
+    expect(toastMock.success).not.toHaveBeenCalled();
+    expect(toastMock.warning).toHaveBeenCalledWith(
+      'Imported 1 of 2 Google fields. Not imported: Description.',
+    );
+    expect(drift.fieldViewByKey.get('profile.name')?.hasDraftOverride).toBe(false);
+    expect(drift.fieldViewByKey.get('profile.businessDescription')?.hasDraftOverride).toBe(true);
+  });
 });

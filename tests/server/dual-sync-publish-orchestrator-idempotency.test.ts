@@ -133,7 +133,10 @@ describe('resolveClientRequestReplay', () => {
   });
 
   it('returns the existing operations summary when the decision hash matches', async () => {
-    const operations = [operation()];
+    const operations = [
+      operation(),
+      operation({ id: 'op-2', fieldKey: 'operatingHours.weekly.1', sectionKey: 'operatingHours' }),
+    ];
     findPublishBatchByClientRequestMock.mockResolvedValue({
       id: 'batch-1',
       decisionHash: 'decision-hash',
@@ -150,11 +153,93 @@ describe('resolveClientRequestReplay', () => {
       publishJobId: 'batch-1',
       restaurantId: 'rest-1',
       totalDecisions: 2,
-      succeededCount: 1,
+      succeededCount: 2,
       failedCount: 0,
       skippedCount: 0,
       operations,
       failures: [],
     });
+  });
+
+  it('rebuilds failures from stored operations so a replay never reports plain success', async () => {
+    findPublishBatchByClientRequestMock.mockResolvedValue({
+      id: 'batch-1',
+      decisionHash: 'decision-hash',
+    });
+    listOperationsForJobMock.mockResolvedValue([
+      operation(),
+      operation({
+        id: 'op-2',
+        fieldKey: 'operatingHours.weekly.1',
+        sectionKey: 'operatingHours',
+        status: 'failed',
+        errorCode: 'QUOTA_LIMITED',
+        errorMessage: 'provider said no',
+      }),
+    ]);
+
+    const result = await resolveClientRequestReplay(input());
+
+    expect(result?.failedCount).toBe(1);
+    expect(result?.failures).toEqual([
+      {
+        fieldKey: 'operatingHours.weekly.1',
+        failure: {
+          code: 'QUOTA_LIMITED',
+          message: 'Publish operation failed.',
+          retryable: true,
+        },
+      },
+    ]);
+  });
+
+  it('maps unknown stored error codes, in-flight operations and missing operations to failures', async () => {
+    findPublishBatchByClientRequestMock.mockResolvedValue({
+      id: 'batch-1',
+      decisionHash: 'decision-hash',
+    });
+    listOperationsForJobMock.mockResolvedValue([
+      operation({ status: 'failed', errorCode: 'SOMETHING_NEW' }),
+      operation({
+        id: 'op-2',
+        fieldKey: 'operatingHours.weekly.1',
+        sectionKey: 'operatingHours',
+        status: 'running',
+      }),
+    ]);
+
+    const result = await resolveClientRequestReplay(
+      input({
+        decisions: [
+          decision(),
+          decision({ fieldKey: 'operatingHours.weekly.1', sectionKey: 'operatingHours' }),
+          decision({ fieldKey: 'profile.name' }),
+          decision({ fieldKey: 'profile.phone', action: 'ignore' }),
+        ],
+      }),
+    );
+
+    expect(result?.failures).toEqual([
+      {
+        fieldKey: 'profile.businessDescription',
+        failure: { code: 'UNKNOWN', message: 'Publish operation failed.', retryable: false },
+      },
+      {
+        fieldKey: 'operatingHours.weekly.1',
+        failure: {
+          code: 'UNKNOWN',
+          message: 'Publish operation is still in progress.',
+          retryable: true,
+        },
+      },
+      {
+        fieldKey: 'profile.name',
+        failure: {
+          code: 'UNKNOWN',
+          message: 'Publish outcome is not available for this field.',
+          retryable: true,
+        },
+      },
+    ]);
   });
 });

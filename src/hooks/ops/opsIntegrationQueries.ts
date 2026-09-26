@@ -94,9 +94,11 @@ type ImportDecisionLike = {
 function nabatableKeysForImportSection(restaurantId: string, sectionKey: DualSyncSectionKey) {
   switch (sectionKey) {
     case 'profile':
+      // A profile.name import changes the name shown by the restaurant list (switcher, shell).
       return [
         queryKeys.opsRestaurants.detail(restaurantId),
         queryKeys.opsRestaurants.businessContext(restaurantId),
+        queryKeys.opsRestaurants.list(),
       ];
     case 'operatingHours':
       return [queryKeys.opsRestaurants.hours(restaurantId)];
