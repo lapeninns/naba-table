@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
-import { isManageLinkEligibleBooking } from '@/server/bookings/manage-link-eligibility';
 import {
   isEmailRecipientSuppressedError,
   isResendRejectedMessageError,
   isResendSendError,
 } from '@/libs/resend';
+import { isManageLinkEligibleBooking } from '@/server/bookings/manage-link-eligibility';
 import {
   isBookingEmailSkippedError,
   sendBookingCancellationEmail,
