@@ -15,6 +15,14 @@ import type { QueryClient } from '@tanstack/react-query';
 
 export const BOOKING_WRITE_ECHO_WINDOW_MS = 5_000;
 
+/**
+ * A realtime DELETE carries only the deleted row's primary key in `old` (no REPLICA IDENTITY
+ * FULL), so an allocation, assignment or hold DELETE cannot be tied to a booking. Such an event
+ * is treated as this client's echo only while one of its booking writes is in flight, or within
+ * this shorter window after one was applied.
+ */
+export const ID_LESS_DELETE_ECHO_WINDOW_MS = 2_000;
+
 type RecentBookingWrite = {
   at: number;
   status: string | null;
@@ -88,6 +96,29 @@ function stringField(row: RealtimeRow, key: string): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+function isDeleteEvent(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  return (payload as Record<string, unknown>).eventType === 'DELETE';
+}
+
+/** True while any booking write from this client is pending. */
+function isAnyBookingWriteInFlight(queryClient: QueryClient): boolean {
+  return (
+    queryClient.isMutating({
+      predicate: (mutation) => bookingIdFromVariables(mutation.state.variables) !== null,
+    }) > 0
+  );
+}
+
+function hasRecentBookingWrite(queryClient: QueryClient, now: number, windowMs: number): boolean {
+  const registry = registries.get(queryClient);
+  if (!registry) return false;
+  for (const entry of registry.values()) {
+    if (now - entry.at <= windowMs) return true;
+  }
+  return false;
+}
+
 /** The booking a realtime payload is about: `id` on `bookings`, `booking_id` elsewhere. */
 export function bookingIdFromRealtimePayload(table: string, payload: unknown): string | null {
   const key = table === 'bookings' ? 'id' : 'booking_id';
@@ -104,7 +135,12 @@ export function bookingIdFromRealtimePayload(table: string, payload: unknown): s
  * - Other tables (assignments, allocations, history) carry no version to compare, so any event
  *   for the booking inside the window is treated as the echo.
  *
- * Events that cannot be tied to a booking return false.
+ * - A DELETE on another table whose `old` row has no `booking_id` (only the primary key is
+ *   replicated) matches while any own booking write is in flight or within
+ *   ID_LESS_DELETE_ECHO_WINDOW_MS of one. Trade-off: another user's delete in that short window
+ *   is skipped too; the poll and the next write's refetch pick it up.
+ *
+ * Other events that cannot be tied to a booking return false.
  */
 export function isOwnBookingWriteEcho(
   queryClient: QueryClient,
@@ -113,7 +149,15 @@ export function isOwnBookingWriteEcho(
   now: number = Date.now(),
 ): boolean {
   const bookingId = bookingIdFromRealtimePayload(table, payload);
-  if (!bookingId) return false;
+  if (!bookingId) {
+    // An id-less DELETE on a child table (allocations, assignments, holds): match it to this
+    // client's writes by time, since the row no longer says which booking it belonged to.
+    if (table === 'bookings' || !isDeleteEvent(payload)) return false;
+    return (
+      isAnyBookingWriteInFlight(queryClient) ||
+      hasRecentBookingWrite(queryClient, now, ID_LESS_DELETE_ECHO_WINDOW_MS)
+    );
+  }
   if (isBookingWriteInFlight(queryClient, bookingId)) return true;
 
   const recent = registries.get(queryClient)?.get(bookingId);

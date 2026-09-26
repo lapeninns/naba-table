@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsBookingEmailDeliveryLog } from '@/hooks/ops/useOpsBookingEmailDeliveryLog';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { cn } from '@/lib/utils';
 import { groupEmailDeliveryEvents } from '@/src/lib/email-delivery/grouping';
 import {
@@ -201,7 +202,9 @@ export function EmailDeliveryPanel({
       >
         <DeliveryStateBody
           title="Unexpected delivery error"
-          description={query.error.message}
+          description={toUserMessage(query.error, {
+            fallback: "Couldn't load email delivery. Try again.",
+          })}
           tone="danger"
         />
       </PanelShell>,

@@ -9,6 +9,7 @@ import { OpsBookingCard } from '@/components/features/dashboard/cards/OpsBooking
 import { OpsBookingCardSkeleton } from '@/components/features/dashboard/cards/OpsBookingCardSkeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { toUserMessage } from '@/lib/http/userMessage';
 
 import { BookingsHeader } from './BookingsHeader';
 import { EmptyState, type EmptyStateProps } from './EmptyState';
@@ -327,7 +328,7 @@ export function BookingsTable({
         <Alert variant="destructive" role="alert">
           <AlertTitle>Unable to load bookings</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
-            <span>{error.message}</span>
+            <span>{toUserMessage(error, { fallback: "Couldn't load bookings. Try again." })}</span>
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
               Retry
             </Button>

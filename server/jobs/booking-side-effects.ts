@@ -1061,9 +1061,17 @@ async function processBookingCancelledSideEffects(
     try {
       await cancelEmailIntents({
         bookingId: cancelled.id,
-        // 'updated' and 'request_received' are modification emails still queued for
-        // the cron drain; they must not reach a guest after a cancellation.
-        types: ['reminder_24h', 'reminder_short', 'review_request', 'updated', 'request_received'],
+        // 'updated', 'modification_pending' and (from the previous release)
+        // 'request_received' are modification emails still queued for the cron drain;
+        // they must not reach a guest after a cancellation.
+        types: [
+          'reminder_24h',
+          'reminder_short',
+          'review_request',
+          'updated',
+          'request_received',
+          'modification_pending',
+        ],
       });
     } catch (error) {
       console.warn('[jobs][booking.cancelled] failed to cancel pending email intents', {

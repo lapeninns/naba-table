@@ -6,7 +6,7 @@ import { logger } from '@/lib/logger';
 import { CancellableAutoAssign } from '@/server/booking/auto-assign/cancellable-auto-assign';
 import { BookingValidationError } from '@/server/booking/BookingValidationService';
 import {
-  updateBookingAndClearAssignmentsAtomically,
+  modifyPendingBookingAndClearAssignments,
   type BookingRecord,
   type UpdateBookingPayload,
 } from '@/server/bookings';
@@ -232,11 +232,12 @@ const RETRYABLE_SWAP_CODES = new Set([
 ]);
 
 /**
- * The swap RPC is missing from the database: the app was released before
- * 20260927160100_modify_booking_with_table_swap.sql was applied (PostgREST
+ * A modification RPC is missing from the database: the app was released before
+ * 20260927160100_modify_booking_with_table_swap.sql or
+ * 20260927200000_guarded_pending_booking_modification.sql was applied (PostgREST
  * PGRST202, Postgres 42883). Refuse with a 409 instead of a 500; nothing changed.
  */
-const MISSING_SWAP_RPC_CODES = new Set(['PGRST202', '42883']);
+const MISSING_MODIFICATION_RPC_CODES = new Set(['PGRST202', '42883']);
 
 function sqlStateOf(error: unknown): string | null {
   if (error && typeof error === 'object' && 'code' in error) {
@@ -263,9 +264,15 @@ async function releaseHoldQuietly(client: DbClient, holdId: string, bookingId: s
 // Durable follow-up work
 // ---------------------------------------------------------------------------
 
+/**
+ * Modification emails that supersede each other. 'request_received' stays for the
+ * transition: intents queued by the previous release under that type are still
+ * withdrawn by a newer modification.
+ */
 const MODIFICATION_EMAIL_TYPES = [
   'updated',
   'request_received',
+  'modification_pending',
 ] as const satisfies readonly EmailJobType[];
 
 /**
@@ -289,7 +296,7 @@ function committedChangeDigest(booking: BookingRecord): string {
 async function queueModificationEmail(params: {
   client: DbClient;
   booking: BookingRecord;
-  type: Extract<EmailJobType, 'updated' | 'request_received'>;
+  type: Extract<EmailJobType, 'updated' | 'modification_pending'>;
   discriminator: string;
 }): Promise<void> {
   const { booking } = params;
@@ -400,6 +407,8 @@ async function recordModificationEvent(
  *    was and BookingModificationConflictError (409) is thrown. A booking still
  *    awaiting allocation (pending / pending_allocation) has nothing to lose: the
  *    change is applied, it stays pending, and auto-assign runs after the response.
+ *    That write compares-and-sets the status read before the quote, so a booking
+ *    confirmed or cancelled meanwhile gets a 409 BOOKING_STATE_CONFLICT instead.
  *
  * Guest emails are queued (email_dispatch_intents), not sent inline. Callers keep
  * passing `skipEmail: true` to enqueueBookingUpdatedSideEffects for this flow.
@@ -465,7 +474,7 @@ export async function beginBookingModificationFlow(
       if (sqlState === 'P0004') {
         throw new BookingModificationConflictError('BOOKING_STATE_CONFLICT');
       }
-      if (sqlState && MISSING_SWAP_RPC_CODES.has(sqlState)) {
+      if (sqlState && MISSING_MODIFICATION_RPC_CODES.has(sqlState)) {
         logger.error('[booking.modification] table swap RPC unavailable', {
           bookingId,
           restaurantId,
@@ -518,13 +527,34 @@ export async function beginBookingModificationFlow(
     );
   }
 
-  // Awaiting allocation: no tables to protect. Apply the change and keep it pending.
-  const updated = await updateBookingAndClearAssignmentsAtomically(
-    client,
-    bookingId,
-    { ...patch, auto_assign_last_result: lastResult(false, quote.reason, false) },
-    { restaurantId },
-  );
+  // Awaiting allocation: no tables to protect. Apply the change and keep it pending,
+  // but only if the booking is still in the status read before the quote: a booking
+  // confirmed (or cancelled) meanwhile is refused unchanged (P0004), never cleared.
+  let updated: BookingRecord;
+  try {
+    updated = await modifyPendingBookingAndClearAssignments(
+      client,
+      bookingId,
+      { ...patch, auto_assign_last_result: lastResult(false, quote.reason, false) },
+      { restaurantId, expectedStatus: existingBooking.status },
+    );
+  } catch (error) {
+    const sqlState = sqlStateOf(error);
+    logger.warn('[booking.modification] pending-path update refused', {
+      bookingId,
+      restaurantId,
+      sqlState,
+    });
+    if (sqlState === 'P0004') {
+      throw new BookingModificationConflictError('BOOKING_STATE_CONFLICT');
+    }
+    if (sqlState && MISSING_MODIFICATION_RPC_CODES.has(sqlState)) {
+      throw new BookingModificationConflictError('MODIFICATION_UNAVAILABLE', {
+        reason: sqlState,
+      });
+    }
+    throw error;
+  }
   await recordModificationEvent('booking.modification.pending', {
     restaurantId,
     bookingId,
@@ -533,7 +563,7 @@ export async function beginBookingModificationFlow(
   await queueModificationEmail({
     client,
     booking: updated,
-    type: 'request_received',
+    type: 'modification_pending',
     discriminator: committedChangeDigest(updated),
   });
   scheduleAutoAssignAfterResponse(bookingId);

@@ -2,7 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HttpError } from '@/lib/http/errors';
-import { useOpsCancelBookingController } from '@src/hooks/ops/useOpsCancelBookingController';
+import {
+  shouldCloseCancelConfirmation,
+  useOpsCancelBookingController,
+} from '@src/hooks/ops/useOpsCancelBookingController';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -69,7 +72,11 @@ describe('useOpsCancelBookingController', () => {
     async (code) => {
       cancelHook.cancel.mockResolvedValue({
         status: 'failed',
-        error: new HttpError({ message: 'No', status: code === 'BOOKING_NOT_FOUND' ? 404 : 409, code }),
+        error: new HttpError({
+          message: 'No',
+          status: code === 'BOOKING_NOT_FOUND' ? 404 : 409,
+          code,
+        }),
       });
       const { result } = setup();
       act(() => result.current.request(booking));
@@ -117,5 +124,41 @@ describe('useOpsCancelBookingController', () => {
     });
 
     expect(cancelHook.cancel).not.toHaveBeenCalled();
+  });
+});
+
+describe('shouldCloseCancelConfirmation (booking-details cancel dialog)', () => {
+  it('@contract closes after success and after terminal failures, stays open when a retry can help', () => {
+    expect(
+      shouldCloseCancelConfirmation({ status: 'done', result: { id: 'b1', status: 'cancelled' } }),
+    ).toBe(true);
+    for (const code of [
+      'BOOKING_NOT_CANCELLABLE',
+      'BOOKING_NOT_FOUND',
+      'BOOKING_STATE_CONFLICT',
+      'CUTOFF_PASSED',
+    ]) {
+      expect(
+        shouldCloseCancelConfirmation({
+          status: 'failed',
+          error: new HttpError({ message: 'No', status: 409, code }),
+        }),
+      ).toBe(true);
+    }
+    expect(
+      shouldCloseCancelConfirmation({
+        status: 'failed',
+        error: new HttpError({ message: 'Down', status: 503, code: 'HTTP_503' }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldCloseCancelConfirmation({ status: 'failed', error: new TypeError('Failed to fetch') }),
+    ).toBe(false);
+    expect(
+      shouldCloseCancelConfirmation({
+        status: 'failed',
+        error: new HttpError({ message: 'Offline', status: 0, code: 'OFFLINE', retryable: true }),
+      }),
+    ).toBe(false);
   });
 });

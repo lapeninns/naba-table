@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { StaleBoundary } from '@/components/ui/stale-boundary';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { getSwrUiState } from '@/lib/query/swrUiState';
 import { opsHref } from '@/lib/url/opsHref';
 
@@ -202,7 +203,7 @@ export function OpsCustomersClient({
         <Alert variant="destructive" role="alert">
           <AlertTitle>Unable to load guests</AlertTitle>
           <AlertDescription className="flex items-center justify-between gap-4">
-            <span>{error.message}</span>
+            <span>{toUserMessage(error, { fallback: "Couldn't load guests. Try again." })}</span>
             <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
               Retry
             </Button>

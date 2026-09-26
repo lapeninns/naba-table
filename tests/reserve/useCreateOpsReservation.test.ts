@@ -3,6 +3,7 @@ import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQue
 import { describe, expect, it, vi } from 'vitest';
 
 import { fetchJson } from '@/lib/http/fetchJson';
+import { queryKeys } from '@/lib/query/keys';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import {
   buildOpsBookingPayload,
@@ -88,5 +89,49 @@ describe('useCreateOpsReservation', () => {
     const firstOptions = vi.mocked(fetchJson).mock.calls[0]?.[1];
     const secondOptions = vi.mocked(fetchJson).mock.calls[1]?.[1];
     expect(firstOptions?.headers).toEqual(secondOptions?.headers);
+  });
+});
+
+describe('useCreateOpsReservation cache invalidation', () => {
+  it('refreshes the status counts and heatmap for its restaurant and only its own schedule', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const restaurantId = '9b95a1f4-f6f7-40f1-a99c-41ecffdf9957';
+    const draft: ReservationDraft = {
+      restaurantId,
+      restaurantSlug: 'the-fox',
+      date: '2026-03-29',
+      time: '18:30',
+      party: 4,
+      bookingType: 'dinner',
+      notes: null,
+      name: 'Guest Booker',
+      email: null,
+      phone: null,
+      marketingOptIn: false,
+    };
+    const ownSchedule = [...queryKeys.reservations.schedulePrefix(), 'the-fox', '2026-03-29', 4];
+    const otherSchedule = [...queryKeys.reservations.schedulePrefix(), 'the-bell', '2026-03-29', 4];
+    const statusSummary = [...queryKeys.opsBookings.statusSummaryPrefix(restaurantId), 'x'];
+    const heatmap = [...queryKeys.opsDashboard.heatmapPrefix(restaurantId), 'x'];
+    for (const key of [ownSchedule, otherSchedule, statusSummary, heatmap]) {
+      queryClient.setQueryData(key, { seeded: true });
+    }
+
+    vi.mocked(fetchJson)
+      .mockReset()
+      .mockResolvedValueOnce({ booking: { id: 'b1' }, bookings: [] });
+    vi.mocked(reservationAdapter).mockReturnValue({ id: 'b1' } as never);
+    vi.mocked(reservationListAdapter).mockReturnValue([] as never);
+
+    const { result } = renderHook(() => useCreateOpsReservation(), { wrapper });
+    await result.current.mutateAsync({ draft });
+
+    const invalidated = (key: readonly unknown[]) =>
+      queryClient.getQueryState(key)?.isInvalidated ?? false;
+    expect(invalidated(ownSchedule)).toBe(true);
+    expect(invalidated(otherSchedule)).toBe(false);
+    expect(invalidated(statusSummary)).toBe(true);
+    expect(invalidated(heatmap)).toBe(true);
   });
 });

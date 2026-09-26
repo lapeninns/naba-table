@@ -2,7 +2,6 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
-
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { useOpsTableAssignmentActions } from '@src/hooks/ops/useOpsTableAssignments';
@@ -102,6 +101,30 @@ describe('useOpsTableAssignmentActions', () => {
     expect(keys).not.toContainEqual(queryKeys.opsBookings.all);
     expect(keys).not.toContainEqual(summaryKey());
     await waitFor(() => expect(result.current.pendingAction).toBeNull());
+  });
+
+  it('@contract refreshes the bookings-page status counts only when the assignment changed the status', async () => {
+    bookingService.assignTable.mockResolvedValue({ tableAssignments: [t1] });
+    const { result, queryClient } = setup();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    const statusSummaryCalls = () =>
+      invalidate.mock.calls.filter(
+        ([filters]) =>
+          JSON.stringify(filters?.queryKey) ===
+          JSON.stringify(queryKeys.opsBookings.statusSummaryPrefix(RESTAURANT_ID)),
+      ).length;
+
+    // pending -> confirmed: the Pending/Confirmed tab counts change.
+    await act(async () => {
+      await result.current.assign({ bookingId: 'b1', tableId: 't1', tableName: 'T1' });
+    });
+    expect(statusSummaryCalls()).toBe(1);
+
+    // confirmed stays confirmed: no count changes, no refetch.
+    await act(async () => {
+      await result.current.assign({ bookingId: 'b2', tableId: 't1', tableName: 'T1' });
+    });
+    expect(statusSummaryCalls()).toBe(1);
   });
 
   it('@contract generates one idempotency key per intent when the caller does not pass one', async () => {

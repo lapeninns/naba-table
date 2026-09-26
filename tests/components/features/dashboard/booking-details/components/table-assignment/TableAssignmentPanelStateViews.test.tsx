@@ -15,13 +15,14 @@ describe('TableAssignmentPanelStateViews', () => {
     expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(4);
   });
 
-  it('@contract error state shows the Error message and wires retry', async () => {
+  it('@contract error state shows safe copy and wires retry', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
     render(<TableAssignmentErrorState error={new Error('Tables API down')} onRetry={onRetry} />);
 
     expect(screen.getByText('Unable to load tables')).toBeInTheDocument();
-    expect(screen.getByText('Tables API down')).toBeInTheDocument();
+    expect(screen.queryByText('Tables API down')).toBeNull();
+    expect(screen.getByText('Failed to load tables.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /Retry/ }));
     expect(onRetry).toHaveBeenCalledTimes(1);

@@ -703,7 +703,22 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  return withCsrfProtectedMutation(req, () => postOpsBooking(req));
+  return withCsrfProtectedMutation(req, async () => {
+    try {
+      return await postOpsBooking(req);
+    } catch (error) {
+      // Last resort: every committed path answers on its own, so anything that reaches here
+      // failed before a booking was written. Answer with a C1 body, never a raw throw.
+      captureServerException(error, {
+        properties: { source: 'ops', kind: 'ops-bookings' },
+      });
+      return internalError(error, { route: OPS_BOOKINGS_ROUTE, method: 'POST' });
+    }
+  });
+}
+
+function errorNameOf(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
 }
 
 async function postOpsBooking(req: NextRequest) {
@@ -834,18 +849,55 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
 
   const endTime = deriveEndTimeFromDuration(payload.time, durationMinutes);
 
+  // Post-commit steps are best effort: the booking already exists, so a failure here must
+  // never turn the response into a 500 (the client would retry or report a failed booking).
+  const persistConsentBestEffort = async (
+    booking: BookingRecord,
+    phase: 'create' | 'replay',
+  ): Promise<BookingRecord> => {
+    if (!payload.whatsappOptIn || booking.whatsapp_opt_in) {
+      return booking;
+    }
+    try {
+      return await persistBookingWhatsAppConsent({
+        actorId: user.id,
+        booking,
+        client: service,
+        optedIn: true,
+        restaurantId: payload.restaurantId,
+        source: 'ops_staff',
+      });
+    } catch (error) {
+      opsBookingsLogger.warn('ops.bookings.create.whatsapp_consent_failed', {
+        bookingId: booking.id,
+        restaurantId: payload.restaurantId,
+        phase,
+        errorName: errorNameOf(error),
+      });
+      return booking;
+    }
+  };
+
+  const fetchContactBookingsBestEffort = async (bookingId: string) => {
+    try {
+      return await fetchBookingsForContact(
+        service,
+        payload.restaurantId,
+        fallbackEmail,
+        fallbackPhone,
+      );
+    } catch (error) {
+      opsBookingsLogger.warn('ops.bookings.create.contact_bookings_failed', {
+        bookingId,
+        restaurantId: payload.restaurantId,
+        errorName: errorNameOf(error),
+      });
+      return [];
+    }
+  };
+
   const respondWithExistingBooking = async (existing: BookingRecord) => {
-    const recoveredBooking =
-      payload.whatsappOptIn && !existing.whatsapp_opt_in
-        ? await persistBookingWhatsAppConsent({
-            actorId: user.id,
-            booking: existing,
-            client: service,
-            optedIn: true,
-            restaurantId: payload.restaurantId,
-            source: 'ops_staff',
-          })
-        : existing;
+    const recoveredBooking = await persistConsentBestEffort(existing, 'replay');
     // Idempotent replay of a booking that committed earlier: its side effects may have failed
     // or never run (for example a crash after the commit). Re-ensure them; they are keyed per
     // booking and effect type, so nothing is sent twice, and the call never throws.
@@ -856,12 +908,7 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
       emailProvided,
       replay: true,
     });
-    const bookings = await fetchBookingsForContact(
-      service,
-      payload.restaurantId,
-      fallbackEmail,
-      fallbackPhone,
-    );
+    const bookings = await fetchContactBookingsBestEffort(recoveredBooking.id);
     return NextResponse.json(
       {
         booking: recoveredBooking,
@@ -979,29 +1026,17 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
     },
   };
 
+  let committed: { booking: BookingRecord; duplicate: boolean } | null = null;
   try {
     const commit = await validationService.createWithEnforcement(bookingInput, context);
     let booking = commit.booking as BookingRecord;
     const reusedExisting = commit.duplicate === true;
+    committed = { booking, duplicate: reusedExisting };
     const validationResponse = commit.response;
 
-    if (payload.whatsappOptIn && !booking.whatsapp_opt_in) {
-      booking = await persistBookingWhatsAppConsent({
-        actorId: user.id,
-        booking,
-        client: service,
-        optedIn: payload.whatsappOptIn,
-        restaurantId: payload.restaurantId,
-        source: 'ops_staff',
-      });
-    }
+    booking = await persistConsentBestEffort(booking, 'create');
 
-    const bookings = await fetchBookingsForContact(
-      service,
-      payload.restaurantId,
-      fallbackEmail,
-      fallbackPhone,
-    );
+    const bookings = await fetchContactBookingsBestEffort(booking.id);
 
     // Run auto-assign BEFORE sending emails (if enabled and not a duplicate)
     if (!reusedExisting && isAutoAssignOnBookingEnabled()) {
@@ -1066,13 +1101,21 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
         client_request_id: clientRequestId,
       };
 
-      await logAuditEvent(service, {
-        action: 'booking.override.applied',
-        entity: 'booking',
-        entityId: booking.id,
-        metadata: overrideAuditMetadata,
-        actor: user.email ?? user.id,
-      });
+      try {
+        await logAuditEvent(service, {
+          action: 'booking.override.applied',
+          entity: 'booking',
+          entityId: booking.id,
+          metadata: overrideAuditMetadata,
+          actor: user.email ?? user.id,
+        });
+      } catch (auditError) {
+        opsBookingsLogger.warn('ops.bookings.create.override_audit_failed', {
+          bookingId: booking.id,
+          restaurantId: payload.restaurantId,
+          errorName: errorNameOf(auditError),
+        });
+      }
 
       void recordObservabilityEvent({
         source: 'api.ops.bookings',
@@ -1161,6 +1204,26 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
       groups: { restaurant: payload.restaurantId },
       properties: { restaurantId: payload.restaurantId, source: 'ops', kind: 'ops-bookings' },
     });
+
+    if (committed) {
+      // The booking is already written: report it, never a 500 the client would retry.
+      opsBookingsLogger.warn('ops.bookings.create.post_commit_failed', {
+        bookingId: committed.booking.id,
+        restaurantId: payload.restaurantId,
+        errorName: errorNameOf(error),
+      });
+      return NextResponse.json(
+        {
+          booking: committed.booking,
+          bookings: [],
+          idempotencyKey: normalizedIdempotencyKey,
+          clientRequestId,
+          duplicate: committed.duplicate,
+        },
+        withValidationHeaders({ status: committed.duplicate ? 200 : 201 }),
+      );
+    }
+
     return internalError(error, {
       route: OPS_BOOKINGS_ROUTE,
       method: 'POST',

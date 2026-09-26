@@ -800,6 +800,7 @@ describe('processBookingCreatedSideEffects', () => {
         'review_request',
         'updated',
         'request_received',
+        'modification_pending',
       ]),
     });
   });

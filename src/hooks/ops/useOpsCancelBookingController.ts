@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 
 import { HttpError } from '@/lib/http/errors';
 
-import { useOpsCancelBooking } from './useOpsCancelBooking';
+import { useOpsCancelBooking, type CancelBookingOutcome } from './useOpsCancelBooking';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -16,9 +16,17 @@ const TERMINAL_CANCEL_CODES: ReadonlySet<string> = new Set([
   'CUTOFF_PASSED',
 ]);
 
-function isTerminalCancelError(error: unknown): boolean {
+export function isTerminalCancelError(error: unknown): boolean {
   if (!(error instanceof HttpError)) return false;
   return TERMINAL_CANCEL_CODES.has(error.code) || error.retryable === false;
+}
+
+/**
+ * Whether a cancel confirmation should close after this outcome: on success, and on failures a
+ * retry cannot fix. Shared by the dashboard/list flow and the booking-details dialog.
+ */
+export function shouldCloseCancelConfirmation(outcome: CancelBookingOutcome): boolean {
+  return outcome.status === 'done' || isTerminalCancelError(outcome.error);
 }
 
 type CancelTarget = Pick<BookingDTO, 'id' | 'customerName' | 'partySize'> & {
@@ -60,7 +68,7 @@ export function useOpsCancelBookingController<TBooking extends CancelTarget>(par
     const restaurantId = booking.restaurantId ?? fallbackRestaurantId;
     if (!restaurantId) return;
     const outcome = await cancel({ bookingId: booking.id, restaurantId });
-    if (outcome.status === 'done' || isTerminalCancelError(outcome.error)) {
+    if (shouldCloseCancelConfirmation(outcome)) {
       setBooking((current) => (current?.id === booking.id ? null : current));
     }
   }, [booking, cancel, fallbackRestaurantId]);

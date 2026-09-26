@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { PINNED_TIMEZONE } from '@tests/components/features/dashboard/__fixtures__/dashboardFixtures';
 import { describe, expect, it, vi } from 'vitest';
 
 const { useEmailLogMock } = vi.hoisted(() => ({
@@ -11,8 +12,6 @@ vi.mock('@/hooks/ops/useOpsBookingEmailDeliveryLog', () => ({
 }));
 
 import { EmailDeliveryPanel } from '@/components/features/dashboard/booking-details/components/EmailDeliveryPanel';
-
-import { PINNED_TIMEZONE } from '@tests/components/features/dashboard/__fixtures__/dashboardFixtures';
 
 import type { EmailDeliveryEventDTO } from '@/types/emailDelivery';
 
@@ -81,7 +80,8 @@ describe('EmailDeliveryPanel', () => {
     renderPanel();
 
     expect(screen.getByText('Unexpected delivery error')).toBeInTheDocument();
-    expect(screen.getByText('boom')).toBeInTheDocument();
+    expect(screen.queryByText('boom')).toBeNull();
+    expect(screen.getByText("Couldn't load email delivery. Try again.")).toBeInTheDocument();
   });
 
   it('@contract shows the empty state without recorded events', () => {

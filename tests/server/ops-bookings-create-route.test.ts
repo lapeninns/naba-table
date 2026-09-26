@@ -17,6 +17,12 @@ const recordObservabilityEventMock = vi.hoisted(() => vi.fn());
 const autoAssignEnabledMock = vi.hoisted(() => vi.fn(() => false));
 const retrySchedulerMock = vi.hoisted(() => vi.fn());
 const inlineAutoAssignMock = vi.hoisted(() => vi.fn());
+const persistBookingWhatsAppConsentMock = vi.hoisted(() => vi.fn());
+const logAuditEventMock = vi.hoisted(() => vi.fn());
+
+vi.mock('@/server/booking/whatsapp-consent', () => ({
+  persistBookingWhatsAppConsent: persistBookingWhatsAppConsentMock,
+}));
 
 vi.mock('@/server/bookings/auto-assign-domain', () => ({
   scheduleBookingCreateAutoAssignRetry: retrySchedulerMock,
@@ -74,7 +80,7 @@ vi.mock('@/server/bookings', () => ({
   fetchBookingsForContact: fetchBookingsForContactMock,
   inferMealTypeFromTime: vi.fn(() => 'dinner'),
   insertBookingRecord: insertBookingRecordMock,
-  logAuditEvent: vi.fn(),
+  logAuditEvent: logAuditEventMock,
 }));
 
 vi.mock('@/server/booking', () => ({
@@ -197,6 +203,15 @@ describe('POST /api/ops/bookings', () => {
     });
     recordObservabilityEventMock.mockResolvedValue(undefined);
     insertBookingRecordMock.mockReset();
+    persistBookingWhatsAppConsentMock.mockReset();
+    persistBookingWhatsAppConsentMock.mockImplementation(
+      async ({ booking }: { booking: Record<string, unknown> }) => ({
+        ...booking,
+        whatsapp_opt_in: true,
+      }),
+    );
+    logAuditEventMock.mockReset();
+    logAuditEventMock.mockResolvedValue(undefined);
   });
 
   it('schedules recovery for a confirmed walk-in when inline assignment times out', async () => {
@@ -582,6 +597,90 @@ describe('POST /api/ops/bookings', () => {
       expect(response.status).toBe(500);
       expect(body.code).toBe('INTERNAL_ERROR');
       expect(JSON.stringify(body)).not.toContain('constraint');
+    });
+  
+    describe('post-commit steps are best effort', () => {
+      const optInBody = { ...walkInBody, phone: '07123456789', whatsappOptIn: true };
+
+      it('still returns 201 and enqueues side effects when the consent write fails after commit', async () => {
+        persistBookingWhatsAppConsentMock.mockRejectedValueOnce(
+          new Error('update bookings failed: permission denied for table bookings'),
+        );
+
+        const response = await postWalkIn(optInBody);
+        const body = await response.json();
+
+        expect(response.status).toBe(201);
+        expect(body).toMatchObject({ booking: { id: 'booking-1' }, duplicate: false });
+        expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      });
+
+      it('still returns 201 with an empty contact list when the contact fetch fails after commit', async () => {
+        fetchBookingsForContactMock.mockRejectedValueOnce(new Error('relation timeout'));
+
+        const response = await postWalkIn();
+        const body = await response.json();
+
+        expect(response.status).toBe(201);
+        expect(body.bookings).toEqual([]);
+        expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      });
+
+      it('still returns 201 when the override audit insert fails after commit', async () => {
+        createWithEnforcementMock.mockResolvedValueOnce({
+          booking: makeBooking(),
+          response: { ok: true, overridden: true, overrideCodes: ['CAPACITY'] },
+          duplicate: false,
+        });
+        logAuditEventMock.mockRejectedValueOnce(new Error('insert into audit_logs failed'));
+
+        const response = await postWalkIn({
+          ...walkInBody,
+          override: { apply: true, reason: 'Manager approved' },
+        });
+
+        expect(response.status).toBe(201);
+        expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      });
+
+      it('answers a key replay with 200 when the consent write and contact fetch fail', async () => {
+        maybeSingleMock.mockResolvedValueOnce({
+          data: makeBooking({ idempotency_key: KEY, start_time: '19:30:00', whatsapp_opt_in: false }),
+          error: null,
+        });
+        persistBookingWhatsAppConsentMock.mockRejectedValueOnce(new Error('no row updated'));
+        fetchBookingsForContactMock.mockRejectedValueOnce(new Error('connection reset'));
+
+        const response = await postWalkIn(optInBody);
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body).toMatchObject({ duplicate: true, booking: { id: 'booking-1' }, bookings: [] });
+        expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+          expect.objectContaining({ replay: true }),
+        );
+      });
+
+      it('still returns 201 when an unexpected step throws after commit', async () => {
+        enqueueBookingCreatedSideEffectsMock.mockRejectedValueOnce(new Error('queue down'));
+
+        const response = await postWalkIn();
+        const body = await response.json();
+
+        expect(response.status).toBe(201);
+        expect(body).toMatchObject({ booking: { id: 'booking-1' }, duplicate: false });
+      });
+
+      it('returns a C1 500 (not an uncaught throw) when a pre-commit lookup fails', async () => {
+        maybeSingleMock.mockRejectedValueOnce(new Error('select failed: secret detail'));
+
+        const response = await postWalkIn();
+        const body = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(body.code).toBe('INTERNAL_ERROR');
+        expect(JSON.stringify(body)).not.toContain('secret detail');
+      });
     });
   });
 });

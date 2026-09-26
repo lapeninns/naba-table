@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-type MutationError = { code?: string; message: string; status?: number } | null;
+type MutationError = unknown;
 
 const guestMutation = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
@@ -22,6 +22,8 @@ vi.mock('@/components/features/booking-state-machine', () => ({
 }));
 
 import { EditBookingDialog } from '@/components/features/dashboard/bookings-table/EditBookingDialog';
+import { HttpError } from '@/lib/http/errors';
+import { DEFAULT_ERROR_COPY } from '@/lib/http/userMessage';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 
@@ -51,7 +53,7 @@ describe('EditBookingDialog: guest "Get a new link" CTA', () => {
   it.each(['ACCESS_TOKEN_EXPIRED', 'ACCESS_TOKEN_REVOKED', 'UNAUTHENTICATED'])(
     'guest mode offers /bookings/find with guest copy for %s',
     (code) => {
-      guestMutation.error = { code, message: 'raw server text', status: 401 };
+      guestMutation.error = new HttpError({ code, message: 'raw server text', status: 401 });
       render(<EditBookingDialog booking={booking} open onOpenChange={vi.fn()} />);
 
       expect(screen.getByText(/email you a new one/)).toBeInTheDocument();
@@ -61,18 +63,22 @@ describe('EditBookingDialog: guest "Get a new link" CTA', () => {
   );
 
   it('guest mode shows no CTA for ACCESS_TOKEN_NOT_CONFIGURED', () => {
-    guestMutation.error = {
+    guestMutation.error = new HttpError({
       code: 'ACCESS_TOKEN_NOT_CONFIGURED',
       message: 'Booking access is temporarily unavailable.',
       status: 503,
-    };
+    });
     render(<EditBookingDialog booking={booking} open onOpenChange={vi.fn()} />);
 
     expect(newLinkCta()).toBeNull();
   });
 
   it('ops mode keeps its own copy and never shows the guest CTA', () => {
-    opsMutation.error = { code: 'ACCESS_TOKEN_EXPIRED', message: 'Server message', status: 401 };
+    opsMutation.error = new HttpError({
+      code: 'ACCESS_TOKEN_EXPIRED',
+      message: 'Server message',
+      status: 401,
+    });
     const { unmount } = render(
       <EditBookingDialog booking={booking} mode="ops" open onOpenChange={vi.fn()} />,
     );
@@ -82,10 +88,47 @@ describe('EditBookingDialog: guest "Get a new link" CTA', () => {
     expect(newLinkCta()).toBeNull();
     unmount();
 
-    opsMutation.error = { code: 'UNAUTHENTICATED', message: 'Server message', status: 401 };
+    opsMutation.error = new HttpError({
+      code: 'UNAUTHENTICATED',
+      message: 'Server message',
+      status: 401,
+    });
     render(<EditBookingDialog booking={booking} mode="ops" open onOpenChange={vi.fn()} />);
 
     expect(screen.getByText('Please sign in again to continue.')).toBeInTheDocument();
     expect(newLinkCta()).toBeNull();
   });
+
+  it('ops mode never shows a raw 5xx or gateway message', () => {
+    opsMutation.error = new HttpError({
+      code: 'HTTP_502',
+      message: 'Request failed with status 502',
+      status: 502,
+      hasServerMessage: false,
+    });
+    render(<EditBookingDialog booking={booking} mode="ops" open onOpenChange={vi.fn()} />);
+
+    expect(screen.queryByText('Request failed with status 502')).toBeNull();
+    expect(screen.getByText(DEFAULT_ERROR_COPY.server)).toBeInTheDocument();
+  });
+
+  it.each([['ops'], ['guest']] as const)(
+    '%s mode shows network copy for a fetch failure instead of the raw TypeError',
+    (mode) => {
+      const failure = new TypeError('Failed to fetch');
+      if (mode === 'ops') opsMutation.error = failure;
+      else guestMutation.error = failure;
+      render(
+        <EditBookingDialog
+          booking={booking}
+          {...(mode === 'ops' ? { mode: 'ops' as const } : {})}
+          open
+          onOpenChange={vi.fn()}
+        />,
+      );
+
+      expect(screen.queryByText('Failed to fetch')).toBeNull();
+      expect(screen.getByText(DEFAULT_ERROR_COPY.network)).toBeInTheDocument();
+    },
+  );
 });

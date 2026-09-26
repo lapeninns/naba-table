@@ -168,6 +168,13 @@ export function useOpsTableAssignmentActions(params: {
             void queryClient.invalidateQueries({
               queryKey: queryKeys.opsTables.timelinePrefix(restaurantId),
             });
+            // Assigning a pending booking confirms it and removing its last table reopens it:
+            // the bookings-page status tabs count both.
+            if (status && status !== context?.previousStatus) {
+              void queryClient.invalidateQueries({
+                queryKey: queryKeys.opsBookings.statusSummaryPrefix(restaurantId),
+              });
+            }
           }
         },
         onError: (_error, vars, context) => {
