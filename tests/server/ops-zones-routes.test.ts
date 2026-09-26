@@ -1,8 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
-
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const listZonesMock = vi.hoisted(() => vi.fn());
 const createZoneMock = vi.hoisted(() => vi.fn());
@@ -25,8 +23,9 @@ vi.mock('@/server/security/events', () => ({
   recordSecurityEvent: vi.fn(),
 }));
 
-import { GET, POST } from '@/src/app/api/ops/zones/route';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { DELETE, PATCH } from '@/src/app/api/ops/zones/[id]/route';
+import { GET, POST } from '@/src/app/api/ops/zones/route';
 
 const RESTAURANT_A = '11111111-1111-4111-8111-111111111111';
 const RESTAURANT_B = '22222222-2222-4222-8222-222222222222';
@@ -127,10 +126,7 @@ describe('GET/POST /api/ops/zones', () => {
     const response = await GET(getRequest(`?restaurantId=${RESTAURANT_A}`));
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Unauthorized',
-      message: 'Unauthorized',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNAUTHENTICATED' });
     expect(listZonesMock).not.toHaveBeenCalled();
   });
 
@@ -141,9 +137,9 @@ describe('GET/POST /api/ops/zones', () => {
     const response = await GET(getRequest('?restaurantId=not-a-uuid'));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: 'restaurantId is required',
-      message: 'restaurantId is required',
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { restaurantId: [expect.any(String)] },
     });
     expect(listZonesMock).not.toHaveBeenCalled();
   });
@@ -155,10 +151,7 @@ describe('GET/POST /api/ops/zones', () => {
     const response = await GET(getRequest(`?restaurantId=${RESTAURANT_A}`));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Access denied to this restaurant',
-      message: 'Access denied to this restaurant',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'FORBIDDEN' });
     expect(calls).toContainEqual({
       table: 'restaurant_memberships',
       method: 'eq',
@@ -205,8 +198,8 @@ describe('GET/POST /api/ops/zones', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Invalid request body');
-    expect(body.details).toBeDefined();
+    expect(body.code).toBe('VALIDATION_FAILED');
+    expect(body.fields).toBeDefined();
     expect(createZoneMock).not.toHaveBeenCalled();
   });
 
@@ -219,9 +212,9 @@ describe('GET/POST /api/ops/zones', () => {
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Zone name cannot be blank',
-      message: 'Zone name cannot be blank',
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { name: [expect.any(String)] },
     });
     expect(createZoneMock).not.toHaveBeenCalled();
   });
@@ -235,10 +228,7 @@ describe('GET/POST /api/ops/zones', () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Access denied to this restaurant',
-      message: 'Access denied to this restaurant',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'FORBIDDEN' });
     expect(createZoneMock).not.toHaveBeenCalled();
   });
 
@@ -251,10 +241,7 @@ describe('GET/POST /api/ops/zones', () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Insufficient permissions for zone management',
-      message: 'Insufficient permissions for zone management',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'INSUFFICIENT_ROLE' });
     expect(createZoneMock).not.toHaveBeenCalled();
   });
 
@@ -270,7 +257,10 @@ describe('GET/POST /api/ops/zones', () => {
     });
 
     const response = await POST(
-      mutationRequest('/api/ops/zones', 'POST', { restaurantId: RESTAURANT_A, name: '  Terrace  ' }),
+      mutationRequest('/api/ops/zones', 'POST', {
+        restaurantId: RESTAURANT_A,
+        name: '  Terrace  ',
+      }),
     );
 
     expect(response.status).toBe(201);
@@ -323,7 +313,7 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe('Invalid request body');
+    expect(body.code).toBe('VALIDATION_FAILED');
     expect(updateZoneMock).not.toHaveBeenCalled();
   });
 
@@ -337,10 +327,7 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     );
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Zone not found',
-      message: 'Zone not found',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'ZONE_NOT_FOUND' });
     expect(updateZoneMock).not.toHaveBeenCalled();
   });
 
@@ -357,10 +344,7 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Access denied to this restaurant',
-      message: 'Access denied to this restaurant',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'FORBIDDEN' });
     // Membership is checked against the zone's own restaurant, not caller input.
     expect(calls).toContainEqual({
       table: 'restaurant_memberships',
@@ -380,10 +364,7 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Insufficient permissions for zone management',
-      message: 'Insufficient permissions for zone management',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'INSUFFICIENT_ROLE' });
     expect(updateZoneMock).not.toHaveBeenCalled();
   });
 
@@ -430,10 +411,7 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     );
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Zone not found',
-      message: 'Zone not found',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'ZONE_NOT_FOUND' });
     expect(deleteZoneMock).not.toHaveBeenCalled();
   });
 
@@ -447,10 +425,7 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     );
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Insufficient permissions for zone management',
-      message: 'Insufficient permissions for zone management',
-    });
+    await expect(response.json()).resolves.toMatchObject({ code: 'INSUFFICIENT_ROLE' });
     expect(deleteZoneMock).not.toHaveBeenCalled();
   });
 
@@ -482,9 +457,58 @@ describe('PATCH/DELETE /api/ops/zones/[id]', () => {
     );
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Zone is still in use by existing tables',
-      message: 'Zone is still in use by existing tables',
+    await expect(response.json()).resolves.toMatchObject({ code: 'ZONE_IN_USE' });
+  });
+
+  it('maps duplicate zone names to 409 ZONE_NAME_TAKEN on create and rename @p2 @api', async () => {
+    const { client } = buildSupabase({ membership: { role: 'owner' } });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(client);
+    const duplicate = Object.assign(new Error('duplicate key value violates unique constraint'), {
+      code: '23505',
     });
+    createZoneMock.mockRejectedValue(duplicate);
+    updateZoneMock.mockRejectedValue(duplicate);
+
+    const created = await POST(
+      mutationRequest('/api/ops/zones', 'POST', { restaurantId: RESTAURANT_A, name: 'Patio' }),
+    );
+    expect(created.status).toBe(409);
+    await expect(created.json()).resolves.toMatchObject({ code: 'ZONE_NAME_TAKEN' });
+
+    const renamed = await PATCH(
+      mutationRequest(`/api/ops/zones/${ZONE_ID}`, 'PATCH', { name: 'Patio' }),
+      zoneContext(),
+    );
+    expect(renamed.status).toBe(409);
+    const text = await renamed.text();
+    expect(JSON.parse(text)).toMatchObject({ code: 'ZONE_NAME_TAKEN' });
+    expect(text).not.toContain('duplicate key');
+  });
+
+  it('never returns database text for unexpected failures @p1 @api @security', async () => {
+    const { client } = buildSupabase({ membership: { role: 'owner' } });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(client);
+    listZonesMock.mockRejectedValue(new Error('relation "secret_zones" does not exist'));
+
+    const response = await GET(getRequest(`?restaurantId=${RESTAURANT_A}`));
+
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+    expect(text).not.toContain('secret_zones');
+  });
+
+  it('treats a malformed zone id as not found instead of a 500 @p2 @api', async () => {
+    const { client } = buildSupabase({ membership: { role: 'owner' } });
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(client);
+
+    const response = await DELETE(
+      mutationRequest('/api/ops/zones/not-a-uuid', 'DELETE'),
+      zoneContext('not-a-uuid'),
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({ code: 'ZONE_NOT_FOUND' });
+    expect(deleteZoneMock).not.toHaveBeenCalled();
   });
 });

@@ -64,7 +64,7 @@ describe('GET /api/ops/tables security', () => {
     const response = await GET(request(`/api/ops/tables?restaurantId=${RESTAURANT_A}`));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toMatchObject({ code: 'FORBIDDEN' });
     expect(requireMembershipForRestaurantMock).toHaveBeenCalledWith({
       userId: 'user-123',
       restaurantId: RESTAURANT_A,

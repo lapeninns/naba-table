@@ -9,8 +9,15 @@
 
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  conflict,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import {
   TABLE_CATEGORY_VALUES,
   TABLE_MOBILITY_VALUES,
@@ -18,6 +25,7 @@ import {
   TABLE_STATUS_VALUES,
 } from '@/lib/ops/table-inventory-reference';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
+import { captureServerException } from '@/lib/posthog/server';
 import {
   findTableByNumber,
   insertTable,
@@ -72,6 +80,12 @@ const createTableSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
 });
 
+const ROUTE = 'ops/tables';
+
+function tableNumberTaken() {
+  return conflict('TABLE_NUMBER_TAKEN', 'Another table already uses that number.');
+}
+
 // =====================================================
 // GET /api/ops/tables - List tables
 // =====================================================
@@ -86,14 +100,14 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthenticated();
     }
 
     const paramEntries = Object.fromEntries(req.nextUrl.searchParams.entries());
     const parsed = querySchema.safeParse(paramEntries);
 
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 });
+      return validationError(parsed.error);
     }
 
     const { restaurantId, section, status, zoneId, includeSummary } = parsed.data;
@@ -105,7 +119,7 @@ export async function GET(req: NextRequest) {
         client: supabase,
       });
     } catch {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return forbidden();
     }
 
     const filters = {
@@ -129,12 +143,10 @@ export async function GET(req: NextRequest) {
       summary,
     });
   } catch (error) {
-    console.error('[ops/tables][GET] Unexpected error', { error });
     captureServerException(error, {
       properties: { source: 'ops', kind: 'ops-tables' },
     });
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalError(error, { route: ROUTE, method: 'GET' });
   }
 }
 
@@ -156,17 +168,14 @@ async function postTable(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return unauthenticated();
     }
 
     const body = await req.json().catch(() => null);
     const parsed = createTableSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body', details: parsed.error.flatten() },
-        { status: 400 },
-      );
+      return validationError(parsed.error);
     }
 
     const data = parsed.data;
@@ -179,19 +188,18 @@ async function postTable(req: NextRequest) {
       .maybeSingle();
 
     if (membershipError || !membership) {
-      return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
+      return forbidden();
     }
 
     if (!isRestaurantAdminRole(membership.role)) {
-      return NextResponse.json(
-        { error: 'Insufficient permissions for table management' },
-        { status: 403 },
-      );
+      return forbidden('INSUFFICIENT_ROLE', 'Only owners and managers can change tables.');
     }
 
     const maxPartySize = data.maxPartySize ?? null;
     if (maxPartySize !== null && maxPartySize < data.minPartySize) {
-      return NextResponse.json({ error: 'maxPartySize must be >= minPartySize' }, { status: 400 });
+      return apiError(400, 'VALIDATION_FAILED', 'Some fields need attention.', {
+        fields: { maxPartySize: ['Largest party must be at least the smallest party.'] },
+      });
     }
 
     const { data: zone, error: zoneError } = await supabase
@@ -200,15 +208,10 @@ async function postTable(req: NextRequest) {
       .eq('id', data.zoneId)
       .maybeSingle();
 
-    if (zoneError || !zone) {
-      return NextResponse.json({ error: 'Zone not found' }, { status: 404 });
-    }
-
-    if (zone.restaurant_id !== data.restaurantId) {
-      return NextResponse.json(
-        { error: 'Zone belongs to a different restaurant' },
-        { status: 400 },
-      );
+    if (zoneError || !zone || zone.restaurant_id !== data.restaurantId) {
+      return apiError(400, 'VALIDATION_FAILED', 'Some fields need attention.', {
+        fields: { zoneId: ['Choose a zone in this restaurant.'] },
+      });
     }
 
     try {
@@ -218,19 +221,19 @@ async function postTable(req: NextRequest) {
         data.tableNumber.trim(),
       );
       if (existing) {
-        return NextResponse.json(
-          { error: `Table number "${data.tableNumber}" already exists` },
-          { status: 409 },
-        );
+        return tableNumberTaken();
       }
     } catch (lookupError) {
-      console.error('[ops/tables][POST] Duplicate check failed', { error: lookupError });
       captureServerException(lookupError, {
         distinctId: user.id,
         groups: { restaurant: data.restaurantId },
         properties: { restaurantId: data.restaurantId, source: 'ops', kind: 'ops-tables' },
       });
-      return NextResponse.json({ error: 'Failed to verify table uniqueness' }, { status: 500 });
+      return internalError(lookupError, {
+        route: ROUTE,
+        method: 'POST',
+        restaurantId: data.restaurantId,
+      });
     }
 
     const insertPayload = {
@@ -266,27 +269,33 @@ async function postTable(req: NextRequest) {
           ? (createError as { code?: string }).code
           : undefined;
 
+      if (errorCode === '23505') {
+        // The pre-check above races another operator; the unique constraint is the authority.
+        return tableNumberTaken();
+      }
       if (errorCode === '23503') {
-        return NextResponse.json(
-          { error: 'Capacity is not configured for this restaurant' },
-          { status: 422 },
+        return apiError(
+          422,
+          'CAPACITY_NOT_CONFIGURED',
+          'That table size isn’t set up for this restaurant yet.',
         );
       }
 
-      console.error('[ops/tables][POST] Create error', { error: createError });
       captureServerException(createError, {
         distinctId: user.id,
         groups: { restaurant: data.restaurantId },
         properties: { restaurantId: data.restaurantId, source: 'ops', kind: 'ops-tables' },
       });
-      return NextResponse.json({ error: 'Failed to create table' }, { status: 500 });
+      return internalError(createError, {
+        route: ROUTE,
+        method: 'POST',
+        restaurantId: data.restaurantId,
+      });
     }
   } catch (error) {
-    console.error('[ops/tables][POST] Unexpected error', { error });
     captureServerException(error, {
       properties: { source: 'ops', kind: 'ops-tables' },
     });
-    const message = error instanceof Error ? error.message : 'An unexpected error occurred';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalError(error, { route: ROUTE, method: 'POST' });
   }
 }

@@ -7,7 +7,11 @@ import { OpsServicesProvider } from '@/contexts/ops-services';
 import { createAppQueryClient } from '@/lib/query/client';
 import { queryKeys } from '@/lib/query/keys';
 
-import type { ListTablesResult, TableInventory, TableInventoryService } from '@/services/ops/tables';
+import type {
+  ListTablesResult,
+  TableInventory,
+  TableInventoryService,
+} from '@/services/ops/tables';
 import type ZoneService from '@/services/ops/zones';
 import type { QueryKey } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
