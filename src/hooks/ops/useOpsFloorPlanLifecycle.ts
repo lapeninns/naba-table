@@ -3,6 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useState } from 'react';
 
+import { useBookingOfflineQueue } from '@/contexts/booking-offline-queue';
 import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
@@ -43,18 +44,26 @@ export function useOpsFloorPlanLifecycle({
 }) {
   const queryClient = useQueryClient();
   const { checkIn, checkOut, markNoShow, undoNoShow } = useOpsBookingLifecycleActions();
+  const offlineQueue = useBookingOfflineQueue();
   const [busy, setBusy] = useState<Readonly<Record<string, FloorPlanLifecycleAction>>>({});
 
+  /**
+   * Resolves 'queued' when the device is offline: the shared hook then only
+   * queues the action for later and changes nothing yet, so callers must not
+   * report it as done.
+   */
   const run = useCallback(
-    async (action: FloorPlanLifecycleAction, bookingId: string) => {
+    async (action: FloorPlanLifecycleAction, bookingId: string): Promise<'done' | 'queued'> => {
       if (!restaurantId) throw new Error('Restaurant id is required');
       const variables = { restaurantId, bookingId, targetDate: date };
+      const queued = Boolean(offlineQueue?.isOffline);
       setBusy((current) => ({ ...current, [bookingId]: action }));
       try {
         if (action === 'check-in') await checkIn.mutateAsync(variables);
         else if (action === 'complete') await checkOut.mutateAsync(variables);
         else if (action === 'no-show') await markNoShow.mutateAsync(variables);
         else await undoNoShow.mutateAsync(variables);
+        return queued ? 'queued' : 'done';
       } finally {
         setBusy((current) => {
           const next = { ...current };
@@ -66,7 +75,7 @@ export function useOpsFloorPlanLifecycle({
         });
       }
     },
-    [checkIn, checkOut, date, markNoShow, queryClient, restaurantId, undoNoShow],
+    [checkIn, checkOut, date, markNoShow, offlineQueue, queryClient, restaurantId, undoNoShow],
   );
 
   return { run, busy };

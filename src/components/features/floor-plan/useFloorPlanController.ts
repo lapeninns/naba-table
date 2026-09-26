@@ -467,8 +467,14 @@ export function useFloorPlanController({ initialDate }: { initialDate: string | 
       if (!booking || !snapshot) return;
       const tables = tableNumbers(snapshot, booking.tableIds);
       try {
-        await lifecycle.run(action, bookingId);
+        const outcome = await lifecycle.run(action, bookingId);
         const who = `${booking.name} · ${booking.partySize}`;
+        if (outcome === 'queued') {
+          const message = `You’re offline. ${who} will update when the connection is back.`;
+          toast.info(message);
+          announce(message);
+          return;
+        }
         if (action === 'check-in') toast.success(`${who} checked in at ${tables}`);
         if (action === 'complete')
           toast.success(
@@ -570,7 +576,15 @@ export function useFloorPlanController({ initialDate }: { initialDate: string | 
       const placed = layout?.tables.get(tableId);
       const zone = table && layout?.zoneById.get(table.zoneId);
       if (!table || !placed || !zone) return;
-      dispatchDraft({ type: 'nudge', table, base: placed.relative, dx: 0, dy: 0, rotate: delta, zone });
+      dispatchDraft({
+        type: 'nudge',
+        table,
+        base: placed.relative,
+        dx: 0,
+        dy: 0,
+        rotate: delta,
+        zone,
+      });
       announce(`${table.number} rotated to ${(((placed.rotation + delta) % 360) + 360) % 360}°`);
     },
     [announce, dispatchDraft, layout, tableById],
