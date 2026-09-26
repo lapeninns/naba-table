@@ -247,16 +247,21 @@ function MissingSetup({
             const target = REQUIREMENT_STEPS[requirement];
             return (
               <li key={requirement}>
-                <a
-                  href={target.href}
-                  className="font-medium underline underline-offset-4"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    onGoToStep(target.step);
-                  }}
+                <Button
+                  asChild
+                  variant="link"
+                  className="h-auto min-h-0 p-0 font-medium underline underline-offset-4"
                 >
-                  {target.label}
-                </a>
+                  <a
+                    href={target.href}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      onGoToStep(target.step);
+                    }}
+                  >
+                    {target.label}
+                  </a>
+                </Button>
               </li>
             );
           })}

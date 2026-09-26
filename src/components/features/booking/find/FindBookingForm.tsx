@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -136,7 +137,12 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
   }
 
   return (
-    <form className="space-y-5" onSubmit={onSubmit} noValidate aria-describedby={`${formId}-note`}>
+    <FormRoot
+      className="space-y-5"
+      onSubmit={onSubmit}
+      noValidate
+      aria-describedby={`${formId}-note`}
+    >
       {isCaptchaEnabled ? (
         <Script
           src={TURNSTILE_SCRIPT_SRC}
@@ -224,6 +230,6 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
         Booked by phone without an email address, or entered the wrong email? Contact the venue and
         they can update it and resend your confirmation.
       </p>
-    </form>
+    </FormRoot>
   );
 }
