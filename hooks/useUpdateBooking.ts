@@ -8,6 +8,8 @@ import { queryKeys } from '@/lib/query/keys';
 import { reservationAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
 
+import { toGuestBookingMutationError } from './guestBookingMutationError';
+
 import type { BookingDTO, BookingsPage } from './useBookings';
 import type { HttpError } from '@/lib/http/errors';
 import type { Reservation } from '@entities/reservation/reservation.schema';
@@ -81,13 +83,17 @@ export function useUpdateBooking() {
   return useMutation<UpdateBookingResponse, HttpError, UpdateBookingInput, unknown>({
     mutationFn: async ({ id, ...body }) => {
       emit('booking_edit_submitted', { bookingId: id });
-      const updated = await fetchJson<UpdateBookingResponse>(`/api/bookings/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      emit('booking_edit_succeeded', { bookingId: id });
-      return updated;
+      try {
+        const updated = await fetchJson<UpdateBookingResponse>(`/api/bookings/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        emit('booking_edit_succeeded', { bookingId: id });
+        return updated;
+      } catch (error) {
+        throw toGuestBookingMutationError(error);
+      }
     },
     networkMode: 'offlineFirst',
     meta: { persist: true },

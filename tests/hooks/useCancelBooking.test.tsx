@@ -88,3 +88,27 @@ describe('useCancelBooking', () => {
     expect(detail?.status).toBe('confirmed');
   });
 });
+
+describe('useCancelBooking guest error copy', () => {
+  it('maps access failures to guest copy and hides 5xx server text', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const { result } = renderHook(() => useCancelBooking(), { wrapper });
+
+    vi.mocked(fetchJson).mockRejectedValueOnce(
+      new HttpError({ message: 'raw', status: 410, code: 'ACCESS_TOKEN_REVOKED' }),
+    );
+    await expect(result.current.mutateAsync({ id: 'b-1' })).rejects.toMatchObject({
+      code: 'ACCESS_TOKEN_REVOKED',
+      status: 410,
+      message: 'This booking link is no longer valid. Request a new link from the booking page.',
+    });
+
+    vi.mocked(fetchJson).mockRejectedValueOnce(
+      new HttpError({ message: 'relation "bookings" does not exist', status: 500, code: 'X' }),
+    );
+    await expect(result.current.mutateAsync({ id: 'b-1' })).rejects.toMatchObject({
+      message: 'Something went wrong on our side. Try again.',
+    });
+  });
+});
