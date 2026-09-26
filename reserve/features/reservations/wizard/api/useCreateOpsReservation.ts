@@ -1,7 +1,12 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import {
+  useMutation,
+  useQueryClient,
+  type MutateOptions,
+  type UseMutationResult,
+} from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import { emit } from '@/lib/analytics/emit';
 import { fetchJson } from '@/lib/http/fetchJson';
@@ -13,6 +18,7 @@ import { track } from '@shared/lib/analytics';
 
 import {
   createConflictRetryDelay,
+  createIntentKeyStore,
   reservationDraftFingerprint,
   shouldRetryCreateConflict,
 } from './createReservationRetry';
@@ -67,41 +73,61 @@ export type CreateOpsReservationVariables = {
   idempotencyKey?: string;
 };
 
-type IntentKey = { fingerprint: string; key: string };
+const intentKeys = createIntentKeyStore(generateIdempotencyKey);
 
-export function useCreateOpsReservation() {
+/** Forget the current walk-in intent's key (tests, or an explicit "start a new booking"). */
+export function clearCreateOpsReservationIntentKey(): void {
+  intentKeys.clear();
+}
+
+/** C5: the key lives in the variables, fixed at mutate() time (see useCreateReservation). */
+function withIntentKey(variables: CreateOpsReservationVariables): CreateOpsReservationVariables {
+  if (variables.idempotencyKey) return variables;
+  const { key } = intentKeys.resolve(
+    reservationDraftFingerprint(variables.draft, variables.bookingId),
+  );
+  return { ...variables, idempotencyKey: key };
+}
+
+type CreateOpsReservationMutation = UseMutationResult<
+  ReservationSubmissionResult,
+  OpsReservationError,
+  CreateOpsReservationVariables
+>;
+type CreateOpsReservationMutateOptions = MutateOptions<
+  ReservationSubmissionResult,
+  OpsReservationError,
+  CreateOpsReservationVariables
+>;
+
+export function useCreateOpsReservation(): CreateOpsReservationMutation {
   const queryClient = useQueryClient();
-  const intentKeyRef = useRef<IntentKey | null>(null);
 
-  const resolveIntentKey = ({ draft, bookingId, idempotencyKey }: CreateOpsReservationVariables) => {
-    if (idempotencyKey) return idempotencyKey;
-    const fingerprint = reservationDraftFingerprint(draft, bookingId);
-    if (intentKeyRef.current?.fingerprint !== fingerprint) {
-      intentKeyRef.current = { fingerprint, key: generateIdempotencyKey() };
-    }
-    return intentKeyRef.current.key;
-  };
-
-  return useMutation<ReservationSubmissionResult, OpsReservationError, CreateOpsReservationVariables>({
+  const mutation = useMutation<
+    ReservationSubmissionResult,
+    OpsReservationError,
+    CreateOpsReservationVariables
+  >({
     networkMode: 'offlineFirst',
     meta: { persist: true },
     // A transient 409 BOOKING_CONFLICT (retryable) is retried once, with the same key.
     retry: shouldRetryCreateConflict,
     retryDelay: createConflictRetryDelay,
-    onMutate: (variables) => {
-      resolveIntentKey(variables);
-    },
     mutationFn: async (variables) => {
-      const { draft, bookingId } = variables;
+      const { draft, bookingId, idempotencyKey } = variables;
       if (bookingId) {
         throw Object.assign(new Error('Editing bookings is not supported in ops wizard'), {
           code: 'UNSUPPORTED_OPERATION',
         });
       }
 
-      const payload = buildOpsBookingPayload(draft);
+      if (!idempotencyKey) {
+        throw Object.assign(new Error('This booking request could not be sent. Please try again.'), {
+          code: 'MISSING_IDEMPOTENCY_KEY',
+        });
+      }
 
-      const idempotencyKey = resolveIntentKey(variables);
+      const payload = buildOpsBookingPayload(draft);
 
       const response = await fetchJson<{
         booking?: unknown;
@@ -124,7 +150,7 @@ export function useCreateOpsReservation() {
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result, { draft }) => {
-      intentKeyRef.current = null;
+      intentKeys.clear();
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
@@ -144,7 +170,7 @@ export function useCreateOpsReservation() {
     },
     onError: (error) => {
       if (isTerminalCreateError(error)) {
-        intentKeyRef.current = null;
+        intentKeys.clear();
       }
       const payload = {
         code: error?.code ?? 'UNKNOWN',
@@ -155,4 +181,18 @@ export function useCreateOpsReservation() {
       emit('wizard_submit_failed', payload);
     },
   });
+
+  const { mutate, mutateAsync } = mutation;
+  const mutateWithKey = useCallback(
+    (variables: CreateOpsReservationVariables, options?: CreateOpsReservationMutateOptions) =>
+      mutate(withIntentKey(variables), options),
+    [mutate],
+  );
+  const mutateAsyncWithKey = useCallback(
+    (variables: CreateOpsReservationVariables, options?: CreateOpsReservationMutateOptions) =>
+      mutateAsync(withIntentKey(variables), options),
+    [mutateAsync],
+  );
+
+  return { ...mutation, mutate: mutateWithKey, mutateAsync: mutateAsyncWithKey };
 }

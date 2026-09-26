@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,7 +6,10 @@ import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
-import { useCreateOpsReservation } from '@features/reservations/wizard/api/useCreateOpsReservation';
+import {
+  clearCreateOpsReservationIntentKey,
+  useCreateOpsReservation,
+} from '@features/reservations/wizard/api/useCreateOpsReservation';
 
 import type { ReservationDraft } from '@features/reservations/wizard/model/reducer';
 
@@ -46,6 +49,7 @@ function sentKeys(): string[] {
 
 describe('useCreateOpsReservation idempotency, retry and invalidation', () => {
   beforeEach(() => {
+    clearCreateOpsReservationIntentKey();
     vi.mocked(fetchJson).mockReset();
     vi.mocked(reservationAdapter).mockReturnValue({ id: 'booking-1' } as never);
     vi.mocked(reservationListAdapter).mockReturnValue([] as never);
@@ -118,5 +122,27 @@ describe('useCreateOpsReservation idempotency, retry and invalidation', () => {
     const keys = sentKeys();
     expect(keys[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('carries the key in the variables and keeps it across a remount for the same draft', async () => {
+    vi.mocked(fetchJson)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ booking: { id: 'booking-1' }, bookings: [] });
+    const first = renderHook(() => useCreateOpsReservation(), {
+      wrapper: createQueryWrapper(createTestQueryClient()),
+    });
+
+    await expect(first.result.current.mutateAsync({ draft })).rejects.toThrow('Failed to fetch');
+    first.unmount();
+
+    const second = renderHook(() => useCreateOpsReservation(), {
+      wrapper: createQueryWrapper(createTestQueryClient()),
+    });
+    await second.result.current.mutateAsync({ draft: { ...draft } });
+
+    const keys = sentKeys();
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
+    await waitFor(() => expect(second.result.current.variables?.idempotencyKey).toBe(keys[0]));
   });
 });

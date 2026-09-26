@@ -1,7 +1,12 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import {
+  useMutation,
+  useQueryClient,
+  type MutateOptions,
+  type UseMutationResult,
+} from '@tanstack/react-query';
+import { useCallback, useRef } from 'react';
 
 import { emit } from '@/lib/analytics/emit';
 import { generateIdempotencyKey } from '@/lib/utils/idempotency';
@@ -13,6 +18,7 @@ import { track } from '@shared/lib/analytics';
 
 import {
   createConflictRetryDelay,
+  createIntentKeyStore,
   reservationDraftFingerprint,
   shouldRetryCreateConflict,
 } from './createReservationRetry';
@@ -44,11 +50,33 @@ export type CreateReservationVariables = {
   idempotencyKey?: string;
 };
 
-type IntentKey = { fingerprint: string; key: string };
+const intentKeys = createIntentKeyStore(generateIdempotencyKey);
 
-export function useCreateReservation() {
+/** Forget the current booking intent's key (tests, or an explicit "start a new booking"). */
+export function clearCreateReservationIntentKey(): void {
+  intentKeys.clear();
+}
+
+type CreateReservationMutation = UseMutationResult<
+  ReservationSubmissionResult,
+  ApiError,
+  CreateReservationVariables
+>;
+type CreateReservationMutateOptions = MutateOptions<
+  ReservationSubmissionResult,
+  ApiError,
+  CreateReservationVariables
+>;
+
+function missingIdempotencyKeyError(): ApiError {
+  return {
+    code: 'MISSING_IDEMPOTENCY_KEY',
+    message: 'This booking request could not be sent. Please try again.',
+  } as ApiError;
+}
+
+export function useCreateReservation(): CreateReservationMutation {
   const queryClient = useQueryClient();
-  const intentKeyRef = useRef<IntentKey | null>(null);
   // Privacy-safe correlation: attemptId is a random UUID stable across retries
   // of one logical submission; attemptCount distinguishes retries. Both are
   // sent as headers so server booking_create_* events can be joined to the
@@ -56,30 +84,35 @@ export function useCreateReservation() {
   const attemptIdRef = useRef<string | null>(null);
   const attemptCountRef = useRef(0);
 
-  const resolveIntentKey = ({ draft, bookingId, idempotencyKey }: CreateReservationVariables) => {
-    if (idempotencyKey) return idempotencyKey;
-    const fingerprint = reservationDraftFingerprint(draft, bookingId);
-    if (intentKeyRef.current?.fingerprint !== fingerprint) {
-      intentKeyRef.current = { fingerprint, key: generateIdempotencyKey() };
-      attemptIdRef.current = null;
-      attemptCountRef.current = 0;
-    }
-    return intentKeyRef.current.key;
-  };
+  // C5: the key lives in the mutation variables, fixed at mutate() time, so every retry and a
+  // resumed mutation send the same key; mutationFn never generates one.
+  const withIntentKey = useCallback(
+    (variables: CreateReservationVariables): CreateReservationVariables => {
+      if (variables.idempotencyKey) return variables;
+      const { key, isNew } = intentKeys.resolve(
+        reservationDraftFingerprint(variables.draft, variables.bookingId),
+      );
+      if (isNew) {
+        attemptIdRef.current = null;
+        attemptCountRef.current = 0;
+      }
+      return { ...variables, idempotencyKey: key };
+    },
+    [],
+  );
 
-  return useMutation<ReservationSubmissionResult, ApiError, CreateReservationVariables>({
+  const mutation = useMutation<ReservationSubmissionResult, ApiError, CreateReservationVariables>({
     networkMode: 'offlineFirst',
     meta: { persist: true },
     // A transient 409 BOOKING_CONFLICT (retryable) is retried once after its retryAfter,
     // with the same key: the server either inserts or replays the first attempt's booking.
     retry: shouldRetryCreateConflict,
     retryDelay: createConflictRetryDelay,
-    onMutate: (variables) => {
-      // The intent key is fixed per mutate() call, before the first attempt.
-      resolveIntentKey(variables);
-    },
     mutationFn: async (variables) => {
-      const { draft, bookingId } = variables;
+      const { draft, bookingId, idempotencyKey } = variables;
+      if (!idempotencyKey) {
+        throw missingIdempotencyKeyError();
+      }
       const payload = {
         restaurantId: draft.restaurantId,
         restaurantSlug: draft.restaurantSlug,
@@ -98,9 +131,6 @@ export function useCreateReservation() {
       const path = bookingId ? `/bookings/${bookingId}` : '/bookings';
       const method = bookingId ? apiClient.put : apiClient.post;
       const submissionTimeoutMs = Math.max(env.API_TIMEOUT_MS * 2, 30_000);
-      // Resolved in onMutate; resolving again here covers a paused mutation resumed from
-      // persistence after a reload, and returns the same key otherwise.
-      const idempotencyKey = resolveIntentKey(variables);
       const attemptId = attemptIdRef.current ?? generateIdempotencyKey();
       attemptIdRef.current = attemptId;
       attemptCountRef.current += 1;
@@ -125,7 +155,7 @@ export function useCreateReservation() {
       } satisfies ReservationSubmissionResult;
     },
     onSuccess: (result) => {
-      intentKeyRef.current = null;
+      intentKeys.clear();
       attemptIdRef.current = null;
       attemptCountRef.current = 0;
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
@@ -137,7 +167,7 @@ export function useCreateReservation() {
       const attemptId = attemptIdRef.current;
       const attempt = attemptCountRef.current;
       if (isTerminalCreateError(error)) {
-        intentKeyRef.current = null;
+        intentKeys.clear();
         attemptIdRef.current = null;
         attemptCountRef.current = 0;
       }
@@ -160,4 +190,18 @@ export function useCreateReservation() {
       emit('wizard_submit_failed', payload);
     },
   });
+
+  const { mutate, mutateAsync } = mutation;
+  const mutateWithKey = useCallback(
+    (variables: CreateReservationVariables, options?: CreateReservationMutateOptions) =>
+      mutate(withIntentKey(variables), options),
+    [mutate, withIntentKey],
+  );
+  const mutateAsyncWithKey = useCallback(
+    (variables: CreateReservationVariables, options?: CreateReservationMutateOptions) =>
+      mutateAsync(withIntentKey(variables), options),
+    [mutateAsync, withIntentKey],
+  );
+
+  return { ...mutation, mutate: mutateWithKey, mutateAsync: mutateAsyncWithKey };
 }

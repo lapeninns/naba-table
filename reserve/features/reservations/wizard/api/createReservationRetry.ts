@@ -66,3 +66,31 @@ export function reservationDraftFingerprint(draft: ReservationDraft, bookingId?:
     draft.whatsappOptIn,
   ]);
 }
+
+export type CreateIntentKeyStore = {
+  /** The key for this draft fingerprint; `isNew` when the previous intent was replaced. */
+  resolve(fingerprint: string): { key: string; isNew: boolean };
+  clear(): void;
+};
+
+/**
+ * Holds the current booking intent's key outside React state, so a wizard step that remounts
+ * (for example after a timeout) resubmits the same draft with the same key and gets a key
+ * replay instead of a new intent. One store per create hook module; cleared on success and
+ * on terminal errors.
+ */
+export function createIntentKeyStore(generateKey: () => string): CreateIntentKeyStore {
+  let current: { fingerprint: string; key: string } | null = null;
+  return {
+    resolve(fingerprint) {
+      if (current?.fingerprint === fingerprint) {
+        return { key: current.key, isNew: false };
+      }
+      current = { fingerprint, key: generateKey() };
+      return { key: current.key, isNew: true };
+    },
+    clear() {
+      current = null;
+    },
+  };
+}

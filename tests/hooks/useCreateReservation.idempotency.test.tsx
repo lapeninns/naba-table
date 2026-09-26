@@ -1,9 +1,12 @@
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
-import { useCreateReservation } from '@features/reservations/wizard/api/useCreateReservation';
+import {
+  clearCreateReservationIntentKey,
+  useCreateReservation,
+} from '@features/reservations/wizard/api/useCreateReservation';
 import { apiClient } from '@shared/api/client';
 
 import type { ReservationDraft } from '@features/reservations/wizard/model/reducer';
@@ -62,6 +65,7 @@ function render() {
 
 describe('useCreateReservation idempotency and conflict retry', () => {
   beforeEach(() => {
+    clearCreateReservationIntentKey();
     vi.mocked(apiClient.post).mockReset();
     vi.mocked(reservationAdapter).mockReturnValue({ id: 'booking-1' } as never);
     vi.mocked(reservationListAdapter).mockReturnValue([] as never);
@@ -170,5 +174,35 @@ describe('useCreateReservation idempotency and conflict retry', () => {
     const keys = sentKeys();
     expect(keys).toHaveLength(2);
     expect(keys[1]).not.toBe(keys[0]);
+  });
+
+  it('carries the key in the mutation variables, so the conflict retry reuses them', async () => {
+    vi.mocked(apiClient.post)
+      .mockRejectedValueOnce(retryableConflict())
+      .mockResolvedValueOnce({ booking: { id: 'booking-1' }, bookings: [] });
+    const { result } = render();
+
+    await result.current.mutateAsync({ draft });
+
+    const keys = sentKeys();
+    await waitFor(() => expect(result.current.variables?.idempotencyKey).toBe(keys[0]));
+    expect(keys).toEqual([keys[0], keys[0]]);
+  });
+
+  it('keeps the key for the same draft after the wizard step remounts', async () => {
+    vi.mocked(apiClient.post)
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({ booking: { id: 'booking-1' }, bookings: [] });
+    const first = render();
+
+    await expect(first.result.current.mutateAsync({ draft })).rejects.toThrow('Failed to fetch');
+    first.unmount();
+
+    const second = render();
+    await second.result.current.mutateAsync({ draft: { ...draft } });
+
+    const keys = sentKeys();
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
   });
 });
