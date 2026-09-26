@@ -218,6 +218,7 @@ describe('resend webhook route', () => {
       }),
     );
     expect(suppressProfilesByEmailMock).toHaveBeenCalledWith('guest@example.com');
+    expect(suppressProfilesByEmailMock).toHaveBeenCalledWith('second@example.com');
     expect(recordObservabilityEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'webhook.resend',
@@ -225,11 +226,97 @@ describe('resend webhook route', () => {
         severity: 'warning',
         context: {
           reason: 'email.bounced',
-          matchedProfiles: 1,
-          updatedProfiles: 1,
+          recipientCount: 2,
+          matchedProfiles: 2,
+          updatedProfiles: 2,
         },
       }),
     );
+  });
+
+  function signedRequest(payload: string) {
+    return buildRequest(
+      {
+        'svix-id': 'msg_2',
+        'svix-timestamp': '1710000000',
+        'svix-signature': 'v1,sig',
+        'content-length': String(payload.length),
+      },
+      payload,
+    );
+  }
+
+  it.each(['Permanent', 'permanent', 'hard'])(
+    'suppresses every recipient of a %s bounce in both stores',
+    async (bounceType) => {
+      resendVerifyMock.mockReturnValue({
+        type: 'email.bounced',
+        created_at: '2026-05-16T12:00:00.000Z',
+        data: {
+          email_id: 'resend-message-2',
+          to: ['one@example.com', 'two@example.com'],
+          bounce: { type: bounceType, message: 'Mailbox does not exist' },
+        },
+      });
+
+      const response = await POST(signedRequest('{"type":"email.bounced"}') as never);
+
+      expect(response.status).toBe(200);
+      for (const recipient of ['one@example.com', 'two@example.com']) {
+        expect(suppressProfilesByEmailMock).toHaveBeenCalledWith(recipient);
+        expect(addEmailToSuppressionListMock).toHaveBeenCalledWith(recipient, 'bounce', {
+          via: 'resend-webhook',
+          eventType: 'email.bounced',
+        });
+      }
+    },
+  );
+
+  it.each(['Transient', 'Undetermined', undefined])(
+    'records a %s bounce without suppressing the address',
+    async (bounceType) => {
+      resendVerifyMock.mockReturnValue({
+        type: 'email.bounced',
+        created_at: '2026-05-16T12:00:00.000Z',
+        data: {
+          email_id: 'resend-message-3',
+          to: ['guest@example.com'],
+          ...(bounceType ? { bounce: { type: bounceType, message: 'Mailbox full' } } : {}),
+        },
+      });
+
+      const response = await POST(signedRequest('{"type":"email.bounced"}') as never);
+
+      expect(response.status).toBe(200);
+      expect(recordEmailDeliveryLogMock).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'bounced', recipientEmail: 'guest@example.com' }),
+      );
+      expect(suppressProfilesByEmailMock).not.toHaveBeenCalled();
+      expect(addEmailToSuppressionListMock).not.toHaveBeenCalled();
+      expect(recordObservabilityEventMock).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: 'email_suppression.skipped_non_permanent_bounce' }),
+      );
+    },
+  );
+
+  it('suppresses every recipient of a complaint', async () => {
+    resendVerifyMock.mockReturnValue({
+      type: 'email.complained',
+      created_at: '2026-05-16T12:00:00.000Z',
+      data: { email_id: 'resend-message-4', to: ['one@example.com', 'two@example.com'] },
+    });
+
+    const response = await POST(signedRequest('{"type":"email.complained"}') as never);
+
+    expect(response.status).toBe(200);
+    expect(addEmailToSuppressionListMock).toHaveBeenCalledWith('one@example.com', 'complaint', {
+      via: 'resend-webhook',
+      eventType: 'email.complained',
+    });
+    expect(addEmailToSuppressionListMock).toHaveBeenCalledWith('two@example.com', 'complaint', {
+      via: 'resend-webhook',
+      eventType: 'email.complained',
+    });
   });
 
   it('rejects invalid signatures after reading the signed body and before side effects', async () => {
