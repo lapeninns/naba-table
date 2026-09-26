@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 import {
   invitationCreateResponseSchema,
@@ -27,14 +29,32 @@ export type RevokeInviteInput = {
   inviteId: string;
 };
 
+export type ResendInviteInput = RevokeInviteInput;
+
+/**
+ * `emailSent: false` means the invite exists but its email didn't go out; it can be resent.
+ * Older servers omit the flag, which means the email was sent.
+ */
+export type TeamInviteMutationResult = { invite: TeamInvite; emailSent: boolean };
+
+const inviteMutationResponseSchema = invitationCreateResponseSchema.extend({
+  emailSent: z.boolean().optional(),
+});
+
+function toMutationResult(data: unknown): TeamInviteMutationResult {
+  const parsed = inviteMutationResponseSchema.parse(data);
+  return { invite: parsed.invite, emailSent: parsed.emailSent ?? true };
+}
+
 export interface TeamService {
   listInvites(
     restaurantId: string,
     status?: TeamInviteStatus,
     options?: RequestSignalOptions,
   ): Promise<TeamInvite[]>;
-  createInvite(input: CreateInviteInput): Promise<{ invite: TeamInvite }>;
+  createInvite(input: CreateInviteInput): Promise<TeamInviteMutationResult>;
   revokeInvite(input: RevokeInviteInput): Promise<TeamInvite>;
+  resendInvite(input: ResendInviteInput): Promise<TeamInviteMutationResult>;
 }
 
 export class NotImplementedTeamService implements TeamService {
@@ -46,12 +66,16 @@ export class NotImplementedTeamService implements TeamService {
     this.error('listInvites not implemented');
   }
 
-  createInvite(): Promise<{ invite: TeamInvite }> {
+  createInvite(): Promise<TeamInviteMutationResult> {
     this.error('createInvite not implemented');
   }
 
   revokeInvite(): Promise<TeamInvite> {
     this.error('revokeInvite not implemented');
+  }
+
+  resendInvite(): Promise<TeamInviteMutationResult> {
+    this.error('resendInvite not implemented');
   }
 }
 
@@ -95,10 +119,7 @@ export function createBrowserTeamService(): TeamService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const parsed = invitationCreateResponseSchema.parse(data);
-      return {
-        invite: parsed.invite,
-      };
+      return toMutationResult(data);
     },
 
     async revokeInvite({ restaurantId, inviteId }: RevokeInviteInput) {
@@ -111,6 +132,14 @@ export function createBrowserTeamService(): TeamService {
       );
       const parsed = restaurantInviteSchema.parse((data as { invite: unknown }).invite);
       return parsed;
+    },
+
+    async resendInvite({ inviteId }: ResendInviteInput) {
+      const data = await fetchJson<unknown>(
+        `${TEAM_INVITES_BASE}/${encodeURIComponent(inviteId)}/resend`,
+        { method: 'POST' },
+      );
+      return toMutationResult(data);
     },
   } satisfies TeamService;
 }

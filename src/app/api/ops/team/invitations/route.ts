@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  conflict,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { RESTAURANT_ROLE_OPTIONS } from '@/lib/owner/auth/roles';
+import { captureServerException } from '@/lib/posthog/server';
 import { ensureProfileRow } from '@/lib/profile/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -13,7 +21,9 @@ import {
   assertInvitableRole,
   createRestaurantInvite,
   listRestaurantInvites,
+  resolveInviteExpiry,
 } from '@/server/team/invitations';
+import { getErrorCode, serializeInvite } from '@/server/team/invite-response';
 
 import type { NextRequest } from 'next/server';
 
@@ -29,37 +39,12 @@ const listSchema = z.object({
 
 const createSchema = z.object({
   restaurantId: z.string().uuid(),
-  email: z.string().email(),
+  email: z.string().trim().email(),
   role: z.enum(RESTAURANT_ROLE_OPTIONS),
   expiresAt: z.string().datetime({ offset: true }).optional(),
 });
 
-const DEFAULT_EXPIRY_DAYS = 7;
-
-function computeExpiry(expiresAt?: string): string {
-  if (expiresAt) {
-    return expiresAt;
-  }
-  const expiry = new Date();
-  expiry.setDate(expiry.getDate() + DEFAULT_EXPIRY_DAYS);
-  return expiry.toISOString();
-}
-
-function serializeInvite(invite: Awaited<ReturnType<typeof listRestaurantInvites>>[number]) {
-  return {
-    id: invite.id,
-    restaurantId: invite.restaurant_id,
-    email: invite.email,
-    role: invite.role,
-    status: invite.status,
-    expiresAt: invite.expires_at,
-    invitedBy: invite.invited_by,
-    acceptedAt: invite.accepted_at,
-    revokedAt: invite.revoked_at,
-    createdAt: invite.created_at,
-    updatedAt: invite.updated_at,
-  };
-}
+const MEMBERSHIP_DENIED_CODES = new Set(['MEMBERSHIP_NOT_FOUND', 'MEMBERSHIP_ROLE_DENIED']);
 
 export async function GET(request: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
@@ -69,16 +54,12 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[team/invitations][GET] auth error', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const parsed = listSchema.safeParse({
@@ -87,10 +68,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid filters', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid invitation filters.');
   }
 
   const { restaurantId, status: statusFilter } = parsed.data;
@@ -107,23 +85,20 @@ export async function GET(request: NextRequest) {
       invites: invites.map(serializeInvite),
     });
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error) {
-      const code = (error as { code?: string }).code;
-      if (code === 'MEMBERSHIP_NOT_FOUND' || code === 'MEMBERSHIP_ROLE_DENIED') {
-        return NextResponse.json(
-          { error: 'Not authorized to manage invitations' },
-          { status: 403 },
-        );
-      }
+    if (MEMBERSHIP_DENIED_CODES.has(getErrorCode(error) ?? '')) {
+      return forbidden('TEAM_INVITES_FORBIDDEN', 'Only owners and managers can see invitations.');
     }
 
-    console.error('[team/invitations][GET] failed', error);
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'ops-team-invitations' },
     });
-    return NextResponse.json({ error: 'Unable to load invitations' }, { status: 500 });
+    return internalError(
+      error,
+      { route: 'ops.team.invitations.list', restaurantId },
+      'Invitations couldn’t be loaded. Try again.',
+    );
   }
 }
 
@@ -139,31 +114,24 @@ async function postTeamInvitation(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[team/invitations][POST] auth error', authError.message);
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body must be valid JSON.');
   }
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid invitation payload', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   const { restaurantId, email, role, expiresAt: requestedExpiry } = parsed.data;
@@ -201,11 +169,11 @@ async function postTeamInvitation(request: NextRequest) {
       restaurantId,
       invitedRole: role,
     });
-    const expiresAt = computeExpiry(requestedExpiry);
+    const expiresAt = resolveInviteExpiry(requestedExpiry);
 
     await ensureProfileRow(supabase, user);
 
-    const { invite } = await createRestaurantInvite({
+    const { invite, emailSent } = await createRestaurantInvite({
       restaurantId,
       email,
       role,
@@ -214,36 +182,30 @@ async function postTeamInvitation(request: NextRequest) {
       authClient: supabase,
     });
 
-    return NextResponse.json(
-      {
-        invite: serializeInvite(invite),
-      },
-      { status: 201 },
-    );
+    // The invite exists either way. When the email didn't go out, say so: the admin can resend.
+    return NextResponse.json({ invite: serializeInvite(invite), emailSent }, { status: 201 });
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error) {
-      const code = (error as { code?: string }).code;
-      if (code === 'MEMBERSHIP_NOT_FOUND' || code === 'MEMBERSHIP_ROLE_DENIED') {
-        return NextResponse.json(
-          { error: 'Not authorized to create invitations' },
-          { status: 403 },
-        );
-      }
-      if (code === 'INVITE_ALREADY_EXISTS') {
-        return NextResponse.json(
-          { error: 'An invitation for this email is already pending' },
-          { status: 409 },
-        );
-      }
-      if (code === 'INVALID_INVITE_ROLE') {
-        return NextResponse.json({ error: 'Unsupported role' }, { status: 422 });
-      }
-      if (code === 'INVITE_ROLE_FORBIDDEN') {
-        return NextResponse.json({ error: 'Not authorized to invite this role' }, { status: 403 });
-      }
+    const code = getErrorCode(error);
+    if (code && MEMBERSHIP_DENIED_CODES.has(code)) {
+      return forbidden('TEAM_INVITES_FORBIDDEN', 'Only owners and managers can invite people.');
+    }
+    if (code === 'INVITE_ALREADY_EXISTS') {
+      return conflict(
+        'INVITE_ALREADY_PENDING',
+        'This person already has an invitation waiting. Resend it from the list instead.',
+      );
+    }
+    if (code === 'INVALID_INVITE_ROLE') {
+      return apiError(422, 'INVALID_INVITE_ROLE', 'This role can’t be invited.');
+    }
+    if (code === 'INVITE_ROLE_FORBIDDEN') {
+      return forbidden('INVITE_ROLE_FORBIDDEN', 'Your role can’t invite someone to this role.');
     }
 
-    console.error('[team/invitations][POST] failed', error);
-    return NextResponse.json({ error: 'Unable to create invitation' }, { status: 500 });
+    return internalError(
+      error,
+      { route: 'ops.team.invitations.create', restaurantId },
+      'The invitation couldn’t be created. Try again.',
+    );
   }
 }

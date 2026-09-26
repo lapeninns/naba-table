@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const sendEmail = vi.hoisted(() => vi.fn());
 const recordEmailDeliveryLog = vi.hoisted(() => vi.fn());
 const resolveInviteContext = vi.hoisted(() => vi.fn());
+const isSuppressed = vi.hoisted(() => vi.fn((_error: unknown) => false));
+const loggerWarn = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/logger', () => ({
+  logger: { warn: loggerWarn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}));
 
 vi.mock('server-only', () => ({}));
 
@@ -21,7 +27,7 @@ vi.mock('@/lib/site-url', () => ({
 
 vi.mock('@/libs/resend', () => ({
   sendEmail,
-  isEmailRecipientSuppressedError: (_error: unknown) => false,
+  isEmailRecipientSuppressedError: isSuppressed,
   createEmailIdempotencyKey: ({ scope, parts }: { scope: string; parts: unknown[] }) =>
     `${scope}:${parts.join(':')}`,
 }));
@@ -52,6 +58,8 @@ describe('sendTeamInviteEmail', () => {
     sendEmail.mockReset();
     recordEmailDeliveryLog.mockReset();
     resolveInviteContext.mockReset();
+    isSuppressed.mockReset().mockReturnValue(false);
+    loggerWarn.mockReset();
 
     sendEmail.mockResolvedValue({ provider: 'mock', messageId: 'msg_invite' });
     recordEmailDeliveryLog.mockResolvedValue({ id: 'log-1' });
@@ -81,6 +89,32 @@ describe('sendTeamInviteEmail', () => {
         html: expect.stringContaining('https://www.nabatable.com/invite/token-1'),
         text: expect.stringContaining('https://www.nabatable.com/invite/token-1'),
       }),
+    );
+  });
+
+  it('reports a delivered email', async () => {
+    await expect(sendTeamInviteEmail({ invite: buildInvite(), token: 'token-1' })).resolves.toEqual({
+      delivered: true,
+    });
+  });
+
+  it('reports a suppressed recipient as not delivered and logs without the address', async () => {
+    const suppressed = new Error('suppressed');
+    sendEmail.mockRejectedValue(suppressed);
+    isSuppressed.mockImplementation((error: unknown) => error === suppressed);
+
+    await expect(sendTeamInviteEmail({ invite: buildInvite(), token: 'token-1' })).resolves.toEqual({
+      delivered: false,
+    });
+    expect(recordEmailDeliveryLog).not.toHaveBeenCalled();
+    expect(JSON.stringify(loggerWarn.mock.calls)).not.toContain('manager@example.com');
+  });
+
+  it('rethrows provider failures so the caller can report them', async () => {
+    sendEmail.mockRejectedValue(new Error('provider down'));
+
+    await expect(sendTeamInviteEmail({ invite: buildInvite(), token: 'token-1' })).rejects.toThrow(
+      'provider down',
     );
   });
 });

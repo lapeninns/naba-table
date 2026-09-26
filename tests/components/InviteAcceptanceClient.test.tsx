@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/security/csrf', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/security/csrf')>('@/lib/security/csrf');
+  const actual = await vi.importActual<Record<string, unknown>>('@/lib/security/csrf');
   return {
     ...actual,
     getBrowserCsrfToken: getBrowserCsrfTokenMock,
@@ -61,15 +61,14 @@ describe('InviteAcceptanceClient', () => {
     await user.click(screen.getByRole('button', { name: 'Accept invite' }));
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    expect(fetch).toHaveBeenCalledWith('/api/team/invitations/invite-token-123/accept', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-csrf-token': 'csrf-token',
-      },
-      body: JSON.stringify({ name: 'Aarya Thapa' }),
-    });
-    expect(refreshMock).toHaveBeenCalled();
+    const [url, init] = vi.mocked(fetch).mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/team/invitations/invite-token-123/accept');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(JSON.stringify({ name: 'Aarya Thapa' }));
+    const headers = new Headers(init.headers);
+    expect(headers.get('Content-Type')).toBe('application/json');
+    expect(headers.get('x-csrf-token')).toBe('csrf-token');
+    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
     expect(pushMock).toHaveBeenCalledWith('/app');
   });
 
@@ -93,5 +92,77 @@ describe('InviteAcceptanceClient', () => {
       expect(pushMock).toHaveBeenCalledWith('/auth/signin?redirectedFrom=/invite/invite-token-123'),
     );
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it('shows the specific copy for an expired invitation instead of a generic failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          {
+            error: 'This invitation has expired.',
+            message: 'This invitation has expired.',
+            code: 'INVITE_EXPIRED',
+          },
+          { status: 410 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<InviteAcceptanceClient token="invite-token-123" invite={invite} />);
+
+    await user.type(screen.getByLabelText('Full name'), 'Aarya Thapa');
+    await user.click(screen.getByRole('button', { name: 'Accept invite' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This invitation has expired. Ask the restaurant to send a new one.',
+    );
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Accept invite' })).toBeEnabled();
+  });
+
+  it('never shows server text from a 5xx response', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          { error: 'relation "restaurant_invites" leaked', code: 'INTERNAL_ERROR' },
+          { status: 500 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<InviteAcceptanceClient token="invite-token-123" invite={invite} />);
+
+    await user.type(screen.getByLabelText('Full name'), 'Aarya Thapa');
+    await user.click(screen.getByRole('button', { name: 'Accept invite' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).not.toHaveTextContent('leaked');
+    expect(alert).toHaveTextContent('Something went wrong on our side. Try again.');
+  });
+
+  it('puts a server name validation error on the name field', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          {
+            error: 'Some fields need attention.',
+            message: 'Some fields need attention.',
+            code: 'VALIDATION_FAILED',
+            fields: { name: ['Name must be at least 2 characters'] },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<InviteAcceptanceClient token="invite-token-123" invite={invite} />);
+
+    await user.type(screen.getByLabelText('Full name'), 'Aarya Thapa');
+    await user.click(screen.getByRole('button', { name: 'Accept invite' }));
+
+    expect(await screen.findByText('Name must be at least 2 characters')).toBeInTheDocument();
   });
 });

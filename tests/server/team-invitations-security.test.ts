@@ -83,13 +83,25 @@ function buildInsertClient(invite: RestaurantInvite) {
   const single = vi.fn().mockResolvedValue({ data: invite, error: null });
   const select = vi.fn().mockReturnValue({ single });
   const insert = vi.fn().mockReturnValue({ select });
+  const expirePredicates: Array<[string, string, unknown]> = [];
+  const expireQuery = {
+    eq(column: string, value: unknown) {
+      expirePredicates.push(['eq', column, value]);
+      return expireQuery;
+    },
+    lt(column: string, value: unknown) {
+      expirePredicates.push(['lt', column, value]);
+      return Promise.resolve({ error: null });
+    },
+  };
+  const update = vi.fn().mockReturnValue(expireQuery);
   const from = vi.fn((table: string) => {
     if (table !== 'restaurant_invites') {
       throw new Error(`Unexpected table: ${table}`);
     }
-    return { insert };
+    return { insert, update };
   });
-  return { from, insert };
+  return { from, insert, update, expirePredicates };
 }
 
 function buildInviteAcceptClient(params: {
@@ -208,6 +220,7 @@ describe('team invitation security', () => {
     requireMembershipForRestaurantMock.mockReset();
     requireAdminMembershipMock.mockReset();
     requireApiRateLimitMock.mockReset().mockResolvedValue(null);
+    sendTeamInviteEmailMock.mockResolvedValue({ delivered: true });
     requireMembershipForRestaurantMock.mockResolvedValue({ role: 'owner' });
     requireAdminMembershipMock.mockResolvedValue({ role: 'owner' });
   });
@@ -225,7 +238,7 @@ describe('team invitation security', () => {
       authClient: client as never,
     });
 
-    expect(result).toEqual({ invite });
+    expect(result).toEqual({ invite, emailSent: true });
     expect(result).not.toHaveProperty('token');
     expect(result).not.toHaveProperty('inviteUrl');
     expect(sendTeamInviteEmailMock).toHaveBeenCalledWith({
@@ -270,6 +283,7 @@ describe('team invitation security', () => {
         email: invite.email,
         role: invite.role,
       }),
+      emailSent: true,
     });
   });
 

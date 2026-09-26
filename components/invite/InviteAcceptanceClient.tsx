@@ -20,8 +20,23 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Text } from '@/components/ui/typography';
+import { HttpError } from '@/lib/http/errors';
+import { fetchJson } from '@/lib/http/fetchJson';
+import { getFieldErrors, toUserMessage } from '@/lib/http/userMessage';
 import { invitationAcceptResponseSchema } from '@/lib/owner/team/schema';
-import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
+
+/** Copy for the accept route's C1 codes; anything else falls back to toUserMessage. */
+const ACCEPT_ERROR_COPY: Partial<Record<string, string>> = {
+  INVITE_EXPIRED: 'This invitation has expired. Ask the restaurant to send a new one.',
+  INVITE_REVOKED: 'This invitation was revoked. Ask the restaurant for a new one.',
+  INVITE_ALREADY_ACCEPTED: 'This invitation has already been accepted. Open your workspace instead.',
+  INVITE_NOT_FOUND: 'This invitation link isn’t valid. Check the link or ask for a new invitation.',
+  INVITE_NOT_PENDING: 'This invitation changed while you were accepting it. Reload the page.',
+  INVITE_EMAIL_MISMATCH:
+    'You’re signed in with a different email. Sign in as the invited email to accept.',
+  INVITE_ROLE_NOT_ALLOWED:
+    'This invitation’s role is no longer allowed. Ask the restaurant for a new invitation.',
+};
 
 const acceptanceSchema = z.object({
   name: z.string().trim().min(2, 'Enter your full name'),
@@ -56,39 +71,35 @@ export function InviteAcceptanceClient({ token, invite }: InviteAcceptanceClient
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const requestHeaders: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      const csrfToken = getBrowserCsrfToken();
-      if (csrfToken) {
-        requestHeaders[CSRF_HEADER_NAME] = csrfToken;
-      }
-
-      const response = await fetch(`/api/team/invitations/${encodeURIComponent(token)}/accept`, {
-        method: 'POST',
-        headers: requestHeaders,
-        body: JSON.stringify(values),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        if (response.status === 401) {
-          router.push(`/auth/signin?redirectedFrom=/invite/${encodeURIComponent(token)}`);
-          return;
-        }
-        const message =
-          typeof payload?.error === 'string' ? payload.error : 'Unable to accept invitation';
-        setErrorMessage(message);
-        return;
-      }
+      // fetchJson adds the CSRF header and parses the C1 error body into an HttpError.
+      const payload = await fetchJson<unknown>(
+        `/api/team/invitations/${encodeURIComponent(token)}/accept`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(values),
+        },
+      );
 
       invitationAcceptResponseSchema.parse(payload);
       router.refresh();
       router.push('/app');
     } catch (error) {
-      console.error('[invite][accept] unexpected error', error);
-      const message = 'Something went wrong while accepting the invitation.';
-      setErrorMessage(message);
+      if (error instanceof HttpError && error.status === 401) {
+        router.push(`/auth/signin?redirectedFrom=/invite/${encodeURIComponent(token)}`);
+        return;
+      }
+      const nameErrors = getFieldErrors(error)?.name;
+      if (nameErrors?.[0]) {
+        form.setError('name', { type: 'server', message: nameErrors[0] });
+        return;
+      }
+      setErrorMessage(
+        toUserMessage(error, {
+          copy: ACCEPT_ERROR_COPY,
+          fallback: 'Something went wrong while accepting the invitation. Try again.',
+        }),
+      );
     } finally {
       setIsSubmitting(false);
     }

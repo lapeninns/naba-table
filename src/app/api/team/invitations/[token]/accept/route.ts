@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, forbidden, internalError, validationError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { ensureProfileRow } from '@/lib/profile/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -9,11 +10,14 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/serve
 import {
   acceptInviteForAuthenticatedUser,
   findInviteByToken,
-  inviteHasExpired,
+  getInviteAvailability,
   markInviteExpired,
 } from '@/server/team/invitations';
+import { getErrorCode, inviteUnavailableResponse } from '@/server/team/invite-response';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = 'team.invitations.accept';
 
 const paramsSchema = z.object({ token: z.string().min(10) });
 
@@ -21,8 +25,33 @@ const payloadSchema = z.object({
   name: z.string().trim().min(2, 'Name must be at least 2 characters'),
 });
 
+const SIGN_IN_AS_INVITEE = 'Sign in as the invited email before accepting this invitation.';
+
 export async function POST(request: NextRequest, context: { params: Promise<{ token: string }> }) {
   return withCsrfProtectedMutation(request, () => postAcceptInvitation(request, context));
+}
+
+/**
+ * Why the atomic accept found nothing to accept. The RPC only accepts a pending, unexpired
+ * invite; re-reading tells the invitee whether it expired, was revoked or was already accepted.
+ */
+async function explainRejectedAccept(token: string) {
+  const current = await findInviteByToken(token);
+  if (!current) {
+    return inviteUnavailableResponse('notFound');
+  }
+  const availability = getInviteAvailability(current);
+  if (availability === 'pending') {
+    return apiError(
+      409,
+      'INVITE_NOT_PENDING',
+      'This invitation changed while you were accepting it. Reload the page and try again.',
+    );
+  }
+  if (availability === 'expired' && current.status === 'pending') {
+    await markInviteExpired(current.id);
+  }
+  return inviteUnavailableResponse(availability);
 }
 
 async function postAcceptInvitation(
@@ -31,8 +60,9 @@ async function postAcceptInvitation(
 ) {
   const parsedParams = paramsSchema.safeParse(await context.params);
   if (!parsedParams.success) {
-    return NextResponse.json({ error: 'Invalid token' }, { status: 400 });
+    return apiError(400, 'INVALID_INVITE_TOKEN', 'This invitation link isn’t valid.');
   }
+  const { token } = parsedParams.data;
 
   let body: unknown = {};
   try {
@@ -43,10 +73,7 @@ async function postAcceptInvitation(
 
   const parsedPayload = payloadSchema.safeParse(body);
   if (!parsedPayload.success) {
-    return NextResponse.json(
-      { error: 'Invalid payload', details: parsedPayload.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsedPayload.error);
   }
 
   try {
@@ -58,56 +85,49 @@ async function postAcceptInvitation(
 
     if (authError) {
       const mapped = mapSupabaseAuthError(authError);
-      return NextResponse.json(
-        { error: mapped.message, code: mapped.code },
-        { status: mapped.status },
-      );
+      return apiError(mapped.status, mapped.code, mapped.message);
     }
 
     if (!user?.id || !user.email) {
-      return NextResponse.json(
-        { error: 'Sign in as the invited email before accepting this invitation' },
-        { status: 401 },
-      );
+      return apiError(401, 'UNAUTHENTICATED', SIGN_IN_AS_INVITEE);
     }
 
-    const invite = await findInviteByToken(parsedParams.data.token);
+    const invite = await findInviteByToken(token);
 
     if (!invite) {
-      return NextResponse.json({ error: 'Invitation not found' }, { status: 404 });
+      return inviteUnavailableResponse('notFound');
     }
 
-    if (invite.status === 'revoked') {
-      return NextResponse.json({ error: 'Invitation revoked' }, { status: 410 });
-    }
-
-    if (invite.status === 'accepted') {
-      return NextResponse.json({ error: 'Invitation already accepted' }, { status: 409 });
-    }
-
-    if (invite.status === 'expired' || inviteHasExpired(invite)) {
-      if (invite.status === 'pending') {
+    const availability = getInviteAvailability(invite);
+    if (availability !== 'pending') {
+      if (availability === 'expired' && invite.status === 'pending') {
         await markInviteExpired(invite.id);
       }
-      return NextResponse.json({ error: 'Invitation expired' }, { status: 410 });
+      return inviteUnavailableResponse(availability);
     }
 
     const service = getServiceSupabaseClient();
-    await acceptInviteForAuthenticatedUser({
-      invite,
-      userId: user.id,
-      userEmail: user.email,
-      client: service,
-    });
-    const profileUser = parsedPayload.data.name
-      ? {
-          ...user,
-          user_metadata: {
-            ...(user.user_metadata ?? {}),
-            name: parsedPayload.data.name,
-          },
-        }
-      : user;
+    try {
+      await acceptInviteForAuthenticatedUser({
+        invite,
+        userId: user.id,
+        userEmail: user.email,
+        client: service,
+      });
+    } catch (acceptError) {
+      if (getErrorCode(acceptError) === 'INVITE_NOT_FOUND') {
+        return explainRejectedAccept(token);
+      }
+      throw acceptError;
+    }
+
+    const profileUser = {
+      ...user,
+      user_metadata: {
+        ...(user.user_metadata ?? {}),
+        name: parsedPayload.data.name,
+      },
+    };
     await ensureProfileRow(service, profileUser);
 
     return NextResponse.json({
@@ -117,29 +137,24 @@ async function postAcceptInvitation(
       role: invite.role,
     });
   } catch (error) {
-    if (error && typeof error === 'object' && 'code' in error) {
-      const code = (error as { code?: string }).code;
-      if (code === 'INVITE_EMAIL_MISMATCH') {
-        return NextResponse.json(
-          { error: 'Sign in as the invited email before accepting this invitation' },
-          { status: 403 },
-        );
-      }
-      if (code === 'INVITE_ROLE_FORBIDDEN' || code === 'INVALID_INVITE_ROLE') {
-        return NextResponse.json(
-          { error: 'Invitation role is no longer allowed' },
-          { status: 403 },
-        );
-      }
-      if (code === 'INVITE_NOT_FOUND') {
-        return NextResponse.json({ error: 'Invitation already accepted' }, { status: 409 });
-      }
+    const code = getErrorCode(error);
+    if (code === 'INVITE_EMAIL_MISMATCH') {
+      return forbidden('INVITE_EMAIL_MISMATCH', SIGN_IN_AS_INVITEE);
+    }
+    if (code === 'INVITE_ROLE_FORBIDDEN' || code === 'INVALID_INVITE_ROLE') {
+      return forbidden(
+        'INVITE_ROLE_NOT_ALLOWED',
+        'This invitation’s role is no longer allowed. Ask the restaurant for a new invitation.',
+      );
     }
 
-    console.error('[api/team/invitations/token/accept][POST] failed', error);
     captureServerException(error, {
       properties: { source: 'api', kind: 'team-invitation-accept' },
     });
-    return NextResponse.json({ error: 'Unable to accept invitation' }, { status: 500 });
+    return internalError(
+      error,
+      { route: ROUTE },
+      'The invitation couldn’t be accepted. Try again.',
+    );
   }
 }

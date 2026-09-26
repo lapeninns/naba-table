@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 
+import { logger } from '@/lib/logger';
 import { isRestaurantRole, type RestaurantRole } from '@/lib/owner/auth/roles';
 import { normalizeEmail } from '@/server/customers';
 import { sendTeamInviteEmail } from '@/server/emails/invitations';
@@ -40,7 +41,92 @@ export type CreateInviteParams = {
 
 export type CreateInviteResult = {
   invite: RestaurantInvite;
+  /**
+   * False when the invite row exists but the email did not go out (provider failure or a
+   * suppressed recipient). The invite stays pending, so an admin can resend it.
+   */
+  emailSent: boolean;
 };
+
+export type ResendInviteParams = {
+  inviteId: string;
+  restaurantId: string;
+  authClient: DbClient;
+};
+
+export type ResendInviteResult = {
+  invite: RestaurantInvite;
+  /** False when the recipient is suppressed at the provider, so nothing was delivered. */
+  emailSent: boolean;
+};
+
+/** Default and allowed window for a new invitation, in days from now. */
+export const INVITE_EXPIRY_DEFAULT_DAYS = 7;
+export const INVITE_EXPIRY_MIN_DAYS = 1;
+export const INVITE_EXPIRY_MAX_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The expiry stored for a new invite. A requested value is clamped to 1 to 30 days from now,
+ * so a client can't create an invite that never expires or one that is already expired.
+ */
+export function resolveInviteExpiry(requested?: string | null, now: Date = new Date()): string {
+  const nowMs = now.getTime();
+  const min = nowMs + INVITE_EXPIRY_MIN_DAYS * DAY_MS;
+  const max = nowMs + INVITE_EXPIRY_MAX_DAYS * DAY_MS;
+  const requestedMs = requested ? new Date(requested).getTime() : Number.NaN;
+  if (Number.isNaN(requestedMs)) {
+    return new Date(nowMs + INVITE_EXPIRY_DEFAULT_DAYS * DAY_MS).toISOString();
+  }
+  return new Date(Math.min(max, Math.max(min, requestedMs))).toISOString();
+}
+
+/** What a stored invite means for the person holding its link right now. */
+export type InviteAvailability = 'pending' | 'accepted' | 'revoked' | 'expired';
+
+export function getInviteAvailability(
+  invite: Pick<RestaurantInvite, 'status' | 'expires_at'>,
+  now: number = Date.now(),
+): InviteAvailability {
+  if (invite.status === INVITE_STATUS_ACCEPTED) return 'accepted';
+  if (invite.status === INVITE_STATUS_REVOKED) return 'revoked';
+  if (invite.status === INVITE_STATUS_EXPIRED) return 'expired';
+  return new Date(invite.expires_at).getTime() <= now ? 'expired' : 'pending';
+}
+
+function inviteError<C extends string>(code: C, message: string, cause?: unknown) {
+  return Object.assign(new Error(message, cause === undefined ? undefined : { cause }), { code });
+}
+
+function describeFailure(error: unknown): { errorName: string; errorKind?: string } {
+  if (error instanceof Error) {
+    const kind = (error as { code?: unknown }).code;
+    return {
+      errorName: error.name,
+      ...(typeof kind === 'string' || typeof kind === 'number' ? { errorKind: String(kind) } : {}),
+    };
+  }
+  return { errorName: typeof error };
+}
+
+/**
+ * Sends the invite email. Never throws for a provider failure: the result says whether the
+ * email went out, and the failure is logged without the recipient or provider text.
+ */
+async function deliverInviteEmail(invite: RestaurantInvite, token: string): Promise<boolean> {
+  try {
+    const { delivered } = await sendTeamInviteEmail({ invite, token });
+    return delivered;
+  } catch (error) {
+    logger.warn('team_invite.email_failed', {
+      restaurantId: invite.restaurant_id,
+      inviteId: invite.id,
+      ...describeFailure(error),
+    });
+    return false;
+  }
+}
 
 export type ListInvitesParams = {
   restaurantId: string;
@@ -85,6 +171,10 @@ export async function createRestaurantInvite(
   const normalizedEmail = normalizeEmail(email);
   const { token, hash } = generateInviteToken();
 
+  // A pending row past its expiry still holds the one-pending-invite-per-email slot. Expire
+  // stale rows first (one atomic UPDATE), so re-inviting after expiry doesn't 409.
+  await expireRestaurantInvites(restaurantId, authClient);
+
   const { data, error } = await authClient
     .from('restaurant_invites')
     .insert({
@@ -110,13 +200,70 @@ export async function createRestaurantInvite(
   }
 
   const invite = data as RestaurantInvite;
+  const emailSent = await deliverInviteEmail(invite, token);
 
-  await sendTeamInviteEmail({
-    invite,
-    token,
-  });
+  return { invite, emailSent };
+}
 
-  return { invite };
+/**
+ * Re-sends a pending invite. The raw token is never stored, so a resend rotates it: one
+ * atomic UPDATE, guarded on pending and unexpired, swaps the token hash, and the previous
+ * link stops working. When no row matches, the invite is re-read only to report why.
+ */
+export async function resendRestaurantInvite(
+  params: ResendInviteParams,
+): Promise<ResendInviteResult> {
+  const { inviteId, restaurantId, authClient } = params;
+  const { token, hash } = generateInviteToken();
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await authClient
+    .from('restaurant_invites')
+    .update({ token_hash: hash })
+    .eq('id', inviteId)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', INVITE_STATUS_PENDING)
+    .gt('expires_at', nowIso)
+    .select(INVITE_SELECT)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    const { data: current, error: readError } = await authClient
+      .from('restaurant_invites')
+      .select(INVITE_SELECT)
+      .eq('id', inviteId)
+      .eq('restaurant_id', restaurantId)
+      .maybeSingle();
+
+    if (readError) {
+      throw readError;
+    }
+    if (!current) {
+      throw inviteError('INVITE_NOT_FOUND', 'Invite not found');
+    }
+    const availability = getInviteAvailability(current as RestaurantInvite);
+    if (availability === 'expired') {
+      throw inviteError('INVITE_EXPIRED', 'Invite has expired');
+    }
+    throw inviteError('INVITE_NOT_PENDING', 'Invite is no longer pending');
+  }
+
+  const invite = data as RestaurantInvite;
+  try {
+    const { delivered } = await sendTeamInviteEmail({ invite, token });
+    return { invite, emailSent: delivered };
+  } catch (sendError) {
+    logger.warn('team_invite.resend_email_failed', {
+      restaurantId: invite.restaurant_id,
+      inviteId: invite.id,
+      ...describeFailure(sendError),
+    });
+    throw inviteError('INVITE_EMAIL_FAILED', 'Invite email could not be sent', sendError);
+  }
 }
 
 export async function expireRestaurantInvites(
@@ -163,26 +310,27 @@ export async function listRestaurantInvites(
 }
 
 export function inviteHasExpired(invite: RestaurantInvite): boolean {
-  return new Date(invite.expires_at).getTime() < Date.now();
+  return new Date(invite.expires_at).getTime() <= Date.now();
 }
 
 export async function markInviteExpired(
   inviteId: string,
   client: DbClient = getServiceSupabaseClient(),
-) {
+): Promise<RestaurantInvite | null> {
+  // maybeSingle: a concurrent accept, revoke or expiry leaves nothing to update, which is fine.
   const { data, error } = await client
     .from('restaurant_invites')
     .update({ status: INVITE_STATUS_EXPIRED })
     .eq('id', inviteId)
     .eq('status', INVITE_STATUS_PENDING)
     .select(INVITE_SELECT)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw error;
   }
 
-  return data as RestaurantInvite;
+  return (data ?? null) as RestaurantInvite | null;
 }
 
 export async function revokeRestaurantInvite(

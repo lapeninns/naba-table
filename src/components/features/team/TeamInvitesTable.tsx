@@ -1,8 +1,16 @@
 'use client';
 
-import { AlertCircle, Ban, CheckCircle2, Clock, RefreshCw, type LucideIcon } from 'lucide-react';
-import { useMemo, useRef, useState, type ComponentProps } from 'react';
-import { toast } from 'sonner';
+import {
+  AlertCircle,
+  Ban,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  RefreshCw,
+  Send,
+  type LucideIcon,
+} from 'lucide-react';
+import { useCallback, useMemo, useRef, useState, type ComponentProps } from 'react';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
@@ -12,7 +20,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
-import { useOpsRevokeTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
+import {
+  useOpsResendTeamInvite,
+  useOpsRevokeTeamInvite,
+} from '@/hooks/ops/useOpsTeamInvitations';
 
 import {
   TEAM_INVITE_FILTERS,
@@ -106,6 +117,27 @@ function EmptyInvites({ filter, canManage }: { filter: TeamInviteFilter; canMana
   );
 }
 
+type RowAction = 'revoke' | 'resend';
+
+/**
+ * Invites with a request in flight, per action. Each row tracks its own request, so revoking
+ * or resending one invitation leaves the other rows usable.
+ */
+function usePendingRowActions() {
+  const [pending, setPending] = useState<ReadonlyMap<string, RowAction>>(new Map());
+  const track = useCallback(<T,>(inviteId: string, action: RowAction, run: () => Promise<T>) => {
+    setPending((current) => new Map(current).set(inviteId, action));
+    return run().finally(() => {
+      setPending((current) => {
+        const next = new Map(current);
+        next.delete(inviteId);
+        return next;
+      });
+    });
+  }, []);
+  return { pending, track };
+}
+
 type TeamInvitesTableProps = {
   restaurantId: string;
   canManage: boolean;
@@ -129,33 +161,37 @@ export function TeamInvitesTable({
   const [revokeTarget, setRevokeTarget] = useState<TeamInvite | null>(null);
   const filterRefs = useRef<Partial<Record<TeamInviteFilter, HTMLButtonElement | null>>>({});
   const revokeInvite = useOpsRevokeTeamInvite();
+  const resendInvite = useOpsResendTeamInvite();
+  const { pending, track } = usePendingRowActions();
 
   // Filtering happens here, over one 'all' list, so every filter can show its count.
   const counts = useMemo(() => countTeamInvites(invites ?? []), [invites]);
   const rows = useMemo(() => filterTeamInvites(invites ?? [], filter), [invites, filter]);
 
+  // Success and error toasts come from the hooks' mutation feedback (C3).
   const handleRevoke = () => {
     const target = revokeTarget;
-    if (!target || revokeInvite.isPending) {
+    if (!target || pending.has(target.id)) {
       return;
     }
-    revokeInvite.mutate(
-      { restaurantId, inviteId: target.id },
-      {
-        onSuccess: () => {
-          setRevokeTarget(null);
-          toast.success(`Invitation for ${target.email} revoked.`);
-          // The revoked row leaves the Waiting list: return focus to the active filter.
-          window.requestAnimationFrame(() => filterRefs.current[filter]?.focus());
-        },
-        onError: (revokeError) => {
-          setRevokeTarget(null);
-          toast.error('Invitation wasn’t revoked', {
-            description: `Reason code ${getSettingsSaveReasonCode(revokeError)}`,
-          });
-        },
-      },
-    );
+    setRevokeTarget(null);
+    void track(target.id, 'revoke', () =>
+      revokeInvite.mutateAsync({ restaurantId, inviteId: target.id }),
+    )
+      .then(() => {
+        // The revoked row leaves the Waiting list: return focus to the active filter.
+        window.requestAnimationFrame(() => filterRefs.current[filter]?.focus());
+      })
+      .catch(() => {});
+  };
+
+  const handleResend = (invite: TeamInvite) => {
+    if (pending.has(invite.id)) {
+      return;
+    }
+    void track(invite.id, 'resend', () =>
+      resendInvite.mutateAsync({ restaurantId, inviteId: invite.id }),
+    ).catch(() => {});
   };
 
   // The invitation list is only available to owners and managers. For other roles a failed
@@ -165,7 +201,7 @@ export function TeamInvitesTable({
   return (
     <SettingsCard
       title="Invitations"
-      description="Invitations expire after 7 days."
+      description="Invitations expire after 7 days. Resending one sends a new link and the old link stops working."
       contentClassName="flex flex-col gap-4 pt-4"
       footer={
         isFetching && !isLoading ? (
@@ -247,6 +283,7 @@ export function TeamInvitesTable({
             <ul aria-label="Invitations" className="flex flex-col">
               {rows.map((row) => {
                 const { invite, status } = row;
+                const rowAction = pending.get(invite.id);
                 return (
                   <li
                     key={invite.id}
@@ -265,16 +302,41 @@ export function TeamInvitesTable({
                     <InviteDates row={row} />
                     <span className="flex empty:hidden md:justify-end">
                       {canManage && status === 'pending' ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className={COARSE_TARGET_CLASS}
-                          onClick={() => setRevokeTarget(invite)}
-                          disabled={revokeInvite.isPending}
-                        >
-                          Revoke <span className="sr-only">invitation for {invite.email}</span>
-                        </Button>
+                        <span className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={COARSE_TARGET_CLASS}
+                            onClick={() => handleResend(invite)}
+                            disabled={pending.has(invite.id)}
+                            aria-busy={rowAction === 'resend'}
+                          >
+                            {rowAction === 'resend' ? (
+                              <Loader2
+                                data-icon="inline-start"
+                                className="animate-spin motion-reduce:animate-none"
+                                aria-hidden
+                              />
+                            ) : (
+                              <Send data-icon="inline-start" aria-hidden />
+                            )}
+                            {rowAction === 'resend' ? 'Resending…' : 'Resend'}{' '}
+                            <span className="sr-only">invitation for {invite.email}</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className={COARSE_TARGET_CLASS}
+                            onClick={() => setRevokeTarget(invite)}
+                            disabled={pending.has(invite.id)}
+                            aria-busy={rowAction === 'revoke'}
+                          >
+                            {rowAction === 'revoke' ? 'Revoking…' : 'Revoke'}{' '}
+                            <span className="sr-only">invitation for {invite.email}</span>
+                          </Button>
+                        </span>
                       ) : null}
                     </span>
                   </li>
@@ -301,7 +363,7 @@ export function TeamInvitesTable({
             </>
           ) : undefined
         }
-        confirmLabel={revokeInvite.isPending ? 'Revoking…' : 'Revoke invitation'}
+        confirmLabel="Revoke invitation"
         cancelLabel="Keep invitation"
         tone="destructive"
         onConfirm={handleRevoke}

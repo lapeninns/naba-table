@@ -18,7 +18,11 @@ const teamHooksState = vi.hoisted(() => ({
   },
   revokeInvite: {
     isPending: false,
-    mutate: vi.fn(),
+    mutateAsync: vi.fn(),
+  },
+  resendInvite: {
+    isPending: false,
+    mutateAsync: vi.fn(),
   },
 }));
 
@@ -29,6 +33,7 @@ vi.mock('sonner', () => ({ toast: toastMocks }));
 vi.mock('@/hooks/ops/useOpsTeamInvitations', () => ({
   useOpsCreateTeamInvite: () => teamHooksState.createInvite,
   useOpsRevokeTeamInvite: () => teamHooksState.revokeInvite,
+  useOpsResendTeamInvite: () => teamHooksState.resendInvite,
   useOpsTeamInvitations: vi.fn(() => teamHooksState.invitations),
 }));
 
@@ -124,7 +129,9 @@ function resetState() {
   teamHooksState.invitations.isLoading = false;
   teamHooksState.invitations.refetch.mockReset();
   teamHooksState.revokeInvite.isPending = false;
-  teamHooksState.revokeInvite.mutate.mockReset();
+  teamHooksState.revokeInvite.mutateAsync.mockReset();
+  teamHooksState.resendInvite.isPending = false;
+  teamHooksState.resendInvite.mutateAsync.mockReset();
   toastMocks.success.mockReset();
   toastMocks.error.mockReset();
   vi.mocked(useOpsTeamInvitations).mockClear();
@@ -187,6 +194,7 @@ describe('TeamInviteForm', () => {
         role: 'manager',
         expiresAt: '2026-10-02T12:00:00.000Z',
       }),
+      emailSent: true,
     });
 
     render(<TeamInviteForm restaurantId="rest-1" existingInvites={[]} />);
@@ -206,6 +214,25 @@ describe('TeamInviteForm', () => {
     expect(result).toHaveTextContent('It expires on 2 Oct 2026.');
     expect(screen.getByLabelText('Email')).toHaveValue('');
     expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
+  });
+
+  it('says when the invitation was created but its email was not sent', async () => {
+    const actor = userEvent.setup();
+    teamHooksState.createInvite.mutateAsync.mockResolvedValueOnce({
+      invite: makeInvite({ email: 'new-host@example.com' }),
+      emailSent: false,
+    });
+
+    render(<TeamInviteForm restaurantId="rest-1" existingInvites={[]} />);
+
+    await actor.type(screen.getByLabelText('Email'), 'new-host@example.com');
+    await actor.click(screen.getByRole('button', { name: 'Send invitation' }));
+
+    const result = await screen.findByRole('status');
+    expect(result).toHaveTextContent(
+      'Invitation created for new-host@example.com, but the email wasn’t sent',
+    );
+    expect(result).toHaveTextContent('Use Resend in the invitations list');
   });
 
   it('blocks an email that already has an invitation waiting', async () => {
@@ -231,6 +258,7 @@ describe('TeamInviteForm', () => {
     const actor = userEvent.setup();
     teamHooksState.createInvite.mutateAsync.mockResolvedValueOnce({
       invite: makeInvite({ email: 'again@example.com' }),
+      emailSent: true,
     });
     render(
       <TeamInviteForm
@@ -393,13 +421,13 @@ describe('TeamInvitesTable', () => {
     expect(screen.getByText('No invitations match this filter.')).toBeInTheDocument();
   });
 
-  it('confirms a revoke naming the email and toasts once the server confirms', async () => {
+  it('confirms a revoke naming the email and sends it through the hook', async () => {
     const actor = userEvent.setup();
     teamHooksState.invitations.data = [
       makeInvite({ id: 'pending-invite', email: 'pending@example.com' }),
     ];
-    teamHooksState.revokeInvite.mutate.mockImplementation(
-      (_input: unknown, options: { onSuccess?: () => void }) => options.onSuccess?.(),
+    teamHooksState.revokeInvite.mutateAsync.mockResolvedValue(
+      makeInvite({ id: 'pending-invite', status: 'revoked' }),
     );
 
     renderTable();
@@ -414,11 +442,118 @@ describe('TeamInvitesTable', () => {
     );
     await actor.click(within(dialog).getByRole('button', { name: 'Revoke invitation' }));
 
-    expect(teamHooksState.revokeInvite.mutate).toHaveBeenCalledWith(
-      { restaurantId: 'rest-1', inviteId: 'pending-invite' },
-      expect.any(Object),
+    expect(teamHooksState.revokeInvite.mutateAsync).toHaveBeenCalledWith({
+      restaurantId: 'rest-1',
+      inviteId: 'pending-invite',
+    });
+    // Feedback toasts come from the hook's mutation meta, not the table.
+    expect(toastMocks.success).not.toHaveBeenCalled();
+  });
+
+  it('keeps the pending state per row while one invitation is being revoked', async () => {
+    const actor = userEvent.setup();
+    teamHooksState.invitations.data = [
+      makeInvite({ id: 'first', email: 'first@example.com' }),
+      makeInvite({ id: 'second', email: 'second@example.com' }),
+    ];
+    let settle: (value: unknown) => void = () => {};
+    teamHooksState.revokeInvite.mutateAsync.mockImplementation(
+      () => new Promise((resolve) => (settle = resolve)),
     );
-    expect(toastMocks.success).toHaveBeenCalledWith('Invitation for pending@example.com revoked.');
+
+    renderTable();
+
+    await actor.click(screen.getByRole('button', { name: 'Revoke invitation for first@example.com' }));
+    await actor.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', {
+        name: 'Revoke invitation',
+      }),
+    );
+
+    const firstRow = screen.getByTestId('team-invite-first');
+    const secondRow = screen.getByTestId('team-invite-second');
+    await waitFor(() =>
+      expect(
+        within(firstRow).getByRole('button', { name: /Revoking… invitation for first/ }),
+      ).toBeDisabled(),
+    );
+    expect(within(firstRow).getByRole('button', { name: /Resend invitation for first/ })).toBeDisabled();
+    expect(
+      within(secondRow).getByRole('button', { name: 'Revoke invitation for second@example.com' }),
+    ).toBeEnabled();
+    expect(
+      within(secondRow).getByRole('button', { name: 'Resend invitation for second@example.com' }),
+    ).toBeEnabled();
+
+    settle(makeInvite({ id: 'first', status: 'revoked' }));
+    await waitFor(() =>
+      expect(
+        within(firstRow).getByRole('button', { name: 'Revoke invitation for first@example.com' }),
+      ).toBeEnabled(),
+    );
+  });
+
+  it('resends a pending invitation from its row and shows progress on that row only', async () => {
+    const actor = userEvent.setup();
+    teamHooksState.invitations.data = [
+      makeInvite({ id: 'first', email: 'first@example.com' }),
+      makeInvite({ id: 'second', email: 'second@example.com' }),
+    ];
+    let settle: (value: unknown) => void = () => {};
+    teamHooksState.resendInvite.mutateAsync.mockImplementation(
+      () => new Promise((resolve) => (settle = resolve)),
+    );
+
+    renderTable();
+
+    await actor.click(screen.getByRole('button', { name: 'Resend invitation for first@example.com' }));
+
+    expect(teamHooksState.resendInvite.mutateAsync).toHaveBeenCalledWith({
+      restaurantId: 'rest-1',
+      inviteId: 'first',
+    });
+    const firstRow = screen.getByTestId('team-invite-first');
+    expect(
+      within(firstRow).getByRole('button', { name: /Resending… invitation for first/ }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Resend invitation for second@example.com' }),
+    ).toBeEnabled();
+
+    settle({ invite: makeInvite({ id: 'first' }), emailSent: true });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Resend invitation for first@example.com' }),
+      ).toBeEnabled(),
+    );
+  });
+
+  it('keeps the row usable after a failed resend', async () => {
+    const actor = userEvent.setup();
+    teamHooksState.invitations.data = [makeInvite({ id: 'first', email: 'first@example.com' })];
+    teamHooksState.resendInvite.mutateAsync.mockRejectedValue(
+      new HttpError({ message: 'expired', status: 409, code: 'INVITE_EXPIRED' }),
+    );
+
+    renderTable();
+    await actor.click(screen.getByRole('button', { name: 'Resend invitation for first@example.com' }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Resend invitation for first@example.com' }),
+      ).toBeEnabled(),
+    );
+  });
+
+  it('does not offer resend on invitations that are not waiting', () => {
+    teamHooksState.invitations.data = [
+      makeInvite({ id: 'expired', expiresAt: PAST }),
+      makeInvite({ id: 'accepted', status: 'accepted' }),
+    ];
+
+    renderTable();
+
+    expect(screen.queryByRole('button', { name: /^Resend/ })).not.toBeInTheDocument();
   });
 
   it('hides revoke for view-only roles', () => {

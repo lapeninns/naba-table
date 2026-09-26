@@ -69,7 +69,20 @@ export class DevTeamService implements TeamService {
       expires_at: input.expiresAt ?? null,
     } as unknown as MutableInvite;
     this.invites = [invite, ...this.invites];
-    return { invite, inviteUrl: `https://example.test/invite/${invite.id}` };
+    return { invite, emailSent: true };
+  }
+
+  async resendInvite(input: { restaurantId: string; inviteId: string }) {
+    if (input.restaurantId !== DEV_RESTAURANT_ID) {
+      throw new Error('[dev][teamService] unknown restaurant');
+    }
+    const existing = this.invites.find((i) => i.id === input.inviteId);
+    if (!existing || (existing as unknown as { status?: string }).status !== 'pending') {
+      throw new Error('[dev][teamService] invite is not pending');
+    }
+    const resent = { ...existing, updated_at: nowIso() } as unknown as MutableInvite;
+    this.invites = this.invites.map((i) => (i.id === input.inviteId ? resent : i));
+    return { invite: resent, emailSent: true };
   }
 
   async revokeInvite(input: { restaurantId: string; inviteId: string }) {
