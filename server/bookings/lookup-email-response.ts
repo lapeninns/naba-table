@@ -13,7 +13,7 @@ import { recordObservabilityEvent } from '@/server/observability';
 import { enqueueEmailJob } from '@/server/queue/email';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
-import { anonymizeIp, extractClientIp } from '@/server/security/request';
+import { extractClientIp, rateLimitIpKey } from '@/server/security/request';
 import { verifyTurnstileToken } from '@/server/security/turnstile';
 import { getTenantServiceSupabaseClient } from '@/server/supabase';
 
@@ -134,20 +134,43 @@ export async function buildLookupEmailHttpResponse(
   }
   const input = parsed.data;
 
+  // Links cannot be minted without the token secret. Say so instead of the
+  // neutral 202, which would tell the guest to wait for an email that never
+  // comes. This is global configuration, so it reveals nothing about contacts.
+  if (!deps.secret) {
+    return apiError(
+      503,
+      'BOOKING_LINKS_UNAVAILABLE',
+      'Booking links are temporarily unavailable. Contact the venue to manage your booking.',
+    );
+  }
+
   const clientIp = extractClientIp(req);
-  try {
-    const ipLimit = await deps.consumeRateLimit({
-      identifier: `bookings:lookup-email:ip:${anonymizeIp(clientIp)}`,
-      limit: LOOKUP_EMAIL_IP_LIMIT.limit,
-      windowMs: LOOKUP_EMAIL_IP_LIMIT.windowMs,
-    });
-    if (!ipLimit.ok) {
-      return rateLimited(Math.max(1, Math.ceil((ipLimit.resetAt - Date.now()) / 1000)));
+  // Per IPv4 address or IPv6 /64. With no usable IP the IP charge is skipped
+  // rather than pooled into one global bucket that any client could exhaust
+  // for everyone; Turnstile and the per-contact throttle below still apply,
+  // and the email only ever goes to the address stored on the booking.
+  const ipKey = rateLimitIpKey(clientIp);
+  if (ipKey) {
+    try {
+      const ipLimit = await deps.consumeRateLimit({
+        identifier: `bookings:lookup-email:ip:${ipKey}`,
+        limit: LOOKUP_EMAIL_IP_LIMIT.limit,
+        windowMs: LOOKUP_EMAIL_IP_LIMIT.windowMs,
+      });
+      if (!ipLimit.ok) {
+        return rateLimited(Math.max(1, Math.ceil((ipLimit.resetAt - Date.now()) / 1000)));
+      }
+    } catch {
+      return apiError(
+        503,
+        'RATE_LIMIT_UNAVAILABLE',
+        'Service temporarily unavailable. Try again.',
+        {
+          retryable: true,
+        },
+      );
     }
-  } catch {
-    return apiError(503, 'RATE_LIMIT_UNAVAILABLE', 'Service temporarily unavailable. Try again.', {
-      retryable: true,
-    });
   }
 
   if (deps.turnstileEnabled) {
@@ -175,12 +198,9 @@ export async function buildLookupEmailHttpResponse(
   const restaurantId = restaurant.restaurantId;
 
   // From here on every outcome is the same neutral 202.
-  const secret = deps.secret;
-  const throttle = secret
-    ? await deps.consumeContactThrottle(
-        lookupContactKey({ restaurantId, email: input.email, secret }),
-      )
-    : { allowed: false };
+  const throttle = await deps.consumeContactThrottle(
+    lookupContactKey({ restaurantId, email: input.email, secret: deps.secret }),
+  );
 
   const now = deps.now();
   deps.runAfter(async () => {

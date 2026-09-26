@@ -230,7 +230,7 @@ describe('GET /bookings/recover', () => {
     expect(missing.headers.get('location')).toContain('code=MISSING_ACCESS_TOKEN');
   });
 
-  it('rate limits per IP', async () => {
+  it('limits valid links per booking, never per IP or in a shared bucket', async () => {
     consumeRateLimitMock.mockResolvedValue({
       ok: false,
       limit: 30,
@@ -240,18 +240,69 @@ describe('GET /bookings/recover', () => {
     });
     const response = await recover(`access_token=${encodeURIComponent(linkToken())}`);
     expect(response.headers.get('location')).toContain('code=RATE_LIMITED');
+    expect(consumeRateLimitMock).toHaveBeenCalledTimes(1);
     expect(consumeRateLimitMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        identifier: expect.stringMatching(/^bookings:recover:/),
-        limit: 30,
-      }),
+      expect.objectContaining({ identifier: `bookings:recover:booking:${BID}`, limit: 30 }),
     );
   });
 
+  it('does not charge any IP bucket for a valid link', async () => {
+    await recover(`access_token=${encodeURIComponent(linkToken())}`);
+    const identifiers = consumeRateLimitMock.mock.calls.map(
+      ([params]) => (params as { identifier: string }).identifier,
+    );
+    expect(identifiers).toEqual([`bookings:recover:booking:${BID}`]);
+  });
+
+  it('charges failed links per client IP (full address) when one is known', async () => {
+    const previous = process.env.TRUST_FORWARDED_IP_HEADERS;
+    process.env.TRUST_FORWARDED_IP_HEADERS = 'true';
+    try {
+      consumeRateLimitMock.mockResolvedValue({
+        ok: false,
+        limit: 30,
+        remaining: 0,
+        resetAt: Date.now() + 60_000,
+        source: 'memory',
+      });
+      const response = await GET(
+        new NextRequest('https://www.nabatable.com/bookings/recover?access_token=bk1.bad', {
+          headers: { 'x-forwarded-for': '198.51.100.20' },
+        }),
+      );
+      expect(response.headers.get('location')).toContain('code=RATE_LIMITED');
+      expect(consumeRateLimitMock).toHaveBeenCalledWith(
+        expect.objectContaining({ identifier: 'bookings:recover:failed:v4:198.51.100.20' }),
+      );
+    } finally {
+      if (previous === undefined) delete process.env.TRUST_FORWARDED_IP_HEADERS;
+      else process.env.TRUST_FORWARDED_IP_HEADERS = previous;
+    }
+  });
+
+  it('never pools failed links from clients with no known IP into one bucket', async () => {
+    consumeRateLimitMock.mockResolvedValue({
+      ok: false,
+      limit: 30,
+      remaining: 0,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
+    });
+    const response = await recover('access_token=bk1.bad');
+    expect(response.headers.get('location')).toContain('code=INVALID_ACCESS_TOKEN');
+    expect(consumeRateLimitMock).not.toHaveBeenCalled();
+  });
+
   describe('§34 claim', () => {
-    it('binds an unbound booking to a signed-in user with the same email', async () => {
+    it('binds an unbound booking to a signed-in user with the same confirmed email', async () => {
       authGetUserMock.mockResolvedValue({
-        data: { user: { id: 'user-1', email: 'Guest@Example.com' } },
+        data: {
+          user: {
+            id: 'user-1',
+            email: 'Guest@Example.com',
+            email_confirmed_at: '2026-09-01T00:00:00.000Z',
+          },
+        },
         error: null,
       });
       await recover(`access_token=${encodeURIComponent(linkToken())}`);
@@ -265,6 +316,16 @@ describe('GET /bookings/recover', () => {
           ['is', 'auth_user_id', null],
         ]),
       );
+    });
+
+    it('does not bind when the account email is not confirmed', async () => {
+      authGetUserMock.mockResolvedValue({
+        data: { user: { id: 'user-1', email: 'guest@example.com', email_confirmed_at: null } },
+        error: null,
+      });
+      const response = await recover(`access_token=${encodeURIComponent(linkToken())}`);
+      expect(updateCalls).toHaveLength(0);
+      expect(bookingCookie(response)).toBeDefined();
     });
 
     it('does not bind for a different email', async () => {

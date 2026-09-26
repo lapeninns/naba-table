@@ -5,7 +5,7 @@
  * with real bk1 tokens. Only persistence and side effects are faked.
  */
 import { NextRequest } from 'next/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const authGetUserMock = vi.hoisted(() => vi.fn());
 const listMembershipsMock = vi.hoisted(() => vi.fn());
@@ -607,6 +607,12 @@ describe('rate limits (§15)', () => {
   });
 
   it('charges undecodable cookies per IP and rate limits only that IP', async () => {
+    const previousTrust = process.env.TRUST_FORWARDED_IP_HEADERS;
+    process.env.TRUST_FORWARDED_IP_HEADERS = 'true';
+    onTestFinished(() => {
+      if (previousTrust === undefined) delete process.env.TRUST_FORWARDED_IP_HEADERS;
+      else process.env.TRUST_FORWARDED_IP_HEADERS = previousTrust;
+    });
     const statuses: number[] = [];
     for (let index = 0; index < 31; index += 1) {
       const response = await GET(
@@ -617,9 +623,14 @@ describe('rate limits (§15)', () => {
     }
     expect(statuses.slice(0, 30).every((status) => status === 401)).toBe(true);
     expect(statuses[30]).toBe(429);
-    expect(
-      [...rateBuckets.keys()].some((key) => key.startsWith('bookings:guest-token-invalid:')),
-    ).toBe(true);
+    expect([...rateBuckets.keys()]).toContain('bookings:guest-token-invalid:v4:203.0.113.9');
+
+    // A neighbour in the same /16 keeps its own bucket.
+    const neighbour = await GET(
+      req('GET', `/api/bookings/${A}`, { cookies: [accessCookie(A, 'x')], ip: '203.0.7.9' }),
+      params(A),
+    );
+    expect(neighbour.status).toBe(401);
 
     const other = await GET(
       req('GET', `/api/bookings/${A}`, {
@@ -629,6 +640,21 @@ describe('rate limits (§15)', () => {
       params(A),
     );
     expect(other.status).toBe(200);
+  });
+
+  it('does not pool undecodable cookies from clients with no known IP into one bucket', async () => {
+    const statuses: number[] = [];
+    for (let index = 0; index < 31; index += 1) {
+      const response = await GET(
+        req('GET', `/api/bookings/${A}`, { cookies: [accessCookie(A, 'x')] }),
+        params(A),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses.every((status) => status === 401)).toBe(true);
+    expect(
+      [...rateBuckets.keys()].some((key) => key.startsWith('bookings:guest-token-invalid:')),
+    ).toBe(false);
   });
 
   it('keys token reads by booking, not by IP', async () => {
