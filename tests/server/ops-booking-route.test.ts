@@ -367,6 +367,35 @@ describe('ops booking PATCH route timezone handling', () => {
     expect(updateWithEnforcement).not.toHaveBeenCalled();
   });
 
+  it('maps a modification-flow conflict (S2) to a C1 409 and leaves nothing half-applied', async () => {
+    maybeSingleMock.mockResolvedValue({ data: buildBooking(), error: null });
+    beginBookingModificationFlowMock.mockRejectedValue(
+      Object.assign(new Error('Could not move the booking to new tables'), {
+        name: 'BookingModificationConflictError',
+        status: 409,
+        code: 'MODIFICATION_NO_TABLES',
+        retryable: false,
+        reason: 'planner: no candidate tables',
+      }),
+    );
+
+    const response = await PATCH(
+      new NextRequest('https://www.nabatable.com/api/ops/bookings/booking-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ startIso: '2026-07-01T19:30:00.000Z', partySize: 4 }),
+      }),
+      buildRouteParams(),
+    );
+    const body = await response.json();
+
+    expect(beginBookingModificationFlowMock).toHaveBeenCalled();
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({ code: 'MODIFICATION_NO_TABLES', retryable: false });
+    expect(JSON.stringify(body)).not.toContain('planner');
+    expect(logAuditEventMock).not.toHaveBeenCalled();
+    expect(enqueueBookingUpdatedSideEffectsMock).not.toHaveBeenCalled();
+  });
+
   it('does not look up bookings when the operator has no restaurant memberships', async () => {
     fetchUserMembershipsMock.mockResolvedValue([]);
 

@@ -102,6 +102,31 @@ function readNotCancellable(
   return { currentStatus: status as Tables<'bookings'>['status'] | null };
 }
 
+const MODIFICATION_CONFLICT_MESSAGES = {
+  MODIFICATION_NO_TABLES: 'No table is free for that change. The booking has not been changed.',
+  MODIFICATION_TABLES_UNCONFIRMED:
+    'Tables for that change could not be confirmed. The booking has not been changed.',
+  BOOKING_STATE_CONFLICT:
+    'This booking changed while you were editing it. The booking has not been changed.',
+} as const;
+
+type ModificationConflictCode = keyof typeof MODIFICATION_CONFLICT_MESSAGES;
+
+/**
+ * S2's BookingModificationConflictError (mw/handoffs/S2-modification-flow.md), matched
+ * structurally so this route keeps compiling against the current modification-flow export.
+ */
+function modificationConflictResponse(error: unknown) {
+  if (!error || typeof error !== 'object') return null;
+  const record = error as { status?: unknown; code?: unknown; retryable?: unknown };
+  if (record.status !== 409 || typeof record.code !== 'string') return null;
+  if (!(record.code in MODIFICATION_CONFLICT_MESSAGES)) return null;
+  const code = record.code as ModificationConflictCode;
+  return conflict(code, MODIFICATION_CONFLICT_MESSAGES[code], {
+    retryable: record.retryable === true,
+  });
+}
+
 function invalidDateValues() {
   return apiError(400, 'INVALID_DATE_VALUES', 'Invalid date values');
 }
@@ -823,6 +848,16 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       realigned: requiresTableRealignment,
     });
   } catch (updateError) {
+    const modificationConflict = modificationConflictResponse(updateError);
+    if (modificationConflict) {
+      captureRestaurantServerEvent('booking_modify_failed', {
+        restaurantId: restaurantId || undefined,
+        distinctId: user.id,
+        props: { bookingId, source: 'ops', method: 'ops', reason: 'modification_conflict' },
+      });
+      return timing.withHeaders(modificationConflict);
+    }
+
     captureRestaurantServerEvent('booking_modify_failed', {
       restaurantId: restaurantId || undefined,
       distinctId: user.id,
@@ -1089,6 +1124,17 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
 
     return NextResponse.json(responsePayload, withValidationHeaders({ status: 200 }));
   } catch (error) {
+    // Before the BookingValidationError branch: S2's conflict error extends it.
+    const modificationConflict = modificationConflictResponse(error);
+    if (modificationConflict) {
+      captureRestaurantServerEvent('booking_modify_failed', {
+        restaurantId: existingBooking.restaurant_id ?? undefined,
+        distinctId: user.id,
+        props: { bookingId, source: 'ops', method: 'ops', reason: 'modification_conflict' },
+      });
+      return modificationConflict;
+    }
+
     if (error instanceof BookingValidationError) {
       recordObservabilityEvent({
         source: 'api.ops.bookings',
