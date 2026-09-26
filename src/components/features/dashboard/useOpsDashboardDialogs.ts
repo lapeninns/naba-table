@@ -12,8 +12,6 @@ export function useOpsDashboardDialogs(params: {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [editBookingId, setEditBookingId] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
 
   const detailsBooking = useMemo(
     () => resolveBookingById(detailsBookingId),
@@ -22,10 +20,6 @@ export function useOpsDashboardDialogs(params: {
   const editBooking = useMemo(
     () => resolveBookingById(editBookingId),
     [editBookingId, resolveBookingById],
-  );
-  const cancelBooking = useMemo(
-    () => resolveBookingById(cancelBookingId),
-    [cancelBookingId, resolveBookingById],
   );
 
   const handleDetails = useCallback((bookingId: string) => {
@@ -56,20 +50,12 @@ export function useOpsDashboardDialogs(params: {
     }
   }, []);
 
-  const handleCancelRequest = useCallback((bookingId: string) => {
+  /** Closes details and edit, e.g. before the cancel confirmation opens. */
+  const closeOtherDialogs = useCallback(() => {
     setIsDetailsOpen(false);
     setDetailsBookingId(null);
     setIsEditOpen(false);
     setEditBookingId(null);
-    setCancelBookingId(bookingId);
-    setIsCancelOpen(true);
-  }, []);
-
-  const handleCancelOpenChange = useCallback((open: boolean) => {
-    setIsCancelOpen(open);
-    if (!open) {
-      setCancelBookingId(null);
-    }
   }, []);
 
   return {
@@ -77,13 +63,10 @@ export function useOpsDashboardDialogs(params: {
     isDetailsOpen,
     editBooking,
     isEditOpen,
-    cancelBooking,
-    isCancelOpen,
     handleDetails,
     handleEdit,
     handleDetailsOpenChange,
     handleEditOpenChange,
-    handleCancelRequest,
-    handleCancelOpenChange,
+    closeOtherDialogs,
   };
 }

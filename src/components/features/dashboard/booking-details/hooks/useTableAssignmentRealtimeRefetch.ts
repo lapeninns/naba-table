@@ -1,8 +1,10 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
+import { isOwnBookingWriteEcho } from '@src/hooks/ops/bookingWriteEcho';
 
 const ASSIGNMENT_REALTIME_REFETCH_DEBOUNCE_MS = 250;
 const ASSIGNMENT_REALTIME_REFETCH_DEDUPE_MS = 750;
@@ -20,6 +22,7 @@ export function useTableAssignmentRealtimeRefetch({
   refetch: () => void;
   restaurantId: string;
 }) {
+  const queryClient = useQueryClient();
   // Skipped when a parent hook already owns a consolidated channel for the same tables.
   useEffect(() => {
     if (!bookingId || !restaurantId || !enabled || !realtime) {
@@ -48,6 +51,12 @@ export function useTableAssignmentRealtimeRefetch({
       }, ASSIGNMENT_REALTIME_REFETCH_DEBOUNCE_MS);
     };
 
+    // Skip echoes of this client's own table writes (the mutation already synced the caches).
+    const onChange = (table: string) => (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, table, payload)) return;
+      handleChange();
+    };
+
     channel.on(
       'postgres_changes',
       {
@@ -56,7 +65,7 @@ export function useTableAssignmentRealtimeRefetch({
         table: 'allocations',
         filter: `restaurant_id=eq.${restaurantId}`,
       },
-      handleChange,
+      onChange('allocations'),
     );
 
     channel.on(
@@ -67,7 +76,7 @@ export function useTableAssignmentRealtimeRefetch({
         table: 'table_holds',
         filter: `restaurant_id=eq.${restaurantId}`,
       },
-      handleChange,
+      onChange('table_holds'),
     );
 
     channel.on(
@@ -78,7 +87,7 @@ export function useTableAssignmentRealtimeRefetch({
         table: 'booking_table_assignments',
         filter: `booking_id=eq.${bookingId}`,
       },
-      handleChange,
+      onChange('booking_table_assignments'),
     );
 
     channel.subscribe();
@@ -89,7 +98,7 @@ export function useTableAssignmentRealtimeRefetch({
       }
       client.removeChannel(channel);
     };
-  }, [bookingId, restaurantId, refetch, enabled, realtime]);
+  }, [bookingId, restaurantId, refetch, enabled, realtime, queryClient]);
 }
 
 export type TableAssignmentRealtimeRefetchOptions = Parameters<

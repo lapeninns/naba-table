@@ -87,10 +87,68 @@ type UndoNoShowInput = {
   reason?: string | null;
 };
 
-type LifecycleResponse = {
+/** One `booking_table_assignments` row, as the assign-tables and move-tables routes return it. */
+export type OpsAssignmentRow = {
+  id: string;
+  booking_id: string;
+  table_id: string;
+  assigned_at: string;
+  assigned_by: string | null;
+};
+
+/** Canonical booking snapshot returned by the lifecycle routes (S3a contract). */
+export type LifecycleBooking = {
+  id: string;
+  restaurantId: string;
   status: OpsBookingStatus;
   checkedInAt: string | null;
   checkedOutAt: string | null;
+  updatedAt: string | null;
+};
+
+export type LifecycleResponse = {
+  status: OpsBookingStatus;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+  /** False when the request was a same-state no-op. Absent on older servers. */
+  changed?: boolean;
+  /** Canonical row after the write. Absent on older servers. */
+  booking?: LifecycleBooking;
+  /** Present when the transition changed the booking's tables (check-out, no-show, undo-no-show). */
+  assignments?: OpsAssignmentRow[];
+  /** undo-no-show only. */
+  tablesRestored?: boolean;
+  tableRestoration?: {
+    status: 'restored' | 'not_needed' | 'unavailable' | 'unknown';
+    tableIds: string[];
+  };
+};
+
+/** Body of POST /assign-tables and POST /move-tables. */
+export type TableAssignmentWriteResponse = {
+  success: true;
+  assignments: OpsAssignmentRow[];
+  booking: {
+    id: string;
+    status: string;
+    party_size: number;
+  };
+  summary: {
+    tableCount: number;
+    totalCapacity: number;
+    partySize: number;
+    slack: number;
+  };
+};
+
+export type MoveBookingTablesInput = {
+  bookingId: string;
+  restaurantId?: string;
+  fromTableIds: string[];
+  toTableIds: string[];
+  /** One per user intent, reused on retry (C5). */
+  idempotencyKey: string;
+  contextVersion?: string;
 };
 
 type StatusSummaryParams = {
@@ -153,6 +211,11 @@ type WalkInResponse = {
 type AssignTableInput = {
   bookingId: string;
   tableId: string;
+};
+
+type AssignSingleTableInput = AssignTableInput & {
+  /** One per user intent, reused on retry (C5). */
+  idempotencyKey: string;
 };
 
 type TableAssignmentsResponse = {
@@ -518,7 +581,7 @@ export interface BookingService {
   }>;
   cancelBooking(input: CancelBookingInput): Promise<{ id: string; status: string }>;
   createWalkInBooking(input: WalkInInput): Promise<WalkInResponse>;
-  assignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
+  assignTable(input: AssignSingleTableInput): Promise<TableAssignmentsResponse>;
   unassignTable(input: AssignTableInput): Promise<TableAssignmentsResponse>;
   autoQuoteTables(input: AutoQuoteInput): Promise<AutoQuoteResponse>;
   confirmHoldAssignment(input: ConfirmHoldInput): Promise<ConfirmHoldResponse>;
@@ -538,31 +601,17 @@ export interface BookingService {
     tableIds: string[];
     idempotencyKey: string;
     requireAdjacency?: boolean;
-  }): Promise<{
-    success: true;
-    assignments: Array<{
-      id: string;
-      booking_id: string;
-      table_id: string;
-      assigned_at: string;
-      assigned_by: string | null;
-    }>;
-    booking: {
-      id: string;
-      status: string;
-      party_size: number;
-    };
-    summary: {
-      tableCount: number;
-      totalCapacity: number;
-      partySize: number;
-      slack: number;
-    };
-  }>;
+  }): Promise<TableAssignmentWriteResponse>;
   unassignTablesDirect(input: {
     bookingId: string;
     tableIds: string[];
   }): Promise<{ success: true; removedCount: number }>;
+  /**
+   * Atomic move between tables (POST /api/ops/bookings/:id/move-tables): releases
+   * `fromTableIds` and assigns `toTableIds` in one transaction. The response lists the booking's
+   * full assignment set after the move.
+   */
+  moveBookingTables(input: MoveBookingTablesInput): Promise<TableAssignmentWriteResponse>;
 }
 
 function toIsoParam(value: Date | string | null | undefined): string | undefined {
@@ -609,17 +658,6 @@ function buildStatusSummarySearch(params: StatusSummaryParams): string {
     search.set('statuses', params.statuses.join(','));
   }
   return search.toString();
-}
-
-function createIdempotencyKey(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    try {
-      return crypto.randomUUID();
-    } catch {
-      // fall through
-    }
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 async function fetchContextVersion(bookingId: string): Promise<string | null> {
@@ -987,10 +1025,10 @@ export function createBrowserBookingService(): BookingService {
         body: JSON.stringify(payload),
       });
     },
-    async assignTable({ bookingId, tableId }) {
+    async assignTable({ bookingId, tableId, idempotencyKey }) {
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
-        'Idempotency-Key': createIdempotencyKey(),
+        'Idempotency-Key': idempotencyKey,
       };
 
       return fetchJson<TableAssignmentsResponse>(`${OPS_BOOKINGS_BASE}/${bookingId}/tables`, {
@@ -1069,27 +1107,7 @@ export function createBrowserBookingService(): BookingService {
       return fetchJson<OpsBookingDialogBundle>(`/api/ops/bookings/${bookingId}/dialog`);
     },
     async assignTablesDirect({ bookingId, tableIds, idempotencyKey, requireAdjacency }) {
-      return fetchJson<{
-        success: true;
-        assignments: Array<{
-          id: string;
-          booking_id: string;
-          table_id: string;
-          assigned_at: string;
-          assigned_by: string | null;
-        }>;
-        booking: {
-          id: string;
-          status: string;
-          party_size: number;
-        };
-        summary: {
-          tableCount: number;
-          totalCapacity: number;
-          partySize: number;
-          slack: number;
-        };
-      }>(`/api/ops/bookings/${bookingId}/assign-tables`, {
+      return fetchJson<TableAssignmentWriteResponse>(`/api/ops/bookings/${bookingId}/assign-tables`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tableIds, idempotencyKey, requireAdjacency }),
@@ -1102,6 +1120,26 @@ export function createBrowserBookingService(): BookingService {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tableIds }),
+        },
+      );
+    },
+    async moveBookingTables({
+      bookingId,
+      restaurantId,
+      fromTableIds,
+      toTableIds,
+      idempotencyKey,
+      contextVersion,
+    }) {
+      const payload: Record<string, unknown> = { fromTableIds, toTableIds, idempotencyKey };
+      if (restaurantId) payload.restaurantId = restaurantId;
+      if (contextVersion) payload.contextVersion = contextVersion;
+      return fetchJson<TableAssignmentWriteResponse>(
+        `${OPS_BOOKINGS_BASE}/${bookingId}/move-tables`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         },
       );
     },
@@ -1241,32 +1279,16 @@ export class NotImplementedBookingService implements BookingService {
     this.error('getDialogBundle not implemented');
   }
 
-  assignTablesDirect(): Promise<{
-    success: true;
-    assignments: Array<{
-      id: string;
-      booking_id: string;
-      table_id: string;
-      assigned_at: string;
-      assigned_by: string | null;
-    }>;
-    booking: {
-      id: string;
-      status: string;
-      party_size: number;
-    };
-    summary: {
-      tableCount: number;
-      totalCapacity: number;
-      partySize: number;
-      slack: number;
-    };
-  }> {
+  assignTablesDirect(): Promise<TableAssignmentWriteResponse> {
     this.error('assignTablesDirect not implemented');
   }
 
   unassignTablesDirect(): Promise<{ success: true; removedCount: number }> {
     this.error('unassignTablesDirect not implemented');
+  }
+
+  moveBookingTables(): Promise<TableAssignmentWriteResponse> {
+    this.error('moveBookingTables not implemented');
   }
 }
 

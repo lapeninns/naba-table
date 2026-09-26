@@ -1,77 +1,34 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback } from 'react';
 
-import type { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
-import type { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
-import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
-
-type PendingBookingSnapshot = Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'>;
-
-export type PendingBookingAction = {
-  bookingId: string;
-  action: 'check-in' | 'check-out' | 'no-show' | 'undo-no-show';
-  snapshot?: PendingBookingSnapshot | null;
-};
+import type { DashboardPendingLifecycleActions } from './types';
+import type { BookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
+import type { OpsTableAssignmentActions } from '@src/hooks/ops/useOpsTableAssignments';
 
 type UseOpsDashboardBookingActionsParams = {
-  summary: OpsTodayBookingsSummary | null;
   restaurantId: string | null;
   selectedDate: string | null;
-  bookingLifecycleMutations: ReturnType<typeof useOpsBookingLifecycleActions>;
-  tableAssignmentActions: ReturnType<typeof useOpsTableAssignmentActions>;
+  lifecycle: BookingLifecycle;
+  tableAssignmentActions: OpsTableAssignmentActions;
 };
 
+/**
+ * Thin dashboard bindings over the canonical booking hooks. Pending state is per booking (read
+ * from the mutation cache), so actions on different bookings never block each other, and
+ * feedback comes from the hooks, so the handlers resolve instead of throwing.
+ */
 export function useOpsDashboardBookingActions({
-  summary,
   restaurantId,
   selectedDate,
-  bookingLifecycleMutations,
+  lifecycle,
   tableAssignmentActions,
 }: UseOpsDashboardBookingActionsParams) {
-  const [pendingBookingAction, setPendingBookingAction] = useState<PendingBookingAction | null>(
-    null,
-  );
+  const { run, pendingActions } = lifecycle;
 
-  const getPendingSnapshot = useCallback(
-    (bookingId: string) => {
-      if (!summary) return null;
-      const booking = summary.bookings.find((item) => item.id === bookingId);
-      if (!booking) return null;
-      return {
-        status: booking.status,
-        startTime: booking.startTime ?? null,
-        endTime: booking.endTime ?? null,
-      };
-    },
-    [summary],
-  );
+  const pendingLifecycleActions: DashboardPendingLifecycleActions = pendingActions;
 
-  const tableActionState = useMemo(() => {
-    if (tableAssignmentActions.assignTable.isPending) {
-      const variables = tableAssignmentActions.assignTable.variables;
-      return {
-        type: 'assign' as const,
-        bookingId: variables?.bookingId ?? null,
-        tableId: variables?.tableId ?? null,
-        tableName: variables?.tableName,
-      };
-    }
-    if (tableAssignmentActions.unassignTable.isPending) {
-      const variables = tableAssignmentActions.unassignTable.variables;
-      return {
-        type: 'unassign' as const,
-        bookingId: variables?.bookingId ?? null,
-        tableId: variables?.tableId ?? null,
-      };
-    }
-    return null;
-  }, [
-    tableAssignmentActions.assignTable.isPending,
-    tableAssignmentActions.assignTable.variables,
-    tableAssignmentActions.unassignTable.isPending,
-    tableAssignmentActions.unassignTable.variables,
-  ]);
+  const tableActionState = tableAssignmentActions.pendingAction;
 
   const handleMarkNoShow = useCallback(
     async (
@@ -79,112 +36,63 @@ export function useOpsDashboardBookingActions({
       options?: { performedAt?: string | null; reason?: string | null },
     ) => {
       if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
+      await run({
         action: 'no-show',
-        snapshot: getPendingSnapshot(bookingId),
+        restaurantId,
+        bookingId,
+        targetDate: selectedDate,
+        performedAt: options?.performedAt ?? null,
+        reason: options?.reason ?? null,
       });
-      try {
-        await bookingLifecycleMutations.markNoShow.mutateAsync({
-          restaurantId,
-          bookingId,
-          performedAt: options?.performedAt ?? null,
-          reason: options?.reason ?? null,
-          targetDate: selectedDate,
-        });
-      } finally {
-        setPendingBookingAction(null);
-      }
     },
-    [bookingLifecycleMutations.markNoShow, getPendingSnapshot, restaurantId, selectedDate],
+    [restaurantId, run, selectedDate],
   );
 
   const handleUndoNoShow = useCallback(
     async (bookingId: string, reason?: string | null) => {
       if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
+      await run({
         action: 'undo-no-show',
-        snapshot: getPendingSnapshot(bookingId),
+        restaurantId,
+        bookingId,
+        targetDate: selectedDate,
+        reason: reason ?? null,
       });
-      try {
-        await bookingLifecycleMutations.undoNoShow.mutateAsync({
-          restaurantId,
-          bookingId,
-          reason: reason ?? null,
-          targetDate: selectedDate,
-        });
-      } finally {
-        setPendingBookingAction(null);
-      }
     },
-    [bookingLifecycleMutations.undoNoShow, getPendingSnapshot, restaurantId, selectedDate],
+    [restaurantId, run, selectedDate],
   );
 
   const handleCheckIn = useCallback(
     async (bookingId: string) => {
       if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
-        action: 'check-in',
-        snapshot: getPendingSnapshot(bookingId),
-      });
-      try {
-        await bookingLifecycleMutations.checkIn.mutateAsync({
-          restaurantId,
-          bookingId,
-          targetDate: selectedDate,
-        });
-      } finally {
-        setPendingBookingAction(null);
-      }
+      await run({ action: 'check-in', restaurantId, bookingId, targetDate: selectedDate });
     },
-    [bookingLifecycleMutations.checkIn, getPendingSnapshot, restaurantId, selectedDate],
+    [restaurantId, run, selectedDate],
   );
 
   const handleCheckOut = useCallback(
     async (bookingId: string) => {
       if (!restaurantId) return;
-      setPendingBookingAction({
-        bookingId,
-        action: 'check-out',
-        snapshot: getPendingSnapshot(bookingId),
-      });
-      try {
-        await bookingLifecycleMutations.checkOut.mutateAsync({
-          restaurantId,
-          bookingId,
-          targetDate: selectedDate,
-        });
-      } finally {
-        setPendingBookingAction(null);
-      }
+      await run({ action: 'check-out', restaurantId, bookingId, targetDate: selectedDate });
     },
-    [bookingLifecycleMutations.checkOut, getPendingSnapshot, restaurantId, selectedDate],
+    [restaurantId, run, selectedDate],
   );
 
+  const { assign, unassign } = tableAssignmentActions;
+
   const handleAssignTable = useCallback(
-    async (bookingId: string, tableId: string, tableName?: string) => {
-      const result = await tableAssignmentActions.assignTable.mutateAsync({
-        bookingId,
-        tableId,
-        tableName,
-      });
-      return result.tableAssignments;
-    },
-    [tableAssignmentActions.assignTable],
+    (bookingId: string, tableId: string, tableName?: string) =>
+      assign({ bookingId, tableId, tableName }),
+    [assign],
   );
 
   const handleUnassignTable = useCallback(
-    async (bookingId: string, tableId: string) => {
-      const result = await tableAssignmentActions.unassignTable.mutateAsync({ bookingId, tableId });
-      return result.tableAssignments;
-    },
-    [tableAssignmentActions.unassignTable],
+    (bookingId: string, tableId: string) => unassign({ bookingId, tableId }),
+    [unassign],
   );
 
   return {
-    pendingBookingAction,
+    pendingLifecycleActions,
     tableActionState,
     handleMarkNoShow,
     handleUndoNoShow,

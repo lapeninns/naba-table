@@ -4,12 +4,10 @@ import { usePathname } from 'next/navigation';
 import { useCallback } from 'react';
 
 import { useDateSwipe } from '@/hooks/useDateSwipe';
-import { getDateInTimezone, getTodayInTimezone, shiftDateKey } from '@/lib/utils/datetime';
+import { shiftDateKey } from '@/lib/utils/datetime';
 
 import type { BookingFilter } from './BookingsFilterBar';
 import type { DashboardSortDir, DashboardSortKey } from './useOpsDashboardQueryState';
-import type { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
-import type { BookingDTO } from '@/hooks/useBookings';
 
 export function useOpsDashboardUiActions(params: {
   summaryDate: string | null;
@@ -19,11 +17,6 @@ export function useOpsDashboardUiActions(params: {
   sortKey: DashboardSortKey;
   sortDir: DashboardSortDir;
   searchQuery: string;
-  restaurantId: string | null;
-  restaurantTimezone: string | null;
-  cancelBooking: BookingDTO | null;
-  cancelBookingMutation: ReturnType<typeof useOpsCancelBooking>;
-  onCancelOpenChange: (open: boolean) => void;
   onSelectDate: (date: string) => void;
 }) {
   const pathname = usePathname();
@@ -35,11 +28,6 @@ export function useOpsDashboardUiActions(params: {
     sortKey,
     sortDir,
     searchQuery,
-    restaurantId,
-    restaurantTimezone,
-    cancelBooking,
-    cancelBookingMutation,
-    onCancelOpenChange,
     onSelectDate,
   } = params;
 
@@ -61,46 +49,6 @@ export function useOpsDashboardUiActions(params: {
   const handleNextDate = useCallback(() => {
     handleShiftDate(1);
   }, [handleShiftDate]);
-
-  const resolveCancelTargetDate = useCallback(
-    (booking: BookingDTO, timezone: string) => {
-      if (booking.startIso) {
-        const startDate = new Date(booking.startIso);
-        if (!Number.isNaN(startDate.getTime())) {
-          return getDateInTimezone(startDate, timezone);
-        }
-      }
-      if (requestedDate) {
-        return requestedDate;
-      }
-      return getTodayInTimezone(timezone);
-    },
-    [requestedDate],
-  );
-
-  const handleConfirmCancel = useCallback(async () => {
-    if (!cancelBooking) return;
-    const resolvedRestaurantId = cancelBooking.restaurantId ?? restaurantId;
-    if (!resolvedRestaurantId) return;
-    const timezone = cancelBooking.restaurantTimezone ?? restaurantTimezone ?? 'UTC';
-    const targetDate = resolveCancelTargetDate(cancelBooking, timezone);
-    try {
-      await cancelBookingMutation.mutateAsync({
-        bookingId: cancelBooking.id,
-        restaurantId: resolvedRestaurantId,
-        targetDate,
-      });
-    } finally {
-      onCancelOpenChange(false);
-    }
-  }, [
-    cancelBooking,
-    cancelBookingMutation,
-    onCancelOpenChange,
-    resolveCancelTargetDate,
-    restaurantId,
-    restaurantTimezone,
-  ]);
 
   const handlePrint = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -132,7 +80,6 @@ export function useOpsDashboardUiActions(params: {
     handleShiftDate,
     handlePrevDate,
     handleNextDate,
-    handleConfirmCancel,
     handlePrint,
   };
 }

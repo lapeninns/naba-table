@@ -90,8 +90,6 @@ export function useOpsBookingsState(params: OpsBookingsClientStateParams) {
     bookingById: dataState.derivedData.bookingById,
     focusBookingId: queryState.hydratedFocusBookingId,
     activeRestaurantId,
-    restaurantTimezone,
-    appliedDate: dataState.appliedDateRange?.date ?? null,
     fallbackRestaurantSlug: restaurantSlug,
     clearFocusParam: queryState.clearFocusParam,
   });

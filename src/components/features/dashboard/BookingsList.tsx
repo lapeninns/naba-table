@@ -88,7 +88,7 @@ function BookingsListContent({
     hasAssignmentHandlers,
     sortKey: controls.sortKey,
     sortDir: controls.sortDir,
-    pendingLifecycleAction: bookingActions.pendingLifecycleAction,
+    pendingLifecycleActions: bookingActions.pendingLifecycleActions,
   });
 
   if (filtered.length === 0) {

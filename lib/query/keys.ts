@@ -58,6 +58,20 @@ export const queryKeys = {
       statusKey: string,
     ) =>
       ['ops', 'bookings', 'status-summary', restaurantId ?? 'none', from, to, statusKey] as const,
+    // --- wave 2 (S3b) ---
+    /** Every status-summary range for one restaurant (tab counts on the bookings page). */
+    statusSummaryPrefix: (restaurantId: string) =>
+      ['ops', 'bookings', 'status-summary', restaurantId] as const,
+    /** Mutation key for lifecycle writes (check-in, check-out, no-show, undo no-show). */
+    lifecycleMutation: () => ['ops', 'bookings', 'mutation', 'lifecycle'] as const,
+    /** Mutation key for ops cancellations. */
+    cancelMutation: () => ['ops', 'bookings', 'mutation', 'cancel'] as const,
+    /** Mutation key for table assign/unassign writes from the dashboard and booking dialog. */
+    tableAssignmentMutation: () => ['ops', 'bookings', 'mutation', 'table-assignment'] as const,
+    /** Mutation key for the booking dialog's table panel (assign, unassign, smart assign). */
+    assignmentPanelMutation: () => ['ops', 'bookings', 'mutation', 'assignment-panel'] as const,
+    /** Mutation key for booking edits (time, party size, notes). */
+    updateMutation: () => ['ops', 'bookings', 'mutation', 'update'] as const,
   },
   opsDashboard: {
     summary: (restaurantId: string, date?: string | null) =>

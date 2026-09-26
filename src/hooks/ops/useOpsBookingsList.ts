@@ -13,6 +13,8 @@ import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 import { debounce } from '@/utils/debounceThrottle';
 
+import { isOwnBookingWriteEcho } from './bookingWriteEcho';
+
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsBookingsFilters, OpsBookingsPage } from '@/types/ops';
 
@@ -101,7 +103,11 @@ export function useOpsBookingsList(
         table: 'bookings',
         filter: `restaurant_id=eq.${filters.restaurantId}`,
       },
-      invalidate,
+      (payload: unknown) => {
+        // This client's own writes already patched (or pruned) the list rows.
+        if (isOwnBookingWriteEcho(queryClient, 'bookings', payload)) return;
+        invalidate();
+      },
     );
 
     channel.subscribe((status) => {

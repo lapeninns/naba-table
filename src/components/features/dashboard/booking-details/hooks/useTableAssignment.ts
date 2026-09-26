@@ -11,21 +11,36 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { HttpError } from '@/lib/http/errors';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { queryKeys } from '@/lib/query/keys';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import { suggestAssignmentTables } from '../tableAssignmentSuggestionDomain';
 import { validateTableSelection } from '../utils';
-import { useTableAssignmentMutations } from './useTableAssignmentMutations';
+import {
+  SMART_ASSIGN_NO_CANDIDATE,
+  SMART_ASSIGN_NO_HOLD,
+  useTableAssignmentMutations,
+} from './useTableAssignmentMutations';
 import { useTableAssignmentRealtimeRefetch } from './useTableAssignmentRealtimeRefetch';
 
 import type { UseTableAssignmentOptions, UseTableAssignmentReturn } from '../types';
 import type { AssignmentContext } from '@/services/ops/bookings';
 
+const ASSIGN_ERROR_COPY: Partial<Record<string, string>> = {
+  TABLES_UNAVAILABLE: 'One of those tables was just taken. Pick another table.',
+  ASSIGNMENT_CONFLICT: 'One of those tables was just taken. Pick another table.',
+  HOLD_CONFLICT: 'One of those tables is held for another booking. Pick another table.',
+  ASSIGNMENT_LOCKED: 'Tables are locked for past or completed bookings.',
+  IDEMPOTENCY_KEY_REUSED: 'That change was already made with different tables. Refresh and try again.',
+  [SMART_ASSIGN_NO_CANDIDATE]: 'No suitable tables found for this booking.',
+  [SMART_ASSIGN_NO_HOLD]: 'Smart assign could not reserve the suggested tables. Try again.',
+};
+
 export function useTableAssignment({
   bookingId,
   restaurantId,
   partySize,
-  date,
   currentAssignments = [],
   onAssignmentComplete,
   enabled = true,
@@ -35,6 +50,9 @@ export function useTableAssignment({
 
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
   const previousBookingIdRef = useRef<string | null>(null);
+  // One idempotency key per "assign this selection" intent, reused if the same selection is
+  // retried after a failure and dropped once it succeeds (C5).
+  const assignDraftRef = useRef<{ signature: string; key: string } | null>(null);
 
   const {
     data: context,
@@ -117,9 +135,7 @@ export function useTableAssignment({
   const { assignMutation, autoAssignMutation, isPending, unassignMutation } =
     useTableAssignmentMutations({
       bookingId,
-      date,
       onAssignmentComplete,
-      refetch,
       resetSelectedTables: () => setSelectedTables([]),
       restaurantId,
     });
@@ -137,45 +153,62 @@ export function useTableAssignment({
     if (validation.errors.length > 0) {
       return { ok: false, error: validation.errors[0] };
     }
+    const signature = `${bookingId}:${[...selectedTables].sort().join(',')}`;
+    if (assignDraftRef.current?.signature !== signature) {
+      assignDraftRef.current = { signature, key: generateIdempotencyKey() };
+    }
     try {
-      await assignMutation.mutateAsync(selectedTables);
+      await assignMutation.mutateAsync({
+        bookingId,
+        tableIds: selectedTables,
+        idempotencyKey: assignDraftRef.current.key,
+      });
+      assignDraftRef.current = null;
       return { ok: true };
     } catch (err) {
       if (err instanceof HttpError && err.code === 'TABLES_NOT_FOUND') {
+        assignDraftRef.current = null;
         setSelectedTables([]);
         refetch();
         return { ok: false, error: 'Some tables were removed. The list has been refreshed.' };
       }
-      const message = err instanceof Error ? err.message : 'Failed to assign tables.';
-      return { ok: false, error: message };
+      return {
+        ok: false,
+        error: toUserMessage(err, { copy: ASSIGN_ERROR_COPY, fallback: 'Failed to assign tables.' }),
+      };
     }
-  }, [assignMutation, refetch, selectedTables, tableIdSet, validation.errors]);
+  }, [assignMutation, bookingId, refetch, selectedTables, tableIdSet, validation.errors]);
 
   const unassignAll = useCallback(async () => {
     if (assignedTableIds.size === 0) {
       return { ok: false, error: 'No tables assigned.' };
     }
     try {
-      await unassignMutation.mutateAsync(Array.from(assignedTableIds));
+      await unassignMutation.mutateAsync({ bookingId, tableIds: Array.from(assignedTableIds) });
       return { ok: true };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to unassign tables.';
-      return { ok: false, error: message };
+      return {
+        ok: false,
+        error: toUserMessage(err, { copy: ASSIGN_ERROR_COPY, fallback: 'Failed to unassign tables.' }),
+      };
     }
-  }, [assignedTableIds, unassignMutation]);
+  }, [assignedTableIds, bookingId, unassignMutation]);
 
   const autoAssign = useCallback(async () => {
     if (assignedTableIds.size > 0) {
       return { ok: false, error: 'Remove current table assignments before using smart assign.' };
     }
     try {
-      await autoAssignMutation.mutateAsync();
+      await autoAssignMutation.mutateAsync({ bookingId, idempotencyKey: generateIdempotencyKey() });
       return { ok: true };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Auto-assign failed.';
-      return { ok: false, error: message };
+      // Smart-assign "no tables" outcomes carry codes with fixed copy; no raw text is shown.
+      return {
+        ok: false,
+        error: toUserMessage(err, { copy: ASSIGN_ERROR_COPY, fallback: 'Auto-assign failed.' }),
+      };
     }
-  }, [assignedTableIds, autoAssignMutation]);
+  }, [assignedTableIds, autoAssignMutation, bookingId]);
 
   return {
     context,

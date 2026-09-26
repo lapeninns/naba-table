@@ -22,7 +22,6 @@ export type FloorPlanAssignmentVariables =
       fromTableIds: string[];
       tableIds: string[];
       idempotencyKey: string;
-      restoreKey: string;
     }
   | { kind: 'unassign'; bookingId: string; tableIds: string[] };
 
@@ -44,7 +43,7 @@ export type FloorPlanAssignmentErrorCode =
   | 'NETWORK'
   | 'UNKNOWN';
 
-/** A user-safe error. `restored` is set for moves: false means the booking was left without a table. */
+/** A user-safe error. `restored` is set for moves: true, because a move is atomic on the server. */
 export class FloorPlanAssignmentError extends Error {
   readonly code: FloorPlanAssignmentErrorCode;
   readonly restored: boolean | null;
@@ -68,6 +67,12 @@ export function toAssignmentError(error: unknown): FloorPlanAssignmentError {
   if (error instanceof HttpError) {
     const code = error.code.toUpperCase();
     const serverMessage = SAFE_SERVER_MESSAGE.test(error.message) ? error.message : null;
+    if (code === 'BOOKING_STATE_CONFLICT') {
+      return new FloorPlanAssignmentError(
+        'This booking changed on another device. The plan has been refreshed.',
+        'CONFLICT',
+      );
+    }
     if (code === 'ASSIGNMENT_LOCKED') {
       return new FloorPlanAssignmentError(
         'Tables are locked for past or completed bookings.',
@@ -83,6 +88,12 @@ export function toAssignmentError(error: unknown): FloorPlanAssignmentError {
     if (error.status === 409 || code.includes('CONFLICT') || code === 'ALREADY_ASSIGNED') {
       return new FloorPlanAssignmentError(
         'That table was just taken by another booking. Pick another table.',
+        'CONFLICT',
+      );
+    }
+    if (code === 'IDEMPOTENCY_KEY_REUSED') {
+      return new FloorPlanAssignmentError(
+        'That change was already made with different tables. The plan has been refreshed.',
         'CONFLICT',
       );
     }
@@ -210,9 +221,9 @@ function targetTables(
  *   changes to other bookings survive a failure.
  * - Caches are refetched only when the last concurrent change settles, so an
  *   early refetch can't wipe another change that is still in flight.
- * - A move is unassign-then-assign (there is no atomic move RPC yet). If the
- *   assign fails, the original tables are re-assigned and `restored` reports
- *   whether that worked.
+ * - A move is one atomic request (POST /move-tables): the server releases the old tables and
+ *   assigns the new ones in one transaction, so a failure leaves the booking on its original
+ *   tables and the optimistic slice is simply rolled back.
  */
 export function useOpsFloorPlanAssignments({
   restaurantId,
@@ -261,43 +272,18 @@ export function useOpsFloorPlanAssignments({
         throw toAssignmentError(error);
       }
 
-      const removed = difference(variables.fromTableIds, variables.tableIds);
-      const added = difference(variables.tableIds, variables.fromTableIds);
-      if (removed.length > 0) {
-        try {
-          await bookingService.unassignTablesDirect({
-            bookingId: variables.bookingId,
-            tableIds: removed,
-          });
-        } catch (error) {
-          // Nothing changed yet, so the booking keeps its original tables.
-          const mapped = toAssignmentError(error);
-          throw new FloorPlanAssignmentError(mapped.message, mapped.code, true);
-        }
-      }
-      if (added.length === 0) return;
       try {
-        await bookingService.assignTablesDirect({
+        await bookingService.moveBookingTables({
           bookingId: variables.bookingId,
-          tableIds: added,
+          ...(restaurantId ? { restaurantId } : {}),
+          fromTableIds: variables.fromTableIds,
+          toTableIds: variables.tableIds,
           idempotencyKey: variables.idempotencyKey,
         });
       } catch (error) {
+        // Atomic on the server: nothing changed, so the booking keeps its original tables.
         const mapped = toAssignmentError(error);
-        let restored = removed.length === 0;
-        if (!restored) {
-          try {
-            await bookingService.assignTablesDirect({
-              bookingId: variables.bookingId,
-              tableIds: removed,
-              idempotencyKey: variables.restoreKey,
-            });
-            restored = true;
-          } catch {
-            restored = false;
-          }
-        }
-        throw new FloorPlanAssignmentError(mapped.message, mapped.code, restored);
+        throw new FloorPlanAssignmentError(mapped.message, mapped.code, true);
       }
     },
     onMutate: async (variables) => {
@@ -321,13 +307,6 @@ export function useOpsFloorPlanAssignments({
     onError: (error, variables, context) => {
       if (!context?.previous) return;
       const previous = context.previous;
-      if (variables.kind === 'move' && error.restored === false) {
-        // The original tables were released and could not be taken back.
-        writeSummaryBooking(queryClient, context.summaryKey, variables.bookingId, (b) =>
-          withTables({ ...b, ...previous }, [], 'unassign', undefined),
-        );
-        return;
-      }
       writeSummaryBooking(queryClient, context.summaryKey, variables.bookingId, (b) => ({
         ...b,
         ...previous,
@@ -390,7 +369,6 @@ export function useOpsFloorPlanAssignments({
         fromTableIds,
         tableIds,
         idempotencyKey: generateIdempotencyKey(),
-        restoreKey: generateIdempotencyKey(),
       }),
     [mutateAsync],
   );

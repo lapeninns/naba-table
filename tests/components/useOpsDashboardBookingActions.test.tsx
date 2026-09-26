@@ -1,113 +1,144 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { createQueryWrapper } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
+
 import { useOpsDashboardBookingActions } from '@/components/features/dashboard/useOpsDashboardBookingActions';
+import { useBookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
+import { useOpsTableAssignmentActions } from '@src/hooks/ops/useOpsTableAssignments';
 
-import type { PendingBookingAction } from '@/components/features/dashboard/useOpsDashboardBookingActions';
-import type { OpsTodayBookingsSummary } from '@/types/ops';
+import {
+  DATE,
+  RESTAURANT_ID,
+  createFeedbackQueryClient,
+  deferred,
+  makeRow,
+  makeSummary,
+  summaryKey,
+} from '../hooks/__helpers__/opsBookingFixtures';
 
-function deferredPromise<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((res) => {
-    resolve = res;
-  });
-  return { promise, resolve };
-}
+const bookingService = vi.hoisted(() => ({
+  checkInBooking: vi.fn(),
+  markNoShowBooking: vi.fn(),
+  assignTable: vi.fn(),
+  unassignTable: vi.fn(),
+}));
 
-function createSummary(): OpsTodayBookingsSummary {
-  return {
-    meta: {
-      date: '2026-03-29',
-      timezone: 'Europe/London',
-      restaurantId: 'rest-1',
+vi.mock('@/contexts/ops-services', () => ({ useBookingService: () => bookingService }));
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), message: vi.fn() } }));
+
+function setup() {
+  const { queryClient, notify } = createFeedbackQueryClient();
+  queryClient.setQueryData(
+    summaryKey(),
+    makeSummary([makeRow({ id: 'b1' }), makeRow({ id: 'b2' })]),
+  );
+  const hook = renderHook(
+    () => {
+      const lifecycle = useBookingLifecycle();
+      const tableAssignmentActions = useOpsTableAssignmentActions({
+        restaurantId: RESTAURANT_ID,
+        date: DATE,
+      });
+      return useOpsDashboardBookingActions({
+        restaurantId: RESTAURANT_ID,
+        selectedDate: DATE,
+        lifecycle,
+        tableAssignmentActions,
+      });
     },
-    date: '2026-03-29',
-    timezone: 'Europe/London',
-    restaurantId: 'rest-1',
-    totals: {
-      total: 1,
-      confirmed: 1,
-      completed: 0,
-      pending: 0,
-      cancelled: 0,
-      noShow: 0,
-      upcoming: 1,
-      covers: 2,
-    },
-    bookings: [
-      {
-        id: 'booking-1',
-        status: 'confirmed',
-        startTime: '18:00',
-        endTime: '19:30',
-        partySize: 2,
-        customerName: 'Alex Example',
-        customerEmail: null,
-        customerPhone: null,
-        notes: null,
-        reference: null,
-        details: null,
-        source: null,
-        tableAssignments: [],
-        requiresTableAssignment: true,
-        checkedInAt: null,
-        checkedOutAt: null,
-      },
-    ],
-  };
+    { wrapper: createQueryWrapper(queryClient) },
+  );
+  return { queryClient, notify, ...hook };
 }
 
 describe('useOpsDashboardBookingActions', () => {
-  it('tracks pending lifecycle state around check-in without needing a summary refetch callback', async () => {
-    const checkInDeferred = deferredPromise<void>();
-    const checkIn = vi.fn(() => checkInDeferred.promise);
-    const checkOut = vi.fn().mockResolvedValue(undefined);
-    const markNoShow = vi.fn().mockResolvedValue(undefined);
-    const undoNoShow = vi.fn().mockResolvedValue(undefined);
+  it('@contract tracks pending actions per booking, so two bookings can be pending at once', async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    bookingService.checkInBooking.mockImplementation(({ id }: { id: string }) =>
+      id === 'b1' ? first.promise : second.promise,
+    );
+    const { result } = setup();
 
-    const { result } = renderHook(() =>
-      useOpsDashboardBookingActions({
-        summary: createSummary(),
-        restaurantId: 'rest-1',
-        selectedDate: '2026-03-29',
-        bookingLifecycleMutations: {
-          checkIn: { mutateAsync: checkIn },
-          checkOut: { mutateAsync: checkOut },
-          markNoShow: { mutateAsync: markNoShow },
-          undoNoShow: { mutateAsync: undoNoShow },
-        } as never,
-        tableAssignmentActions: {
-          assignTable: { isPending: false, variables: undefined },
-          unassignTable: { isPending: false, variables: undefined },
-        } as never,
-      }),
+    let runs: Promise<void>[] = [];
+    act(() => {
+      runs = [result.current.handleCheckIn('b1'), result.current.handleCheckIn('b2')];
+    });
+
+    await waitFor(() =>
+      expect(Object.keys(result.current.pendingLifecycleActions).sort()).toEqual(['b1', 'b2']),
+    );
+    expect(result.current.pendingLifecycleActions.b1).toMatchObject({
+      action: 'check-in',
+      snapshot: { status: 'confirmed', startTime: '18:00', endTime: '20:00' },
+    });
+
+    first.resolve({
+      status: 'checked_in',
+      checkedInAt: `${DATE}T18:00:00.000Z`,
+      checkedOutAt: null,
+    });
+    await waitFor(() =>
+      expect(Object.keys(result.current.pendingLifecycleActions)).toEqual(['b2']),
     );
 
-    let pendingPromise: Promise<void>;
+    second.resolve({
+      status: 'checked_in',
+      checkedInAt: `${DATE}T18:00:00.000Z`,
+      checkedOutAt: null,
+    });
     await act(async () => {
-      pendingPromise = result.current.handleCheckIn('booking-1');
+      await Promise.all(runs);
     });
+    await waitFor(() => expect(result.current.pendingLifecycleActions).toEqual({}));
+  });
 
-    expect(result.current.pendingBookingAction).toEqual<PendingBookingAction>({
-      bookingId: 'booking-1',
-      action: 'check-in',
-      snapshot: {
-        status: 'confirmed',
-        startTime: '18:00',
-        endTime: '19:30',
-      },
-    });
-    expect(checkIn).toHaveBeenCalledWith({
-      restaurantId: 'rest-1',
-      bookingId: 'booking-1',
-      targetDate: '2026-03-29',
-    });
+  it('@contract handlers resolve on failure and the error reaches the user as a toast', async () => {
+    bookingService.markNoShowBooking.mockRejectedValue(new TypeError('Failed to fetch'));
+    const { result, notify } = setup();
 
     await act(async () => {
-      checkInDeferred.resolve(undefined);
-      await pendingPromise!;
+      await expect(
+        result.current.handleMarkNoShow('b1', { reason: 'late' }),
+      ).resolves.toBeUndefined();
     });
 
-    expect(result.current.pendingBookingAction).toBeNull();
+    expect(bookingService.markNoShowBooking).toHaveBeenCalledWith({
+      id: 'b1',
+      performedAt: undefined,
+      reason: 'late',
+    });
+    expect(notify.error).toHaveBeenCalledWith(
+      "Couldn't reach the server. Check your connection and try again.",
+    );
+  });
+
+  it('@contract quick-assign reports its pending table and passes an idempotency key', async () => {
+    const request = deferred<unknown>();
+    bookingService.assignTable.mockReturnValue(request.promise);
+    const { result } = setup();
+
+    let done: Promise<unknown> = Promise.resolve();
+    act(() => {
+      done = result.current.handleAssignTable('b1', 't1', 'T1');
+    });
+    await waitFor(() =>
+      expect(result.current.tableActionState).toEqual({
+        type: 'assign',
+        bookingId: 'b1',
+        tableId: 't1',
+        tableName: 'T1',
+      }),
+    );
+    expect(bookingService.assignTable).toHaveBeenCalledWith(
+      expect.objectContaining({ idempotencyKey: expect.any(String) }),
+    );
+
+    request.resolve({ tableAssignments: [] });
+    await act(async () => {
+      await done;
+    });
+    await waitFor(() => expect(result.current.tableActionState).toBeNull());
   });
 });

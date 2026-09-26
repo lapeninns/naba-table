@@ -44,8 +44,15 @@ export function OpsCancelBookingAlertDialog({
     return `You’re about to cancel ${name} for ${covers}${when}. This action cannot be undone. The guest will be notified.`;
   }, [customerName, partySize, whenLabel]);
 
+  // Radix closes the dialog when an action is clicked. Keep it open, with the pending state
+  // visible, until the request settles; the owner closes it on success.
+  const handleOpenChange = (next: boolean) => {
+    if (!next && isPending) return;
+    onOpenChange(next);
+  };
+
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
@@ -54,7 +61,12 @@ export function OpsCancelBookingAlertDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={isPending}>Keep booking</AlertDialogCancel>
           <AlertDialogAction
-            onClick={() => void onConfirm()}
+            onClick={(event) => {
+              event.preventDefault();
+              if (isPending) return;
+              void onConfirm();
+            }}
+            aria-busy={isPending || undefined}
             className="bg-destructive/10 text-destructive hover:bg-destructive/15 dark:bg-destructive/15 dark:hover:bg-destructive/20"
             disabled={isPending}
           >

@@ -2,10 +2,10 @@
 
 import { useCallback, useMemo } from 'react';
 
-import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
-import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
-import { useOpsTableAssignmentActions } from '@/hooks/ops/useOpsTableAssignments';
 import { mapOpsDashboardBookingItemToBookingDTO } from '@/utils/ops/mapOpsDashboardBookingItemToBookingDTO';
+import { useBookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
+import { useOpsCancelBookingController } from '@src/hooks/ops/useOpsCancelBookingController';
+import { useOpsTableAssignmentActions } from '@src/hooks/ops/useOpsTableAssignments';
 
 import { useOpsDashboardBookingActions } from './useOpsDashboardBookingActions';
 import { useOpsDashboardDataState } from './useOpsDashboardDataState';
@@ -14,9 +14,9 @@ import { useOpsDashboardQueryState } from './useOpsDashboardQueryState';
 import { useOpsDashboardUiActions } from './useOpsDashboardUiActions';
 
 import type { UseOpsDashboardStateProps } from './types';
+import type { BookingDTO } from '@/hooks/useBookings';
 
 export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps) {
-  const cancelBookingMutation = useOpsCancelBooking();
   const queryState = useOpsDashboardQueryState({ initialDate });
   const {
     filter,
@@ -89,27 +89,25 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     isDetailsOpen,
     editBooking,
     isEditOpen,
-    cancelBooking,
-    isCancelOpen,
     handleDetails,
     handleEdit,
     handleDetailsOpenChange,
     handleEditOpenChange,
-    handleCancelRequest,
-    handleCancelOpenChange,
+    closeOtherDialogs,
   } = dialogs;
-  const bookingLifecycleMutations = useOpsBookingLifecycleActions();
-  const assignmentDate = explicitDate;
+  const lifecycle = useBookingLifecycle();
   const tableAssignmentActions = useOpsTableAssignmentActions({
     restaurantId,
-    date: assignmentDate,
+    date: explicitDate,
   });
   const bookingActions = useOpsDashboardBookingActions({
-    summary,
     restaurantId,
     selectedDate: explicitDate,
-    bookingLifecycleMutations,
+    lifecycle,
     tableAssignmentActions,
+  });
+  const cancelController = useOpsCancelBookingController<BookingDTO>({
+    fallbackRestaurantId: restaurantId,
   });
   const uiActions = useOpsDashboardUiActions({
     summaryDate: summary?.date ?? null,
@@ -119,13 +117,17 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     sortKey,
     sortDir,
     searchQuery,
-    restaurantId,
-    restaurantTimezone,
-    cancelBooking,
-    cancelBookingMutation,
-    onCancelOpenChange: handleCancelOpenChange,
     onSelectDate: handleSelectDate,
   });
+  const handleCancelRequest = useCallback(
+    (bookingId: string) => {
+      const booking = resolveBookingById(bookingId);
+      if (!booking) return;
+      closeOtherDialogs();
+      cancelController.request(booking);
+    },
+    [cancelController, closeOtherDialogs, resolveBookingById],
+  );
 
   return {
     membership,
@@ -155,14 +157,14 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     guestStats,
     tabCounts,
     allowTableAssignments,
-    pendingBookingAction: bookingActions.pendingBookingAction,
+    pendingLifecycleActions: bookingActions.pendingLifecycleActions,
     tableActionState: bookingActions.tableActionState,
     detailsBooking,
     isDetailsOpen,
     editBooking,
     isEditOpen,
-    cancelBooking,
-    isCancelOpen,
+    cancelBooking: cancelController.booking,
+    isCancelOpen: cancelController.isOpen,
     isInitialLoading,
     isRefetching,
     isSummaryMismatch,
@@ -181,8 +183,8 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     handleDetailsOpenChange,
     handleEditOpenChange,
     handleCancelRequest,
-    handleCancelOpenChange,
-    handleConfirmCancel: uiActions.handleConfirmCancel,
+    handleCancelOpenChange: cancelController.onOpenChange,
+    handleConfirmCancel: cancelController.confirm,
     handleMarkNoShow: bookingActions.handleMarkNoShow,
     handleUndoNoShow: bookingActions.handleUndoNoShow,
     handleCheckIn: bookingActions.handleCheckIn,
@@ -190,6 +192,6 @@ export function useOpsDashboardState({ initialDate }: UseOpsDashboardStateProps)
     handleAssignTable: bookingActions.handleAssignTable,
     handleUnassignTable: bookingActions.handleUnassignTable,
     handleRetry,
-    cancelBookingPending: cancelBookingMutation.isPending,
+    cancelBookingPending: cancelController.isPending,
   };
 }
