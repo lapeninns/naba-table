@@ -901,4 +901,93 @@ describe('cron route authentication', () => {
     });
     expect((await first).status).toBe(200);
   });
+
+  it('returns 400 UNSUPPORTED_EMAIL_TYPES for an unknown types filter', async () => {
+    const response = await processEmailsGET(
+      cronRequest('/api/cron/process-emails?types=confirmation,not_a_type'),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body).toMatchObject({
+      error: 'Unsupported email types.',
+      code: 'UNSUPPORTED_EMAIL_TYPES',
+      details: { invalidTypes: ['not_a_type'] },
+    });
+    expect(triggerEmailQueueDrainMock).not.toHaveBeenCalled();
+  });
+
+  it('returns a generic 500 without raw failure text when the GET drain throws', async () => {
+    recordObservabilityEventMock.mockRejectedValueOnce(
+      new Error('SECRET_DB_DETAIL observability insert failed'),
+    );
+
+    const response = await processEmailsGET(cronRequest('/api/cron/process-emails'));
+
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain('SECRET_DB_DETAIL');
+    expect(JSON.parse(text)).toEqual({
+      error: 'Cron email processing failed.',
+      code: 'INTERNAL_ERROR',
+      message: 'Cron email processing failed.',
+    });
+  });
+
+  it('returns 400 INVALID_REQUEST_BODY for a malformed POST batch', async () => {
+    const response = await processEmailsPOST(
+      cronRequest('/api/cron/process-emails', CURRENT_SECRET, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{not json',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_REQUEST_BODY' });
+    expect(processEmailJobsMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 VALIDATION_FAILED with fields for an invalid POST batch', async () => {
+    const response = await processEmailsPOST(
+      cronRequest('/api/cron/process-emails', CURRENT_SECRET, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jobs: 'nope' }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json();
+    expect(body).toMatchObject({ code: 'VALIDATION_FAILED', error: 'Invalid email job batch.' });
+    expect(body.fields).toHaveProperty('jobs');
+    expect(processEmailJobsMock).not.toHaveBeenCalled();
+  });
+
+  it('returns a generic 500 without raw failure text when POST processing throws', async () => {
+    processEmailJobsMock.mockRejectedValueOnce(
+      new Error('SECRET_PROVIDER_DETAIL resend rejected guest@example.com'),
+    );
+
+    const response = await processEmailsPOST(
+      cronRequest('/api/cron/process-emails', CURRENT_SECRET, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jobs: [
+            {
+              id: 'job-1',
+              payload: { bookingId: 'booking-1', restaurantId: null, type: 'confirmation' },
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain('SECRET_PROVIDER_DETAIL');
+    expect(text).not.toContain('guest@example.com');
+    expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+  });
 });

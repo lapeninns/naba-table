@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { internalError } from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { sendMonthlyVenueReports } from '@/server/jobs/monthly-venue-report';
@@ -53,12 +54,6 @@ export async function GET(request: Request) {
         ...summary,
       });
     } catch (error) {
-      logger.error('[cron][monthly-venue-report] failed', {
-        route: ROUTE,
-        jobName: auth.jobName,
-        runId: auth.runId,
-        error,
-      });
       captureServerException(error, {
         properties: {
           jobName: auth.jobName,
@@ -66,7 +61,11 @@ export async function GET(request: Request) {
           source: 'cron',
         },
       });
-      return NextResponse.json({ error: 'Monthly venue report cron failed.' }, { status: 500 });
+      return internalError(
+        error,
+        { route: ROUTE, jobName: auth.jobName, runId: auth.runId },
+        'Monthly venue report cron failed.',
+      );
     }
   });
 }

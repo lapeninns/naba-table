@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { internalError } from '@/lib/api/errors';
+import { apiError, internalError } from '@/lib/api/errors';
 import { env } from '@/lib/env';
 import { logger } from '@/lib/logger';
 
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
     const events = coerceToEvents(parsed);
 
     if (!events || events.length === 0 || !events.every(isValidEvent)) {
-      return NextResponse.json({ error: 'Invalid analytics payload' }, { status: 400 });
+      return apiError(400, 'INVALID_ANALYTICS_PAYLOAD', 'Invalid analytics payload.');
     }
 
     if (env.node.env !== 'production') {

@@ -222,6 +222,9 @@ describe('POST /api/webhook/twilio/sms-status', () => {
     );
 
     expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'INVALID_ATTEMPT_CORRELATION',
+    });
     expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
     expect(processSmsStatusCallbackMock).not.toHaveBeenCalled();
   });
@@ -254,6 +257,11 @@ describe('POST /api/webhook/twilio/sms-status', () => {
     );
 
     expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Unauthorized.',
+      code: 'UNAUTHENTICATED',
+      message: 'Unauthorized.',
+    });
     expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
   });
 
@@ -266,6 +274,7 @@ describe('POST /api/webhook/twilio/sms-status', () => {
     );
 
     expect(response.status).toBe(415);
+    await expect(response.json()).resolves.toMatchObject({ code: 'UNSUPPORTED_MEDIA_TYPE' });
     expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
   });
 
@@ -325,5 +334,25 @@ describe('POST /api/webhook/twilio/sms-status', () => {
 
     expect(response.status).toBe(400);
     expect(recordSmsDeliveryLogMock).not.toHaveBeenCalled();
+  });
+
+  it('returns a generic 500 without the raw failure text when the ledger write throws', async () => {
+    recordSmsDeliveryLogMock.mockRejectedValue(
+      new Error('SECRET_DB_DETAIL relation sms_delivery_log for +447700900123'),
+    );
+
+    const response = await POST(
+      buildSignedRequest({
+        requestUrl: 'https://app.nabatable.com/api/webhook/twilio/sms-status',
+        signedUrl: 'https://app.nabatable.com/api/webhook/twilio/sms-status',
+      }),
+    );
+
+    // Still a 5xx, so Twilio records the callback as failed as it did before.
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain('SECRET_DB_DETAIL');
+    expect(text).not.toContain('+447700900123');
+    expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });

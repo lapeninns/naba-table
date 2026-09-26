@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { logger } from '@/lib/logger';
+import { internalError } from '@/lib/api/errors';
 import { listRestaurants } from '@/server/restaurants/listRestaurants';
 
 import type { RestaurantFilters } from '@/lib/restaurants/types';
@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data: restaurants });
   } catch (error) {
-    logger.error('[api/restaurants] failed to list restaurants', { route: ROUTE, error });
-    return NextResponse.json({ error: 'Failed to list restaurants' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Failed to list restaurants.');
   }
 }

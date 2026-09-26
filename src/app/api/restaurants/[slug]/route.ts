@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { internalError } from '@/lib/api/errors';
+import { apiError, internalError, notFound } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   getRestaurantBySlug,
@@ -50,18 +50,18 @@ function toVenueDetails(restaurant: RestaurantDetail): VenueDetails {
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const slug = await resolveSlug(params);
   if (!slug) {
-    return NextResponse.json({ error: 'Missing restaurant slug' }, { status: 400 });
+    return apiError(400, 'MISSING_SLUG', 'Missing restaurant slug.');
   }
 
   const parsed = slugSchema.safeParse(slug);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid restaurant slug' }, { status: 400 });
+    return apiError(400, 'INVALID_SLUG', 'Invalid restaurant slug.');
   }
 
   try {
     const restaurant = await getRestaurantBySlug(parsed.data);
     if (!restaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found.');
     }
 
     return NextResponse.json(

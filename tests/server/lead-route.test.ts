@@ -89,4 +89,48 @@ describe('POST /api/lead', () => {
     expect(body).toEqual({ error: 'Too many lead requests. Please try again later.' });
     expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
   });
+
+  it('returns 400 INVALID_REQUEST_BODY for malformed JSON instead of an unhandled 500', async () => {
+    const response = await POST(
+      new NextRequest('https://www.nabatable.com/api/lead', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{not json',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_REQUEST_BODY' });
+    expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 EMAIL_REQUIRED when the email is missing', async () => {
+    const response = await POST(
+      new NextRequest('https://www.nabatable.com/api/lead', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Email is required.',
+      code: 'EMAIL_REQUIRED',
+      message: 'Email is required.',
+    });
+  });
+
+  it('returns a generic 500 without raw failure text when the client throws', async () => {
+    getRouteHandlerSupabaseClientMock.mockRejectedValue(
+      new Error('SECRET_DB_DETAIL cookie store unavailable'),
+    );
+
+    const response = await POST(makeRequest('guest@example.com'));
+
+    expect(response.status).toBe(500);
+    const text = await response.text();
+    expect(text).not.toContain('SECRET_DB_DETAIL');
+    expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+  });
 });

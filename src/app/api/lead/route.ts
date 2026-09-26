@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { internalError } from '@/lib/api/errors';
+import { apiError, internalError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
@@ -35,10 +35,16 @@ export async function POST(req: NextRequest) {
     return rateLimit;
   }
 
-  const body = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    // Malformed JSON used to escape as an unhandled 500; it is a client error.
+    return apiError(400, 'INVALID_REQUEST_BODY', 'Invalid request body.');
+  }
 
   if (!isLeadPayload(body)) {
-    return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    return apiError(400, 'EMAIL_REQUIRED', 'Email is required.');
   }
 
   try {
