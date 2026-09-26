@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { internalError } from '@/lib/api/errors';
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -23,20 +29,16 @@ const querySchema = z.object({
   service: z.enum(['lunch', 'dinner', 'all']).optional(),
 });
 
-type Query = z.infer<typeof querySchema>;
-
-function parseQuery(request: NextRequest): Query | null {
-  const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
-  const result = querySchema.safeParse(entries);
-  if (!result.success) return null;
-  return result.data;
+function errorName(err: unknown): string {
+  return err instanceof Error ? err.name : typeof err;
 }
 
 export async function GET(request: NextRequest) {
-  const query = parseQuery(request);
-  if (!query) {
-    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+  const parsed = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams.entries()));
+  if (!parsed.success) {
+    return validationError(parsed.error);
   }
+  const query = parsed.data;
 
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -45,29 +47,26 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    logger.error('[ops/operations-hub] failed to resolve auth', {
-      route: ROUTE,
-      error: error.message,
-    });
     const mapped = mapSupabaseAuthError(error);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    logger.warn('[ops/operations-hub] failed to resolve auth', {
+      route: ROUTE,
+      status: mapped.status,
+    });
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {
     await requireMembershipForRestaurant({ userId: user.id, restaurantId: query.restaurantId });
   } catch (membershipError) {
-    logger.error('[ops/operations-hub] membership validation failed', {
+    logger.warn('[ops/operations-hub] membership validation failed', {
       route: ROUTE,
-      error: membershipError,
+      errorName: errorName(membershipError),
     });
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return forbidden();
   }
 
   try {

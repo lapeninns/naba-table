@@ -83,7 +83,12 @@ describe('GET /api/ops/operations-hub', () => {
     const response = await GET(request(query));
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid query' });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Some fields need attention.',
+    });
+    expect(body.fields).toEqual(expect.any(Object));
     expect(getRouteHandlerSupabaseClientMock).not.toHaveBeenCalled();
     expect(buildOperationsHubMock).not.toHaveBeenCalled();
   });
@@ -98,7 +103,11 @@ describe('GET /api/ops/operations-hub', () => {
     const response = await GET(request(`?restaurantId=${RESTAURANT_ID}`));
 
     expect(response.status).toBe(401);
-    await expect(response.json()).resolves.toEqual({ error: 'Authentication required' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Sign in to continue.',
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue.',
+    });
     expect(requireMembershipForRestaurantMock).not.toHaveBeenCalled();
     expect(buildOperationsHubMock).not.toHaveBeenCalled();
   });
@@ -119,6 +128,7 @@ describe('GET /api/ops/operations-hub', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Authentication required',
       code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
     });
     expect(buildOperationsHubMock).not.toHaveBeenCalled();
   });
@@ -130,7 +140,11 @@ describe('GET /api/ops/operations-hub', () => {
     const response = await GET(request(`?restaurantId=${RESTAURANT_ID}`));
 
     expect(response.status).toBe(403);
-    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    await expect(response.json()).resolves.toEqual({
+      error: "You don't have permission to do that.",
+      code: 'FORBIDDEN',
+      message: "You don't have permission to do that.",
+    });
     expect(requireMembershipForRestaurantMock).toHaveBeenCalledWith({
       userId: 'user-123',
       restaurantId: RESTAURANT_ID,
@@ -174,5 +188,29 @@ describe('GET /api/ops/operations-hub', () => {
       message: 'Unable to load operations hub',
     });
     expect(JSON.stringify(body)).not.toContain('timeline query exploded');
+  });
+});
+
+describe('GET /api/ops/operations-hub unexpected errors (C1)', () => {
+  const SECRET = 'SECRET_DB_DETAIL guest@example.com';
+
+  it('@api @security does not leak the thrown message to the client or logs', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockAuthenticatedSupabase());
+    requireMembershipForRestaurantMock.mockResolvedValue({ role: 'owner' });
+    buildOperationsHubMock.mockRejectedValue(new Error(`relation failed: ${SECRET}`));
+
+    try {
+      const response = await GET(request(`?restaurantId=${RESTAURANT_ID}`));
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(JSON.parse(text)).toMatchObject({ code: 'INTERNAL_ERROR' });
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(text).not.toContain('guest@example.com');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('guest@example.com');
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
