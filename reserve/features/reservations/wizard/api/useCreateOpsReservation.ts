@@ -154,11 +154,12 @@ export function useCreateOpsReservation(): CreateOpsReservationMutation {
     },
     onSuccess: (result, { draft }) => {
       intentKeys.clear();
-      // The walk-in takes capacity from this restaurant's booking schedule only; other
-      // restaurants' schedules (and the calendar mask of closed dates) are unchanged.
+      // The walk-in takes capacity from this restaurant's schedule for its date only (every
+      // party-size variant); other dates, other restaurants and the calendar mask of closed
+      // dates are unchanged.
       void queryClient.invalidateQueries({
         queryKey: draft.restaurantSlug
-          ? [...queryKeys.reservations.schedulePrefix(), draft.restaurantSlug]
+          ? queryKeys.reservations.scheduleFor(draft.restaurantSlug, draft.date)
           : queryKeys.reservations.schedulePrefix(),
       });
       if (result.booking) {

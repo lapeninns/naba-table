@@ -48,12 +48,12 @@ export function useCancelBooking() {
       }
     },
     onMutate: async ({ id }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.bookings.list() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.bookings.listPrefix() });
       await queryClient.cancelQueries({ queryKey: queryKeys.bookings.detail(id) });
       await queryClient.cancelQueries({ queryKey: reservationKeys.detail(id) });
 
       const lists = queryClient.getQueriesData<BookingsPage>({
-        queryKey: queryKeys.bookings.list(),
+        queryKey: queryKeys.bookings.listPrefix(),
       });
       const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(id));
       const reservationDetail = queryClient.getQueryData<Reservation>(reservationKeys.detail(id));
@@ -108,12 +108,11 @@ export function useCancelBooking() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      // Only what this booking change affects: every guest list page (the `{}` params
-      // prefix-match all of them), this booking's detail and its history. Other
-      // bookings' detail and history queries are left alone.
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
+      // Only what this booking change affects: every guest list page, this booking's
+      // detail and its history. Other bookings' detail and history queries are left alone.
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.listPrefix() });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.history(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.historyPrefix(variables.id) });
       queryClient.invalidateQueries({ queryKey: reservationKeys.detail(variables.id) });
     },
   });

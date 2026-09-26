@@ -93,7 +93,7 @@ describe('useCreateOpsReservation', () => {
 });
 
 describe('useCreateOpsReservation cache invalidation', () => {
-  it('refreshes the status counts and heatmap for its restaurant and only its own schedule', async () => {
+  it('refreshes the status counts and heatmap for its restaurant and only its own schedule date', async () => {
     const queryClient = createTestQueryClient();
     const wrapper = createQueryWrapper(queryClient);
     const restaurantId = '9b95a1f4-f6f7-40f1-a99c-41ecffdf9957';
@@ -111,10 +111,31 @@ describe('useCreateOpsReservation cache invalidation', () => {
       marketingOptIn: false,
     };
     const ownSchedule = [...queryKeys.reservations.schedulePrefix(), 'the-fox', '2026-03-29', 4];
+    const ownScheduleOtherParty = [
+      ...queryKeys.reservations.schedulePrefix(),
+      'the-fox',
+      '2026-03-29',
+      'raw',
+    ];
+    const ownScheduleOtherDate = [
+      ...queryKeys.reservations.schedulePrefix(),
+      'the-fox',
+      '2026-03-30',
+      4,
+    ];
     const otherSchedule = [...queryKeys.reservations.schedulePrefix(), 'the-bell', '2026-03-29', 4];
+    const calendarMask = ['reservations', 'calendar-mask', 'the-fox', '2026-03-01', '2026-03-31'];
     const statusSummary = [...queryKeys.opsBookings.statusSummaryPrefix(restaurantId), 'x'];
     const heatmap = [...queryKeys.opsDashboard.heatmapPrefix(restaurantId), 'x'];
-    for (const key of [ownSchedule, otherSchedule, statusSummary, heatmap]) {
+    for (const key of [
+      ownSchedule,
+      ownScheduleOtherParty,
+      ownScheduleOtherDate,
+      otherSchedule,
+      calendarMask,
+      statusSummary,
+      heatmap,
+    ]) {
       queryClient.setQueryData(key, { seeded: true });
     }
 
@@ -130,7 +151,10 @@ describe('useCreateOpsReservation cache invalidation', () => {
     const invalidated = (key: readonly unknown[]) =>
       queryClient.getQueryState(key)?.isInvalidated ?? false;
     expect(invalidated(ownSchedule)).toBe(true);
+    expect(invalidated(ownScheduleOtherParty)).toBe(true);
+    expect(invalidated(ownScheduleOtherDate)).toBe(false);
     expect(invalidated(otherSchedule)).toBe(false);
+    expect(invalidated(calendarMask)).toBe(false);
     expect(invalidated(statusSummary)).toBe(true);
     expect(invalidated(heatmap)).toBe(true);
   });

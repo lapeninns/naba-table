@@ -79,6 +79,8 @@ export function useUpdateBooking() {
   type MutationContext = {
     lists: Array<[readonly unknown[], BookingsPage | undefined]>;
     detail?: BookingDTO;
+    /** Restaurant slug of the booking before the edit, from the reservation cache. */
+    restaurantSlug?: string | null;
   };
 
   return useMutation<UpdateBookingResponse, HttpError, UpdateBookingInput, unknown>({
@@ -102,14 +104,16 @@ export function useUpdateBooking() {
     onMutate: async (variables) => {
       const { id, ...body } = variables;
 
-      await queryClient.cancelQueries({ queryKey: queryKeys.bookings.list() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.bookings.listPrefix() });
       await queryClient.cancelQueries({ queryKey: queryKeys.bookings.detail(id) });
       await queryClient.cancelQueries({ queryKey: reservationKeys.detail(id) });
 
       const lists = queryClient.getQueriesData<BookingsPage>({
-        queryKey: queryKeys.bookings.list(),
+        queryKey: queryKeys.bookings.listPrefix(),
       });
       const detail = queryClient.getQueryData<BookingDTO>(queryKeys.bookings.detail(id));
+      const restaurantSlug =
+        queryClient.getQueryData<Reservation>(reservationKeys.detail(id))?.restaurantSlug ?? null;
 
       const patch = (booking: BookingDTO): BookingDTO => ({
         ...booking,
@@ -131,7 +135,7 @@ export function useUpdateBooking() {
         queryClient.setQueryData(queryKeys.bookings.detail(id), patch(detail));
       }
 
-      return { lists, detail };
+      return { lists, detail, restaurantSlug } satisfies MutationContext;
     },
     onSuccess: (updated) => {
       if (isBookingDTO(updated)) {
@@ -164,20 +168,29 @@ export function useUpdateBooking() {
         queryClient.setQueryData(queryKeys.bookings.detail(variables.id), ctx.detail);
       }
     },
-    onSettled: (_data, _error, variables) => {
-      // Only what this booking change affects: every guest list page (the `{}` params
-      // prefix-match all of them), this booking's detail and its history. Other
-      // bookings' detail and history queries are left alone.
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.list() });
+    onSettled: (_data, _error, variables, context) => {
+      // Only what this booking change affects: every guest list page, this booking's
+      // detail and its history. Other bookings' detail and history queries are left alone.
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.listPrefix() });
       queryClient.invalidateQueries({ queryKey: queryKeys.bookings.detail(variables.id) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.history(variables.id) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.bookings.historyPrefix(variables.id) });
+
+      // The edit moves capacity only within this booking's restaurant schedule (old and new
+      // date). The restaurant slug comes from the reservation cache before and after the
+      // edit; when neither knows it, every schedule is refreshed.
+      const slugBefore = (context as MutationContext | undefined)?.restaurantSlug ?? null;
+      const slugAfter =
+        queryClient.getQueryData<Reservation>(reservationKeys.detail(variables.id))
+          ?.restaurantSlug ?? null;
+      const slugs = new Set([slugBefore, slugAfter].filter((slug): slug is string => !!slug));
       queryClient.invalidateQueries({ queryKey: reservationKeys.detail(variables.id) });
-      queryClient.invalidateQueries({
-        predicate: (query) =>
-          Array.isArray(query.queryKey) &&
-          query.queryKey[0] === 'reservations' &&
-          query.queryKey[1] === 'schedule',
-      });
+      if (slugs.size === 0) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.reservations.schedulePrefix() });
+      } else {
+        for (const slug of slugs) {
+          queryClient.invalidateQueries({ queryKey: queryKeys.reservations.scheduleFor(slug) });
+        }
+      }
     },
   });
 }
