@@ -57,7 +57,7 @@ const hasSummaryBookings = (
 };
 
 function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) {
-  const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
+  const opsBookingsListKey = queryKeys.opsBookings.listPrefix();
   return (
     restaurantId: string,
     targetDate?: string | null,
@@ -80,7 +80,7 @@ function useInvalidateLifecycle(queryClient: ReturnType<typeof useQueryClient>) 
       });
     }
     queryClient.invalidateQueries({
-      queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'],
+      queryKey: queryKeys.opsDashboard.heatmapPrefix(restaurantId),
       exact: false,
     });
     if (invalidateBookingsList) {
@@ -101,7 +101,7 @@ export function useOpsBookingLifecycleActions() {
   const bookingStateMachine = useOptionalBookingStateMachine();
   const bookingErrorBoundary = useBookingErrorBoundary();
   const offlineQueue = useBookingOfflineQueue();
-  const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
+  const opsBookingsListKey = queryKeys.opsBookings.listPrefix();
 
   const applyOpsBookingsPatch = (
     bookingId: string,

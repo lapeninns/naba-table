@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { useBookingService } from '@/contexts/ops-services';
 import { toIsoDateParam } from '@/hooks/ops/utils/toIsoDateParam';
 import { HttpError } from '@/lib/http/errors';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { OpsBookingStatus } from '@/types/ops';
 
@@ -31,15 +32,12 @@ export function useOpsBookingStatusSummary({
   const queryKey = useMemo(() => {
     const normalizedStatuses = statuses && statuses.length > 0 ? [...new Set(statuses)].sort() : [];
 
-    return [
-      'ops',
-      'bookings',
-      'status-summary',
-      restaurantId ?? 'none',
+    return queryKeys.opsBookings.statusSummary(
+      restaurantId,
       fromIso,
       toIsoValue,
       normalizedStatuses.join(','),
-    ] as const;
+    );
   }, [restaurantId, fromIso, toIsoValue, statuses]);
 
   return useQuery({

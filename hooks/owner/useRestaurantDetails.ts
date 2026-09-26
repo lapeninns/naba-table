@@ -31,7 +31,7 @@ export type UpdateRestaurantDetailsInput = {
   logoUrl?: string | null;
 };
 
-const DISABLED_KEY = ['owner', 'restaurants', 'disabled', 'details'] as const;
+const DISABLED_KEY = queryKeys.ownerRestaurants.details('disabled');
 
 export function useRestaurantDetails(
   restaurantId: string | null,
@@ -42,7 +42,11 @@ export function useRestaurantDetails(
     queryKey,
     queryFn: async () => {
       if (!restaurantId) {
-        throw new HttpError({ message: 'Restaurant id is required', status: 400, code: 'MISSING_RESTAURANT' });
+        throw new HttpError({
+          message: 'Restaurant id is required',
+          status: 400,
+          code: 'MISSING_RESTAURANT',
+        });
       }
 
       return fetchJson<RestaurantDetails>(`/api/owner/restaurants/${restaurantId}/details`);
@@ -57,7 +61,11 @@ export function useUpdateRestaurantDetails(restaurantId: string | null) {
   return useMutation<RestaurantDetails, HttpError, UpdateRestaurantDetailsInput>({
     mutationFn: async (input) => {
       if (!restaurantId) {
-        throw new HttpError({ message: 'Restaurant id is required', status: 400, code: 'MISSING_RESTAURANT' });
+        throw new HttpError({
+          message: 'Restaurant id is required',
+          status: 400,
+          code: 'MISSING_RESTAURANT',
+        });
       }
 
       return fetchJson<RestaurantDetails>(`/api/owner/restaurants/${restaurantId}/details`, {

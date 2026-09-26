@@ -185,6 +185,29 @@ export default [
     },
   },
   {
+    // Query keys live in lib/query/keys.ts (persisted-cache filters and prefix invalidation
+    // depend on the exact arrays). Inline key literals in hooks and feature code are rejected.
+    files: [
+      'hooks/**/*.{ts,tsx}',
+      'src/hooks/**/*.{ts,tsx}',
+      'src/components/features/**/*.{ts,tsx}',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'Property[key.name=/^(queryKey|mutationKey)$/] > ArrayExpression',
+          message: "Build query and mutation keys with the factory in '@/lib/query/keys'.",
+        },
+        {
+          selector:
+            'Property[key.name=/^(queryKey|mutationKey)$/] > TSAsExpression > ArrayExpression',
+          message: "Build query and mutation keys with the factory in '@/lib/query/keys'.",
+        },
+      ],
+    },
+  },
+  {
     files: ['server/**/*.{js,ts,jsx,tsx}', 'tests/server/**/*.{js,ts,jsx,tsx}'],
     ignores: ['server/capacity/tables.ts'],
     rules: {

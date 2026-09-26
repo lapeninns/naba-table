@@ -13,9 +13,10 @@ const STORAGE_PREFIX = 'query-cache';
 const DEFAULT_MAX_AGE = 1000 * 60 * 60 * 24; // 24 hours
 /**
  * Bump to discard every cache persisted by an older build. 'v2': v1 caches predate the PII
- * deny-list and can hold staff contact details, invitee emails and guest bookings.
+ * deny-list and can hold staff contact details, invitee emails and guest bookings. 'v3': v2
+ * caches can hold the user's profile, errored queries and paused mutations with their variables.
  */
-const DEFAULT_BUSTER = 'v2';
+const DEFAULT_BUSTER = 'v3';
 /** Trailing throttle window: at most one localStorage write per window. */
 export const PERSIST_THROTTLE_MS = 1000;
 
@@ -76,6 +77,11 @@ export function isVolatileOpsIntegrationQueryKey(queryKey: QueryKey): boolean {
  */
 export function isPiiQueryKey(queryKey: QueryKey): boolean {
   const first = keyPart(queryKey[0]);
+
+  // ['profile', ...]: the signed-in user's name, email and phone.
+  if (first === 'profile') {
+    return true;
+  }
 
   // ['team', 'invitations', restaurantId, status]: invitee emails.
   if (first === 'team') {
@@ -152,6 +158,21 @@ export function shouldPersistQuery(query: Query): boolean {
   return !isVolatileOpsIntegrationQueryKey(query.queryKey) && !isPiiQueryKey(query.queryKey);
 }
 
+/**
+ * The dehydrate filter for the localStorage cache: only successful queries (errors can carry
+ * server text, and pending queries have nothing worth restoring) that pass the key/meta filter.
+ * A custom `shouldDehydrateQuery` replaces TanStack's success-only default, so the status check
+ * has to be composed here.
+ */
+export function shouldDehydratePersistedQuery(query: Query): boolean {
+  return query.state.status === 'success' && shouldPersistQuery(query);
+}
+
+/** Mutations are never persisted: their variables can hold guest PII and replaying is unsafe. */
+export function shouldDehydratePersistedMutation(): boolean {
+  return false;
+}
+
 function getStorage(): Storage | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -224,7 +245,10 @@ function createThrottledCacheWriter(
     let clientState: DehydratedState;
     let comparable: string;
     try {
-      clientState = dehydrate(queryClient, { shouldDehydrateQuery: shouldPersistQuery });
+      clientState = dehydrate(queryClient, {
+        shouldDehydrateQuery: shouldDehydratePersistedQuery,
+        shouldDehydrateMutation: shouldDehydratePersistedMutation,
+      });
       // `dehydratedAt` is stamped with Date.now() on every dehydrate, so ignore it when
       // deciding whether anything worth persisting has changed.
       comparable = JSON.stringify({

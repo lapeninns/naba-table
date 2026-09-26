@@ -37,8 +37,8 @@ export function useOpsBookingDialogBundle(
   const queryKey = useMemo(
     () =>
       bookingId
-        ? (['ops', 'bookings', 'dialog', bookingId] as const)
-        : (['ops', 'bookings', 'dialog', 'disabled'] as const),
+        ? queryKeys.opsBookings.dialog(bookingId)
+        : queryKeys.opsBookings.dialog('disabled'),
     [bookingId],
   );
 

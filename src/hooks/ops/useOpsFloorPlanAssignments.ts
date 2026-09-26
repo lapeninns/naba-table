@@ -342,7 +342,9 @@ export function useOpsFloorPlanAssignments({
         queryClient.invalidateQueries({
           queryKey: queryKeys.opsTables.timelinePrefix(restaurantId),
         }),
-        queryClient.invalidateQueries({ queryKey: ['ops', 'dashboard', restaurantId, 'heatmap'] }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.opsDashboard.heatmapPrefix(restaurantId),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.all, refetchType: 'none' }),
       ]);
     },

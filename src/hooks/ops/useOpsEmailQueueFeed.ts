@@ -4,6 +4,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -47,18 +48,17 @@ export function useOpsEmailQueueFeed(
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
   const enabled = params.enabled ?? true;
-  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
+  const refetchInterval =
+    typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailQueueFeedResponse, HttpError>({
-    queryKey: [
-      'ops',
-      'email-queue',
-      params.restaurantId ?? 'disabled',
+    queryKey: queryKeys.opsEmailQueue.feed({
+      restaurantId: params.restaurantId,
       page,
       pageSize,
-      params.status ?? 'all',
-      params.fixture?.trim() ?? '',
-    ] as const,
+      status: params.status,
+      fixture: params.fixture,
+    }),
     queryFn: () => {
       if (!params.restaurantId) {
         throw new Error('Restaurant ID is required');

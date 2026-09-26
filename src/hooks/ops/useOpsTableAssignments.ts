@@ -149,10 +149,8 @@ export function useOpsTableAssignmentActions(params: {
 
   const summaryKey = restaurantId
     ? queryKeys.opsDashboard.summary(restaurantId, date ?? null)
-    : (['ops', 'dashboard', 'summary', 'disabled'] as const);
-  const heatmapKeyPrefix = restaurantId
-    ? (['ops', 'dashboard', restaurantId, 'heatmap'] as const)
-    : null;
+    : queryKeys.opsDashboard.summaryDisabled();
+  const heatmapKeyPrefix = restaurantId ? queryKeys.opsDashboard.heatmapPrefix(restaurantId) : null;
 
   const invalidateCaches = (
     options: {
@@ -172,7 +170,7 @@ export function useOpsTableAssignmentActions(params: {
     if (heatmapKeyPrefix) {
       queryClient.invalidateQueries({ queryKey: heatmapKeyPrefix, exact: false });
     }
-    queryClient.invalidateQueries({ queryKey: ['ops', 'bookings'], exact: false });
+    queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.all, exact: false });
   };
 
   const assignTable = useMutation<
@@ -255,7 +253,6 @@ export function useOpsTableAssignmentActions(params: {
       // since we just updated it - this avoids the race condition from the previous
       // 500ms delay workaround.
       invalidateCaches({ invalidateSummary: false, refetchSummary: false });
-
     },
   });
 

@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { ReviewGrowthRange, ReviewGrowthSummaryResponse } from '@/types/reviewGrowth';
 
@@ -11,7 +12,7 @@ export function useOpsReviewGrowthSummary(params: {
   range: ReviewGrowthRange;
 }) {
   return useQuery({
-    queryKey: ['ops', 'review-growth', params.restaurantId ?? 'disabled', params.range] as const,
+    queryKey: queryKeys.opsReviewGrowth.summary(params.restaurantId, params.range),
     queryFn: () => {
       const query = new URLSearchParams({
         restaurantId: params.restaurantId ?? '',

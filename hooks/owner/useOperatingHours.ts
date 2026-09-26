@@ -49,18 +49,24 @@ export type UpdateOperatingHoursInput = {
   overrides: OperatingHourOverrideInput[];
 };
 
-const DISABLED_HOURS_KEY = ['owner', 'restaurants', 'disabled', 'hours'] as const;
+const DISABLED_HOURS_KEY = queryKeys.ownerRestaurants.hours('disabled');
 
 export function useOperatingHours(
   restaurantId: string | null,
 ): UseQueryResult<OperatingHoursResponse, HttpError> {
-  const queryKey = restaurantId ? queryKeys.ownerRestaurants.hours(restaurantId) : DISABLED_HOURS_KEY;
+  const queryKey = restaurantId
+    ? queryKeys.ownerRestaurants.hours(restaurantId)
+    : DISABLED_HOURS_KEY;
 
   return useQuery<OperatingHoursResponse, HttpError>({
     queryKey,
     queryFn: async () => {
       if (!restaurantId) {
-        throw new HttpError({ message: 'Restaurant id is required', status: 400, code: 'MISSING_RESTAURANT' });
+        throw new HttpError({
+          message: 'Restaurant id is required',
+          status: 400,
+          code: 'MISSING_RESTAURANT',
+        });
       }
 
       return fetchJson<OperatingHoursResponse>(`/api/owner/restaurants/${restaurantId}/hours`);
@@ -75,7 +81,11 @@ export function useUpdateOperatingHours(restaurantId: string | null) {
   return useMutation<OperatingHoursResponse, HttpError, UpdateOperatingHoursInput>({
     mutationFn: async (input) => {
       if (!restaurantId) {
-        throw new HttpError({ message: 'Restaurant id is required', status: 400, code: 'MISSING_RESTAURANT' });
+        throw new HttpError({
+          message: 'Restaurant id is required',
+          status: 400,
+          code: 'MISSING_RESTAURANT',
+        });
       }
 
       return fetchJson<OperatingHoursResponse>(`/api/owner/restaurants/${restaurantId}/hours`, {
