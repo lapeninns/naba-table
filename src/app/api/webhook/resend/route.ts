@@ -2,8 +2,8 @@
 import { NextResponse } from 'next/server';
 import { Webhook } from 'svix';
 
-
 import { apiError, internalError, unauthenticated } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   recordEmailDeliveryLog,
@@ -18,6 +18,8 @@ import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
 
 import type { NextRequest } from 'next/server';
 import type { WebhookEvent } from 'resend';
+
+const ROUTE = '/api/webhook/resend';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -114,7 +116,7 @@ export async function POST(req: NextRequest) {
   // 1. --- Webhook Security ---
   const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
   if (!resendWebhookSecret) {
-    console.error('[webhook][resend] RESEND_WEBHOOK_SECRET missing; refusing webhook');
+    logger.error('webhook.resend.secret_missing', { route: ROUTE });
     return apiError(503, 'WEBHOOK_NOT_CONFIGURED', 'Webhook not configured.', { retryable: true });
   }
 
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
   const svixSignature = req.headers.get('svix-signature')?.trim();
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    console.warn('[webhook][resend] Missing svix verification headers');
+    logger.warn('webhook.resend.missing_signature_headers', { route: ROUTE });
     return unauthenticated('Unauthorized.');
   }
 
@@ -270,7 +272,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     if (error instanceof Error && error.name === 'WebhookVerificationError') {
-      console.warn('[webhook][resend] Invalid signature received');
+      logger.warn('webhook.resend.invalid_signature', { route: ROUTE });
       return unauthenticated('Unauthorized.');
     }
 
@@ -285,6 +287,6 @@ export async function POST(req: NextRequest) {
     captureServerException(error, {
       properties: { provider: 'resend', source: 'webhook', path: '/api/webhook/resend' },
     });
-    return internalError(error, { route: '/api/webhook/resend' });
+    return internalError(error, { route: ROUTE });
   }
 }

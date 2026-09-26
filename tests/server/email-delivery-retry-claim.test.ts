@@ -208,6 +208,71 @@ describe('retryEmailDeliveryLogEntry', () => {
     },
   );
 
+  it('treats a provider 409 idempotency conflict on a taken-over attempt as already sent, not another unknown', async () => {
+    // Attempt 2 timed out (unknown). The takeover reuses attempt 2 and its key, but the email is
+    // rendered again (fresh manage-link token), so Resend answers 409 invalid_idempotent_request:
+    // it already holds a request under this key. That must end the loop, not record unknown again.
+    mockClaim(claimed);
+    const resend = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new ResendSendError({ name: 'application_error', message: 'timeout', statusCode: null }),
+      )
+      .mockRejectedValueOnce(
+        new ResendSendError({
+          name: 'invalid_idempotent_request',
+          message: 'Same idempotency key used with a different request payload.',
+          statusCode: 409,
+        }),
+      );
+
+    await retryEmailDeliveryLogEntry({
+      deliveryLogId: DELIVERY_LOG_ID,
+      restaurantId: RESTAURANT_ID,
+      resendBookingEmail: resend,
+    }).catch(() => undefined);
+    rpcMock.mockClear();
+
+    const second = await retryEmailDeliveryLogEntry({
+      deliveryLogId: DELIVERY_LOG_ID,
+      restaurantId: RESTAURANT_ID,
+      resendBookingEmail: resend,
+    });
+
+    expect(sentKey(resend, 1)).toBe(sentKey(resend, 0));
+    expect(second).toEqual({
+      status: 'sent',
+      retryAttempt: 2,
+      deliveryLogEntry: null,
+      providerDeduplicated: true,
+    });
+    expect(completeCall()).toMatchObject({
+      p_outcome: 'sent',
+      p_retry_attempt: 2,
+      p_retry_delivery_log_id: null,
+    });
+  });
+
+  it('keeps a concurrent idempotent request (original still in flight) as unknown', async () => {
+    mockClaim(claimed);
+    const resend = vi.fn().mockRejectedValue(
+      new ResendSendError({
+        name: 'concurrent_idempotent_requests',
+        message: 'in progress',
+        statusCode: 409,
+      }),
+    );
+
+    await expect(
+      retryEmailDeliveryLogEntry({
+        deliveryLogId: DELIVERY_LOG_ID,
+        restaurantId: RESTAURANT_ID,
+        resendBookingEmail: resend,
+      }),
+    ).rejects.toMatchObject({ code: 'SEND_UNCONFIRMED' });
+    expect(completeCall()).toMatchObject({ p_outcome: 'unknown' });
+  });
+
   it('completes the claim on the row the DB returned when a sibling event holds it', async () => {
     mockClaim({ ...claimed, deliveryLogId: SIBLING_LOG_ID });
     const resend = vi.fn().mockResolvedValue(sentEntry);

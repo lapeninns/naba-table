@@ -33,6 +33,7 @@ function claimedRow(overrides: Record<string, unknown> = {}) {
     scheduled_for: '2026-09-26T10:00:00.000Z',
     status: 'processing',
     attempts_made: 1,
+    claim_generation: 7,
     max_attempts: 5,
     backoff_type: 'exponential',
     backoff_delay_ms: 60_000,
@@ -49,16 +50,17 @@ function claimedRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function mockDrain(row: ReturnType<typeof claimedRow>, finalizeRows: unknown[]) {
+function mockDrain(row: Record<string, unknown>, finalizeRows: unknown[]) {
   rpcMock.mockImplementation(async (name: string) => {
     if (name === 'claim_due_email_dispatch_intents') return { data: [row], error: null };
+    if (name === 'finalize_email_dispatch_intent_v2') return { data: finalizeRows, error: null };
     if (name === 'finalize_email_dispatch_intent_v1') return { data: finalizeRows, error: null };
     throw new Error(`unexpected rpc ${name}`);
   });
 }
 
-function finalizeCall() {
-  const call = rpcMock.mock.calls.find(([name]) => name === 'finalize_email_dispatch_intent_v1');
+function finalizeCall(name = 'finalize_email_dispatch_intent_v2') {
+  const call = rpcMock.mock.calls.find(([called]) => called === name);
   expect(call).toBeDefined();
   return call![1] as Record<string, unknown>;
 }
@@ -71,7 +73,7 @@ describe('email intent finalize fencing', () => {
     recordObservabilityEventMock.mockReset().mockResolvedValue(undefined);
   });
 
-  it('finalizes a sent job only for the claimed attempt', async () => {
+  it('finalizes a sent job only for the claimed generation', async () => {
     const row = claimedRow();
     mockDrain(row, [{ ...row, status: 'sent' }]);
     processEmailJobsMock.mockResolvedValue({
@@ -83,12 +85,53 @@ describe('email intent finalize fencing', () => {
     const result = await drainDueEmailIntents();
 
     expect(result.processed).toBe(1);
-    expect(finalizeCall()).toMatchObject({
-      p_intent_id: 'intent-1',
+    expect(finalizeCall()).toEqual(
+      expect.objectContaining({
+        p_intent_id: 'intent-1',
+        p_claim_generation: 7,
+        p_status: 'sent',
+      }),
+    );
+    expect(finalizeCall()).not.toHaveProperty('p_attempt');
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
+  it('fences on the monotonic claim generation, not the resettable attempt number (ABA)', async () => {
+    // scheduleEmailIntent reset attempts_made to 0, so this re-claim is attempt 1 again. Only the
+    // claim generation distinguishes it from the stale worker that also held attempt 1.
+    const row = claimedRow({ attempts_made: 1, claim_generation: 2 });
+    mockDrain(row, [{ ...row, status: 'sent' }]);
+    processEmailJobsMock.mockResolvedValue({
+      processed: 1,
+      stats: { sent: 1, skipped: 0, failed: 0 },
+      results: [{ jobId: 'intent-1', success: true }],
+    });
+
+    await drainDueEmailIntents();
+
+    expect(finalizeCall()).toMatchObject({ p_claim_generation: 2 });
+    expect(rpcMock).not.toHaveBeenCalledWith(
+      'finalize_email_dispatch_intent_v1',
+      expect.anything(),
+    );
+  });
+
+  it('falls back to the attempt fence while the claim-generation migration is not applied', async () => {
+    const legacyRow: Record<string, unknown> = { ...claimedRow() };
+    delete legacyRow.claim_generation;
+    mockDrain(legacyRow, [{ ...legacyRow, status: 'sent' }]);
+    processEmailJobsMock.mockResolvedValue({
+      processed: 1,
+      stats: { sent: 1, skipped: 0, failed: 0 },
+      results: [{ jobId: 'intent-1', success: true }],
+    });
+
+    await drainDueEmailIntents();
+
+    expect(finalizeCall('finalize_email_dispatch_intent_v1')).toMatchObject({
       p_attempt: 1,
       p_status: 'sent',
     });
-    expect(fromMock).not.toHaveBeenCalled();
   });
 
   it('does not overwrite a job cancelled while it was processing (lost race)', async () => {
@@ -135,7 +178,7 @@ describe('email intent finalize fencing', () => {
     await drainDueEmailIntents();
 
     const args = finalizeCall();
-    expect(args).toMatchObject({ p_status: 'pending', p_attempt: 2 });
+    expect(args).toMatchObject({ p_status: 'pending', p_claim_generation: 7 });
     expect(typeof args.p_next_scheduled_for).toBe('string');
   });
 });
@@ -195,6 +238,8 @@ describe('restaurant queue job cancel and requeue', () => {
     expect(update.update).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'pending', attempts_made: 0, last_error: null }),
     );
+    // The claim generation is the finalize fence: it must never be reset.
+    expect(update.update.mock.calls[0][0]).not.toHaveProperty('claim_generation');
     expect(update.eq).toHaveBeenCalledWith('status', 'failed');
   });
 

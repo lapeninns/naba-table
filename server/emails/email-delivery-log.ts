@@ -1,6 +1,7 @@
 import {
   createHashedEmailIdempotencyKey,
   isDefinitiveResendNotSent,
+  isResendIdempotencyConflict,
   isEmailRecipientSuppressedError,
 } from '@/libs/resend';
 import { recordObservabilityEvent } from '@/server/observability';
@@ -800,6 +801,12 @@ export type EmailDeliveryRetryResult = {
   retryAttempt: number;
   /** The new delivery-log row, or null when the email was sent but its log insert failed. */
   deliveryLogEntry: EmailDeliveryLogEntry | null;
+  /**
+   * True when the provider refused this attempt's key as already used (409
+   * invalid_idempotent_request): an earlier, ambiguous request under the same key reached the
+   * provider, so the attempt is recorded as sent and no new copy was sent now.
+   */
+  providerDeduplicated?: true;
 };
 
 type RetryClaim = {
@@ -981,6 +988,19 @@ export async function retryEmailDeliveryLogEntry(params: {
       }),
     });
   } catch (error) {
+    if (isResendIdempotencyConflict(error)) {
+      // The provider already holds a request under this attempt's key (the takeover re-rendered
+      // a different body). Recording 'unknown' again would loop on the same key for its whole
+      // lifetime; minting a new key could send a duplicate. The earlier request reached the
+      // provider, so close the attempt as sent.
+      await complete('sent', null);
+      return {
+        status: 'sent',
+        retryAttempt: claim.retryAttempt,
+        deliveryLogEntry: null,
+        providerDeduplicated: true,
+      };
+    }
     if (!isDefinitivelyNotSent(error)) {
       await complete('unknown', null);
       throw new EmailDeliveryRetryError(

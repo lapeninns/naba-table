@@ -183,7 +183,8 @@ export function isResendSendError(error: unknown): error is ResendSendError {
 
 // Errors Resend returns when it rejected the request before accepting any email. Anything else
 // (application_error: the SDK's wrapper for network failures and timeouts, internal_server_error,
-// missing_id, concurrent/invalid idempotent request) may hide an accepted send.
+// missing_id, concurrent/invalid idempotent request) may hide an accepted send. An
+// invalid_idempotent_request means the key was already used: see isResendIdempotencyConflict.
 const RESEND_NOT_SENT_ERROR_NAMES = new Set([
   "validation_error",
   "invalid_parameter",
@@ -206,6 +207,19 @@ const RESEND_NOT_SENT_ERROR_NAMES = new Set([
  */
 export function isDefinitiveResendNotSent(error: unknown): boolean {
   return isResendSendError(error) && RESEND_NOT_SENT_ERROR_NAMES.has(error.providerErrorName);
+}
+
+/**
+ * Resend answered 409 invalid_idempotent_request: it already holds a request under this
+ * idempotency key with a different payload. A booking email is rendered again on every attempt
+ * (the manage link carries a fresh sealed token), so a takeover of an ambiguous attempt reuses
+ * the key with a different body and lands here. The provider has seen that key, so the earlier
+ * request reached it; this is "already sent under this key", never a reason to mint a new key.
+ * concurrent_idempotent_requests (the original is still in flight) is deliberately excluded and
+ * stays ambiguous.
+ */
+export function isResendIdempotencyConflict(error: unknown): boolean {
+  return isResendSendError(error) && error.providerErrorName === "invalid_idempotent_request";
 }
 
 /**
