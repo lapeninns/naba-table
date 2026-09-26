@@ -94,11 +94,11 @@
     {
       "ruleId": "generic-api-key",
       "file": "tests/components/GbpOmnichannelDriftProvider.test.tsx",
-      "startLine": 117,
-      "endLine": 117,
-      "sourceSha256": "000dab034f94e8955ff58981025fb5460e04ee0d0c31b8b2cf2a5e315ea5249c",
-      "sourceCommit": "f522339d63500e4d17e86f8f5343805a576a86e2",
-      "reviewedAt": "2026-09-05",
+      "startLine": 119,
+      "endLine": 119,
+      "sourceSha256": "a3a4c0371faee2836aae8f93efae45f98f9691651f38f74ed0ca10a9e71016cf",
+      "sourceCommit": "54118b89d4da4bf65c7ee06b955fba0908114460",
+      "reviewedAt": "2026-09-26",
       "reason": "Operating-hours domain field identifier in synthetic drift/publish fixtures or captured test output; not authentication material."
     },
     {
