@@ -7,20 +7,28 @@ import {
 } from '@/server/bookings/create-error-responses';
 
 describe('detectBookingCommitConflict', () => {
-  it('finds the idempotency conflict marker from the create RPC', () => {
+  it('finds an idempotency conflict from the carried create RPC code', () => {
     expect(
       detectBookingCommitConflict([
-        { code: 'UNKNOWN', message: 'x', detail: { idempotencyConflict: true } },
+        { code: 'UNKNOWN', message: 'x', rpcCode: 'IDEMPOTENCY_KEY_REUSED' },
       ]),
     ).toBe('idempotency_key_reused');
   });
 
-  it('finds the retryable booking conflict marker from the create RPC', () => {
+  it('finds a retryable booking conflict from the carried create RPC code', () => {
     expect(
       detectBookingCommitConflict([
-        { code: 'CAPACITY_EXCEEDED', message: 'x', detail: { bookingConflict: true } },
+        { code: 'CAPACITY_EXCEEDED', message: 'x', rpcCode: 'BOOKING_CONFLICT' },
       ]),
     ).toBe('booking_conflict');
+  });
+
+  it('treats a real capacity failure as a full slot, not a race', () => {
+    expect(
+      detectBookingCommitConflict([
+        { code: 'CAPACITY_EXCEEDED', message: 'full', rpcCode: 'CAPACITY_EXCEEDED' },
+      ]),
+    ).toBeNull();
   });
 
   it('ignores ordinary validation issues', () => {

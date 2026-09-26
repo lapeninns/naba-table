@@ -10,23 +10,19 @@ export const BOOKING_CONFLICT_RETRY_AFTER_SECONDS = 1;
 
 export type BookingCommitConflict = 'idempotency_key_reused' | 'booking_conflict';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 /**
- * The unified validation service maps unknown create-RPC codes to `UNKNOWN` and
- * `BOOKING_CONFLICT` to `CAPACITY_EXCEEDED`, but keeps the RPC `details` on the issue. The
- * create RPC marks its two non-capacity conflicts there, so they are recovered here.
+ * The unified validation service keeps `code` collapsed (`BOOKING_CONFLICT` becomes
+ * `CAPACITY_EXCEEDED`, unknown codes become `UNKNOWN`) but carries the create RPC's own code on
+ * `rpcCode`, so the two non-capacity conflicts are recovered from it.
  */
 export function detectBookingCommitConflict(
-  issues: ReadonlyArray<Pick<BookingError, 'code' | 'detail'>>,
+  issues: ReadonlyArray<Pick<BookingError, 'code' | 'rpcCode'>>,
 ): BookingCommitConflict | null {
   for (const issue of issues) {
-    if (isIdempotencyKeyReusedResult({ details: issue.detail })) {
+    if (isIdempotencyKeyReusedResult({ error: issue.rpcCode })) {
       return 'idempotency_key_reused';
     }
-    if (isRecord(issue.detail) && issue.detail.bookingConflict === true) {
+    if (issue.rpcCode === BOOKING_CONFLICT_CODE) {
       return 'booking_conflict';
     }
   }

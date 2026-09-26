@@ -396,7 +396,7 @@ describe('POST /api/ops/bookings', () => {
       createWithEnforcementMock.mockRejectedValueOnce(
         new BookingValidationError({
           ok: false,
-          issues: [{ code: 'UNKNOWN', message: 'x', detail: { idempotencyConflict: true } }],
+          issues: [{ code: 'UNKNOWN', message: 'x', rpcCode: 'IDEMPOTENCY_KEY_REUSED' }],
         }),
       );
 
@@ -410,7 +410,7 @@ describe('POST /api/ops/bookings', () => {
       createWithEnforcementMock.mockRejectedValueOnce(
         new BookingValidationError({
           ok: false,
-          issues: [{ code: 'CAPACITY_EXCEEDED', message: 'x', detail: { bookingConflict: true } }],
+          issues: [{ code: 'CAPACITY_EXCEEDED', message: 'x', rpcCode: 'BOOKING_CONFLICT' }],
         }),
       );
 

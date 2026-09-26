@@ -97,4 +97,43 @@ describe('capacity transaction security', () => {
     );
     expect(consoleLog).not.toHaveBeenCalled();
   });
+  it('records a key hash, never the raw idempotency key, on the creation attempt', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { success: false, error: 'CAPACITY_EXCEEDED', message: 'full' },
+      error: null,
+    });
+
+    await createBookingWithCapacityCheck(bookingParams, { rpc } as never);
+
+    const attempt = recordObservabilityEventMock.mock.calls
+      .map(([event]) => event as { eventType: string; context: Record<string, unknown> })
+      .find((event) => event.eventType === 'booking.creation.attempt');
+    expect(attempt?.context.keyHash).toMatch(/^[0-9a-f]{12}$/);
+    expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(
+      bookingParams.idempotencyKey,
+    );
+  });
+
+  it('records only the SQLSTATE and a redacted message for an RPC error', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: '23505',
+        message: 'duplicate key for alex@example.com',
+        details: 'Key (customer_email)=(alex@example.com) already exists. SECRET_DB_DETAIL',
+      },
+    });
+
+    await expect(createBookingWithCapacityCheck(bookingParams, { rpc } as never)).rejects.toThrow();
+
+    const rpcError = recordObservabilityEventMock.mock.calls
+      .map(([event]) => event as { eventType: string; context: Record<string, unknown> })
+      .find((event) => event.eventType === 'booking.creation.rpc_error');
+    expect(rpcError?.context).toMatchObject({ errorCode: '23505' });
+    expect(rpcError?.context).not.toHaveProperty('details');
+    expect(rpcError?.context).not.toHaveProperty('error');
+    const serialized = JSON.stringify(recordObservabilityEventMock.mock.calls);
+    expect(serialized).not.toContain('alex@example.com');
+    expect(serialized).not.toContain('SECRET_DB_DETAIL');
+  });
 });

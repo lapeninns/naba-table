@@ -11,7 +11,7 @@ import {
 import { recordObservabilityEvent } from '@/server/observability';
 import { toBookingUtcIso } from '@reserve/shared/formatting/bookingDateTime';
 
-import { mapCapacityErrorCode } from './types';
+import { capacityRpcErrorCode, mapCapacityErrorCode } from './types';
 
 import type {
   BookingError,
@@ -258,6 +258,10 @@ export class BookingValidationService {
         detail: commitResult.details ?? commitResult.originalResult?.details ?? undefined,
         overridable: false,
       };
+      const rpcCode = capacityRpcErrorCode(commitResult.originalResult);
+      if (rpcCode) {
+        issue.rpcCode = rpcCode;
+      }
       throw new BookingValidationError({
         ok: false,
         issues: [issue],
