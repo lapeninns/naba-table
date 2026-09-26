@@ -59,6 +59,8 @@ vi.mock('@/server/bookings/duration', () => ({
 
 vi.mock('@/server/bookings/modification-flow', () => ({
   beginBookingModificationFlow: vi.fn(),
+  isBookingModificationConflictError: vi.fn(() => false),
+  bookingModificationConflictResponse: vi.fn(),
 }));
 
 vi.mock('@/server/booking', () => ({
@@ -100,9 +102,10 @@ vi.mock('@/server/ops/bookings', () => ({
   invalidateOpsDashboardCaches: vi.fn(),
 }));
 
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
 import { withBookingAuthorization } from '@/server/auth/guards';
-import { GET as listBookings } from '@/src/app/api/ops/bookings/route';
 import { PATCH as patchBooking } from '@/src/app/api/ops/bookings/[id]/route';
+import { GET as listBookings } from '@/src/app/api/ops/bookings/route';
 
 const BOOKING_ID = '4f7c1f6a-52ef-4444-9df1-3f4f9a4e21aa';
 const RESTAURANT_ID = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
@@ -286,6 +289,8 @@ describe('ops booking PATCH query dedupe (unified path)', () => {
         headers: {
           'content-type': 'application/json',
           origin: 'https://app.nabatable.com',
+          [CSRF_HEADER_NAME]: 'ops-perf-csrf-token',
+          cookie: `${CSRF_COOKIE_NAME}=ops-perf-csrf-token`,
         },
         body: JSON.stringify({
           startIso: '2026-07-21T18:00:00.000+01:00',

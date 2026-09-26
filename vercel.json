@@ -9,6 +9,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/capacity-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/dual-sync/auto-export",
       "schedule": "*/30 * * * *"
     },

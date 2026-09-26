@@ -1,7 +1,10 @@
+import { sanitizeLogText } from '@/lib/logger';
+import { hashIdempotencyKey } from '@/server/bookings/idempotency';
 import { recordObservabilityEvent } from '@/server/observability';
 import { isAllocatorServiceFailHard } from '@/server/runtime-policy';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import { safeCapacityErrorDetails } from './safe-error-details';
 import {
   CapacityError,
   type BookingResult,
@@ -18,6 +21,28 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public'>;
+
+const MAX_LOGGED_ERROR_TEXT = 200;
+
+/**
+ * Observability events are stored verbatim, so raw Postgres/provider text (which can quote row
+ * values such as guest emails) never goes in. Only the SQLSTATE and a redacted, truncated
+ * message are recorded; PostgREST `details`/`hint` are dropped.
+ */
+function safeErrorContext(error: unknown): { errorCode?: string; errorMessage: string } {
+  const record = error && typeof error === 'object' ? (error as { code?: unknown }) : undefined;
+  const code = typeof record?.code === 'string' && record.code.length > 0 ? record.code : undefined;
+  const raw =
+    error instanceof Error
+      ? error.message
+      : error &&
+          typeof error === 'object' &&
+          typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : String(error);
+  const errorMessage = sanitizeLogText(raw).slice(0, MAX_LOGGED_ERROR_TEXT);
+  return code ? { errorCode: code, errorMessage } : { errorMessage };
+}
 
 type RetryableError = {
   message?: string;
@@ -74,7 +99,7 @@ export async function retryWithBackoff<T>(
           attempt: attempt + 1,
           maxRetries: config.maxRetries,
           delayMs: delay,
-          error: error instanceof Error ? error.message : String(error),
+          ...safeErrorContext(error),
         },
       });
 
@@ -186,7 +211,7 @@ export async function createBookingWithCapacityCheck(
         bookingDate: params.bookingDate,
         startTime: params.startTime,
         partySize: params.partySize,
-        idempotencyKey: params.idempotencyKey ?? undefined,
+        keyHash: hashIdempotencyKey(params.idempotencyKey),
       },
     });
 
@@ -246,8 +271,7 @@ export async function createBookingWithCapacityCheck(
           bookingDate: params.bookingDate,
           startTime: params.startTime,
           partySize: params.partySize,
-          error: error.message,
-          details: error.details ?? undefined,
+          ...safeErrorContext(error),
         },
       });
 
@@ -285,8 +309,7 @@ export async function createBookingWithCapacityCheck(
           startTime: params.startTime,
           partySize: params.partySize,
           error: result.error ?? 'UNKNOWN',
-          message: result.message ?? undefined,
-          details: result.details ?? undefined,
+          details: safeCapacityErrorDetails(result.details),
         },
       });
     }
@@ -308,7 +331,7 @@ export async function createBookingWithCapacityCheck(
       severity: 'error',
       context: {
         restaurantId: params.restaurantId,
-        error: error instanceof Error ? error.message : String(error),
+        ...safeErrorContext(error),
       },
     });
 
@@ -370,8 +393,7 @@ export async function updateBookingWithCapacityCheck(
         context: {
           restaurantId: params.restaurantId,
           bookingId: params.bookingId,
-          error: error.message,
-          details: error.details ?? undefined,
+          ...safeErrorContext(error),
         },
       });
 
@@ -410,8 +432,7 @@ export async function updateBookingWithCapacityCheck(
           startTime: params.startTime,
           partySize: params.partySize,
           error: result.error ?? 'UNKNOWN',
-          message: result.message ?? undefined,
-          details: result.details ?? undefined,
+          details: safeCapacityErrorDetails(result.details),
         },
       });
     }
@@ -434,7 +455,7 @@ export async function updateBookingWithCapacityCheck(
       context: {
         restaurantId: params.restaurantId,
         bookingId: params.bookingId,
-        error: error instanceof Error ? error.message : String(error),
+        ...safeErrorContext(error),
       },
     });
 

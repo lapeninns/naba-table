@@ -185,7 +185,7 @@ describe('runBookingCreateUnifiedValidation', () => {
           {
             code: 'UNKNOWN',
             message: 'Unable to complete booking due to capacity constraints.',
-            detail: { idempotencyConflict: true },
+            rpcCode: 'IDEMPOTENCY_KEY_REUSED',
           },
         ],
       });
@@ -214,7 +214,7 @@ describe('runBookingCreateUnifiedValidation', () => {
           {
             code: 'CAPACITY_EXCEEDED',
             message: 'No capacity available for the requested time.',
-            detail: { bookingConflict: true },
+            rpcCode: 'BOOKING_CONFLICT',
           },
         ],
       });

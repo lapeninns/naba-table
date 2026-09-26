@@ -8,7 +8,8 @@ export type EmailJobType =
   | 'review_request'
   | 'booking_rejected'
   | 'restaurant_cancellation'
-  | 'manage_link';
+  | 'manage_link'
+  | 'modification_pending';
 
 export const EMAIL_JOB_TYPE_VALUES = [
   'request_received',
@@ -21,6 +22,7 @@ export const EMAIL_JOB_TYPE_VALUES = [
   'booking_rejected',
   'restaurant_cancellation',
   'manage_link',
+  'modification_pending',
 ] as const satisfies ReadonlyArray<EmailJobType>;
 
 export type EmailJobPayload = {
