@@ -1,3 +1,4 @@
+import { genericHttpErrorMessage } from '@/lib/http/errors';
 import { CSRF_HEADER_NAME, getBrowserCsrfToken } from '@/lib/security/csrf';
 import { env } from '@shared/config/env';
 
@@ -24,6 +25,27 @@ function composeHeaders(init?: HeadersInit): Headers {
     });
   }
   return headers;
+}
+
+type ParsedBody = { ok: true; value: unknown } | { ok: false };
+
+function parseBody(text: string): ParsedBody {
+  if (!text) return { ok: true, value: undefined };
+  try {
+    return { ok: true, value: JSON.parse(text) as unknown };
+  } catch {
+    return { ok: false };
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
 }
 
 type RequestOptions = RequestInit & { method?: HttpMethod; timeoutMs?: number };
@@ -98,20 +120,35 @@ async function request<TResponse>(
     }
 
     const text = await response.text();
-    const parsed = text ? JSON.parse(text) : undefined;
+    const parsed = parseBody(text);
 
     if (!response.ok) {
+      // A proxy/platform error page (e.g. a text/plain 504) is not JSON: keep only the
+      // status, so callers map it to status copy instead of showing parser text.
+      const body = parsed.ok ? asRecord(parsed.value) : undefined;
       const normalized: ApiError = {
-        code: parsed?.code ?? `${response.status}`,
-        message: parsed?.message ?? parsed?.error ?? response.statusText ?? 'Request failed',
-        details: parsed?.details,
-        body: parsed,
+        code: readNonEmptyString(body?.code) ?? `${response.status}`,
+        message:
+          readNonEmptyString(body?.message) ??
+          readNonEmptyString(body?.error) ??
+          genericHttpErrorMessage(response.status),
+        details: body?.details,
+        body: parsed.ok ? parsed.value : undefined,
         status: response.status,
       };
       throw normalized;
     }
 
-    return parsed as TResponse;
+    if (!parsed.ok) {
+      const invalid: ApiError = {
+        code: 'INVALID_RESPONSE',
+        message: 'We could not read the server response. Please try again.',
+        status: response.status,
+      };
+      throw invalid;
+    }
+
+    return parsed.value as TResponse;
   } catch (error) {
     if (error instanceof DOMException) {
       if (error.name === 'TimeoutError') {
