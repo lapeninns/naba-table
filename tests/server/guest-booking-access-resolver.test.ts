@@ -537,6 +537,100 @@ describe('rate limits (§15)', () => {
     );
   });
 
+  it('garbage or foreign cookies never consume the booking bucket (no lockout by booking id)', async () => {
+    const garbage = accessCookie(A, 'x');
+    const foreignForB = tokenCookieFor(makeBooking({ id: B }), A); // token(B) in A's cookie slot
+    for (let index = 0; index < 20; index += 1) {
+      const attacker = index % 2 === 0 ? garbage : foreignForB;
+      await PUT(
+        req('PUT', `/api/bookings/${A}`, {
+          cookies: [attacker],
+          body: dashboardBody,
+          ip: '203.0.113.7',
+        }),
+        params(A),
+      );
+      await GET(
+        req('GET', `/api/bookings/${A}`, { cookies: [attacker], ip: '203.0.113.7' }),
+        params(A),
+      );
+    }
+    expect(rateBuckets.get(`bookings:guest-token-write:${A}`)).toBeUndefined();
+    expect(rateBuckets.get(`bookings:guest-token-read:${A}`)).toBeUndefined();
+
+    const holder = await PUT(
+      req('PUT', `/api/bookings/${A}`, {
+        cookies: [tokenCookieFor(makeBooking())],
+        body: dashboardBody,
+        ip: '198.51.100.20',
+      }),
+      params(A),
+    );
+    expect(holder.status).toBe(200);
+    const holderRead = await GET(
+      req('GET', `/api/bookings/${A}`, {
+        cookies: [tokenCookieFor(makeBooking())],
+        ip: '198.51.100.20',
+      }),
+      params(A),
+    );
+    expect(holderRead.status).toBe(200);
+  });
+
+  it('a session owner with a garbage cookie still gets 200 and the cookie is cleared', async () => {
+    db.bookings[0] = makeBooking({ auth_user_id: 'user-1' });
+    authGetUserMock.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'alex@example.com' } },
+      error: null,
+    });
+    for (let index = 0; index < 12; index += 1) {
+      await PUT(
+        req('PUT', `/api/bookings/${A}`, {
+          cookies: [accessCookie(A, 'x')],
+          body: dashboardBody,
+          ip: '203.0.113.8',
+        }),
+        params(A),
+      );
+    }
+    const response = await PUT(
+      req('PUT', `/api/bookings/${A}`, {
+        cookies: [accessCookie(A, 'x')],
+        body: dashboardBody,
+        ip: '198.51.100.30',
+      }),
+      params(A),
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.getSetCookie().join('\n')).toContain(`__Host-nt_bk.${A}=;`);
+    expect(rateBuckets.get(`bookings:guest-token-write:${A}`)).toBeUndefined();
+  });
+
+  it('charges undecodable cookies per IP and rate limits only that IP', async () => {
+    const statuses: number[] = [];
+    for (let index = 0; index < 31; index += 1) {
+      const response = await GET(
+        req('GET', `/api/bookings/${A}`, { cookies: [accessCookie(A, 'x')], ip: '203.0.113.9' }),
+        params(A),
+      );
+      statuses.push(response.status);
+    }
+    expect(statuses.slice(0, 30).every((status) => status === 401)).toBe(true);
+    expect(statuses[30]).toBe(429);
+    expect(
+      [...rateBuckets.keys()].some((key) => key.startsWith('bookings:guest-token-invalid:')),
+    ).toBe(true);
+
+    const other = await GET(
+      req('GET', `/api/bookings/${A}`, {
+        cookies: [tokenCookieFor(makeBooking())],
+        ip: '198.51.100.40',
+      }),
+      params(A),
+    );
+    expect(other.status).toBe(200);
+  });
+
   it('keys token reads by booking, not by IP', async () => {
     const cookie = tokenCookieFor(makeBooking());
     for (const ip of ['198.51.100.1', '198.51.100.2', '198.51.100.3']) {

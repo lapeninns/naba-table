@@ -11,9 +11,11 @@ import {
   validateBookingAccessToken,
   type BookingAccessBooking,
   type BookingAccessSource,
+  type BookingAccessTokenPayload,
 } from '@/server/security/booking-access-token';
 import { validateCsrfToken } from '@/server/security/csrf';
 import { consumeRateLimit } from '@/server/security/rate-limit';
+import { anonymizeIp, extractClientIp } from '@/server/security/request';
 import {
   getRouteHandlerSupabaseClient,
   getServerComponentSupabaseClient,
@@ -60,6 +62,7 @@ const QUERY_STRING_TOKEN_PARAMS = ['access_token', 'accessToken', 'token'] as co
 const TOKEN_READ_LIMIT = { limit: 120, windowMs: 60_000 } as const;
 const TOKEN_WRITE_LIMIT = { limit: 10, windowMs: 60_000 } as const;
 const SESSION_READ_LIMIT = { limit: 60, windowMs: 60_000 } as const;
+const INVALID_TOKEN_LIMIT = { limit: 30, windowMs: 60_000 } as const;
 
 export type GuestBookingOperation = 'read' | 'update' | 'cancel';
 export type GuestBookingRow = Tables<'bookings'>;
@@ -465,15 +468,16 @@ type TokenCheck =
   | { ok: true; booking: GuestBookingRow; source: BookingAccessSource }
   | { ok: false; reason: TokenFailureReason; restaurantId?: string | null };
 
+type DecodedBookingToken =
+  | { ok: true; payload: BookingAccessTokenPayload; secret: string }
+  | { ok: false; reason: TokenFailureReason; restaurantId?: string | null };
+
 /**
- * Validates a booking cookie value against the current row of `bookingId`.
- * The row is loaded with both the booking id and the token's restaurant id.
+ * CPU-only checks of a booking cookie value: decrypts it and binds it to
+ * `bookingId`. Only a token that passes here can have been minted by us for
+ * this booking, so only such a token may consume the per-booking bucket.
  */
-async function checkBookingToken(
-  token: string,
-  bookingId: string,
-  now: Date,
-): Promise<TokenCheck | { ok: 'error'; error: unknown }> {
+function decodeBookingToken(token: string, bookingId: string, now: Date): DecodedBookingToken {
   const secret = env.security.sessionRecoveryAccessTokenSecret;
   if (!secret) {
     return { ok: false, reason: 'not_configured' };
@@ -486,22 +490,32 @@ async function checkBookingToken(
   if (validated.payload.bid !== bookingId.toLowerCase()) {
     return { ok: false, reason: 'wrong_booking', restaurantId: validated.payload.rid };
   }
+  return { ok: true, payload: validated.payload, secret };
+}
 
+/**
+ * Loads `bookingId` with the token's restaurant id and checks the contact
+ * fingerprint of a token that already passed {@link decodeBookingToken}.
+ */
+async function matchDecodedBookingToken(
+  decoded: Extract<DecodedBookingToken, { ok: true }>,
+  bookingId: string,
+): Promise<TokenCheck | { ok: 'error'; error: unknown }> {
   const { data, error } = await getServiceSupabaseClient()
     .from('bookings')
     .select('*')
     .eq('id', bookingId)
-    .eq('restaurant_id', validated.payload.rid)
+    .eq('restaurant_id', decoded.payload.rid)
     .maybeSingle();
   if (error) {
     return { ok: 'error', error };
   }
   if (!data) {
-    return { ok: false, reason: 'missing', restaurantId: validated.payload.rid };
+    return { ok: false, reason: 'missing', restaurantId: decoded.payload.rid };
   }
 
   const booking = data as GuestBookingRow;
-  const match = bookingAccessTokenMatchesBooking(validated.payload, booking, secret);
+  const match = bookingAccessTokenMatchesBooking(decoded.payload, booking, decoded.secret);
   if (match !== 'ok') {
     return {
       ok: false,
@@ -510,7 +524,39 @@ async function checkBookingToken(
     };
   }
 
-  return { ok: true, booking, source: validated.payload.src };
+  return { ok: true, booking, source: decoded.payload.src };
+}
+
+/** Full check for server components (no rate limiting there). */
+async function checkBookingToken(
+  token: string,
+  bookingId: string,
+  now: Date,
+): Promise<TokenCheck | { ok: 'error'; error: unknown }> {
+  const decoded = decodeBookingToken(token, bookingId, now);
+  if (!decoded.ok) return decoded;
+  return matchDecodedBookingToken(decoded, bookingId);
+}
+
+/**
+ * Cookies that do not decrypt for this booking are charged to the caller's
+ * IP, never to the booking: anyone can send `__Host-nt_bk.<id>=x`, and a
+ * per-booking charge would let them lock the real link holder out.
+ */
+async function consumeInvalidTokenLimit(req: NextRequest): Promise<NextResponse | null> {
+  try {
+    const result = await consumeRateLimit({
+      identifier: `bookings:guest-token-invalid:${anonymizeIp(extractClientIp(req))}`,
+      limit: INVALID_TOKEN_LIMIT.limit,
+      windowMs: INVALID_TOKEN_LIMIT.windowMs,
+    });
+    if (result.ok) return null;
+    return rateLimited(Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000)));
+  } catch {
+    return apiError(503, 'RATE_LIMIT_UNAVAILABLE', 'Service temporarily unavailable. Try again.', {
+      retryable: true,
+    });
+  }
 }
 
 async function getRouteSessionUser(): Promise<GuestSessionUser | null> {
@@ -527,9 +573,10 @@ async function getRouteSessionUser(): Promise<GuestSessionUser | null> {
  * Resolves guest access to one booking for an API request (§5.1):
  * 1. query-string tokens are rejected;
  * 2. writes need the double-submit CSRF token;
- * 3. the booking cookie, rate limited per booking, bound to booking,
- *    restaurant and current contact; any failure falls through with the
- *    cookie marked for clearing;
+ * 3. the booking cookie, bound to booking, restaurant and current contact.
+ *    Only a cookie that decrypts for this booking is rate limited per
+ *    booking; any other cookie is charged per IP. Any failure falls through,
+ *    with the cookie marked for clearing, to
  * 4. the Supabase session, via {@link isVerifiedBookingOwner}.
  *
  * On success the caller must pass its response through
@@ -562,12 +609,24 @@ export async function resolveGuestBookingAccess(
   const cookieToken = readBookingAccessCookie(req.cookies, bookingId);
 
   if (cookieToken) {
-    const limited = await consumeBookingScopedLimit(bookingId, mode);
-    if (limited) {
-      return fail(limited, false);
+    const decoded = decodeBookingToken(cookieToken, bookingId, now);
+    let checked: TokenCheck | { ok: 'error'; error: unknown };
+    if (decoded.ok) {
+      const limited = await consumeBookingScopedLimit(bookingId, mode);
+      if (limited) {
+        return fail(limited, false);
+      }
+      checked = await matchDecodedBookingToken(decoded, bookingId);
+    } else {
+      if (decoded.reason !== 'not_configured') {
+        const limited = await consumeInvalidTokenLimit(req);
+        if (limited) {
+          return fail(limited, true);
+        }
+      }
+      checked = decoded;
     }
 
-    const checked = await checkBookingToken(cookieToken, bookingId, now);
     if (checked.ok === 'error') {
       logger.error('bookings.guest_access.lookup_failed', { bookingId, mode });
       return fail(
