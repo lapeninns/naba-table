@@ -146,7 +146,7 @@ describe('GET /api/ops/bookings', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ error: 'Authentication required' });
+    expect(body).toMatchObject({ code: 'UNAUTHENTICATED', error: body.message });
     expect(mocks.fetchUserMemberships).not.toHaveBeenCalled();
     expectNoProtectedSideEffects({
       serviceFrom: mocks.from,
@@ -161,7 +161,7 @@ describe('GET /api/ops/bookings', () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Forbidden' });
+    expect(body).toMatchObject({ code: 'FORBIDDEN', error: body.message });
     expect(mocks.fetchUserMemberships).toHaveBeenCalledWith('user-1', expect.anything());
     expectNoProtectedSideEffects({
       serviceFrom: mocks.from,
