@@ -33,6 +33,9 @@ const extractClientIpMock = vi.hoisted(() => vi.fn());
 const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
 const mapValidationFailureMock = vi.hoisted(() => vi.fn());
 const assertBookingNotInPastMock = vi.hoisted(() => vi.fn());
+const getUserMock = vi.hoisted(() => vi.fn());
+const bookingUpdateMock = vi.hoisted(() => vi.fn());
+const bookingUpdateFiltersMock = vi.hoisted(() => vi.fn());
 
 const BookingValidationErrorMock = vi.hoisted(
   () =>
@@ -54,6 +57,20 @@ function createQueryBuilder() {
     maybeSingle: maybeSingleMock,
     order: vi.fn(() => builder),
     limit: vi.fn(() => builder),
+    update: vi.fn((patch: Record<string, unknown>) => {
+      bookingUpdateMock(patch);
+      const chain = {
+        eq: vi.fn((column: string, value: unknown) => {
+          bookingUpdateFiltersMock('eq', column, value);
+          return chain;
+        }),
+        is: vi.fn(async (column: string, value: unknown) => {
+          bookingUpdateFiltersMock('is', column, value);
+          return { error: null };
+        }),
+      };
+      return chain;
+    }),
   };
 
   return builder;
@@ -74,7 +91,7 @@ vi.mock('@/server/runtime-policy', () => ({
 vi.mock('@/server/supabase', () => ({
   getDefaultRestaurantId: getDefaultRestaurantIdMock,
   getRouteHandlerSupabaseClient: vi.fn(async () => ({
-    auth: { getUser: vi.fn() },
+    auth: { getUser: getUserMock },
   })),
   getServiceSupabaseClient: vi.fn(() => ({
     from: fromMock,
@@ -280,6 +297,10 @@ describe('public POST /api/bookings capacity handling', () => {
     enqueueEmailJobMock.mockReset();
     enqueueEmailJobMock.mockResolvedValue(undefined);
     envMock.security = {};
+    getUserMock.mockReset();
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+    bookingUpdateMock.mockReset();
+    bookingUpdateFiltersMock.mockReset();
   });
 
   afterEach(() => {
@@ -1094,6 +1115,168 @@ describe('public POST /api/bookings capacity handling', () => {
       expect(secondBody.booking).toBeUndefined();
       expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
       expect(rows).toHaveLength(1);
+    });
+  });
+  describe('binding a new booking to the signed-in guest who made it', () => {
+    const USER_ID = '5b0f2c1e-3d4a-4b6c-9e8f-0a1b2c3d4e5f';
+    const insertedBooking = {
+      id: '2a9d6c4e-1b3f-4e5a-8c7d-9f0e1d2c3b4a',
+      restaurant_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: 'cust-1',
+      booking_date: '2026-07-01',
+      start_time: '19:00:00',
+      end_time: '20:30:00',
+      start_at: null,
+      end_at: null,
+      reference: 'NB777777',
+      party_size: 4,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      status: 'pending',
+      customer_name: 'Alex Guest',
+      customer_email: 'alex@example.com',
+      customer_phone: '+447700900123',
+      notes: null,
+      marketing_opt_in: true,
+      client_request_id: null,
+      idempotency_key: 'created-key',
+      pending_ref: null,
+      auth_user_id: null,
+      confirmation_token: null,
+      confirmation_token_expires_at: null,
+      created_at: '2026-07-01T10:00:00.000Z',
+      updated_at: '2026-07-01T10:00:00.000Z',
+    };
+
+    function insertSucceeds() {
+      checkSlotAvailabilityMock.mockResolvedValue({
+        available: true,
+        metadata: { servicePeriod: 'Dinner', maxCovers: 20, bookedCovers: 0 },
+      });
+      createBookingWithCapacityCheckMock.mockResolvedValueOnce({
+        success: true,
+        duplicate: false,
+        booking: insertedBooking,
+      });
+    }
+
+    function signedIn(user: { email: string | null; email_confirmed_at: string | null }) {
+      getUserMock.mockResolvedValue({ data: { user: { id: USER_ID, ...user } }, error: null });
+    }
+
+    it('binds the booking when the signed-in user has a confirmed, matching email', async () => {
+      insertSucceeds();
+      signedIn({ email: ' Alex@Example.com ', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).toHaveBeenCalledTimes(1);
+      expect(bookingUpdateMock).toHaveBeenCalledWith({ auth_user_id: USER_ID });
+      expect(bookingUpdateFiltersMock).toHaveBeenCalledWith('eq', 'id', insertedBooking.id);
+      expect(bookingUpdateFiltersMock).toHaveBeenCalledWith(
+        'eq',
+        'restaurant_id',
+        insertedBooking.restaurant_id,
+      );
+      expect(bookingUpdateFiltersMock).toHaveBeenCalledWith('is', 'auth_user_id', null);
+      // The create still sends no binding to the RPC; the claim is the only writer here.
+      expect(createBookingWithCapacityCheckMock).toHaveBeenCalledWith(
+        expect.objectContaining({ authUserId: null }),
+      );
+    });
+
+    it('does not bind when the signed-in email is unconfirmed', async () => {
+      insertSucceeds();
+      signedIn({ email: 'alex@example.com', email_confirmed_at: null });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('does not bind when the signed-in email differs from the booking email', async () => {
+      insertSucceeds();
+      signedIn({ email: 'staff@example.com', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('leaves an anonymous create unchanged and logs nothing', async () => {
+      const { AuthSessionMissingError } = await import('@supabase/supabase-js');
+      const { logger } = await import('@/lib/logger');
+      const warnSpy = vi.spyOn(logger, 'warn');
+      insertSucceeds();
+      getUserMock.mockResolvedValue({ data: { user: null }, error: new AuthSessionMissingError() });
+
+      const response = await POST(buildRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(201);
+      expect(body.booking.id).toBe(insertedBooking.id);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        'bookings.create.owner_binding.session_failed',
+        expect.anything(),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('still returns 201 when resolving the session fails, and logs no PII', async () => {
+      const { logger } = await import('@/lib/logger');
+      const warnSpy = vi.spyOn(logger, 'warn');
+      insertSucceeds();
+      getUserMock.mockResolvedValue({
+        data: { user: null },
+        error: Object.assign(new Error('auth unavailable for alex@example.com'), { status: 503 }),
+      });
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+      expect(warnSpy).toHaveBeenCalledWith('bookings.create.owner_binding.session_failed', {
+        status: 503,
+      });
+      expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('alex@example.com');
+      warnSpy.mockRestore();
+    });
+
+    it('still returns 201 when getUser throws', async () => {
+      insertSucceeds();
+      getUserMock.mockRejectedValue(new Error('network down'));
+
+      const response = await POST(buildRequest());
+
+      expect(response.status).toBe(201);
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it('never binds or changes anything on an Idempotency-Key replay', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-07-01T10:05:00.000Z'));
+      envMock.security = { sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret' };
+      const key = '0f8fad5b-d9cb-469f-a165-70867728950e';
+      signedIn({ email: 'alex@example.com', email_confirmed_at: '2026-06-01T00:00:00.000Z' });
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { ...insertedBooking, client_request_id: key, idempotency_key: key },
+        error: null,
+      });
+      fromMock.mockReturnValueOnce(keyBuilder);
+      const request = buildRequest();
+      request.headers.set('Idempotency-Key', key);
+
+      const replay = await POST(request);
+
+      expect(replay.status).toBe(201);
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
+      expect(getUserMock).not.toHaveBeenCalled();
+      expect(bookingUpdateMock).not.toHaveBeenCalled();
     });
   });
 });

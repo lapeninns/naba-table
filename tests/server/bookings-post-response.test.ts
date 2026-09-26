@@ -10,6 +10,7 @@ import type {
   BookingsPostCompletionRunner,
   BookingsPostEntryGateRunner,
   BookingsPostFailureResponseBuilder,
+  BookingsPostOwnerBinder,
   BookingsPostPersistenceRunner,
   BookingsPostPrecommitRunner,
 } from '@/server/bookings/bookings-post-response';
@@ -182,6 +183,57 @@ describe('bookings POST response orchestration', () => {
         requestContext,
         restaurantId,
         useUnifiedValidation: true,
+      }),
+    );
+  });
+
+  it('binds a fresh insert through the owner binder before completion', async () => {
+    const client = { from: vi.fn() } as never;
+    const entryGateRunner = vi.fn(async () => ({
+      kind: 'continue',
+      restaurantId,
+      requestContext,
+    })) as unknown as BookingsPostEntryGateRunner;
+    const precommitRunner = vi.fn(async () => ({
+      kind: 'continue',
+    })) as unknown as BookingsPostPrecommitRunner;
+    const persistence = {
+      kind: 'created',
+      booking: { id: 'booking-1', auth_user_id: null },
+      customer: { id: 'customer-1' },
+      idempotencyKey: 'idem-1',
+      reusedExisting: false,
+      createOrigin: 'inserted',
+    };
+    const persistenceRunner = vi.fn(
+      async () => persistence,
+    ) as unknown as BookingsPostPersistenceRunner;
+    const boundBooking = { id: 'booking-1', auth_user_id: 'user-1' };
+    const ownerBinder = vi.fn(async () => boundBooking) as unknown as BookingsPostOwnerBinder;
+    const completionRunner = vi.fn(async () =>
+      NextResponse.json({ bookingId: 'booking-1' }, { status: 201 }),
+    ) as unknown as BookingsPostCompletionRunner;
+
+    const response = await buildBookingsPostHttpResponse(
+      baseArgs({
+        completionRunner,
+        entryGateRunner,
+        ownerBinder,
+        persistenceRunner,
+        precommitRunner,
+        serviceClientFor: vi.fn(() => client),
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(ownerBinder).toHaveBeenCalledWith({
+      booking: persistence.booking,
+      createOrigin: 'inserted',
+      isOpsWalkIn: false,
+    });
+    expect(completionRunner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        persistence: { ...persistence, booking: boundBooking },
       }),
     );
   });

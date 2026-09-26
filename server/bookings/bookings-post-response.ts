@@ -6,6 +6,7 @@ import { parseBookingAttemptHeaders } from '@/server/bookings/attempt-context';
 import { completeBookingCreate } from '@/server/bookings/create-completion';
 import { runBookingCreateEntryGate } from '@/server/bookings/create-entry-gate';
 import { buildBookingCreateFailureResponse } from '@/server/bookings/create-failure-response';
+import { bindCreatedBookingToSessionOwner } from '@/server/bookings/create-owner-binding';
 import { runBookingCreatePersistence } from '@/server/bookings/create-persistence';
 import { runBookingCreatePrecommitContext } from '@/server/bookings/create-precommit-context';
 import {
@@ -23,6 +24,7 @@ export type BookingsPostPrecommitRunner = typeof runBookingCreatePrecommitContex
 export type BookingsPostPersistenceRunner = typeof runBookingCreatePersistence;
 export type BookingsPostCompletionRunner = typeof completeBookingCreate;
 export type BookingsPostFailureResponseBuilder = typeof buildBookingCreateFailureResponse;
+export type BookingsPostOwnerBinder = typeof bindCreatedBookingToSessionOwner;
 
 export type BookingsPostLogger = {
   error: (...args: unknown[]) => void;
@@ -48,6 +50,7 @@ export async function buildBookingsPostHttpResponse({
   headers,
   inlineAutoAssignTimeoutMs,
   logger = console,
+  ownerBinder = bindCreatedBookingToSessionOwner,
   payload,
   persistenceRunner = runBookingCreatePersistence,
   precommitRunner = runBookingCreatePrecommitContext,
@@ -68,6 +71,8 @@ export async function buildBookingsPostHttpResponse({
   headers: Pick<Headers, 'get'>;
   inlineAutoAssignTimeoutMs?: number;
   logger?: BookingsPostLogger;
+  /** Binds a fresh insert to a signed-in guest with a confirmed, matching email. */
+  ownerBinder?: BookingsPostOwnerBinder;
   payload: unknown;
   persistenceRunner?: BookingsPostPersistenceRunner;
   precommitRunner?: BookingsPostPrecommitRunner;
@@ -146,6 +151,14 @@ export async function buildBookingsPostHttpResponse({
       return persistence.response;
     }
 
+    // Guest-auth §4.4 / §5.2: "My bookings" and session ownership match `auth_user_id`,
+    // so a signed-in guest's own new booking is bound now. Best-effort; never throws.
+    const ownedBooking = await ownerBinder({
+      booking: persistence.booking,
+      createOrigin: persistence.createOrigin,
+      isOpsWalkIn: entryGate.requestContext.isOpsWalkIn,
+    });
+
     return await completionRunner({
       accessSecret,
       autoAssignEnabled,
@@ -166,7 +179,10 @@ export async function buildBookingsPostHttpResponse({
       onAutoAssignError: (autoError) => {
         logger.error('[bookings][POST][auto-assign]', stringifyError(autoError));
       },
-      persistence,
+      persistence:
+        ownedBooking === persistence.booking
+          ? persistence
+          : { ...persistence, booking: ownedBooking },
       request,
       requestContext: entryGate.requestContext,
       restaurantId,
