@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { resolveBookingCreateConfirmationToken } from '@/server/bookings/confirmation-token';
 import { buildBookingCreateSuccessResponse } from '@/server/bookings/create-success-response';
+import { type BookingCreateOrigin } from '@/server/bookings/idempotency';
 import {
   buildBookingConfirmationCookie,
   buildBookingSessionRecoveryAccessCookie,
@@ -18,6 +19,7 @@ export async function buildBookingCreateHttpResponse({
   booking,
   confirmationCookieBuilder = buildBookingConfirmationCookie,
   confirmationTokenResolver = resolveBookingCreateConfirmationToken,
+  createOrigin,
   loyaltyPointsAwarded,
   onRecoveryCookieError,
   onTokenError,
@@ -32,6 +34,18 @@ export async function buildBookingCreateHttpResponse({
   booking: BookingRecord;
   confirmationCookieBuilder?: BookingCreateConfirmationCookieBuilder;
   confirmationTokenResolver?: BookingCreateConfirmationTokenResolver;
+  /**
+   * How the booking was resolved. A `key_replay` answers exactly like the original insert
+   * (same body, 201); only `recovered` keeps duplicate semantics. Defaults from
+   * `reusedExisting` for callers that predate it.
+   */
+  createOrigin?: BookingCreateOrigin;
+  /**
+   * Guest-auth §4.2: whether this response may act for the creator (inserted, or a fresh
+   * replay of the client's own uuid key). Threaded for the creator-capability cookie; this
+   * builder issues no capability itself.
+   */
+  creatorCapabilityEligible?: boolean;
   loyaltyPointsAwarded: number;
   onRecoveryCookieError?: (error: unknown) => void;
   onTokenError?: (error: unknown) => void;
@@ -54,10 +68,11 @@ export async function buildBookingCreateHttpResponse({
     confirmationToken = null;
   }
 
+  const origin: BookingCreateOrigin = createOrigin ?? (reusedExisting ? 'recovered' : 'inserted');
   const response = responseBuilder({
     booking,
     loyaltyPointsAwarded,
-    duplicate: reusedExisting,
+    duplicate: origin === 'recovered',
     useUnifiedValidation,
   });
 

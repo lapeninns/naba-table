@@ -122,32 +122,30 @@ describe('runBookingCreateUnifiedValidation', () => {
       { time: '18:45', available: true, utilizationPercent: 75 },
     ]);
 
-    await expect(
-      runBookingCreateUnifiedValidation({
-        ...baseArgs,
-        validationServiceFactory: buildValidationServiceFactory(createWithEnforcement),
-      }),
-    ).resolves.toEqual({
-      kind: 'response',
-      body: {
-        ok: false,
-        issues: [
-          {
-            code: 'CAPACITY_EXCEEDED',
-            message: 'No capacity available',
-            detail: { utilizationPercent: 95 },
-          },
-        ],
-        alternatives: [{ time: '18:45', available: true, utilizationPercent: 75 }],
-      },
-      init: {
-        status: 409,
-        headers: {
-          'X-Capacity-Exceeded': 'true',
-          'X-Booking-Validation': 'unified',
-          'X-Utilization-Percent': '95',
+    const result = await runBookingCreateUnifiedValidation({
+      ...baseArgs,
+      validationServiceFactory: buildValidationServiceFactory(createWithEnforcement),
+    });
+
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+    expect(result.response.status).toBe(409);
+    expect(result.response.headers.get('X-Capacity-Exceeded')).toBe('true');
+    expect(result.response.headers.get('X-Booking-Validation')).toBe('unified');
+    expect(result.response.headers.get('X-Utilization-Percent')).toBe('95');
+    await expect(result.response.json()).resolves.toEqual({
+      ok: false,
+      issues: [
+        {
+          code: 'CAPACITY_EXCEEDED',
+          message: 'No capacity available',
+          detail: { utilizationPercent: 95 },
         },
-      },
+      ],
+      alternatives: [{ time: '18:45', available: true, utilizationPercent: 75 }],
+      error: 'No capacity available',
+      code: 'CAPACITY_EXCEEDED',
+      message: 'No capacity available',
     });
   });
 
@@ -159,25 +157,83 @@ describe('runBookingCreateUnifiedValidation', () => {
       });
     });
 
-    await expect(
-      runBookingCreateUnifiedValidation({
-        ...baseArgs,
-        validationServiceFactory: buildValidationServiceFactory(createWithEnforcement),
-      }),
-    ).resolves.toEqual({
-      kind: 'response',
-      body: {
-        ok: false,
-        issues: [{ code: 'OUTSIDE_HOURS', message: 'Outside hours' }],
-      },
-      init: {
-        status: 400,
-        headers: {
-          'X-Booking-Validation': 'unified',
-        },
-      },
+    const result = await runBookingCreateUnifiedValidation({
+      ...baseArgs,
+      validationServiceFactory: buildValidationServiceFactory(createWithEnforcement),
     });
 
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+    expect(result.response.status).toBe(400);
+    expect(result.response.headers.get('X-Booking-Validation')).toBe('unified');
+    await expect(result.response.json()).resolves.toEqual({
+      ok: false,
+      issues: [{ code: 'OUTSIDE_HOURS', message: 'Outside hours' }],
+      error: 'Outside hours',
+      code: 'OUTSIDE_HOURS',
+      message: 'Outside hours',
+    });
+
+    expect(findAlternativeSlotsMock).not.toHaveBeenCalled();
+  });
+
+  it('maps a reused key with a different payload to 409 IDEMPOTENCY_KEY_REUSED', async () => {
+    const createWithEnforcement = vi.fn(async () => {
+      throw new BookingValidationError({
+        ok: false,
+        issues: [
+          {
+            code: 'UNKNOWN',
+            message: 'Unable to complete booking due to capacity constraints.',
+            detail: { idempotencyConflict: true },
+          },
+        ],
+      });
+    });
+
+    const result = await runBookingCreateUnifiedValidation({
+      ...baseArgs,
+      validationServiceFactory: buildValidationServiceFactory(createWithEnforcement),
+    });
+
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+    expect(result.response.status).toBe(409);
+    await expect(result.response.json()).resolves.toMatchObject({
+      code: 'IDEMPOTENCY_KEY_REUSED',
+      retryable: false,
+    });
+    expect(findAlternativeSlotsMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps a transient create race retryable instead of reporting the slot as full', async () => {
+    const createWithEnforcement = vi.fn(async () => {
+      throw new BookingValidationError({
+        ok: false,
+        issues: [
+          {
+            code: 'CAPACITY_EXCEEDED',
+            message: 'No capacity available for the requested time.',
+            detail: { bookingConflict: true },
+          },
+        ],
+      });
+    });
+
+    const result = await runBookingCreateUnifiedValidation({
+      ...baseArgs,
+      validationServiceFactory: buildValidationServiceFactory(createWithEnforcement),
+    });
+
+    expect(result.kind).toBe('response');
+    if (result.kind !== 'response') return;
+    expect(result.response.status).toBe(409);
+    expect(result.response.headers.get('Retry-After')).toBe('1');
+    await expect(result.response.json()).resolves.toMatchObject({
+      code: 'BOOKING_CONFLICT',
+      retryable: true,
+      retryAfter: 1,
+    });
     expect(findAlternativeSlotsMock).not.toHaveBeenCalled();
   });
 

@@ -35,7 +35,7 @@ describe('booking create request payload parser', () => {
   it('builds the invalid JSON failure shape used by the route', () => {
     expect(buildBookingCreateInvalidJsonFailure()).toEqual({
       status: 400,
-      body: { error: 'Invalid JSON payload' },
+      body: { error: 'Invalid JSON payload', code: 'INVALID_JSON', message: 'Invalid JSON payload' },
     });
   });
 
@@ -46,7 +46,11 @@ describe('booking create request payload parser', () => {
         status: 400,
         body: {
           error: expect.stringContaining('Validation failed - email:'),
+          message: expect.stringContaining('Validation failed - email:'),
           code: 'VALIDATION_FAILED',
+          fields: expect.objectContaining({
+            email: expect.arrayContaining([expect.stringContaining('valid email address')]),
+          }),
           details: expect.objectContaining({
             fieldErrors: expect.objectContaining({
               email: expect.arrayContaining([expect.stringContaining('valid email address')]),

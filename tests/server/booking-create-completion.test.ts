@@ -26,8 +26,9 @@ const request = {
   marketingOptIn: false,
   whatsappOptIn: false,
 } as BookingCreateRequest;
+const HEADER_KEY = '0f8fad5b-d9cb-469f-a165-70867728950e';
 const requestContext = {
-  headerIdempotencyKey: 'header-idem-1',
+  headerIdempotencyKey: HEADER_KEY,
   clientRequestId: 'client-request-1',
   opsEmailProvidedHeader: true,
   isOpsWalkIn: true,
@@ -52,6 +53,7 @@ const persistence = {
   customer: { id: 'customer-1' },
   idempotencyKey: 'idem-1',
   reusedExisting: false,
+  createOrigin: 'inserted',
 } satisfies Extract<BookingCreatePersistenceResult, { kind: 'created' }>;
 
 describe('completeBookingCreate', () => {
@@ -244,6 +246,7 @@ describe('completeBookingCreate', () => {
     const reusedPersistence = {
       ...persistence,
       reusedExisting: true,
+      createOrigin: 'recovered',
     } satisfies Extract<BookingCreatePersistenceResult, { kind: 'created' }>;
     const finalizer = vi.fn(async () => ({ booking })) as BookingCreateFinalizer;
     const responseBuilder = vi.fn(async () =>
@@ -265,6 +268,70 @@ describe('completeBookingCreate', () => {
     await expect(response.json()).resolves.toEqual({ duplicate: true });
     expect(response.status).toBe(200);
     expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ reusedExisting: true }));
-    expect(responseBuilder).toHaveBeenCalledWith(expect.objectContaining({ reusedExisting: true }));
+    expect(responseBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reusedExisting: true,
+        createOrigin: 'recovered',
+        creatorCapabilityEligible: false,
+      }),
+    );
+  });
+
+  it('threads createOrigin and creator eligibility to the response builder without side effects on replay', async () => {
+    const now = new Date('2026-09-27T12:05:00.000Z').getTime();
+    const replayed = {
+      ...booking,
+      idempotency_key: HEADER_KEY,
+      created_at: '2026-09-27T12:00:00.000Z',
+    } as BookingRecord;
+    const finalizer = vi.fn(async () => ({ booking: replayed })) as BookingCreateFinalizer;
+    const responseBuilder = vi.fn(async () =>
+      NextResponse.json({ ok: true }, { status: 201 }),
+    ) as BookingCreateHttpResponseBuilder;
+
+    await completeBookingCreate({
+      autoAssignEnabled: true,
+      client,
+      finalizer,
+      now: () => now,
+      persistence: {
+        ...persistence,
+        booking: replayed,
+        reusedExisting: true,
+        createOrigin: 'key_replay',
+      },
+      request,
+      requestContext,
+      responseBuilder,
+      restaurantId,
+      useUnifiedValidation: true,
+    });
+
+    expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ reusedExisting: true }));
+    expect(responseBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({ createOrigin: 'key_replay', creatorCapabilityEligible: true }),
+    );
+  });
+
+  it('marks fresh inserts as creator-eligible', async () => {
+    const responseBuilder = vi.fn(async () =>
+      NextResponse.json({ ok: true }, { status: 201 }),
+    ) as BookingCreateHttpResponseBuilder;
+
+    await completeBookingCreate({
+      autoAssignEnabled: false,
+      client,
+      finalizer: vi.fn(async () => ({ booking })) as BookingCreateFinalizer,
+      persistence,
+      request,
+      requestContext,
+      responseBuilder,
+      restaurantId,
+      useUnifiedValidation: false,
+    });
+
+    expect(responseBuilder).toHaveBeenCalledWith(
+      expect.objectContaining({ createOrigin: 'inserted', creatorCapabilityEligible: true }),
+    );
   });
 });

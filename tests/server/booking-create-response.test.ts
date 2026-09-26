@@ -162,4 +162,45 @@ describe('buildBookingCreateHttpResponse', () => {
     expect(onRecoveryCookieError).toHaveBeenCalledWith(recoveryError);
     expect(readSetCookie(response)).toContain('sr_confirm=confirmation-token-1');
   });
+
+  it('returns the same body and status for a key replay as for the original insert', async () => {
+    const build = (createOrigin: 'inserted' | 'key_replay') =>
+      buildBookingCreateHttpResponse({
+        booking,
+        confirmationTokenResolver: vi.fn(async () => null),
+        createOrigin,
+        creatorCapabilityEligible: true,
+        loyaltyPointsAwarded: 0,
+        recoverySecret: null,
+        recoveryTtlSeconds: null,
+        restaurantId: booking.restaurant_id,
+        reusedExisting: createOrigin !== 'inserted',
+        useUnifiedValidation: true,
+      });
+
+    const original = await build('inserted');
+    const replay = await build('key_replay');
+
+    expect(replay.status).toBe(original.status);
+    expect(replay.status).toBe(201);
+    await expect(replay.json()).resolves.toEqual(await original.json());
+  });
+
+  it('keeps duplicate semantics for recovered (non-creator) matches', async () => {
+    const response = await buildBookingCreateHttpResponse({
+      booking,
+      confirmationTokenResolver: vi.fn(async () => null),
+      createOrigin: 'recovered',
+      creatorCapabilityEligible: false,
+      loyaltyPointsAwarded: 0,
+      recoverySecret: null,
+      recoveryTtlSeconds: null,
+      restaurantId: booking.restaurant_id,
+      reusedExisting: true,
+      useUnifiedValidation: false,
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ duplicate: true });
+  });
 });

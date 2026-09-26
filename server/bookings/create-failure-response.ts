@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-
+import { apiError as c1Error, INTERNAL_ERROR_MESSAGE } from '@/lib/api/errors';
 import { logger } from '@/lib/logger';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import {
@@ -9,6 +8,7 @@ import {
 import { recordObservabilityEvent } from '@/server/observability';
 
 import type { BookingCreateRequest } from '@/server/bookings/request-validation';
+import type { NextResponse } from 'next/server';
 
 const bookingCreateLogger = logger.child({ module: 'api.bookings.create' });
 
@@ -98,5 +98,14 @@ export function buildBookingCreateFailureResponse({
     },
   });
 
-  return NextResponse.json(apiError.body, { status: apiError.status });
+  // C1 body. Unexpected failures (5xx) never echo the mapped text; they were logged above.
+  if (apiError.status >= 500) {
+    return c1Error(500, 'INTERNAL_ERROR', INTERNAL_ERROR_MESSAGE);
+  }
+  return c1Error(
+    apiError.status,
+    apiError.body.code,
+    apiError.body.error,
+    apiError.body.details !== undefined ? { details: apiError.body.details } : {},
+  );
 }

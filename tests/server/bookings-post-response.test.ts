@@ -59,7 +59,11 @@ describe('bookings POST response orchestration', () => {
     const response = buildBookingCreateInvalidJsonResponse();
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ error: 'Invalid JSON payload' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid JSON payload',
+      code: 'INVALID_JSON',
+      message: 'Invalid JSON payload',
+    });
   });
 
   it('returns validation failures before running create gates', async () => {

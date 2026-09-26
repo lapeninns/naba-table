@@ -2,6 +2,7 @@ import { captureRestaurantServerEvent } from '@/lib/posthog/server';
 import { persistBookingWhatsAppConsent } from '@/server/booking/whatsapp-consent';
 import { finalizeBookingCreateCommit } from '@/server/bookings/create-finalization';
 import { buildBookingCreateHttpResponse } from '@/server/bookings/create-response';
+import { isCreatorKeyReplayEligible } from '@/server/bookings/idempotency';
 
 import type { BookingCreatePersistenceResult } from '@/server/bookings/create-persistence';
 import type { BookingCreateRequestContext } from '@/server/bookings/create-request-context';
@@ -25,6 +26,7 @@ export async function completeBookingCreate({
   finalizer = finalizeBookingCreateCommit,
   inlineAutoAssignTimeoutMs,
   loyaltyPointsAwarded = 0,
+  now = Date.now,
   onAutoAssignError,
   onConsentPersistError,
   onInlineAutoAssignError,
@@ -46,6 +48,7 @@ export async function completeBookingCreate({
   finalizer?: BookingCreateFinalizer;
   inlineAutoAssignTimeoutMs?: number;
   loyaltyPointsAwarded?: number;
+  now?: () => number;
   onAutoAssignError?: (error: unknown) => void;
   onConsentPersistError?: (error: unknown) => void;
   onInlineAutoAssignError?: (error: unknown) => void;
@@ -56,7 +59,10 @@ export async function completeBookingCreate({
   recoverySecret?: string | null;
   recoveryTtlSeconds?: number | null;
   request: BookingCreateRequest;
-  requestContext: Pick<BookingCreateRequestContext, 'isOpsWalkIn' | 'opsEmailProvidedHeader'>;
+  requestContext: Pick<
+    BookingCreateRequestContext,
+    'headerIdempotencyKey' | 'isOpsWalkIn' | 'opsEmailProvidedHeader'
+  >;
   responseBuilder?: BookingCreateHttpResponseBuilder;
   restaurantId: string;
   useUnifiedValidation: boolean;
@@ -113,8 +119,20 @@ export async function completeBookingCreate({
     });
   }
 
+  // Guest-auth §4.2: an insert always acts for the creator; any other origin only when it
+  // replays the client's own uuid key within the replay window.
+  const creatorCapabilityEligible =
+    persistence.createOrigin === 'inserted' ||
+    isCreatorKeyReplayEligible({
+      booking: finalBooking,
+      headerIdempotencyKey: requestContext.headerIdempotencyKey,
+      now: now(),
+    });
+
   return await responseBuilder({
     booking: finalBooking,
+    createOrigin: persistence.createOrigin,
+    creatorCapabilityEligible,
     loyaltyPointsAwarded,
     onRecoveryCookieError,
     onTokenError,

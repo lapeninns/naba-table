@@ -1,13 +1,27 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRef } from 'react';
+import {
+  useMutation,
+  useQueryClient,
+  type MutateOptions,
+  type UseMutationResult,
+} from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import { emit } from '@/lib/analytics/emit';
 import { fetchJson } from '@/lib/http/fetchJson';
+import { queryKeys } from '@/lib/query/keys';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 import { reservationAdapter, reservationListAdapter } from '@entities/reservation/adapter';
 import { reservationKeys } from '@shared/api/queryKeys';
 import { track } from '@shared/lib/analytics';
+
+import {
+  createConflictRetryDelay,
+  createIntentKeyStore,
+  reservationDraftFingerprint,
+  shouldRetryCreateConflict,
+} from './createReservationRetry';
 
 import type { ReservationSubmissionResult } from './types';
 import type { ReservationDraft } from '../model/reducer';
@@ -52,32 +66,68 @@ export function buildOpsBookingPayload(draft: ReservationDraft) {
   } as const;
 }
 
-export function useCreateOpsReservation() {
-  const queryClient = useQueryClient();
-  const idempotencyKeyRef = useRef<string | null>(null);
+export type CreateOpsReservationVariables = {
+  draft: ReservationDraft;
+  bookingId?: string;
+  /** Key for this walk-in intent; defaults to one key per draft content (see useCreateReservation). */
+  idempotencyKey?: string;
+};
 
-  return useMutation<
+const intentKeys = createIntentKeyStore(generateIdempotencyKey);
+
+/** Forget the current walk-in intent's key (tests, or an explicit "start a new booking"). */
+export function clearCreateOpsReservationIntentKey(): void {
+  intentKeys.clear();
+}
+
+/** C5: the key lives in the variables, fixed at mutate() time (see useCreateReservation). */
+function withIntentKey(variables: CreateOpsReservationVariables): CreateOpsReservationVariables {
+  if (variables.idempotencyKey) return variables;
+  const { key } = intentKeys.resolve(
+    reservationDraftFingerprint(variables.draft, variables.bookingId),
+  );
+  return { ...variables, idempotencyKey: key };
+}
+
+type CreateOpsReservationMutation = UseMutationResult<
+  ReservationSubmissionResult,
+  OpsReservationError,
+  CreateOpsReservationVariables
+>;
+type CreateOpsReservationMutateOptions = MutateOptions<
+  ReservationSubmissionResult,
+  OpsReservationError,
+  CreateOpsReservationVariables
+>;
+
+export function useCreateOpsReservation(): CreateOpsReservationMutation {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation<
     ReservationSubmissionResult,
     OpsReservationError,
-    { draft: ReservationDraft; bookingId?: string }
+    CreateOpsReservationVariables
   >({
     networkMode: 'offlineFirst',
     meta: { persist: true },
-    mutationFn: async ({ draft, bookingId }) => {
+    // A transient 409 BOOKING_CONFLICT (retryable) is retried once, with the same key.
+    retry: shouldRetryCreateConflict,
+    retryDelay: createConflictRetryDelay,
+    mutationFn: async (variables) => {
+      const { draft, bookingId, idempotencyKey } = variables;
       if (bookingId) {
         throw Object.assign(new Error('Editing bookings is not supported in ops wizard'), {
           code: 'UNSUPPORTED_OPERATION',
         });
       }
 
-      const payload = buildOpsBookingPayload(draft);
+      if (!idempotencyKey) {
+        throw Object.assign(new Error('This booking request could not be sent. Please try again.'), {
+          code: 'MISSING_IDEMPOTENCY_KEY',
+        });
+      }
 
-      const idempotencyKey =
-        idempotencyKeyRef.current ??
-        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-      idempotencyKeyRef.current = idempotencyKey;
+      const payload = buildOpsBookingPayload(draft);
 
       const response = await fetchJson<{
         booking?: unknown;
@@ -99,16 +149,28 @@ export function useCreateOpsReservation() {
         bookings,
       } satisfies ReservationSubmissionResult;
     },
-    onSuccess: (result) => {
-      idempotencyKeyRef.current = null;
+    onSuccess: (result, { draft }) => {
+      intentKeys.clear();
       queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
+      // A walk-in changes the dashboard summary for its date and the ops booking lists; the
+      // dashboard updates now instead of waiting for realtime. The dashboard keys "today"
+      // as a null date, so that summary is refreshed too.
+      if (draft.restaurantId) {
+        for (const date of [draft.date, null]) {
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.opsDashboard.summary(draft.restaurantId, date),
+            exact: true,
+          });
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.listPrefix() });
     },
     onError: (error) => {
       if (isTerminalCreateError(error)) {
-        idempotencyKeyRef.current = null;
+        intentKeys.clear();
       }
       const payload = {
         code: error?.code ?? 'UNKNOWN',
@@ -119,4 +181,18 @@ export function useCreateOpsReservation() {
       emit('wizard_submit_failed', payload);
     },
   });
+
+  const { mutate, mutateAsync } = mutation;
+  const mutateWithKey = useCallback(
+    (variables: CreateOpsReservationVariables, options?: CreateOpsReservationMutateOptions) =>
+      mutate(withIntentKey(variables), options),
+    [mutate],
+  );
+  const mutateAsyncWithKey = useCallback(
+    (variables: CreateOpsReservationVariables, options?: CreateOpsReservationMutateOptions) =>
+      mutateAsync(withIntentKey(variables), options),
+    [mutateAsync],
+  );
+
+  return { ...mutation, mutate: mutateWithKey, mutateAsync: mutateAsyncWithKey };
 }
