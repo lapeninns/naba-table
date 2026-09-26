@@ -9,6 +9,7 @@ const loggerMock = vi.hoisted(() => ({
 vi.mock('@/lib/logger', () => ({ logger: loggerMock }));
 
 import {
+  ensureBookingEmailIntent,
   runClaimedBookingEmailIntent,
   settleBookingEmailIntent,
 } from '@/server/jobs/booking-side-effect-intents';
@@ -152,5 +153,66 @@ describe('booking email intent settle fence', () => {
       outcome: 'retry',
       errorCode: '08006',
     });
+  });
+});
+
+describe('ensureBookingEmailIntent booking revision', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function ensureClient(row: { intent_id: string; created: boolean; intent_status: string }) {
+    const rpc = vi.fn(async () => ({ data: [row], error: null }));
+    return { client: { rpc } as never, rpc };
+  }
+
+  it('passes the committed booking revision so an older modification cannot supersede a newer one', async () => {
+    const { client, rpc } = ensureClient({
+      intent_id: 'intent-9',
+      created: true,
+      intent_status: 'pending',
+    });
+
+    const result = await ensureBookingEmailIntent(client, {
+      bookingId: 'b-1',
+      restaurantId: 'rest-1',
+      type: 'updated',
+      dedupeKey: 'email__updated__b-1__hold-1',
+      supersedeTypes: ['updated', 'modification_pending'],
+      bookingRevision: '2026-09-01T10:00:02.123456+00:00',
+    });
+
+    expect(result).toEqual({ ok: true, intentId: 'intent-9', created: true, status: 'pending' });
+    expect(rpc).toHaveBeenCalledWith('ensure_booking_email_intent', {
+      p_booking_id: 'b-1',
+      p_restaurant_id: 'rest-1',
+      p_email_type: 'updated',
+      p_dedupe_key: 'email__updated__b-1__hold-1',
+      p_scheduled_for: null,
+      p_supersede_types: ['updated', 'modification_pending'],
+      p_booking_revision: '2026-09-01T10:00:02.123456+00:00',
+    });
+  });
+
+  it('reports a stale modification (cancelled on arrival) without treating it as a failure', async () => {
+    const { client, rpc } = ensureClient({
+      intent_id: 'intent-10',
+      created: true,
+      intent_status: 'cancelled',
+    });
+
+    const result = await ensureBookingEmailIntent(client, {
+      bookingId: 'b-1',
+      restaurantId: 'rest-1',
+      type: 'confirmation',
+      dedupeKey: 'email__confirmation__b-1',
+    });
+
+    expect(result).toEqual({ ok: true, intentId: 'intent-10', created: true, status: 'cancelled' });
+    expect(rpc).toHaveBeenCalledWith(
+      'ensure_booking_email_intent',
+      expect.objectContaining({ p_supersede_types: null, p_booking_revision: null }),
+    );
+    expect(loggerMock.error).not.toHaveBeenCalled();
   });
 });

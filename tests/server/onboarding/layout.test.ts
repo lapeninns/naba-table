@@ -9,6 +9,8 @@ vi.mock('@/server/ops/capacity-cache', () => ({
 }));
 
 import {
+  loadOnboardingLayout,
+  OnboardingLayoutChangedError,
   OnboardingLayoutInvalidError,
   OnboardingLayoutLockedError,
   OnboardingLayoutRestaurantNotFoundError,
@@ -47,6 +49,7 @@ describe('replaceOnboardingLayout', () => {
             status: 'available',
           },
         ],
+        revision: 'rev-2',
       },
       error: null,
     });
@@ -54,6 +57,7 @@ describe('replaceOnboardingLayout', () => {
     const layout = await replaceOnboardingLayout(client as never, RESTAURANT_ID, {
       zones: [{ name: 'Main Dining' }],
       tables: [{ tableNumber: 'T1', capacity: 2 }],
+      expectedRevision: 'rev-1',
     });
 
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -72,6 +76,7 @@ describe('replaceOnboardingLayout', () => {
           mobility: null,
         },
       ],
+      p_expected_revision: 'rev-1',
     });
     expect(layout).toEqual({
       zones: [{ id: ZONE_ID, name: 'Main Dining', sortOrder: 0, active: true }],
@@ -89,12 +94,14 @@ describe('replaceOnboardingLayout', () => {
           status: 'available',
         },
       ],
+      revision: 'rev-2',
     });
     expect(invalidateRestaurantCapacityCachesMock).toHaveBeenCalledWith(RESTAURANT_ID);
   });
 
   it.each([
     [{ code: '55000', message: 'ONBOARDING_LAYOUT_LOCKED' }, OnboardingLayoutLockedError],
+    [{ code: '55000', message: 'ONBOARDING_LAYOUT_CHANGED' }, OnboardingLayoutChangedError],
     [
       { code: '22023', message: 'ONBOARDING_LAYOUT_INVALID: zone names must be unique' },
       OnboardingLayoutInvalidError,
@@ -110,6 +117,7 @@ describe('replaceOnboardingLayout', () => {
     const failure = replaceOnboardingLayout(client as never, RESTAURANT_ID, {
       zones: [{ name: 'Main Dining' }],
       tables: [],
+      expectedRevision: null,
     });
 
     await expect(failure).rejects.toBeInstanceOf(ErrorClass);
@@ -127,6 +135,19 @@ describe('replaceOnboardingLayout', () => {
       replaceOnboardingLayout(client as never, RESTAURANT_ID, {
         zones: [{ name: 'A' }],
         tables: [],
+        expectedRevision: null,
+      }),
+    ).rejects.toBeInstanceOf(OnboardingLayoutWriteError);
+  });
+
+  it('rejects an RPC result without a revision', async () => {
+    const { client } = makeClient({ data: { zones: [], tables: [] }, error: null });
+
+    await expect(
+      replaceOnboardingLayout(client as never, RESTAURANT_ID, {
+        zones: [{ name: 'A' }],
+        tables: [],
+        expectedRevision: null,
       }),
     ).rejects.toBeInstanceOf(OnboardingLayoutWriteError);
   });
@@ -149,5 +170,51 @@ describe('replaceOnboardingLayout', () => {
     expect(migration).toContain("LIKE '%(restaurant_id, table_number)'");
     expect(migration).toContain('FROM authenticated');
     expect(migration).toContain('TO service_role');
+    // Optimistic concurrency: stale revisions are refused and deletes stay within the
+    // rows the checked revision covered.
+    expect(migration).toContain('p_expected_revision text');
+    expect(migration).toContain("'ONBOARDING_LAYOUT_CHANGED'");
+    expect(migration).toContain('tmp_onboarding_seen_tables');
+    expect(migration).toContain(
+      'GRANT EXECUTE ON FUNCTION public.onboarding_layout_snapshot(uuid) TO service_role',
+    );
+  });
+});
+
+describe('loadOnboardingLayout', () => {
+  it('reads the layout and revision from one snapshot RPC', async () => {
+    const { client, rpc } = makeClient({
+      data: {
+        zones: [{ id: ZONE_ID, name: 'Main Dining', sort_order: 0, active: true }],
+        tables: [],
+        revision: 'rev-7',
+      },
+      error: null,
+    });
+
+    await expect(loadOnboardingLayout(client as never, RESTAURANT_ID)).resolves.toEqual({
+      zones: [{ id: ZONE_ID, name: 'Main Dining', sortOrder: 0, active: true }],
+      tables: [],
+      revision: 'rev-7',
+    });
+    expect(rpc).toHaveBeenCalledWith('onboarding_layout_snapshot', {
+      p_restaurant_id: RESTAURANT_ID,
+    });
+    expect(invalidateRestaurantCapacityCachesMock).not.toHaveBeenCalled();
+  });
+
+  it('maps a missing restaurant and hides other database text', async () => {
+    const missing = makeClient({
+      data: null,
+      error: { code: 'P0002', message: 'ONBOARDING_RESTAURANT_NOT_FOUND' },
+    });
+    await expect(
+      loadOnboardingLayout(missing.client as never, RESTAURANT_ID),
+    ).rejects.toBeInstanceOf(OnboardingLayoutRestaurantNotFoundError);
+
+    const broken = makeClient({ data: null, error: { code: 'XX000', message: 'secret detail' } });
+    const failure = loadOnboardingLayout(broken.client as never, RESTAURANT_ID);
+    await expect(failure).rejects.toBeInstanceOf(OnboardingLayoutWriteError);
+    await expect(failure).rejects.not.toHaveProperty('message', 'secret detail');
   });
 });

@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Heading, Text } from '@/components/ui/typography';
+import { HttpError } from '@/lib/http/errors';
 import { toUserMessage } from '@/lib/http/userMessage';
 import { nextTableNumber } from '@/lib/onboarding/scheduleRules';
 import { writeBrowserOpsRestaurantCookie } from '@/lib/ops/session';
@@ -27,6 +28,9 @@ import { writeBrowserOpsRestaurantCookie } from '@/lib/ops/session';
 import { useOnboarding } from './context/OnboardingContext';
 import { applyServerFieldErrors } from './formErrors';
 import {
+  fetchOnboardingLayout,
+  ONBOARDING_LAYOUT_CHANGED,
+  toLayoutState,
   toLayoutVariables,
   useCompleteOnboarding,
   useReplaceOnboardingLayout,
@@ -45,14 +49,20 @@ import { OnboardingNavigation } from './ui/OnboardingNavigation';
 
 import type { OnboardingRequirement, OnboardingStep, TableInventoryItem, Zone } from './types';
 
+const LAYOUT_CHANGED_COPY =
+  'Your tables were changed somewhere else since you opened this step. We loaded the latest layout; review it and save again.';
+const LAYOUT_RELOAD_FAILED_COPY =
+  'Your tables were changed somewhere else. Refresh the page to load the latest layout before saving.';
+
 const LAYOUT_ERROR_COPY = {
+  ONBOARDING_LAYOUT_CHANGED: LAYOUT_CHANGED_COPY,
   ONBOARDING_LAYOUT_LOCKED:
     'This restaurant already has bookings, so change its tables from Tables in the dashboard.',
   ONBOARDING_LAYOUT_INVALID: 'Check that zone names and table numbers are unique.',
 };
 
 export function TablesStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setZones, setTables, setStep, setError } = useOnboarding();
+  const { state, setLayout, setStep, setError } = useOnboarding();
   const replaceLayout = useReplaceOnboardingLayout();
   const [zones, updateZones] = useState<Zone[]>(
     state.zones.length ? state.zones : [{ name: 'Main Dining', areaType: 'indoor' }],
@@ -64,6 +74,30 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
     },
   });
   const { fields, append, remove } = useFieldArray({ control: tablesForm.control, name: 'tables' });
+
+  // Another session (e.g. the ops Tables screen) changed the saved layout, so the save was
+  // refused. Load what is saved now into the step, rather than overwriting it.
+  const reloadSavedLayout = async (restaurantId: string) => {
+    try {
+      const layout = toLayoutState(await fetchOnboardingLayout(restaurantId));
+      setLayout(layout);
+      updateZones(
+        layout.zones.length ? layout.zones : [{ name: 'Main Dining', areaType: 'indoor' }],
+      );
+      tablesForm.reset({
+        tables: layout.tables.length
+          ? layout.tables.map((table) => ({
+              tableNumber: table.tableNumber,
+              capacity: table.capacity,
+              zoneId: table.zoneId ?? null,
+            }))
+          : [{ tableNumber: 'T1', capacity: 2 }],
+      });
+      setError(LAYOUT_CHANGED_COPY);
+    } catch {
+      setError(LAYOUT_RELOAD_FAILED_COPY);
+    }
+  };
 
   const save = tablesForm.handleSubmit((values) => {
     if (!state.restaurantId) {
@@ -80,28 +114,21 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
     );
     // One idempotent PUT replaces zones and tables together, so Back/Next or a retry
     // never duplicates rows.
-    replaceLayout.mutate(toLayoutVariables(state.restaurantId, zones, draftTables), {
+    // It carries the revision the step was loaded at, so a table added elsewhere since then
+    // is never deleted: the server refuses with ONBOARDING_LAYOUT_CHANGED instead.
+    const restaurantId = state.restaurantId;
+    const variables = toLayoutVariables(restaurantId, zones, draftTables, state.layoutRevision);
+    replaceLayout.mutate(variables, {
       onSuccess: (layout) => {
-        setZones(
-          layout.zones.map((zone) => ({
-            id: zone.id,
-            name: zone.name,
-            sortOrder: zone.sortOrder,
-            active: zone.active,
-          })),
-        );
-        setTables(
-          layout.tables.map((table) => ({
-            id: table.id,
-            tableNumber: table.tableNumber,
-            capacity: table.capacity,
-            zoneId: table.zoneId,
-          })),
-        );
+        setLayout(toLayoutState(layout));
         setStep(6);
         onComplete();
       },
       onError: (error) => {
+        if (error instanceof HttpError && error.code === ONBOARDING_LAYOUT_CHANGED) {
+          void reloadSavedLayout(restaurantId);
+          return;
+        }
         // The PUT's field paths (`tables.2.tableNumber`) match the form's names.
         applyServerFieldErrors(tablesForm, error, (name) => /^tables\.\d+\./.test(name));
         setError(

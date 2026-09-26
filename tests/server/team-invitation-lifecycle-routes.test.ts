@@ -299,13 +299,20 @@ describe('team invitation lifecycle', () => {
 
   describe('resend', () => {
     function resendDb(options: {
+      /** The guarded pending read; defaults to a pending invite with hash 'hashed-token'. */
+      pending?: RestaurantInvite | null;
       rotated?: RestaurantInvite | null;
       current?: RestaurantInvite | null;
       lookup?: { id: string; restaurant_id: string } | null;
     }) {
       return buildDb((chain) => {
         if (has(chain, 'update', (args) => 'token_hash' in (args[0] as object))) {
-          return { data: options.rotated ?? null };
+          const isRotation = has(
+            chain,
+            'eq',
+            (args) => args[0] === 'token_hash' && args[1] === 'hashed-token',
+          );
+          return isRotation ? { data: options.rotated ?? null } : {};
         }
         if (has(chain, 'select', (args) => args[0] === 'id, restaurant_id')) {
           return {
@@ -315,11 +322,28 @@ describe('team invitation lifecycle', () => {
                 : options.lookup,
           };
         }
+        if (has(chain, 'select') && has(chain, 'gt')) {
+          return { data: options.pending === undefined ? makeInvite() : options.pending };
+        }
         if (has(chain, 'select')) {
           return { data: options.current ?? null };
         }
         return {};
       });
+    }
+
+    function tokenUpdates(db: ReturnType<typeof buildDb>) {
+      return db.chains
+        .filter((chain) => has(chain, 'update', (args) => 'token_hash' in (args[0] as object)))
+        .map((chain) => ({
+          set: (
+            chain.calls.find((call) => call.method === 'update')!.args[0] as {
+              token_hash: string;
+            }
+          ).token_hash,
+          guard: chain.calls.find((call) => call.method === 'eq' && call.args[0] === 'token_hash')
+            ?.args[1],
+        }));
     }
 
     it('rotates the token of a pending invite with one guarded update and re-sends it', async () => {
@@ -351,10 +375,13 @@ describe('team invitation lifecycle', () => {
         expect.arrayContaining([
           { method: 'eq', args: ['id', INVITE_ID] },
           { method: 'eq', args: ['restaurant_id', RESTAURANT_ID] },
+          { method: 'eq', args: ['token_hash', 'hashed-token'] },
           { method: 'eq', args: ['status', 'pending'] },
           { method: 'gt', args: ['expires_at', expect.any(String)] },
         ]),
       );
+      // Delivered: the old hash is not restored.
+      expect(tokenUpdates(db)).toHaveLength(1);
 
       const [{ invite, token }] = sendTeamInviteEmailMock.mock.calls[0] as [
         { invite: RestaurantInvite; token: string },
@@ -421,7 +448,7 @@ describe('team invitation lifecycle', () => {
 
     it('refuses invites that are no longer pending', async () => {
       getRouteHandlerSupabaseClientMock.mockResolvedValue(
-        sessionClient(resendDb({ rotated: null, current: makeInvite({ status: 'accepted' }) })),
+        sessionClient(resendDb({ pending: null, current: makeInvite({ status: 'accepted' }) })),
       );
 
       const response = await resendInvitePOST(resendRequest(), inviteParams());
@@ -433,7 +460,7 @@ describe('team invitation lifecycle', () => {
 
     it('refuses pending invites past their expiry', async () => {
       getRouteHandlerSupabaseClientMock.mockResolvedValue(
-        sessionClient(resendDb({ rotated: null, current: makeInvite({ expires_at: PAST }) })),
+        sessionClient(resendDb({ pending: null, current: makeInvite({ expires_at: PAST }) })),
       );
 
       const response = await resendInvitePOST(resendRequest(), inviteParams());
@@ -443,9 +470,8 @@ describe('team invitation lifecycle', () => {
     });
 
     it('reports a failed email as a retryable 502 without provider text', async () => {
-      getRouteHandlerSupabaseClientMock.mockResolvedValue(
-        sessionClient(resendDb({ rotated: makeInvite() })),
-      );
+      const db = resendDb({ rotated: makeInvite() });
+      getRouteHandlerSupabaseClientMock.mockResolvedValue(sessionClient(db));
       sendTeamInviteEmailMock.mockRejectedValue(
         new Error('provider exploded for invitee@example.com'),
       );
@@ -457,6 +483,68 @@ describe('team invitation lifecycle', () => {
       expect(body).toMatchObject({ code: 'INVITE_EMAIL_FAILED', retryable: true });
       expect(JSON.stringify(body)).not.toContain('exploded');
       expect(JSON.stringify(loggerMock.warn.mock.calls)).not.toContain('invitee@example.com');
+
+      // The previous link keeps working: the old hash is put back, guarded on the new one.
+      const [rotation, restore] = tokenUpdates(db);
+      expect(rotation).toEqual({
+        set: expect.stringMatching(/^[0-9a-f]{64}$/),
+        guard: 'hashed-token',
+      });
+      expect(restore).toEqual({ set: 'hashed-token', guard: rotation!.set });
+    });
+
+    it('keeps the previous link when the recipient is suppressed', async () => {
+      const db = resendDb({ rotated: makeInvite() });
+      getRouteHandlerSupabaseClientMock.mockResolvedValue(sessionClient(db));
+      sendTeamInviteEmailMock.mockResolvedValue({ delivered: false });
+
+      const response = await resendInvitePOST(resendRequest(), inviteParams());
+
+      expect(response.status).toBe(422);
+      const [rotation, restore] = tokenUpdates(db);
+      expect(restore).toEqual({ set: 'hashed-token', guard: rotation!.set });
+    });
+
+    it('still reports the send failure when restoring the old link fails', async () => {
+      const db = resendDb({ rotated: makeInvite() });
+      const originalFrom = db.from;
+      let tokenUpdateCount = 0;
+      const client = sessionClient(db);
+      client.from = vi.fn((table: string) => {
+        const builder = originalFrom(table) as unknown as Record<
+          string,
+          (...a: unknown[]) => unknown
+        >;
+        const update = builder.update!;
+        builder.update = (...args: unknown[]) => {
+          if ('token_hash' in (args[0] as object) && ++tokenUpdateCount === 2) {
+            throw new Error('db down');
+          }
+          return update(...args);
+        };
+        return builder;
+      }) as unknown as typeof db.from;
+      getRouteHandlerSupabaseClientMock.mockResolvedValue(client);
+      sendTeamInviteEmailMock.mockRejectedValue(new Error('provider down'));
+
+      const response = await resendInvitePOST(resendRequest(), inviteParams());
+
+      expect(response.status).toBe(502);
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        'team_invite.resend_restore_failed',
+        expect.objectContaining({ inviteId: INVITE_ID }),
+      );
+    });
+
+    it('reports a concurrent rotation as a conflict without sending', async () => {
+      const db = resendDb({ rotated: null, current: makeInvite({ token_hash: 'someone-else' }) });
+      getRouteHandlerSupabaseClientMock.mockResolvedValue(sessionClient(db));
+
+      const response = await resendInvitePOST(resendRequest(), inviteParams());
+
+      expect(response.status).toBe(409);
+      expect((await response.json()).code).toBe('INVITE_CHANGED');
+      expect(sendTeamInviteEmailMock).not.toHaveBeenCalled();
     });
 
     it('reports a suppressed recipient', async () => {

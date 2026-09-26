@@ -167,6 +167,8 @@ export type ReplaceLayoutVariables = {
   restaurantId: string;
   zones: Array<{ name: string; sortOrder?: number; active?: boolean }>;
   tables: LayoutTableInput[];
+  /** The revision the draft was loaded at; null when the draft expects no saved layout. */
+  expectedRevision: string | null;
 };
 
 export type OnboardingLayoutResponse = {
@@ -177,20 +179,67 @@ export type OnboardingLayoutResponse = {
     capacity: number;
     zoneId: string;
   }>;
+  revision: string;
 };
+
+/** C1 code of a save refused because the layout changed since the step loaded it. */
+export const ONBOARDING_LAYOUT_CHANGED = 'ONBOARDING_LAYOUT_CHANGED';
+
+function layoutUrl(restaurantId: string): string {
+  return `/api/onboarding/restaurant/${encodeURIComponent(restaurantId)}/layout`;
+}
+
+/** Reads the saved zones, tables and revision (used after a 409 ONBOARDING_LAYOUT_CHANGED). */
+export async function fetchOnboardingLayout(
+  restaurantId: string,
+): Promise<OnboardingLayoutResponse> {
+  const response = await fetchJson<{ data: OnboardingLayoutResponse }>(layoutUrl(restaurantId), {
+    method: 'GET',
+    cache: 'no-store',
+  });
+  return response.data;
+}
+
+/** Maps a server layout to the wizard's zones, tables and revision. */
+export function toLayoutState(layout: OnboardingLayoutResponse): {
+  zones: Zone[];
+  tables: TableInventoryItem[];
+  layoutRevision: string;
+} {
+  return {
+    zones: layout.zones.map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      sortOrder: zone.sortOrder,
+      active: zone.active,
+    })),
+    tables: layout.tables.map((table) => ({
+      id: table.id,
+      tableNumber: table.tableNumber,
+      capacity: table.capacity,
+      zoneId: table.zoneId,
+    })),
+    layoutRevision: layout.revision,
+  };
+}
 
 export function useReplaceOnboardingLayout() {
   const queryClient = useQueryClient();
   return useMutation({
     scope: ONBOARDING_SCOPE,
     meta: INLINE_ERRORS,
-    mutationFn: async ({ restaurantId, zones, tables }: ReplaceLayoutVariables) => {
+    mutationFn: async ({
+      restaurantId,
+      zones,
+      tables,
+      expectedRevision,
+    }: ReplaceLayoutVariables) => {
       const response = await fetchJson<{ data: OnboardingLayoutResponse }>(
-        `/api/onboarding/restaurant/${encodeURIComponent(restaurantId)}/layout`,
+        layoutUrl(restaurantId),
         {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ zones, tables }),
+          body: JSON.stringify({ zones, tables, expectedRevision }),
         },
       );
       return response.data;
@@ -223,9 +272,11 @@ export function toLayoutVariables(
   restaurantId: string,
   zones: Zone[],
   tables: TableInventoryItem[],
+  expectedRevision: string | null,
 ): ReplaceLayoutVariables {
   return {
     restaurantId,
+    expectedRevision,
     zones: zones.map((zone, index) => ({
       name: zone.name.trim(),
       sortOrder: zone.sortOrder ?? index,

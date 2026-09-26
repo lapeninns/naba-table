@@ -17,21 +17,23 @@
 --   2. A unique partial index bookings_restaurant_idempotency_key_unique on
 --      (restaurant_id, idempotency_key) WHERE idempotency_key IS NOT NULL. The table is locked
 --      in SHARE ROW EXCLUSIVE mode for the dedupe + index build so no new duplicate can be
---      written in between; writes to bookings wait for the migration (index build is
---      proportional to the bookings row count).
+--      written in between. Reads continue; booking writes wait until COMMIT. See "Locking and
+--      duration" below.
 --   3. create_booking_with_capacity_check keeps its exact signature and grants, and:
 --      - inserts with ON CONFLICT (restaurant_id, idempotency_key) DO NOTHING; the losing
 --        concurrent call reads the winner's committed row and returns it with duplicate:true;
---      - a key reused with a different salient payload (customer_id, booking_date, start_time
---        to the minute, party_size) returns success:false, error IDEMPOTENCY_KEY_REUSED,
---        details.idempotencyConflict = true, and never the other booking. The app maps it to
---        409 IDEMPOTENCY_KEY_REUSED;
+--      - a key reused with a different booking-defining payload (customer_id, booking_date,
+--        start_time to the minute, party_size, booking_type, seating_preference, notes; text
+--        compared trimmed, blank notes = no notes) returns success:false, error
+--        IDEMPOTENCY_KEY_REUSED, details.idempotencyConflict = true, and never the other
+--        booking. The app maps it to 409 IDEMPOTENCY_KEY_REUSED;
 --      - p_details->>'initial_status' ('pending' or 'confirmed') selects the inserted status, so
 --        the legacy create path no longer inserts 'confirmed' and flips it to 'pending' in a
 --        second, non-atomic write. The key is stripped before details is stored. Callers that
 --        do not send it keep the previous behaviour ('confirmed');
 --      - p_details->>'idempotency_key_kind' = 'derived' marks a server-derived key (key-less
---        clients: sha256 of restaurant, customer, date, start, end and party size). A derived key
+--        clients: sha256 of restaurant, customer, date, start, end, party size, booking type,
+--        seating preference and trimmed notes). A derived key
 --        must not claim a slot forever: when it meets a cancelled or no_show booking, that row's
 --        key is released (idempotency_key = NULL, details.idempotency_key_released_at stamped)
 --        and the insert runs, so a guest can rebook a slot they cancelled. A client-supplied key
@@ -41,9 +43,31 @@
 --        lose the retry signal;
 --      - the INTERNAL_ERROR payload no longer carries SQLERRM (it is still RAISE WARNING-ed).
 --
+-- Locking and duration:
+--   * Every object is defined first; LOCK TABLE is the last step before the dedupe and the
+--     index build, so booking writes are blocked only for those two, until COMMIT.
+--   * CREATE INDEX CONCURRENTLY is not an option: it cannot run inside a transaction block,
+--     `supabase db push` runs each file in one pipelined transaction (see the note in
+--     20260207144113_rls_hardening_internal_tables.sql), and the PR #181 release bundle wraps
+--     each file in BEGIN/COMMIT to record it in schema_migrations. It would also let the RPC
+--     go live before its ON CONFLICT arbiter index exists.
+--   * SET LOCAL lock_timeout = '5s': if a long transaction holds bookings, the migration gives
+--     up after 5 s and rolls back cleanly, instead of queueing while every later booking write
+--     queues behind it. Re-run it at a quieter time.
+--   * SET LOCAL statement_timeout = '60s' bounds each statement under the lock.
+--   * Measured on the local harness (Postgres 17, 200,000 bookings, 180,000 keyed, 100
+--     duplicate groups, 3 runs): dedupe audit insert about 127 ms, dedupe update 35-85 ms,
+--     unique index build 61-71 ms, so booking writes wait about 0.25-0.3 s. The harness runs
+--     with fsync off, so allow up to about 10x on a hosted instance. Pre-flight:
+--       SELECT count(*) AS bookings, count(*) FILTER (WHERE idempotency_key IS NOT NULL) AS keyed
+--       FROM public.bookings;
+--     Scale the numbers above by keyed / 180,000.
+--
 -- Rollback notes:
 --   * Function: re-apply the body from 20260124_fix_booking_rpc_day_of_week.sql (same signature;
 --     grants are unchanged because CREATE OR REPLACE keeps them).
+--     Then DROP FUNCTION public.booking_create_idempotent_replay_result(
+--       public.bookings, uuid, date, time without time zone, integer, text, text, text);
 --   * Index: DROP INDEX public.bookings_restaurant_idempotency_key_unique;
 --   * Nulled keys (only needed if the old duplicate keys must come back, after dropping the
 --     unique index):
@@ -56,7 +80,11 @@
 --       DROP TABLE public.booking_idempotency_key_dedupe_audit;
 BEGIN;
 
-LOCK TABLE public.bookings IN SHARE ROW EXCLUSIVE MODE;
+-- Fail fast instead of queueing (see "Locking and duration" above): a queued lock request on
+-- bookings blocks every later writer, so give up after 5 s and roll back cleanly.
+SET LOCAL lock_timeout = '5s';
+-- Upper bound per statement under the lock (about 0.3 s in total for 200k bookings locally).
+SET LOCAL statement_timeout = '60s';
 
 CREATE TABLE IF NOT EXISTS public.booking_idempotency_key_dedupe_audit (
   booking_id uuid PRIMARY KEY,
@@ -75,43 +103,64 @@ REVOKE ALL ON TABLE public.booking_idempotency_key_dedupe_audit FROM anon;
 REVOKE ALL ON TABLE public.booking_idempotency_key_dedupe_audit FROM authenticated;
 GRANT SELECT ON TABLE public.booking_idempotency_key_dedupe_audit TO service_role;
 
-WITH ranked AS (
-  SELECT
-    b.id,
-    b.restaurant_id,
-    b.idempotency_key,
-    first_value(b.id) OVER (
-      PARTITION BY b.restaurant_id, b.idempotency_key
-      ORDER BY b.created_at ASC NULLS LAST, b.id ASC
-    ) AS kept_booking_id,
-    row_number() OVER (
-      PARTITION BY b.restaurant_id, b.idempotency_key
-      ORDER BY b.created_at ASC NULLS LAST, b.id ASC
-    ) AS position
-  FROM public.bookings b
-  WHERE b.idempotency_key IS NOT NULL
-)
-INSERT INTO public.booking_idempotency_key_dedupe_audit (
-  booking_id,
-  restaurant_id,
-  idempotency_key,
-  kept_booking_id
-)
-SELECT id, restaurant_id, idempotency_key, kept_booking_id
-FROM ranked
-WHERE position > 1
-ON CONFLICT (booking_id) DO NOTHING;
+-- Shared replay decision: same booking-defining payload -> the existing booking
+-- (duplicate:true); different payload -> IDEMPOTENCY_KEY_REUSED without the other booking's
+-- data. The payload is customer, date, start minute, party size, booking type, seating
+-- preference and notes. Text fields are compared trimmed, and blank notes equal no notes, so
+-- a genuine retry (which resends the same values) still replays.
+CREATE OR REPLACE FUNCTION public.booking_create_idempotent_replay_result(
+    p_existing public.bookings,
+    p_customer_id uuid,
+    p_booking_date date,
+    p_start_time time without time zone,
+    p_party_size integer,
+    p_booking_type text,
+    p_seating_preference text,
+    p_notes text
+) RETURNS jsonb
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO 'public', 'extensions'
+    AS $$
+BEGIN
+    IF p_existing.customer_id IS DISTINCT FROM p_customer_id
+       OR p_existing.booking_date IS DISTINCT FROM p_booking_date
+       OR to_char(p_existing.start_time, 'HH24:MI') IS DISTINCT FROM to_char(p_start_time, 'HH24:MI')
+       OR p_existing.party_size IS DISTINCT FROM p_party_size
+       OR NULLIF(BTRIM(p_existing.booking_type), '') IS DISTINCT FROM NULLIF(BTRIM(p_booking_type), '')
+       OR NULLIF(BTRIM(p_existing.seating_preference::text), '')
+          IS DISTINCT FROM NULLIF(BTRIM(p_seating_preference), '')
+       OR NULLIF(BTRIM(p_existing.notes), '') IS DISTINCT FROM NULLIF(BTRIM(p_notes), '') THEN
+        RETURN jsonb_build_object(
+            'success', false,
+            'duplicate', false,
+            'error', 'IDEMPOTENCY_KEY_REUSED',
+            'message', 'This request key was already used for a different booking.',
+            'retryable', false,
+            'details', jsonb_build_object('idempotencyConflict', true)
+        );
+    END IF;
 
-UPDATE public.bookings b
-SET idempotency_key = NULL
-FROM public.booking_idempotency_key_dedupe_audit a
-WHERE a.booking_id = b.id
-  AND b.idempotency_key IS NOT NULL
-  AND b.idempotency_key = a.idempotency_key;
+    RETURN jsonb_build_object(
+        'success', true,
+        'duplicate', true,
+        'booking', to_jsonb(p_existing),
+        'message', 'Booking already exists (idempotency)'
+    );
+END;
+$$;
 
-CREATE UNIQUE INDEX IF NOT EXISTS bookings_restaurant_idempotency_key_unique
-  ON public.bookings (restaurant_id, idempotency_key)
-  WHERE idempotency_key IS NOT NULL;
+REVOKE ALL ON FUNCTION public.booking_create_idempotent_replay_result(
+    public.bookings, uuid, date, time without time zone, integer, text, text, text
+) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.booking_create_idempotent_replay_result(
+    public.bookings, uuid, date, time without time zone, integer, text, text, text
+) FROM anon;
+REVOKE ALL ON FUNCTION public.booking_create_idempotent_replay_result(
+    public.bookings, uuid, date, time without time zone, integer, text, text, text
+) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_create_idempotent_replay_result(
+    public.bookings, uuid, date, time without time zone, integer, text, text, text
+) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.create_booking_with_capacity_check(
     p_restaurant_id uuid,
@@ -198,7 +247,8 @@ BEGIN
                   AND status IN ('cancelled', 'no_show');
             ELSE
                 RETURN public.booking_create_idempotent_replay_result(
-                    v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size
+                    v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size,
+                    p_booking_type, p_seating_preference, p_notes
                 );
             END IF;
         END IF;
@@ -507,7 +557,8 @@ BEGIN
         END IF;
 
         RETURN public.booking_create_idempotent_replay_result(
-            v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size
+            v_existing, p_customer_id, p_booking_date, p_start_time, p_party_size,
+            p_booking_type, p_seating_preference, p_notes
         );
     END LOOP;
 
@@ -580,54 +631,47 @@ COMMENT ON FUNCTION public.create_booking_with_capacity_check(
     text, boolean, text, text, uuid, text, jsonb, integer
 ) IS 'Race-safe booking creation enforcing capacity and operating hours. Idempotent per (restaurant_id, idempotency_key) through a unique index; a reused key with a different payload returns IDEMPOTENCY_KEY_REUSED. p_details.initial_status = pending inserts a pending booking.';
 
--- Shared replay decision: same salient payload -> the existing booking (duplicate:true);
--- different payload -> IDEMPOTENCY_KEY_REUSED without the other booking's data.
-CREATE OR REPLACE FUNCTION public.booking_create_idempotent_replay_result(
-    p_existing public.bookings,
-    p_customer_id uuid,
-    p_booking_date date,
-    p_start_time time without time zone,
-    p_party_size integer
-) RETURNS jsonb
-    LANGUAGE plpgsql STABLE SECURITY DEFINER
-    SET search_path TO 'public', 'extensions'
-    AS $$
-BEGIN
-    IF p_existing.customer_id IS DISTINCT FROM p_customer_id
-       OR p_existing.booking_date IS DISTINCT FROM p_booking_date
-       OR to_char(p_existing.start_time, 'HH24:MI') IS DISTINCT FROM to_char(p_start_time, 'HH24:MI')
-       OR p_existing.party_size IS DISTINCT FROM p_party_size THEN
-        RETURN jsonb_build_object(
-            'success', false,
-            'duplicate', false,
-            'error', 'IDEMPOTENCY_KEY_REUSED',
-            'message', 'This request key was already used for a different booking.',
-            'retryable', false,
-            'details', jsonb_build_object('idempotencyConflict', true)
-        );
-    END IF;
+-- Everything above only defines objects; nothing blocks booking writes yet. The lock is
+-- taken last, so it is held only for the dedupe and the index build, until COMMIT.
+LOCK TABLE public.bookings IN SHARE ROW EXCLUSIVE MODE;
 
-    RETURN jsonb_build_object(
-        'success', true,
-        'duplicate', true,
-        'booking', to_jsonb(p_existing),
-        'message', 'Booking already exists (idempotency)'
-    );
-END;
-$$;
+WITH ranked AS (
+  SELECT
+    b.id,
+    b.restaurant_id,
+    b.idempotency_key,
+    first_value(b.id) OVER (
+      PARTITION BY b.restaurant_id, b.idempotency_key
+      ORDER BY b.created_at ASC NULLS LAST, b.id ASC
+    ) AS kept_booking_id,
+    row_number() OVER (
+      PARTITION BY b.restaurant_id, b.idempotency_key
+      ORDER BY b.created_at ASC NULLS LAST, b.id ASC
+    ) AS position
+  FROM public.bookings b
+  WHERE b.idempotency_key IS NOT NULL
+)
+INSERT INTO public.booking_idempotency_key_dedupe_audit (
+  booking_id,
+  restaurant_id,
+  idempotency_key,
+  kept_booking_id
+)
+SELECT id, restaurant_id, idempotency_key, kept_booking_id
+FROM ranked
+WHERE position > 1
+ON CONFLICT (booking_id) DO NOTHING;
 
-REVOKE ALL ON FUNCTION public.booking_create_idempotent_replay_result(
-    public.bookings, uuid, date, time without time zone, integer
-) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.booking_create_idempotent_replay_result(
-    public.bookings, uuid, date, time without time zone, integer
-) FROM anon;
-REVOKE ALL ON FUNCTION public.booking_create_idempotent_replay_result(
-    public.bookings, uuid, date, time without time zone, integer
-) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.booking_create_idempotent_replay_result(
-    public.bookings, uuid, date, time without time zone, integer
-) TO service_role;
+UPDATE public.bookings b
+SET idempotency_key = NULL
+FROM public.booking_idempotency_key_dedupe_audit a
+WHERE a.booking_id = b.id
+  AND b.idempotency_key IS NOT NULL
+  AND b.idempotency_key = a.idempotency_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS bookings_restaurant_idempotency_key_unique
+  ON public.bookings (restaurant_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 COMMIT;
 

@@ -19,9 +19,14 @@ import {
   validateAvailabilityDraft,
 } from '@/components/features/restaurant-settings/availability/availabilityPageValidation';
 import { formatTimeRanges } from '@/components/features/restaurant-settings/availability/availabilityPreviewModel';
-import { planAvailabilitySave } from '@/components/features/restaurant-settings/availability/availabilitySavePlan';
+import {
+  advanceAvailabilityRevision,
+  planAvailabilitySave,
+  sameAvailabilityRevision,
+} from '@/components/features/restaurant-settings/availability/availabilitySavePlan';
 import { availabilityErrorGroup } from '@/components/features/restaurant-settings/availability/useAvailabilityPageController';
 
+import type { AvailabilitySnapshot } from '@/services/ops/availability';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
 
@@ -298,6 +303,32 @@ describe('availability save plan', () => {
     expect(result.catalog).toEqual({ upserts: false, deletes: false });
   });
 
+  it('checks only the sections it writes when per-section revisions are known', () => {
+    const saved = buildSaved();
+    const draft = {
+      ...patchWeekday(saved, 2, { closesAt: '23:00' }),
+      rules: { ...saved.rules, bookingPolicy: 'Call us' },
+    };
+
+    const result = planAvailabilitySave({
+      saved,
+      draft,
+      canEditCatalog: false,
+      savedServicePeriods: [],
+      expectedRevision: 'rev-1',
+      expectedRevisions: {
+        hours: 'rev-hours',
+        servicePeriods: 'rev-periods',
+        turnBands: 'rev-bands',
+        rules: 'rev-rules',
+      },
+    });
+
+    // Another manager's meal-time or table-time save cannot refuse this hours + rules save.
+    expect(result.command!.expectedRevisions).toEqual({ hours: 'rev-hours', rules: 'rev-rules' });
+    expect(result.command).not.toHaveProperty('expectedRevision');
+  });
+
   it('sends hours and meal times together, so narrowing both is one atomic write', () => {
     const saved = buildSaved();
     const narrowed = patchMeal(patchWeekday(saved, 2, { closesAt: '21:00' }), 2, 'dinner', {
@@ -463,5 +494,54 @@ describe('preview time ranges', () => {
     expect(formatTimeRanges(['12:00', '12:15', '12:30', '14:00'], 15)).toBe(
       '12:00–12:30 (3), 14:00',
     );
+  });
+});
+
+describe('availability base revisions', () => {
+  const revisions = (hours: string, rules: string) => ({
+    hours,
+    servicePeriods: 'periods-1',
+    turnBands: 'bands-1',
+    rules,
+  });
+
+  it('compares per section when both sides have sections, else the whole-page revision', () => {
+    expect(
+      sameAvailabilityRevision(
+        { revision: 'a', revisions: revisions('h1', 'r1') },
+        { revision: 'b', revisions: revisions('h1', 'r1') },
+      ),
+    ).toBe(true);
+    expect(
+      sameAvailabilityRevision(
+        { revision: 'a', revisions: revisions('h1', 'r1') },
+        { revision: 'a', revisions: revisions('h2', 'r1') },
+      ),
+    ).toBe(false);
+    expect(
+      sameAvailabilityRevision(
+        { revision: 'a', revisions: null },
+        { revision: 'a', revisions: null },
+      ),
+    ).toBe(true);
+  });
+
+  it('advances only the sections a save wrote, so a concurrent change elsewhere is rebased onto', () => {
+    const result = {
+      revision: 'rev-3',
+      revisions: revisions('h2', 'r2'),
+    } as AvailabilitySnapshot;
+
+    const next = advanceAvailabilityRevision(
+      { revision: 'rev-1', revisions: revisions('h1', 'r1') },
+      { rules: { bookingPolicy: 'Call us' } },
+      result,
+    );
+
+    // Hours moved on the server (someone else); this page's saved hours are still h1.
+    expect(next.revisions).toEqual(revisions('h1', 'r2'));
+    expect(
+      sameAvailabilityRevision(next, { revision: 'rev-3', revisions: result.revisions! }),
+    ).toBe(false);
   });
 });

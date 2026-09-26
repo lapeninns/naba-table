@@ -126,6 +126,20 @@ describe('PUT /api/ops/restaurants/[id]/availability', () => {
     );
   });
 
+  it('passes per-section expected revisions through to the command', async () => {
+    const expectedRevisions = { hours: 'a'.repeat(32), rules: 'b'.repeat(32) };
+    const response = await PUT(
+      putRequest({ rules: { reservationIntervalMinutes: 30 }, expectedRevisions }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(saveRestaurantAvailabilityMock).toHaveBeenCalledWith(
+      RESTAURANT_ID,
+      expect.objectContaining({ expectedRevisions }),
+    );
+  });
+
   it('authorises before reading the body: an anonymous caller never has it parsed', async () => {
     getRouteHandlerSupabaseClientMock.mockResolvedValue(sessionWith(null));
     const request = putRequest({ nonsense: true });
@@ -172,6 +186,17 @@ describe('PUT /api/ops/restaurants/[id]/availability', () => {
     ['an unknown top-level key', { ...validBody, occasions: [] }],
     ['an out-of-range default table time', { rules: { reservationDefaultDurationMinutes: 5 } }],
     ['a malformed revision', { rules: { reservationIntervalMinutes: 30 }, expectedRevision: 'x' }],
+    [
+      'a malformed section revision',
+      { rules: { reservationIntervalMinutes: 30 }, expectedRevisions: { rules: 'x' } },
+    ],
+    [
+      'an unknown revision section',
+      {
+        rules: { reservationIntervalMinutes: 30 },
+        expectedRevisions: { occasions: 'a'.repeat(32) },
+      },
+    ],
     [
       'hours missing a closing time',
       { hours: { weekly: [{ dayOfWeek: 1, opensAt: '12:00', isClosed: false }], overrides: [] } },

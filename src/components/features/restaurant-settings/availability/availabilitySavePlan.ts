@@ -1,4 +1,11 @@
 import {
+  AVAILABILITY_SECTIONS,
+  type AvailabilityCommandPayload,
+  type AvailabilitySectionRevisions,
+  type AvailabilitySnapshot,
+} from '@/services/ops/availability';
+
+import {
   buildOperatingHoursPayload,
   extractRequiredOccasionKeys,
 } from '../availabilityScheduleManagerUtils';
@@ -13,7 +20,6 @@ import {
   type AvailabilitySaveGroup,
 } from './availabilityPageDraft';
 
-import type { AvailabilityCommandPayload } from '@/services/ops/availability';
 import type { ServicePeriodRow } from '@/services/ops/restaurants';
 
 /**
@@ -46,6 +52,7 @@ export function planAvailabilitySave({
   canEditCatalog,
   savedServicePeriods,
   expectedRevision,
+  expectedRevisions,
 }: {
   readonly saved: AvailabilityPageDraft;
   readonly draft: AvailabilityPageDraft;
@@ -53,7 +60,13 @@ export function planAvailabilitySave({
   readonly canEditCatalog: boolean;
   /** Meal times as stored, used to keep table times of types that still have meal times. */
   readonly savedServicePeriods: readonly ServicePeriodRow[];
+  /** Whole-page revision; sent only when per-section revisions are unknown. */
   readonly expectedRevision?: string | null;
+  /**
+   * Per-section revisions of the settings `saved` was built from. Only the sections the command
+   * writes are sent, so another manager's save of a different section is not a conflict.
+   */
+  readonly expectedRevisions?: AvailabilitySectionRevisions | null;
 }): AvailabilitySavePlan {
   const groups = getDirtyAvailabilityGroups(saved, draft);
   const dirty = new Set(groups);
@@ -127,7 +140,14 @@ export function planAvailabilitySave({
   }
 
   const hasCommand = commandGroups.length > 0;
-  if (hasCommand && expectedRevision) {
+  if (hasCommand && expectedRevisions) {
+    command.expectedRevisions = Object.fromEntries(
+      AVAILABILITY_SECTIONS.filter((section) => command[section] !== undefined).map((section) => [
+        section,
+        expectedRevisions[section],
+      ]),
+    );
+  } else if (hasCommand && expectedRevision) {
     command.expectedRevision = expectedRevision;
   }
 
@@ -137,4 +157,53 @@ export function planAvailabilitySave({
     command: hasCommand ? command : null,
     commandGroups,
   };
+}
+
+/**
+ * The revisions the page's `saved` settings were built from: per section when the server sends
+ * them, otherwise only the whole-page revision.
+ */
+export type AvailabilityBaseRevision = {
+  readonly revision: string;
+  readonly revisions: AvailabilitySectionRevisions | null;
+};
+
+export function availabilityBaseRevision(snapshot: AvailabilitySnapshot): AvailabilityBaseRevision {
+  return { revision: snapshot.revision, revisions: snapshot.revisions ?? null };
+}
+
+/** True when both describe the same stored settings (per section when both have sections). */
+export function sameAvailabilityRevision(
+  a: AvailabilityBaseRevision | null,
+  b: AvailabilityBaseRevision | null,
+): boolean {
+  if (!a || !b) return a === b;
+  if (a.revisions && b.revisions) {
+    const left = a.revisions;
+    const right = b.revisions;
+    return AVAILABILITY_SECTIONS.every((section) => left[section] === right[section]);
+  }
+  return a.revision === b.revision;
+}
+
+/**
+ * The base after a successful save. Only the sections the command wrote advance to the stored
+ * revisions: `saved` merges only those sections, so a section another manager changed meanwhile
+ * keeps its old revision, is seen as newer on the next snapshot, and is rebased onto.
+ */
+export function advanceAvailabilityRevision(
+  current: AvailabilityBaseRevision | null,
+  command: AvailabilityCommandPayload,
+  result: AvailabilitySnapshot,
+): AvailabilityBaseRevision {
+  const stored = availabilityBaseRevision(result);
+  if (!current?.revisions || !stored.revisions) {
+    return stored;
+  }
+  const storedRevisions = stored.revisions;
+  const revisions: AvailabilitySectionRevisions = { ...current.revisions };
+  for (const section of AVAILABILITY_SECTIONS) {
+    if (command[section] !== undefined) revisions[section] = storedRevisions[section];
+  }
+  return { revision: stored.revision, revisions };
 }

@@ -8326,6 +8326,7 @@ export type Database = {
       ensure_booking_email_intent: {
         Args: {
           p_booking_id: string;
+          p_booking_revision?: string | null;
           p_dedupe_key: string;
           p_email_type: string;
           p_max_attempts?: number;
@@ -8468,8 +8469,17 @@ export type Database = {
           total_capacity: number;
         }[];
       };
+      onboarding_layout_revision: {
+        Args: { p_restaurant_id: string };
+        Returns: string;
+      };
+      onboarding_layout_snapshot: {
+        Args: { p_restaurant_id: string };
+        Returns: Json;
+      };
       onboarding_replace_layout: {
         Args: {
+          p_expected_revision: string | null;
           p_restaurant_id: string;
           p_tables: Json;
           p_zones: Json;
@@ -8719,6 +8729,10 @@ export type Database = {
         Args: { p_restaurant_id: string };
         Returns: string;
       };
+      restaurant_availability_revisions: {
+        Args: { p_restaurant_id: string };
+        Returns: Json;
+      };
       restaurant_availability_snapshot: {
         Args: { p_restaurant_id: string };
         Returns: Json;
@@ -8726,6 +8740,7 @@ export type Database = {
       save_restaurant_availability: {
         Args: {
           p_expected_revision?: string | null;
+          p_expected_revisions?: Json | null;
           p_operating_hours?: Json | null;
           p_restaurant_id: string;
           p_rules?: Json | null;

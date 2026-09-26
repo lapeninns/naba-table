@@ -33,7 +33,13 @@ import {
   AVAILABILITY_CATALOG_REMOVAL_STEP_NAME,
   AVAILABILITY_CATALOG_STEP_NAME,
 } from './availabilitySaveErrorCopy';
-import { planAvailabilitySave } from './availabilitySavePlan';
+import {
+  advanceAvailabilityRevision,
+  availabilityBaseRevision,
+  planAvailabilitySave,
+  sameAvailabilityRevision,
+  type AvailabilityBaseRevision,
+} from './availabilitySavePlan';
 import { useSaveAvailabilityOccasions } from './useSaveAvailabilityOccasions';
 import {
   formatSettingsSectionList,
@@ -150,8 +156,11 @@ export function useAvailabilityPageController(
 
   const [saved, setSaved] = useState<AvailabilityPageDraft | null>(null);
   const [draft, setDraft] = useState<AvailabilityPageDraft | null>(null);
-  /** Revision of the settings `saved` was built from; sent as the save precondition. */
-  const [savedRevision, setSavedRevision] = useState<string | null>(null);
+  /**
+   * Revisions of the settings `saved` was built from, per section; the save sends those of the
+   * sections it writes as its precondition.
+   */
+  const [savedRevision, setSavedRevision] = useState<AvailabilityBaseRevision | null>(null);
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const [showAllErrors, setShowAllErrors] = useState(false);
 
@@ -161,7 +170,7 @@ export function useAvailabilityPageController(
       return null;
     }
     return {
-      revision: snapshot.revision,
+      revision: availabilityBaseRevision(snapshot),
       operatingHours: snapshot.hours,
       servicePeriods: snapshot.servicePeriods,
       occasions: occasionsQuery.data,
@@ -210,7 +219,7 @@ export function useAvailabilityPageController(
       !isDirty ||
       !saved ||
       !draft ||
-      sources.revision === savedRevision
+      sameAvailabilityRevision(sources.revision, savedRevision)
     ) {
       return;
     }
@@ -304,7 +313,8 @@ export function useAvailabilityPageController(
         draft: sent,
         canEditCatalog,
         savedServicePeriods: snapshot?.servicePeriods ?? [],
-        expectedRevision: savedRevision,
+        expectedRevision: savedRevision?.revision ?? null,
+        expectedRevisions: savedRevision?.revisions ?? null,
       });
       const steps: SettingsSaveStep[] = [];
 
@@ -334,7 +344,7 @@ export function useAvailabilityPageController(
           run: async () => {
             try {
               const result = await saveAvailability.mutateAsync(command);
-              setSavedRevision(result.revision);
+              setSavedRevision((current) => advanceAvailabilityRevision(current, command, result));
               if (rulesFields.length > 0) {
                 emitProfileAnalytics('restaurant_profile_section_saved', {
                   restaurant_id: restaurantId,

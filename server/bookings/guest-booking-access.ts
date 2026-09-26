@@ -141,11 +141,29 @@ function appendCookie(res: Response, cookie: CookieWrite): void {
   res.headers.append('Set-Cookie', serializeCookie(cookie));
 }
 
-/** True when the request arrived over plain http (local development only). */
+function isLocalDevelopmentHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '127.0.0.1' ||
+    host === '[::1]' ||
+    host === '::1'
+  );
+}
+
+/**
+ * True only for a plain-http request to a genuinely local host (localhost,
+ * `*.localhost`, 127.0.0.1, [::1]). `X-Forwarded-Proto` is client-settable
+ * wherever no trusted proxy overwrites it, so it can only ever force the
+ * secure cookie, never relax it: staging runs with NODE_ENV=development and
+ * must still get `__Host-` + `Secure`.
+ */
 function requestIsInsecureHttp(req: Pick<NextRequest, 'headers' | 'nextUrl'>): boolean {
+  if (req.nextUrl.protocol.toLowerCase() !== 'http:') return false;
+  if (!isLocalDevelopmentHost(req.nextUrl.hostname)) return false;
   const forwarded = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
-  const proto = forwarded ?? req.nextUrl.protocol.replace(':', '').toLowerCase();
-  return proto === 'http';
+  return !forwarded || forwarded === 'http';
 }
 
 export function bookingAccessCookieName(bookingId: string, insecureDev = false): string {
@@ -814,7 +832,11 @@ export function mintBookingAccessGrant(params: {
 // Claim (§4.4)
 // ---------------------------------------------------------------------------
 
-export type ClaimOutcome = 'claimed' | 'skipped' | 'failed';
+/**
+ * `claimed`: this call bound the booking. `already_claimed`: the conditional
+ * update matched no row (a concurrent claim or a stale read won the race).
+ */
+export type ClaimOutcome = 'claimed' | 'already_claimed' | 'skipped' | 'failed';
 
 /**
  * Binds a booking to the signed-in user after a link redeem: only when the
@@ -839,17 +861,18 @@ export async function claimBookingForUser(params: {
   if (!userEmail || userEmail !== normalizeEmail(booking.customer_email)) return 'skipped';
 
   try {
-    const { error } = await getServiceSupabaseClient()
+    const { data, error } = await getServiceSupabaseClient()
       .from('bookings')
       .update({ auth_user_id: user.id })
       .eq('id', booking.id)
       .eq('restaurant_id', booking.restaurant_id)
-      .is('auth_user_id', null);
+      .is('auth_user_id', null)
+      .select('id');
     if (error) {
       logger.warn('bookings.guest_access.claim_failed', { bookingId: booking.id });
       return 'failed';
     }
-    return 'claimed';
+    return Array.isArray(data) && data.length > 0 ? 'claimed' : 'already_claimed';
   } catch {
     logger.warn('bookings.guest_access.claim_failed', { bookingId: booking.id });
     return 'failed';

@@ -3,6 +3,7 @@ import 'server-only';
 import { logger } from '@/lib/logger';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
 import { getRequestUser } from '@/server/auth/request-user';
+import { loadOnboardingLayout, type OnboardingLayout } from '@/server/onboarding/layout';
 import { getOnboardingReadiness } from '@/server/onboarding/readiness';
 import { canonicalizeFromDb } from '@/server/restaurants/timeNormalization';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -28,13 +29,15 @@ function toTime(value: string | null | undefined): string | null {
  * The hours, service periods, zones and tables already saved for the restaurant. Without
  * this a resumed wizard would show client defaults and saving would overwrite (and, for the
  * replace-style layout, delete) the owner's earlier work. Every read is scoped by
- * restaurant_id. Returns null when any read fails, and the caller logs it.
+ * restaurant_id. Zones and tables come from one snapshot with their layout revision, which the
+ * Tables step sends back so a save can't delete tables added elsewhere since. Returns null
+ * when any read fails, and logs it.
  */
 export async function loadOnboardingSavedSetup(
   client: DbClient,
   restaurantId: string,
 ): Promise<OnboardingSavedSetup | null> {
-  const [hours, periods, zones, tables] = await Promise.all([
+  const [hours, periods, layout] = await Promise.all([
     client
       .from('restaurant_operating_hours')
       .select('day_of_week, opens_at, closes_at, is_closed, notes')
@@ -47,24 +50,20 @@ export async function loadOnboardingSavedSetup(
       .eq('restaurant_id', restaurantId)
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true }),
-    client
-      .from('zones')
-      .select('id, name, sort_order, active')
-      .eq('restaurant_id', restaurantId)
-      .order('sort_order', { ascending: true })
-      .order('name', { ascending: true }),
-    client
-      .from('table_inventory')
-      .select('id, table_number, capacity, zone_id')
-      .eq('restaurant_id', restaurantId)
-      .order('table_number', { ascending: true }),
+    loadOnboardingLayout(client, restaurantId).then(
+      (value): { data: OnboardingLayout; error: null } => ({ data: value, error: null }),
+      (error: unknown): { data: null; error: { code: string } } => ({
+        data: null,
+        error: { code: error instanceof Error ? error.name : 'UNKNOWN' },
+      }),
+    ),
   ]);
 
-  const failed = [hours, periods, zones, tables].find((result) => result.error);
-  if (failed) {
+  const failed = [hours, periods, layout].find((result) => result.error);
+  if (failed || !layout.data) {
     logger.warn('onboarding.resume_setup_unavailable', {
       restaurantId,
-      dbCode: failed.error?.code,
+      dbCode: failed?.error?.code,
     });
     return null;
   }
@@ -96,18 +95,19 @@ export async function loadOnboardingSavedSetup(
       endTime: toTime(row.end_time) ?? '',
       bookingOption: row.booking_option,
     })),
-    zones: (zones.data ?? []).map((row) => ({
-      id: row.id,
-      name: row.name,
-      sortOrder: row.sort_order,
-      active: row.active,
+    zones: layout.data.zones.map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      sortOrder: zone.sortOrder,
+      active: zone.active,
     })),
-    tables: (tables.data ?? []).map((row) => ({
-      id: row.id,
-      tableNumber: row.table_number,
-      capacity: row.capacity,
-      zoneId: row.zone_id,
+    tables: layout.data.tables.map((table) => ({
+      id: table.id,
+      tableNumber: table.tableNumber,
+      capacity: table.capacity,
+      zoneId: table.zoneId,
     })),
+    layoutRevision: layout.data.revision,
   };
 }
 

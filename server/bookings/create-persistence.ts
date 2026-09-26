@@ -9,6 +9,7 @@ import {
   findBookingByIdempotencyKey,
   type BookingRecoveryClient,
 } from '@/server/bookings/recovery';
+import { DEFAULT_SEATING_PREFERENCE } from '@/server/bookings/request-validation';
 import { runBookingCreateUnifiedValidation } from '@/server/bookings/unified-validation-create';
 
 import type { BookingRecord } from '@/server/bookings';
@@ -69,7 +70,11 @@ export async function runBookingCreatePersistence({
   request: BookingCreateRequest;
   requestContext: Pick<
     BookingCreateRequestContext,
-    'bookingDetails' | 'bookingSource' | 'clientRequestId' | 'headerIdempotencyKey' | 'requestSource'
+    | 'bookingDetails'
+    | 'bookingSource'
+    | 'clientRequestId'
+    | 'headerIdempotencyKey'
+    | 'requestSource'
   >;
   restaurantId: string;
   unifiedValidationRunner?: BookingCreateUnifiedValidationRunner;
@@ -130,6 +135,9 @@ export async function runBookingCreatePersistence({
         partySize: request.party,
         customerId: precommit.customer.id,
         customerEmail: request.email,
+        bookingType: precommit.bookingType,
+        seatingPreference: DEFAULT_SEATING_PREFERENCE,
+        notes: request.notes ?? null,
       })
     ) {
       return failure;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 
 import { SettingsDialog } from '@/components/features/restaurant-settings/shared/SettingsDialog';
@@ -41,6 +41,19 @@ import type {
   CanonicalRestaurantMenuSection,
   RestaurantMenuItemInput,
 } from '@/server/menu-hierarchy/types';
+
+/**
+ * One create request: its idempotency key and, once sent, the draft it carried (without the
+ * generated external id) and that external id, so a retry of the same draft is byte-identical.
+ */
+type CreateAttempt = {
+  key: string;
+  sent: { draftFingerprint: string; externalItemId: string } | null;
+};
+
+function newCreateAttempt(): CreateAttempt {
+  return { key: generateIdempotencyKey(), sent: null };
+}
 
 const NO_OPTION_CALLBACKS: ItemOptionCallbacks = {
   onCreateOption: () => undefined,
@@ -84,8 +97,11 @@ export function ItemDialog({
   const updateItem = useOpsUpdateRestaurantMenuItem(restaurantId);
   const { reset: resetCreate } = createItem;
   const { reset: resetUpdate } = updateItem;
-  // One key per create draft, reused by retries, so a retried create never duplicates the item.
-  const [createKey, setCreateKey] = useState(generateIdempotencyKey);
+  // One key per create request, reused by retries of the same draft, so a retried create never
+  // duplicates the item. The server binds the key to the exact payload and refuses an edited one
+  // (409 IDEMPOTENCY_KEY_REUSED), so a draft edited after a failed attempt gets a new key, and a
+  // retry resends the first attempt's generated external id so its payload is identical.
+  const createAttemptRef = useRef<CreateAttempt>(newCreateAttempt());
 
   useEffect(() => {
     if (open) {
@@ -95,7 +111,7 @@ export function ItemDialog({
       setGoogleDetailsOpen(false);
       resetCreate();
       resetUpdate();
-      if (!item) setCreateKey(generateIdempotencyKey());
+      if (!item) createAttemptRef.current = newCreateAttempt();
     }
   }, [item, menu?.menuKind, open, resetCreate, resetUpdate]);
 
@@ -165,12 +181,30 @@ export function ItemDialog({
       return;
     }
 
+    const createPayload = payload as RestaurantMenuItemInput;
+    const { externalItemId: generatedExternalId, ...draftFields } = createPayload;
+    const draftFingerprint = JSON.stringify({
+      menuId: menu.id,
+      sectionId: section.id,
+      draft: draftFields,
+    });
+    let attempt = createAttemptRef.current;
+    if (attempt.sent && attempt.sent.draftFingerprint !== draftFingerprint) {
+      attempt = newCreateAttempt();
+    }
+    attempt.sent ??= { draftFingerprint, externalItemId: generatedExternalId };
+    createAttemptRef.current = attempt;
+
     let created: CanonicalRestaurantMenuItem;
     try {
       created = await createItem.mutateAsync({
         menuId: menu.id,
         sectionId: section.id,
-        payload: { ...(payload as RestaurantMenuItemInput), idempotencyKey: createKey },
+        payload: {
+          ...createPayload,
+          externalItemId: attempt.sent.externalItemId,
+          idempotencyKey: attempt.key,
+        },
       });
     } catch {
       return;

@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { ItemDialog } from '@/components/features/menu/menuHierarchyItemDialog';
 import { HttpError } from '@/lib/http/errors';
@@ -228,13 +228,48 @@ describe('ItemDialog', () => {
     await user.type(nameInput, 'Focaccia');
     await user.click(screen.getByRole('button', { name: 'Save item' }));
     await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(1));
+    // A later clock would give a new generated external id if the retry rebuilt it.
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    onTestFinished(() => now.mockRestore());
     await user.click(screen.getByRole('button', { name: 'Save item' }));
     await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(2));
 
     const [first, second] = hooks.createItem.mutateAsync.mock.calls.map(
+      ([variables]) => variables.payload,
+    );
+    expect(second.idempotencyKey).toBe(first.idempotencyKey);
+    // The server compares the whole payload on replay, so the retry must be identical, including
+    // the external id generated for the first attempt.
+    expect(second).toEqual(first);
+  });
+
+  it('@contract a create retried after the draft changed uses a new idempotency key', async () => {
+    const user = userEvent.setup();
+    hooks.createItem.mutateAsync
+      .mockRejectedValueOnce(new Error('network'))
+      .mockRejectedValueOnce(new Error('network'));
+    renderDialog();
+
+    const [nameInput] = screen.getAllByRole('textbox');
+    await user.type(nameInput, 'Focaccia');
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+    await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(1));
+
+    // The first attempt may have been stored; an edited draft is a new request, not a replay.
+    await user.type(nameInput, ' bread');
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+    await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(2));
+
+    // Retrying the edited draft unchanged reuses its key.
+    await user.click(screen.getByRole('button', { name: 'Save item' }));
+    await waitFor(() => expect(hooks.createItem.mutateAsync).toHaveBeenCalledTimes(3));
+
+    const [first, second, third] = hooks.createItem.mutateAsync.mock.calls.map(
       ([variables]) => variables.payload.idempotencyKey,
     );
-    expect(second).toBe(first);
+    expect(second).toEqual(expect.any(String));
+    expect(second).not.toBe(first);
+    expect(third).toBe(second);
   });
 
   it('@contract after a create the dialog hands the saved item to onCreated and stays open', async () => {

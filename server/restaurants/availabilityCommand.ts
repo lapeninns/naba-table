@@ -44,6 +44,18 @@ export type AvailabilityRules = {
   updatedAt: string | null;
 };
 
+export type AvailabilityCommandPart = 'hours' | 'servicePeriods' | 'turnBands' | 'rules';
+
+export const AVAILABILITY_COMMAND_PARTS: readonly AvailabilityCommandPart[] = [
+  'hours',
+  'servicePeriods',
+  'turnBands',
+  'rules',
+];
+
+/** One content revision per section, so a save is only checked against what it writes. */
+export type AvailabilitySectionRevisions = Record<AvailabilityCommandPart, string>;
+
 /**
  * The restaurant-owned part of "Save availability". Each part present replaces that resource
  * completely; absent parts are left untouched. At least one part is required.
@@ -53,14 +65,25 @@ export type AvailabilityCommandInput = {
   servicePeriods?: UpdateServicePeriod[];
   turnBands?: TurnBandsPayload;
   rules?: AvailabilityRulesInput;
-  /** Revision the caller loaded; a newer stored revision fails with STALE_WRITE. */
+  /**
+   * Section revisions the caller loaded. Only the sections this save writes are checked: a newer
+   * stored revision of one of them fails with STALE_WRITE; other sections may have changed.
+   * Takes precedence over `expectedRevision`.
+   */
+  expectedRevisions?: Partial<AvailabilitySectionRevisions>;
+  /**
+   * Whole-page revision the caller loaded (callers that predate per-section revisions); any newer
+   * stored revision fails with STALE_WRITE.
+   */
   expectedRevision?: string;
 };
 
 /** Canonical availability after a save, as stored. */
 export type AvailabilitySnapshot = {
   restaurantId: string;
+  /** Whole-page revision (a hash of `revisions`). */
   revision: string;
+  revisions: AvailabilitySectionRevisions;
   hours: OperatingHoursSnapshot;
   servicePeriods: ServicePeriod[];
   turnBands: TurnBandsSnapshot;
@@ -73,8 +96,6 @@ export type AvailabilityCommandErrorCode =
   | 'UNKNOWN_BOOKING_TYPE'
   | 'INVALID_AVAILABILITY'
   | 'RESTAURANT_NOT_FOUND';
-
-export type AvailabilityCommandPart = 'hours' | 'servicePeriods' | 'turnBands' | 'rules';
 
 /** A known, safe-to-report command failure. Messages are fixed copy, never database text. */
 export class AvailabilityCommandError extends Error {
@@ -226,6 +247,12 @@ const nullableString = z.string().nullable().optional();
 /** What `restaurant_availability_snapshot` (and `save_restaurant_availability`) return. */
 const snapshotRowSchema = z.object({
   revision: z.string().min(1),
+  revisions: z.object({
+    hours: z.string().min(1),
+    servicePeriods: z.string().min(1),
+    turnBands: z.string().min(1),
+    rules: z.string().min(1),
+  }),
   restaurant: z.object({
     timezone: z.string(),
     reservation_interval_minutes: z.number(),
@@ -300,6 +327,7 @@ export function mapAvailabilitySnapshot(
   return {
     restaurantId,
     revision: row.revision,
+    revisions: row.revisions,
     hours: mapOperatingHoursRows({
       restaurantId,
       timezone: row.restaurant.timezone,
@@ -409,6 +437,7 @@ export async function saveRestaurantAvailability(
     p_turn_bands: bandRows as unknown as Json,
     p_rules: rulesRow,
     p_expected_revision: input.expectedRevision ?? null,
+    p_expected_revisions: input.expectedRevisions ?? null,
   });
   if (error) {
     throw mapRpcError(error);

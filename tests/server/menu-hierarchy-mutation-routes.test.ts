@@ -127,6 +127,25 @@ describe('menu mutation routes', () => {
     );
   });
 
+  it('answers 409 IDEMPOTENCY_KEY_REUSED when a key is retried with a different payload', async () => {
+    repository.createRestaurantMenuItemIdempotent.mockRejectedValue(
+      new MenuHierarchyError('idempotency_key_reused'),
+    );
+
+    const response = await postItem(
+      request(`${BASE}/sections/section-1/items`, 'POST', {
+        itemKind: 'food',
+        externalItemId: 'ops:1',
+        labels: [{ displayName: 'Paneer (edited)' }],
+        idempotencyKey: 'c0ffee00-0000-4000-8000-000000000001',
+      }),
+      { params: sectionParams() },
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
+  });
+
   it('does not send a client display order for new sections', async () => {
     repository.createRestaurantMenuSection.mockResolvedValue({ id: 'section-2' });
 

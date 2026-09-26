@@ -334,6 +334,9 @@ async function queueModificationEmail(params: {
     type: params.type,
     dedupeKey: bookingEmailIntentKey(params.type, booking.id, params.discriminator),
     supersedeTypes: MODIFICATION_EMAIL_TYPES,
+    // Supersede follows commit order, not arrival order: an older change's email
+    // that is queued late cannot withdraw this newer one.
+    bookingRevision: booking.updated_at ?? null,
   });
   if (!ensured.ok) {
     logger.error('[booking.modification] email could not be queued', {

@@ -1,12 +1,24 @@
 -- Guest-auth backfill: link existing bookings to the signed-in guest who owns them.
 --
+-- THIS MIGRATION DOES NOT LINK ANYTHING. It creates the audit table and the operator-only
+-- function public.backfill_booking_owner_binding_v1(). An operator runs the function by hand,
+-- per project, ONLY after confirming that project requires email confirmation:
+--   Supabase dashboard -> Authentication -> Providers -> Email -> "Confirm email" is enabled
+--   (GoTrue mailer_autoconfirm is off).
+-- With autoconfirm on, email_confirmed_at is stamped at sign-up without any email being sent,
+-- so it does not prove mailbox ownership: an account registered with someone else's address
+-- would be linked to that person's bookings and could view and cancel them. If the check
+-- fails or is unclear, skip the backfill; guests re-link a booking by opening its emailed
+-- link (claimBookingForUser).
+--   Run (after the check):  SELECT public.backfill_booking_owner_binding_v1();
+--
 -- Purpose
 --   PR #181 moved "My bookings" and guest session ownership to bookings.auth_user_id only
 --   (server/bookings/my-bookings-page.ts, server/bookings/guest-booking-access.ts). New
 --   bookings made by a signed-in guest with a confirmed, matching email are linked at create
 --   time (server/bookings/create-owner-binding.ts). Bookings made before this release have
 --   auth_user_id NULL and would disappear from their owner's "My bookings", which on main
---   matched them by contact email. This migration links them once.
+--   matched them by contact email. The operator-run function below links them once.
 --
 -- Rule (the same one claimBookingForUser applies on the link-redeem and create paths)
 --   A booking is linked to auth.users.id when ALL of these hold:
@@ -16,12 +28,14 @@
 --       email_confirmed_at IS NOT NULL, is_anonymous not true and deleted_at IS NULL. Two or
 --       more such users (case variants, SSO duplicates) are ambiguous and link nothing.
 --
--- Why it is safe
+-- Why it is safe (only when "Confirm email" is enabled for the project; see above)
 --   Ownership by a verified email is exactly what main's "My bookings" already granted: a
 --   signed-in guest saw every booking whose contact email equalled their account email. This
 --   backfill grants the same set, narrowed to confirmed, non-anonymous, unambiguous accounts,
 --   so no guest gains access to a booking they could not already see. Unconfirmed accounts
 --   gain nothing; they can still claim a booking from an emailed link after confirming.
+--   email_confirmed_at is proof of mailbox ownership only while confirmation is required,
+--   which is why the migration does not run the backfill itself.
 --   Backward-safe: no column, constraint or existing-link changes; the previous app ignores
 --   auth_user_id for "My bookings", so it is unaffected. Idempotent: a re-run only considers
 --   rows that are still unlinked, so it is a no-op unless new eligible rows appeared.
@@ -38,18 +52,18 @@
 --
 -- Size and locking
 --   One set-based statement (a data-modifying CTE: UPDATE ... RETURNING feeds the audit
---   INSERT), executed once by this migration through backfill_booking_owner_binding_v1(). It
+--   INSERT), executed once by the operator through backfill_booking_owner_binding_v1(). It
 --   reads auth.users once (grouped by normalized email), scans bookings once, and takes row
 --   locks only on the rows it links, plus ROW EXCLUSIVE on bookings, which does not block
---   reads or other writes to other rows. A batched DO block is not used: the migration runs
---   in one transaction and a DO block cannot COMMIT between batches inside it, so batching
+--   reads or other writes to other rows. Batching is not used: the function runs in one
+--   transaction and cannot COMMIT between batches inside it, so batching
 --   would hold the same locks for the same time while adding loops. Bookings is a
 --   per-venue reservations table (thousands to low hundreds of thousands of rows), well
 --   inside a single-statement update. A concurrent guest claim on the same row wins or waits;
 --   READ COMMITTED re-checks auth_user_id IS NULL on the new row version, so a row linked in
 --   the meantime is skipped.
 --
--- Pre-flight (operator, read-only; run on staging, then production, before applying)
+-- Pre-flight (operator, read-only; run on staging, then production, before running the function)
 --   WITH users_by_email AS (
 --     SELECT lower(btrim(u.email)) AS email_key, count(*) AS n
 --     FROM auth.users u
@@ -66,7 +80,7 @@
 --   JOIN users_by_email ube ON ube.email_key = lower(btrim(b.customer_email))
 --   WHERE b.auth_user_id IS NULL AND btrim(b.customer_email) <> '';
 --
--- Verification (after applying)
+-- Verification (after the operator ran the function; the audit table is empty until then)
 --   -- 1. bookings_to_link above equals the audit row count:
 --   SELECT count(*) FROM public.booking_owner_backfill_audit;
 --   -- 2. every audited row is still linked to the audited user (0 expected right after):
@@ -93,7 +107,9 @@
 --     DROP TABLE IF EXISTS public.booking_owner_backfill_audit;
 --   Guests keep access to un-linked bookings through emailed links.
 --
--- Rollout: staging first, then production (pnpm db:plan-remote), BEFORE PR #181 is merged.
+-- Rollout: apply staging first, then production (pnpm db:plan-remote), BEFORE PR #181 is
+-- merged. Then, per project and only after the "Confirm email" check above, run
+-- SELECT public.backfill_booking_owner_binding_v1(); and the verification queries.
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.booking_owner_backfill_audit (
@@ -111,7 +127,7 @@ REVOKE ALL ON TABLE public.booking_owner_backfill_audit FROM anon;
 REVOKE ALL ON TABLE public.booking_owner_backfill_audit FROM authenticated;
 GRANT SELECT ON TABLE public.booking_owner_backfill_audit TO service_role;
 
--- p_restaurant_id NULL links every restaurant (the migration run); a restaurant id limits the
+-- p_restaurant_id NULL links every restaurant (the operator run); a restaurant id limits the
 -- run to that restaurant (used by tests/db/booking-owner-backfill.sql). Returns rows linked.
 CREATE OR REPLACE FUNCTION public.backfill_booking_owner_binding_v1(p_restaurant_id uuid DEFAULT NULL)
 RETURNS integer
@@ -155,10 +171,10 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.backfill_booking_owner_binding_v1(uuid) IS
-  'Operator-only: link unlinked bookings to the single confirmed, non-anonymous auth user with the same normalized email; records each link in booking_owner_backfill_audit.';
+  'Operator-only, run by hand: link unlinked bookings to the single confirmed, non-anonymous auth user with the same normalized email; records each link in booking_owner_backfill_audit. Run ONLY when the project requires email confirmation (mailer_autoconfirm off); otherwise email_confirmed_at does not prove mailbox ownership.';
 
 REVOKE ALL ON FUNCTION public.backfill_booking_owner_binding_v1(uuid) FROM PUBLIC, anon, authenticated, service_role;
 
-SELECT public.backfill_booking_owner_binding_v1();
+-- No backfill runs here. See the header: the operator runs it only after the project check.
 
 COMMIT;

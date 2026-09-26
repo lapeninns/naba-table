@@ -16,6 +16,7 @@ import {
   findBookingByIdempotencyKey,
   recoverBookingRecordWithMethod,
 } from '@/server/bookings/recovery';
+import { DEFAULT_SEATING_PREFERENCE } from '@/server/bookings/request-validation';
 
 import type { BookingRecord } from '@/server/bookings';
 import type { BookingCreateCustomerContext } from '@/server/bookings/create-customer-context';
@@ -132,6 +133,9 @@ export async function runBookingCreatePrecommitContext({
         startTime: request.time,
         partySize: request.party,
         customerEmail: request.email,
+        bookingType,
+        seatingPreference: DEFAULT_SEATING_PREFERENCE,
+        notes: request.notes ?? null,
       })
     ) {
       const replayed = prefetchedKeyedBooking;
@@ -209,6 +213,9 @@ export async function runBookingCreatePrecommitContext({
         startTime,
         partySize: request.party,
         customerEmail: request.email,
+        bookingType,
+        seatingPreference: DEFAULT_SEATING_PREFERENCE,
+        notes: request.notes ?? null,
       })
     ) {
       return { kind: 'response', response: buildIdempotencyKeyReusedResponse() };
@@ -263,6 +270,9 @@ export async function runBookingCreatePrecommitContext({
     startTime,
     endTime,
     partySize: request.party,
+    bookingType,
+    seatingPreference: DEFAULT_SEATING_PREFERENCE,
+    notes: request.notes ?? null,
     email: request.email,
     phone: request.phone,
     name: request.name,

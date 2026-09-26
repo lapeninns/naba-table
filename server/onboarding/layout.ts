@@ -33,6 +33,12 @@ export type OnboardingLayoutTableInput = {
 export type OnboardingLayoutInput = {
   zones: OnboardingLayoutZoneInput[];
   tables: OnboardingLayoutTableInput[];
+  /**
+   * The layout revision the client last loaded (from a previous save or a snapshot). Null
+   * means the client expects no zones or tables yet. A stale value is refused with
+   * OnboardingLayoutChangedError, so a table added elsewhere is never silently deleted.
+   */
+  expectedRevision: string | null;
 };
 
 export type OnboardingLayoutZone = {
@@ -58,6 +64,8 @@ export type OnboardingLayoutTable = {
 export type OnboardingLayout = {
   zones: OnboardingLayoutZone[];
   tables: OnboardingLayoutTable[];
+  /** Opaque optimistic-concurrency token; send it back as `expectedRevision`. */
+  revision: string;
 };
 
 /** The restaurant already has bookings or holds, so replacing its layout is refused. */
@@ -65,6 +73,14 @@ export class OnboardingLayoutLockedError extends Error {
   constructor() {
     super('ONBOARDING_LAYOUT_LOCKED');
     this.name = 'OnboardingLayoutLockedError';
+  }
+}
+
+/** The layout changed since the client loaded it (stale `expectedRevision`); nothing was written. */
+export class OnboardingLayoutChangedError extends Error {
+  constructor() {
+    super('ONBOARDING_LAYOUT_CHANGED');
+    this.name = 'OnboardingLayoutChangedError';
   }
 }
 
@@ -114,6 +130,7 @@ const rpcTableSchema = z.object({
 const rpcResultSchema = z.object({
   zones: z.array(rpcZoneSchema),
   tables: z.array(rpcTableSchema),
+  revision: z.string().min(1),
 });
 
 type RpcError = { code?: string; message?: string } | null;
@@ -122,6 +139,9 @@ function mapRpcError(error: NonNullable<RpcError>): Error {
   const message = error.message ?? '';
   if (error.code === '55000' && message.startsWith('ONBOARDING_LAYOUT_LOCKED')) {
     return new OnboardingLayoutLockedError();
+  }
+  if (error.code === '55000' && message.startsWith('ONBOARDING_LAYOUT_CHANGED')) {
+    return new OnboardingLayoutChangedError();
   }
   if (error.code === '22023' && message.startsWith('ONBOARDING_LAYOUT_INVALID')) {
     const reason = message.slice('ONBOARDING_LAYOUT_INVALID:'.length).trim();
@@ -133,10 +153,57 @@ function mapRpcError(error: NonNullable<RpcError>): Error {
   return new OnboardingLayoutWriteError(error.code);
 }
 
+function toOnboardingLayout(data: unknown): OnboardingLayout {
+  const parsed = rpcResultSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new OnboardingLayoutWriteError('INVALID_RPC_RESULT');
+  }
+  return {
+    zones: parsed.data.zones.map((zone) => ({
+      id: zone.id,
+      name: zone.name,
+      sortOrder: zone.sort_order,
+      active: zone.active,
+    })),
+    tables: parsed.data.tables.map((table) => ({
+      id: table.id,
+      tableNumber: table.table_number,
+      capacity: table.capacity,
+      minPartySize: table.min_party_size,
+      maxPartySize: table.max_party_size,
+      zoneId: table.zone_id,
+      category: table.category,
+      seatingType: table.seating_type,
+      mobility: table.mobility,
+      status: table.status,
+    })),
+    revision: parsed.data.revision,
+  };
+}
+
+/**
+ * The restaurant's current zones, tables and layout revision, read in one snapshot
+ * (`onboarding_layout_snapshot`). The Tables step loads it on resume and after a
+ * ONBOARDING_LAYOUT_CHANGED conflict.
+ */
+export async function loadOnboardingLayout(
+  client: DbClient,
+  restaurantId: string,
+): Promise<OnboardingLayout> {
+  const { data, error } = await client.rpc('onboarding_layout_snapshot', {
+    p_restaurant_id: restaurantId,
+  });
+  if (error) {
+    throw mapRpcError(error);
+  }
+  return toOnboardingLayout(data);
+}
+
 /**
  * Replaces the restaurant's zones and tables in one transaction through the
- * `onboarding_replace_layout` RPC. Re-sending the same layout is a no-op, and
- * the call is refused once the restaurant has bookings or table holds.
+ * `onboarding_replace_layout` RPC. Re-sending the same layout with its revision is a no-op.
+ * The call is refused when `expectedRevision` is stale (the layout changed elsewhere) and
+ * once the restaurant has bookings or table holds.
  */
 export async function replaceOnboardingLayout(
   client: DbClient,
@@ -163,37 +230,14 @@ export async function replaceOnboardingLayout(
     p_restaurant_id: restaurantId,
     p_zones: zones,
     p_tables: tables,
+    p_expected_revision: input.expectedRevision,
   });
 
   if (error) {
     throw mapRpcError(error);
   }
 
-  const parsed = rpcResultSchema.safeParse(data);
-  if (!parsed.success) {
-    throw new OnboardingLayoutWriteError('INVALID_RPC_RESULT');
-  }
-
+  const layout = toOnboardingLayout(data);
   invalidateRestaurantCapacityCaches(restaurantId);
-
-  return {
-    zones: parsed.data.zones.map((zone) => ({
-      id: zone.id,
-      name: zone.name,
-      sortOrder: zone.sort_order,
-      active: zone.active,
-    })),
-    tables: parsed.data.tables.map((table) => ({
-      id: table.id,
-      tableNumber: table.table_number,
-      capacity: table.capacity,
-      minPartySize: table.min_party_size,
-      maxPartySize: table.max_party_size,
-      zoneId: table.zone_id,
-      category: table.category,
-      seatingType: table.seating_type,
-      mobility: table.mobility,
-      status: table.status,
-    })),
-  };
+  return layout;
 }

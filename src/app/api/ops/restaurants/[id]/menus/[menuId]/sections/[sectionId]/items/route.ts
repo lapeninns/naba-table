@@ -24,7 +24,8 @@ type RouteContext = {
 
 /**
  * Creates the item, its extensions and optional `options[]` in one transaction. With an
- * `idempotencyKey`, a retry returns the item the first request created (200 instead of 201).
+ * `idempotencyKey`, a retry of the same payload returns the item the first request created (200
+ * instead of 201); the same key with a different payload is 409 `IDEMPOTENCY_KEY_REUSED`.
  */
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params, request);

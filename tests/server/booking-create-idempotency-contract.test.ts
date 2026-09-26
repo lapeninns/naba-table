@@ -21,6 +21,9 @@ function booking(overrides: Record<string, unknown> = {}) {
     party_size: 2,
     customer_id: 'customer-1',
     customer_email: 'ada@example.com',
+    booking_type: 'dinner',
+    seating_preference: 'any',
+    notes: null,
     idempotency_key: HEADER_KEY,
     created_at: '2026-09-27T12:00:00.000Z',
     ...overrides,
@@ -90,8 +93,26 @@ describe('matchesIdempotentCreatePayload', () => {
     ['time', { startTime: '19:30' }],
     ['customer', { customerId: 'customer-2' }],
     ['email', { customerEmail: 'someone@example.com' }],
+    ['booking type', { bookingType: 'lunch' }],
+    ['seating preference', { seatingPreference: 'window' }],
+    ['notes', { notes: 'Wheelchair access please' }],
   ])('rejects a different %s', (_label, change) => {
     expect(matchesIdempotentCreatePayload(booking(), { ...payload, ...change })).toBe(false);
+  });
+
+  it('matches an identical retry of the booking-defining fields (blank notes = no notes)', () => {
+    const full = { ...payload, bookingType: 'dinner', seatingPreference: 'any' };
+    expect(matchesIdempotentCreatePayload(booking(), { ...full, notes: null })).toBe(true);
+    expect(matchesIdempotentCreatePayload(booking(), { ...full, notes: '   ' })).toBe(true);
+    expect(
+      matchesIdempotentCreatePayload(booking({ notes: ' Birthday ' }), {
+        ...full,
+        notes: 'Birthday',
+      }),
+    ).toBe(true);
+    expect(
+      matchesIdempotentCreatePayload(booking({ notes: 'Birthday' }), { ...full, notes: null }),
+    ).toBe(false);
   });
 
   it('skips optional identity checks that the caller cannot provide yet', () => {

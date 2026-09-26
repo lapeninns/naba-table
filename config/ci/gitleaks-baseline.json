@@ -860,6 +860,66 @@
       "sourceCommit": "ad42cf844d0d4c0c65c0f92fade55e7221684f6f",
       "reviewedAt": "2026-09-26",
       "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-idempotency-contract.test.ts",
+      "startLine": 14,
+      "endLine": 14,
+      "sourceSha256": "92849bdbe45b650b8a240f6ac0bf6f582aec6221f731f455c25887ee3191d0e1",
+      "sourceCommit": "91883fad163543b3fa6bfec39526649d7d555805",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-persistence.test.ts",
+      "startLine": 29,
+      "endLine": 29,
+      "sourceSha256": "2bdfb2d163116b9edeb7cb75ba9d56be2ab313efe4804d9a664f38fca8cbec41",
+      "sourceCommit": "91883fad163543b3fa6bfec39526649d7d555805",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/booking-create-precommit-context.test.ts",
+      "startLine": 33,
+      "endLine": 33,
+      "sourceSha256": "4b084e0957d5c9323f423801df586aba7e5a5fbe9c98361cc21f950a43383888",
+      "sourceCommit": "91883fad163543b3fa6bfec39526649d7d555805",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/ops-bookings-create-route.test.ts",
+      "startLine": 340,
+      "endLine": 340,
+      "sourceSha256": "d9698f16e092f4e1ac05538ffe0551820ccd4d691e31ffd2ccf0d2d1969057c0",
+      "sourceCommit": "91883fad163543b3fa6bfec39526649d7d555805",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/public-bookings-route.test.ts",
+      "startLine": 728,
+      "endLine": 728,
+      "sourceSha256": "3693a278ab3f19e234663789431f95f1cfdc20a7528130021c790def6621d698",
+      "sourceCommit": "91883fad163543b3fa6bfec39526649d7d555805",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
+    },
+    {
+      "ruleId": "generic-api-key",
+      "file": "tests/server/public-bookings-route.test.ts",
+      "startLine": 1280,
+      "endLine": 1280,
+      "sourceSha256": "3693a278ab3f19e234663789431f95f1cfdc20a7528130021c790def6621d698",
+      "sourceCommit": "91883fad163543b3fa6bfec39526649d7d555805",
+      "reviewedAt": "2026-09-26",
+      "reason": "Sample UUID used as a test idempotency key or request id, not a credential; no external verification performed."
     }
   ]
 }

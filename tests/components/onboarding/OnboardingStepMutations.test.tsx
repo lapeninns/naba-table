@@ -69,6 +69,7 @@ function StateProbe() {
       <span data-testid="restaurant-id">{state.restaurantId ?? ''}</span>
       <span data-testid="error">{state.error ?? ''}</span>
       <span data-testid="account">{state.account?.email ?? ''}</span>
+      <span data-testid="layout-revision">{state.layoutRevision ?? ''}</span>
     </>
   );
 }
@@ -341,6 +342,7 @@ describe('TablesStep layout replace', () => {
         data: {
           zones: [{ id: 'zone-1', name: 'Main Dining', sortOrder: 0, active: true }],
           tables: [{ id: 'table-1', tableNumber: 'T1', capacity: 2, zoneId: 'zone-1' }],
+          revision: 'rev-2',
         },
       });
     renderStep(<TablesStep onComplete={vi.fn()} />, { step: 5, restaurantId: RESTAURANT_ID });
@@ -355,9 +357,112 @@ describe('TablesStep layout replace', () => {
         body: {
           zones: [{ name: 'Main Dining', sortOrder: 0, active: true }],
           tables: [{ tableNumber: 'T1', capacity: 2, zoneName: null }],
+          // A new restaurant's draft expects no saved layout yet.
+          expectedRevision: null,
         },
       },
     ]);
+    // The next save is guarded by the revision this one returned.
+    expect(screen.getByTestId('layout-revision')).toHaveTextContent('rev-2');
+  });
+
+  it('sends the revision the draft was loaded at', async () => {
+    respond = () =>
+      jsonResponse(200, {
+        data: {
+          zones: [{ id: 'zone-1', name: 'Main Dining', sortOrder: 0, active: true }],
+          tables: [{ id: 'table-1', tableNumber: 'T1', capacity: 2, zoneId: 'zone-1' }],
+          revision: 'rev-3',
+        },
+      });
+    renderStep(<TablesStep onComplete={vi.fn()} />, {
+      step: 5,
+      restaurantId: RESTAURANT_ID,
+      zones: [{ id: 'zone-1', name: 'Main Dining', sortOrder: 0, active: true }],
+      tables: [{ id: 'table-1', tableNumber: 'T1', capacity: 2, zoneId: 'zone-1' }],
+      layoutRevision: 'rev-2',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() => expect(screen.getByTestId('step')).toHaveTextContent('6'));
+    expect(fetchCalls[0]?.body).toMatchObject({ expectedRevision: 'rev-2' });
+  });
+
+  it('reloads the saved layout into the step when it changed elsewhere, instead of overwriting it', async () => {
+    const current = {
+      zones: [{ id: 'zone-1', name: 'Main Dining', sortOrder: 0, active: true }],
+      tables: [
+        { id: 'table-1', tableNumber: 'T1', capacity: 2, zoneId: 'zone-1' },
+        { id: 'table-9', tableNumber: 'OPS9', capacity: 6, zoneId: 'zone-1' },
+      ],
+      revision: 'rev-5',
+    };
+    respond = (call) =>
+      call.method === 'PUT'
+        ? jsonResponse(409, {
+            error: 'changed',
+            code: 'ONBOARDING_LAYOUT_CHANGED',
+            message: 'changed',
+          })
+        : jsonResponse(200, { data: current });
+    renderStep(<TablesStep onComplete={vi.fn()} />, {
+      step: 5,
+      restaurantId: RESTAURANT_ID,
+      zones: [{ id: 'zone-1', name: 'Main Dining', sortOrder: 0, active: true }],
+      tables: [{ id: 'table-1', tableNumber: 'T1', capacity: 2, zoneId: 'zone-1' }],
+      layoutRevision: 'rev-2',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('error')).toHaveTextContent(
+        'Your tables were changed somewhere else since you opened this step.',
+      ),
+    );
+    expect(fetchCalls.map((call) => call.method)).toEqual(['PUT', 'GET']);
+    expect(fetchCalls[1]?.url).toBe(`/api/onboarding/restaurant/${RESTAURANT_ID}/layout`);
+    expect(screen.getByTestId('step')).toHaveTextContent('5');
+    expect(screen.getByTestId('layout-revision')).toHaveTextContent('rev-5');
+    await waitFor(() =>
+      expect(
+        screen.getAllByPlaceholderText('T1').map((input) => (input as HTMLInputElement).value),
+      ).toEqual(['T1', 'OPS9']),
+    );
+
+    // Saving again sends the reloaded layout (the ops table included) and its revision.
+    respond = () => jsonResponse(200, { data: { ...current, revision: 'rev-6' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(screen.getByTestId('step')).toHaveTextContent('6'));
+    expect(fetchCalls[2]?.body).toMatchObject({
+      expectedRevision: 'rev-5',
+      tables: [
+        { tableNumber: 'T1', capacity: 2, zoneName: 'Main Dining' },
+        { tableNumber: 'OPS9', capacity: 6, zoneName: 'Main Dining' },
+      ],
+    });
+  });
+
+  it('asks for a refresh when the changed layout cannot be reloaded', async () => {
+    respond = (call) =>
+      call.method === 'PUT'
+        ? jsonResponse(409, {
+            error: 'changed',
+            code: 'ONBOARDING_LAYOUT_CHANGED',
+            message: 'changed',
+          })
+        : jsonResponse(500, { error: 'unexpected', code: 'INTERNAL_ERROR' });
+    renderStep(<TablesStep onComplete={vi.fn()} />, { step: 5, restaurantId: RESTAURANT_ID });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('error')).toHaveTextContent(
+        'Refresh the page to load the latest layout before saving.',
+      ),
+    );
+    expect(screen.getByTestId('step')).toHaveTextContent('5');
   });
 
   it('explains a locked layout with actionable copy', async () => {

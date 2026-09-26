@@ -334,3 +334,129 @@ describe('AvailabilitySettingsPage recovery from newer saved settings', () => {
     await waitFor(() => expect(server.current().revision).toBe('rev-3'));
   });
 });
+
+/**
+ * The stored settings with per-section revisions (the current route): a save is refused only when
+ * a section it writes changed since the page loaded.
+ */
+function createSectionServer() {
+  const sections = ['hours', 'servicePeriods', 'turnBands', 'rules'] as const;
+  let version = 1;
+  let snapshot: AvailabilitySnapshot = {
+    ...initialSnapshot(),
+    revisions: {
+      hours: 'hours-1',
+      servicePeriods: 'servicePeriods-1',
+      turnBands: 'turnBands-1',
+      rules: 'rules-1',
+    },
+  };
+  const saves: AvailabilityCommandPayload[] = [];
+  const commit = (
+    next: AvailabilitySnapshot,
+    changed: ReadonlyArray<(typeof sections)[number]>,
+  ) => {
+    version += 1;
+    const revisions = { ...snapshot.revisions! };
+    for (const section of changed) revisions[section] = `${section}-${version}`;
+    snapshot = { ...next, revision: `rev-${version}`, revisions };
+  };
+  const service: AvailabilityService = {
+    getAvailability: async () => structuredClone(snapshot),
+    saveAvailability: async (_restaurantId, payload) => {
+      saves.push(payload);
+      const written = sections.filter((section) => payload[section] !== undefined);
+      const stale = payload.expectedRevisions
+        ? written.some(
+            (section) =>
+              payload.expectedRevisions?.[section] !== undefined &&
+              payload.expectedRevisions[section] !== snapshot.revisions![section],
+          )
+        : Boolean(payload.expectedRevision) && payload.expectedRevision !== snapshot.revision;
+      if (stale) {
+        throw new HttpError({ status: 409, code: 'STALE_WRITE', message: 'Changed elsewhere.' });
+      }
+      commit({ ...snapshot, rules: { ...snapshot.rules, ...payload.rules } }, written);
+      return structuredClone(snapshot);
+    },
+  };
+  const changeMondayElsewhere = () => {
+    commit(
+      {
+        ...snapshot,
+        hours: {
+          ...snapshot.hours,
+          weekly: snapshot.hours.weekly.map((row) =>
+            row.dayOfWeek === 1 ? { ...row, closesAt: '23:00' } : row,
+          ),
+        },
+      },
+      ['hours'],
+    );
+  };
+  return { service, saves, changeMondayElsewhere, current: () => snapshot };
+}
+
+describe('AvailabilitySettingsPage with per-section revisions', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    });
+    Element.prototype.scrollIntoView = vi.fn();
+    pageState.details.data = profile;
+    pageState.occasions.data = [occasion('lunch', 'Lunch', 10), occasion('dinner', 'Dinner', 20)];
+  });
+
+  it('saves a booking-rule edit even though someone else saved the hours meanwhile', async () => {
+    const user = userEvent.setup();
+    const server = createSectionServer();
+    const queryClient = renderPage(server as unknown as ReturnType<typeof createServer>);
+    await editBookingRule(user);
+
+    server.changeMondayElsewhere();
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    // Only the written section is checked: no STALE_WRITE, one request.
+    await waitFor(() =>
+      expect(server.current().rules.reservationLastSeatingBufferMinutes).toBe(30),
+    );
+    expect(server.saves).toHaveLength(1);
+    expect(server.saves[0]?.expectedRevisions).toEqual({ rules: 'rules-1' });
+    expect(server.saves[0]).not.toHaveProperty('expectedRevision');
+    expect(server.current().hours.weekly.find((row) => row.dayOfWeek === 1)?.closesAt).toBe(
+      '23:00',
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument(),
+    );
+
+    // The page then shows the other writer's hours, and a later hours save is checked against
+    // their revision, not the one the page first loaded.
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.availability(RESTAURANT_ID),
+      });
+    });
+    await waitFor(() => expect(mondayCloses()).toHaveValue('23:00'));
+    await user.clear(mondayCloses());
+    await user.type(mondayCloses(), '22:30');
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(server.saves).toHaveLength(2));
+    expect(Object.keys(server.saves[1]?.expectedRevisions ?? {})).toEqual(['hours']);
+    expect(server.saves[1]?.expectedRevisions?.hours).toBe('hours-2');
+    expect(server.saves[1]?.hours?.weekly.find((row) => row.dayOfWeek === 1)?.closesAt).toBe(
+      '22:30',
+    );
+  });
+});

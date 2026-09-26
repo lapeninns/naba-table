@@ -180,7 +180,13 @@ describe('POST /api/ops/bookings', () => {
     upsertCustomerMock.mockResolvedValue({ id: 'customer-1' });
     fromMock.mockReset();
     fromMock.mockImplementation(() => queryChain);
-    for (const fn of [queryChain.select, queryChain.eq, queryChain.not, queryChain.order, queryChain.limit]) {
+    for (const fn of [
+      queryChain.select,
+      queryChain.eq,
+      queryChain.not,
+      queryChain.order,
+      queryChain.limit,
+    ]) {
       fn.mockClear();
     }
     maybeSingleMock.mockReset();
@@ -389,12 +395,10 @@ describe('POST /api/ops/bookings', () => {
     });
 
     it('re-ensures side effects when signature recovery finds a live booking', async () => {
-      maybeSingleMock
-        .mockResolvedValueOnce({ data: null, error: null })
-        .mockResolvedValueOnce({
-          data: makeBooking({ status: 'confirmed', start_time: '19:30:00' }),
-          error: null,
-        });
+      maybeSingleMock.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({
+        data: makeBooking({ status: 'confirmed', start_time: '19:30:00' }),
+        error: null,
+      });
 
       const response = await postWalkIn();
       const body = await response.json();
@@ -438,9 +442,7 @@ describe('POST /api/ops/bookings', () => {
 
       expect(response.status).toBe(201);
       expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
-      expect(enqueueBookingCreatedSideEffectsMock.mock.calls[0]?.[0]).not.toHaveProperty(
-        'replay',
-      );
+      expect(enqueueBookingCreatedSideEffectsMock.mock.calls[0]?.[0]).not.toHaveProperty('replay');
     });
 
     it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
@@ -458,6 +460,21 @@ describe('POST /api/ops/bookings', () => {
       expect(upsertCustomerMock).not.toHaveBeenCalled();
       expect(createWithEnforcementMock).not.toHaveBeenCalled();
       expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(KEY);
+    });
+
+    it('rejects the same key with different notes as 409 IDEMPOTENCY_KEY_REUSED', async () => {
+      maybeSingleMock.mockResolvedValueOnce({
+        data: makeBooking({ idempotency_key: KEY, notes: 'Window table, anniversary' }),
+        error: null,
+      });
+
+      const response = await postWalkIn();
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
+      expect(upsertCustomerMock).not.toHaveBeenCalled();
+      expect(createWithEnforcementMock).not.toHaveBeenCalled();
     });
 
     it('creates a new booking when the only same-slot booking was cancelled (signature ignores it)', async () => {
@@ -598,7 +615,7 @@ describe('POST /api/ops/bookings', () => {
       expect(body.code).toBe('INTERNAL_ERROR');
       expect(JSON.stringify(body)).not.toContain('constraint');
     });
-  
+
     describe('post-commit steps are best effort', () => {
       const optInBody = { ...walkInBody, phone: '07123456789', whatsappOptIn: true };
 
@@ -645,7 +662,11 @@ describe('POST /api/ops/bookings', () => {
 
       it('answers a key replay with 200 when the consent write and contact fetch fail', async () => {
         maybeSingleMock.mockResolvedValueOnce({
-          data: makeBooking({ idempotency_key: KEY, start_time: '19:30:00', whatsapp_opt_in: false }),
+          data: makeBooking({
+            idempotency_key: KEY,
+            start_time: '19:30:00',
+            whatsapp_opt_in: false,
+          }),
           error: null,
         });
         persistBookingWhatsAppConsentMock.mockRejectedValueOnce(new Error('no row updated'));

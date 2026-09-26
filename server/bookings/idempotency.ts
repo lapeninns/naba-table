@@ -29,6 +29,9 @@ type IdempotentBookingShape = {
   party_size?: number | null;
   customer_id?: string | null;
   customer_email?: string | null;
+  booking_type?: string | null;
+  seating_preference?: string | null;
+  notes?: string | null;
   idempotency_key?: string | null;
   created_at?: string | null;
 };
@@ -45,9 +48,20 @@ export function coerceUuid(value: string | null): string | null {
 }
 
 /**
+ * Booking-defining free text is compared trimmed, and blank means absent, in the create RPC's
+ * replay check (booking_create_idempotent_replay_result) and here, so a genuine retry that
+ * resends the same values replays.
+ */
+function normalizeDefiningText(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
+/**
  * Server-derived key for clients that send no `Idempotency-Key`. It covers every field the
- * create RPC compares on replay (customer, date, start, party size), so a key-less guest who
- * changes the party size makes a new request, never a 409 about a key they did not send.
+ * create RPC compares on replay (customer, date, start, party size, booking type, seating
+ * preference, notes), so a key-less guest who changes any of them makes a new request, never
+ * a 409 about a key they did not send. The fields are JSON-encoded so free-text notes cannot
+ * collide with a neighbouring field through a delimiter.
  */
 export function buildDeterministicIdempotencyKey(params: {
   restaurantId: string;
@@ -56,8 +70,21 @@ export function buildDeterministicIdempotencyKey(params: {
   startTime: string;
   endTime: string;
   partySize: number;
+  bookingType: string;
+  seatingPreference: string;
+  notes: string | null | undefined;
 }): string {
-  const payload = `${params.restaurantId}|${params.customerId}|${params.bookingDate}|${params.startTime}|${params.endTime}|${params.partySize}`;
+  const payload = JSON.stringify([
+    params.restaurantId,
+    params.customerId,
+    params.bookingDate,
+    params.startTime,
+    params.endTime,
+    params.partySize,
+    normalizeDefiningText(params.bookingType),
+    normalizeDefiningText(params.seatingPreference),
+    normalizeDefiningText(params.notes),
+  ]);
   return createHash('sha256').update(payload).digest('hex').slice(0, 32);
 }
 
@@ -115,9 +142,12 @@ function normalizeContactEmail(value: string | null | undefined): string {
 }
 
 /**
- * Whether an existing keyed booking was created from the same salient payload. Mirrors the
- * RPC's comparison (customer, date, start minute, party size); the email check applies only
- * when both sides carry one, for lookups that run before the customer is resolved.
+ * Whether an existing keyed booking was created from the same booking-defining payload.
+ * Mirrors the RPC's comparison (customer, date, start minute, party size, booking type,
+ * seating preference, notes). Customer, booking type and seating preference are compared
+ * only when the caller provides them, for lookups that run before they are resolved. Email is
+ * compared only when both sides carry one. Notes are compared unless `undefined`; `null` or
+ * blank means "no notes".
  */
 export function matchesIdempotentCreatePayload(
   booking: IdempotentBookingShape,
@@ -127,6 +157,9 @@ export function matchesIdempotentCreatePayload(
     partySize: number;
     customerId?: string | null;
     customerEmail?: string | null;
+    bookingType?: string | null;
+    seatingPreference?: string | null;
+    notes?: string | null;
   },
 ): boolean {
   if (booking.booking_date !== payload.bookingDate) return false;
@@ -138,7 +171,23 @@ export function matchesIdempotentCreatePayload(
   const storedEmail = normalizeContactEmail(booking.customer_email);
   if (requestedEmail && storedEmail && requestedEmail !== storedEmail) return false;
 
-  return true;
+  if (
+    payload.bookingType != null &&
+    normalizeDefiningText(booking.booking_type) !== normalizeDefiningText(payload.bookingType)
+  ) {
+    return false;
+  }
+  if (
+    payload.seatingPreference != null &&
+    normalizeDefiningText(booking.seating_preference) !==
+      normalizeDefiningText(payload.seatingPreference)
+  ) {
+    return false;
+  }
+  return (
+    payload.notes === undefined ||
+    normalizeDefiningText(booking.notes) === normalizeDefiningText(payload.notes)
+  );
 }
 
 export function resolveBookingCreateOrigin({

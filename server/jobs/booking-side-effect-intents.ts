@@ -68,6 +68,12 @@ export async function ensureBookingEmailIntent(
      * statement). Used by modification emails so only the latest one is sent.
      */
     supersedeTypes?: readonly EmailJobType[];
+    /**
+     * bookings.updated_at of the committed change this email describes. Supersede
+     * follows it rather than arrival order: an intent only withdraws older ones, and
+     * one that arrives after a newer revision is recorded as cancelled (a no-op).
+     */
+    bookingRevision?: string | null;
   },
 ): Promise<EnsureBookingEmailIntentResult> {
   try {
@@ -78,6 +84,7 @@ export async function ensureBookingEmailIntent(
       p_dedupe_key: params.dedupeKey,
       p_scheduled_for: params.scheduledFor ?? null,
       p_supersede_types: params.supersedeTypes?.length ? [...params.supersedeTypes] : null,
+      p_booking_revision: params.bookingRevision ?? null,
     });
     if (error) {
       throw error;

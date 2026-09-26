@@ -379,6 +379,9 @@ const productionEnvSchema = baseEnvSchema
     TURNSTILE_SECRET_KEY: z.string().min(1),
     AUTH_AUDIT_HASH_SECRET: z.string().min(1),
     CRON_SECRET: z.string().min(1),
+    // Signs guest booking links and the `__Host-nt_bk` cookie. Without it bookings
+    // still commit but guests can never open or manage them.
+    SESSION_RECOVERY_ACCESS_TOKEN_SECRET: z.string().min(1),
   })
   .superRefine((env, ctx) => {
     refineGoogleBusinessEnvironment(env, ctx);

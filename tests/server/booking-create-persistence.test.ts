@@ -399,6 +399,9 @@ describe('runBookingCreatePersistence', () => {
       booking_date: request.date,
       start_time: '18:30:00',
       party_size: request.party,
+      booking_type: 'dinner',
+      seating_preference: 'any',
+      notes: null,
       idempotency_key: HEADER_KEY,
     } as BookingRecord;
     const capacityFailure = () =>
@@ -457,6 +460,33 @@ describe('runBookingCreatePersistence', () => {
           client,
           clientIp: '192.0.2.10',
           keyedBookingFinder: vi.fn(async () => ({ ...committed, party_size: 2 }) as BookingRecord),
+          pastTimeBlocking: true,
+          pastTimeGraceMinutes: 5,
+          precommit: buildPrecommit(),
+          request,
+          requestContext,
+          restaurantId,
+          unifiedValidationRunner,
+          useUnifiedValidation: true,
+        }),
+      ).resolves.toBe(failure);
+    });
+
+    it.each([
+      ['notes', { notes: 'Wheelchair access please' }],
+      ['booking type', { booking_type: 'lunch' }],
+      ['seating preference', { seating_preference: 'window' }],
+    ])('keeps the failure when the keyed booking has different %s', async (_label, change) => {
+      const failure = { kind: 'response', response: capacityFailure() } as const;
+      const unifiedValidationRunner = vi.fn(
+        async () => failure,
+      ) as unknown as BookingCreateUnifiedValidationRunner;
+
+      await expect(
+        runBookingCreatePersistence({
+          client,
+          clientIp: '192.0.2.10',
+          keyedBookingFinder: vi.fn(async () => ({ ...committed, ...change }) as BookingRecord),
           pastTimeBlocking: true,
           pastTimeGraceMinutes: 5,
           precommit: buildPrecommit(),

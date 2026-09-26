@@ -22,6 +22,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
 const NEW_REVISION = 'fedcba9876543210fedcba9876543210';
+const SECTION_REVISIONS = {
+  hours: '1'.repeat(32),
+  servicePeriods: '2'.repeat(32),
+  turnBands: '3'.repeat(32),
+  rules: '4'.repeat(32),
+};
 
 type RpcResult = { data: unknown; error: { code?: string; message?: string } | null };
 
@@ -52,6 +58,7 @@ function fakeClient(rpcResult: RpcResult) {
 function dbSnapshot(revision = NEW_REVISION) {
   return {
     revision,
+    revisions: SECTION_REVISIONS,
     restaurant: {
       timezone: 'Europe/London',
       reservation_interval_minutes: 30,
@@ -212,8 +219,29 @@ describe('saveRestaurantAvailability', () => {
       p_turn_bands: null,
       p_rules: { reservation_default_duration_minutes: 120 },
       p_expected_revision: null,
+      p_expected_revisions: null,
     });
     expect(tablesRead).not.toContain('booking_occasions');
+  });
+
+  it('sends the per-section expected revisions and returns the stored ones', async () => {
+    const { client, rpc } = fakeClient({ data: dbSnapshot(), error: null });
+
+    const snapshot = await saveRestaurantAvailability(
+      RESTAURANT_ID,
+      {
+        rules: { reservationDefaultDurationMinutes: 120 },
+        expectedRevisions: { rules: 'a'.repeat(32) },
+      },
+      client,
+    );
+
+    const [, args] = rpc.mock.calls[0]!;
+    expect(args).toMatchObject({
+      p_expected_revision: null,
+      p_expected_revisions: { rules: 'a'.repeat(32) },
+    });
+    expect(snapshot.revisions).toEqual(SECTION_REVISIONS);
   });
 
   it('refuses invalid hours with fixed copy before calling the database', async () => {

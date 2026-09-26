@@ -53,6 +53,7 @@ export const TEAM_INVITE_ACTION_ERROR_COPY: Partial<Record<string, string>> = {
   INVITE_NOT_PENDING: 'This invitation was already accepted, revoked or expired.',
   INVITE_NOT_FOUND: 'This invitation no longer exists.',
   INVITE_EXPIRED: 'This invitation has expired. Send a new invitation instead.',
+  INVITE_CHANGED: 'This invitation was just resent or changed. Refresh the list and try again.',
   INVITE_EMAIL_FAILED: 'The invitation email couldn’t be sent. Try again in a moment.',
   INVITE_EMAIL_SUPPRESSED:
     'This address isn’t accepting email from us, so the invitation couldn’t be delivered.',
@@ -163,7 +164,10 @@ export function useOpsRevokeTeamInvite(): UseMutationResult<
   });
 }
 
-/** Re-sends a pending invitation with a fresh link. The previous link stops working. */
+/**
+ * Re-sends a pending invitation with a fresh link. The previous link stops working once the
+ * new email is delivered; a failed or suppressed send keeps it valid.
+ */
 export function useOpsResendTeamInvite(): UseMutationResult<
   TeamInviteMutationResult,
   HttpError | Error,

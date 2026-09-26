@@ -206,22 +206,110 @@ export async function createRestaurantInvite(
 }
 
 /**
- * Re-sends a pending invite. The raw token is never stored, so a resend rotates it: one
- * atomic UPDATE, guarded on pending and unexpired, swaps the token hash, and the previous
- * link stops working. When no row matches, the invite is re-read only to report why.
+ * Why a pending invite could not be rotated: re-reads it only to report the reason.
+ * A row that is still pending and unexpired was rotated by a concurrent resend.
+ */
+async function explainUnrotatableInvite(
+  inviteId: string,
+  restaurantId: string,
+  authClient: DbClient,
+): Promise<never> {
+  const { data: current, error: readError } = await authClient
+    .from('restaurant_invites')
+    .select(INVITE_SELECT)
+    .eq('id', inviteId)
+    .eq('restaurant_id', restaurantId)
+    .maybeSingle();
+
+  if (readError) {
+    throw readError;
+  }
+  if (!current) {
+    throw inviteError('INVITE_NOT_FOUND', 'Invite not found');
+  }
+  const availability = getInviteAvailability(current as RestaurantInvite);
+  if (availability === 'expired') {
+    throw inviteError('INVITE_EXPIRED', 'Invite has expired');
+  }
+  if (availability === 'pending') {
+    throw inviteError('INVITE_CHANGED', 'Invite changed while it was being resent');
+  }
+  throw inviteError('INVITE_NOT_PENDING', 'Invite is no longer pending');
+}
+
+/**
+ * Puts the previous token hash back after a resend that delivered nothing, so the link the
+ * invitee already holds keeps working. Guarded on the new hash: if anything rotated or
+ * finished the invite since, it is left alone. Never throws; a failed restore is logged.
+ */
+async function restorePreviousInviteToken(
+  invite: RestaurantInvite,
+  previousHash: string,
+  rotatedHash: string,
+  authClient: DbClient,
+): Promise<void> {
+  try {
+    const { error } = await authClient
+      .from('restaurant_invites')
+      .update({ token_hash: previousHash })
+      .eq('id', invite.id)
+      .eq('restaurant_id', invite.restaurant_id)
+      .eq('token_hash', rotatedHash)
+      .eq('status', INVITE_STATUS_PENDING);
+    if (error) {
+      throw error;
+    }
+  } catch (restoreError) {
+    logger.error('team_invite.resend_restore_failed', {
+      restaurantId: invite.restaurant_id,
+      inviteId: invite.id,
+      ...describeFailure(restoreError),
+    });
+  }
+}
+
+/**
+ * Re-sends a pending invite. The raw token is never stored, so a resend rotates it:
+ *   1. read the pending invite and its current token hash;
+ *   2. swap the hash with one UPDATE guarded on pending, unexpired and that exact old hash
+ *      (a concurrent resend, accept or revoke makes it match nothing);
+ *   3. send the email with the new token;
+ *   4. if nothing was delivered (provider failure or suppressed recipient), restore the old
+ *      hash with an UPDATE guarded on the new one, so the link the invitee already holds
+ *      keeps working. Only a delivered email retires the previous link.
+ * Rotating before sending means an email never carries a token that is not stored.
  */
 export async function resendRestaurantInvite(
   params: ResendInviteParams,
 ): Promise<ResendInviteResult> {
   const { inviteId, restaurantId, authClient } = params;
-  const { token, hash } = generateInviteToken();
   const nowIso = new Date().toISOString();
+
+  const { data: existing, error: readError } = await authClient
+    .from('restaurant_invites')
+    .select(INVITE_SELECT)
+    .eq('id', inviteId)
+    .eq('restaurant_id', restaurantId)
+    .eq('status', INVITE_STATUS_PENDING)
+    .gt('expires_at', nowIso)
+    .maybeSingle();
+
+  if (readError) {
+    throw readError;
+  }
+  if (!existing) {
+    return explainUnrotatableInvite(inviteId, restaurantId, authClient);
+  }
+
+  const previousHash = (existing as RestaurantInvite).token_hash;
+  const { token, hash } = generateInviteToken();
 
   const { data, error } = await authClient
     .from('restaurant_invites')
     .update({ token_hash: hash })
     .eq('id', inviteId)
     .eq('restaurant_id', restaurantId)
+    .eq('token_hash', previousHash)
     .eq('status', INVITE_STATUS_PENDING)
     .gt('expires_at', nowIso)
     .select(INVITE_SELECT)
@@ -230,40 +318,28 @@ export async function resendRestaurantInvite(
   if (error) {
     throw error;
   }
-
   if (!data) {
-    const { data: current, error: readError } = await authClient
-      .from('restaurant_invites')
-      .select(INVITE_SELECT)
-      .eq('id', inviteId)
-      .eq('restaurant_id', restaurantId)
-      .maybeSingle();
-
-    if (readError) {
-      throw readError;
-    }
-    if (!current) {
-      throw inviteError('INVITE_NOT_FOUND', 'Invite not found');
-    }
-    const availability = getInviteAvailability(current as RestaurantInvite);
-    if (availability === 'expired') {
-      throw inviteError('INVITE_EXPIRED', 'Invite has expired');
-    }
-    throw inviteError('INVITE_NOT_PENDING', 'Invite is no longer pending');
+    return explainUnrotatableInvite(inviteId, restaurantId, authClient);
   }
 
   const invite = data as RestaurantInvite;
+  let delivered: boolean;
   try {
-    const { delivered } = await sendTeamInviteEmail({ invite, token });
-    return { invite, emailSent: delivered };
+    ({ delivered } = await sendTeamInviteEmail({ invite, token }));
   } catch (sendError) {
     logger.warn('team_invite.resend_email_failed', {
       restaurantId: invite.restaurant_id,
       inviteId: invite.id,
       ...describeFailure(sendError),
     });
+    await restorePreviousInviteToken(invite, previousHash, hash, authClient);
     throw inviteError('INVITE_EMAIL_FAILED', 'Invite email could not be sent', sendError);
   }
+
+  if (!delivered) {
+    await restorePreviousInviteToken(invite, previousHash, hash, authClient);
+  }
+  return { invite, emailSent: delivered };
 }
 
 export async function expireRestaurantInvites(

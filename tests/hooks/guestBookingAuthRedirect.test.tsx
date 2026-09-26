@@ -57,6 +57,16 @@ describe('guest booking hooks and the sign-in redirect', () => {
     expect(isGuestBookingLinkPath('/bookingsx')).toBe(false);
   });
 
+  it('treats the cookie-reachable /guest/bookings/<id> detail and receipt pages as guest link surfaces', () => {
+    expect(isGuestBookingLinkPath('/guest/bookings/b-1')).toBe(true);
+    expect(isGuestBookingLinkPath('/guest/bookings/b-1/')).toBe(true);
+    expect(isGuestBookingLinkPath('/guest/bookings/b-1/receipt')).toBe(true);
+    expect(isGuestBookingLinkPath('/guest/bookings/')).toBe(false);
+    expect(isGuestBookingLinkPath('/guest/bookings/b-1/edit')).toBe(false);
+    expect(isGuestBookingLinkPath('/guest/bookings/b-1/receipt/x')).toBe(false);
+    expect(isGuestBookingLinkPath('/guest/profile')).toBe(false);
+  });
+
   it('cancel on the guest booking page surfaces UNAUTHENTICATED without redirecting to sign-in', async () => {
     window.history.pushState({}, '', '/bookings/b-1');
     stub401('UNAUTHENTICATED');

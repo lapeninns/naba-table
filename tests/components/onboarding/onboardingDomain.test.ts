@@ -25,6 +25,7 @@ const DEFAULTS: OnboardingState = {
   servicePeriods: [],
   zones: [],
   tables: [],
+  layoutRevision: null,
   loading: false,
   error: null,
 };
@@ -102,6 +103,7 @@ describe('applyServerResume', () => {
       ],
       zones: [{ id: 'zone-1', name: 'Terrace', sortOrder: 0, active: true }],
       tables: [{ id: 'table-1', tableNumber: 'T7', capacity: 4, zoneId: 'zone-1' }],
+      layoutRevision: 'rev-7',
     };
     const next = applyServerResume(
       { ...DEFAULTS, step: 5 },
@@ -122,6 +124,8 @@ describe('applyServerResume', () => {
     expect(next.servicePeriods).toEqual(setup.servicePeriods);
     expect(next.zones).toEqual(setup.zones);
     expect(next.tables).toEqual(setup.tables);
+    // The Tables step saves against the revision the resumed layout was read at.
+    expect(next.layoutRevision).toBe('rev-7');
   });
 
   it('keeps a draft whose restaurant belongs to the signed-in user', () => {

@@ -15,6 +15,7 @@ DECLARE
   legacy_row constant uuid := '00000000-0000-4000-8000-0000000c0b04';
   poison_row constant uuid := '00000000-0000-4000-8000-0000000c0b05';
   v_claimed uuid[];
+  v_dead uuid[];
   v_row public.capacity_outbox%ROWTYPE;
 BEGIN
   INSERT INTO public.capacity_outbox (
@@ -79,7 +80,8 @@ BEGIN
   END IF;
 
   -- A row whose attempts are used up (its worker kept crashing before settling) is
-  -- dead-lettered by the claim instead of being handed out again.
+  -- dead-lettered by the claim instead of being handed out again. The claim returns
+  -- it with status 'dead' so the worker can count and report the dead letter.
   UPDATE public.capacity_outbox SET status = 'done' WHERE id = legacy_row;
   INSERT INTO public.capacity_outbox (
     id, event_type, dedupe_key, restaurant_id, booking_id, payload, status, attempt_count,
@@ -89,8 +91,13 @@ BEGIN
     '{}'::jsonb, 'processing', 10, clock_timestamp() - interval '1 second',
     TIMESTAMPTZ '2000-01-01 00:00:04+00', TIMESTAMPTZ '2000-01-01 00:00:04+00'
   );
-  SELECT array_agg(claimed.id) INTO v_claimed
+  SELECT array_agg(claimed.id) FILTER (WHERE claimed.status = 'processing'),
+         array_agg(claimed.id) FILTER (WHERE claimed.status = 'dead')
+  INTO v_claimed, v_dead
   FROM public.claim_capacity_outbox_batch(1, 300, 10) AS claimed;
+  IF v_dead IS DISTINCT FROM ARRAY[poison_row] THEN
+    RAISE EXCEPTION 'Dead-lettered row was not reported by the claim: %', v_dead USING ERRCODE = 'NB001';
+  END IF;
   IF v_claimed IS NOT NULL
      OR (SELECT status FROM public.capacity_outbox WHERE id = poison_row) <> 'dead'
      OR (SELECT attempt_count FROM public.capacity_outbox WHERE id = poison_row) <> 10 THEN

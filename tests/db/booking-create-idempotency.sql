@@ -18,6 +18,7 @@ DECLARE
   v_customer_id constant uuid := '00000000-0000-4000-8000-00000000c001';
   v_key constant text := 'regression-create-idempotency-key-1';
   v_pending_key constant text := 'regression-create-idempotency-key-2';
+  v_notes_key constant text := 'regression-create-idempotency-key-3';
   v_derived_key constant text := 'regression-create-derived-key-1';
   v_derived jsonb := jsonb_build_object('idempotency_key_kind', 'derived');
   v_derived_first jsonb;
@@ -130,6 +131,77 @@ BEGIN
   );
   IF v_reused ->> 'error' IS DISTINCT FROM 'IDEMPOTENCY_KEY_REUSED' THEN
     RAISE EXCEPTION 'reused key with a different time was not rejected' USING ERRCODE = 'NB001';
+  END IF;
+
+  -- 3b. Booking type, seating preference and notes also define the booking: a different value
+  --     under the same key is IDEMPOTENCY_KEY_REUSED, never a silent replay of the original.
+  v_reused := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-01', TIME '19:00', TIME '20:30', 2, 'lunch',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    NULL, false, v_key, 'api', NULL, 'regression-request-5b', '{}'::jsonb, 0
+  );
+  IF v_reused ->> 'error' IS DISTINCT FROM 'IDEMPOTENCY_KEY_REUSED' OR v_reused ? 'booking' THEN
+    RAISE EXCEPTION 'reused key with a different booking type was not rejected: %', v_reused
+      USING ERRCODE = 'NB001';
+  END IF;
+
+  v_reused := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-01', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'window',
+    NULL, false, v_key, 'api', NULL, 'regression-request-5c', '{}'::jsonb, 0
+  );
+  IF v_reused ->> 'error' IS DISTINCT FROM 'IDEMPOTENCY_KEY_REUSED' OR v_reused ? 'booking' THEN
+    RAISE EXCEPTION 'reused key with a different seating preference was not rejected: %', v_reused
+      USING ERRCODE = 'NB001';
+  END IF;
+
+  v_reused := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-01', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    'Wheelchair access please', false, v_key, 'api', NULL, 'regression-request-5d', '{}'::jsonb, 0
+  );
+  IF v_reused ->> 'error' IS DISTINCT FROM 'IDEMPOTENCY_KEY_REUSED' OR v_reused ? 'booking' THEN
+    RAISE EXCEPTION 'reused key with different notes was not rejected: %', v_reused
+      USING ERRCODE = 'NB001';
+  END IF;
+
+  -- Empty or blank notes are the same as no notes, so an identical retry still replays.
+  v_replay := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-01', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'any',
+    '   ', false, v_key, 'api', NULL, 'regression-request-5e', '{}'::jsonb, 0
+  );
+  IF (v_replay ->> 'duplicate')::boolean IS NOT TRUE
+     OR (v_replay -> 'booking' ->> 'id')::uuid IS DISTINCT FROM v_booking_id THEN
+    RAISE EXCEPTION 'identical retry with blank notes did not replay: %', v_replay
+      USING ERRCODE = 'NB001';
+  END IF;
+
+  -- Stored notes are compared after trimming, so a retry of a booking with notes replays.
+  v_first := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-07', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'window',
+    ' Birthday, window seat ', false, v_notes_key, 'api', NULL, 'regression-request-n1', '{}'::jsonb, 0
+  );
+  v_replay := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-07', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'window',
+    'Birthday, window seat', false, v_notes_key, 'api', NULL, 'regression-request-n2', '{}'::jsonb, 0
+  );
+  IF (v_first ->> 'success')::boolean IS NOT TRUE
+     OR (v_replay ->> 'duplicate')::boolean IS NOT TRUE
+     OR v_replay -> 'booking' ->> 'id' IS DISTINCT FROM v_first -> 'booking' ->> 'id' THEN
+    RAISE EXCEPTION 'identical retry of a booking with notes and seating did not replay: %', v_replay
+      USING ERRCODE = 'NB001';
+  END IF;
+  v_reused := public.create_booking_with_capacity_check(
+    v_restaurant_id, v_customer_id, DATE '2099-09-07', TIME '19:00', TIME '20:30', 2, 'dinner',
+    'Synthetic fixture', 'synthetic-regression@test.invalid', '+447000000031', 'window',
+    NULL, false, v_notes_key, 'api', NULL, 'regression-request-n3', '{}'::jsonb, 0
+  );
+  IF v_reused ->> 'error' IS DISTINCT FROM 'IDEMPOTENCY_KEY_REUSED' THEN
+    RAISE EXCEPTION 'reused key that dropped the notes was not rejected: %', v_reused
+      USING ERRCODE = 'NB001';
   END IF;
 
   SELECT count(*) INTO v_count
@@ -294,7 +366,7 @@ BEGIN
        'EXECUTE')
      OR has_function_privilege(
        'authenticated',
-       'public.booking_create_idempotent_replay_result(public.bookings,uuid,date,time,integer)',
+       'public.booking_create_idempotent_replay_result(public.bookings,uuid,date,time,integer,text,text,text)',
        'EXECUTE')
      OR NOT has_function_privilege(
        'service_role',

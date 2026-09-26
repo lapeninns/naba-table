@@ -47,6 +47,7 @@ export function applyServerResume(
             servicePeriods: setup.servicePeriods,
             zones: setup.zones,
             tables: setup.tables,
+            layoutRevision: setup.layoutRevision,
           }
         : {}),
       session,

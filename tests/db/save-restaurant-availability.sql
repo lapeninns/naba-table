@@ -29,6 +29,8 @@ DECLARE
   v_state text;
   v_occasion jsonb;
   v_order integer;
+  v_revisions jsonb;
+  v_after_rules jsonb;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.restaurants WHERE id = v_restaurant_id) THEN
     RAISE EXCEPTION 'synthetic fixture restaurant is missing; run through the sql-regression runner'
@@ -273,6 +275,81 @@ BEGIN
     RAISE EXCEPTION 'rules-only command changed service periods' USING ERRCODE = 'NB001';
   END IF;
 
+  -- 7b. Per-section revisions: two editors load the same snapshot. One saves the booking rules,
+  --     the other then saves the hours; the sections do not overlap, so both succeed. A third
+  --     save of the rules from the same old snapshot overlaps the first and is refused.
+  v_revisions := public.restaurant_availability_snapshot(v_restaurant_id) -> 'revisions';
+  IF v_revisions IS NULL
+    OR NOT (v_revisions ?& ARRAY['hours', 'servicePeriods', 'turnBands', 'rules'])
+    OR v_revisions <> public.restaurant_availability_revisions(v_restaurant_id) THEN
+    RAISE EXCEPTION 'snapshot did not return per-section revisions: %', v_revisions
+      USING ERRCODE = 'NB001';
+  END IF;
+  v_result := public.save_restaurant_availability(
+    p_restaurant_id => v_restaurant_id,
+    p_rules => jsonb_build_object('reservation_last_seating_buffer_minutes', 25),
+    p_expected_revisions => v_revisions
+  );
+  v_after_rules := v_result -> 'revisions';
+  IF v_after_rules ->> 'rules' = v_revisions ->> 'rules'
+    OR v_after_rules ->> 'hours' <> v_revisions ->> 'hours' THEN
+    RAISE EXCEPTION 'rules save moved the wrong section revisions: % -> %', v_revisions, v_after_rules
+      USING ERRCODE = 'NB001';
+  END IF;
+  v_result := public.save_restaurant_availability(
+    p_restaurant_id => v_restaurant_id,
+    p_operating_hours => (
+      SELECT jsonb_agg(
+        CASE WHEN (row ->> 'day_of_week')::integer = 1
+          THEN row || jsonb_build_object('closes_at', '21:30')
+          ELSE row
+        END
+      )
+      FROM jsonb_array_elements(v_hours) AS row
+    ),
+    p_expected_revisions => v_revisions
+  );
+  SELECT closes_at INTO v_closes FROM public.restaurant_operating_hours
+  WHERE restaurant_id = v_restaurant_id AND day_of_week = 1 AND effective_date IS NULL;
+  IF v_closes <> '21:30'::time
+    OR (SELECT reservation_last_seating_buffer_minutes FROM public.restaurants WHERE id = v_restaurant_id) <> 25
+    OR (v_result #>> '{revisions,rules}') <> v_after_rules ->> 'rules' THEN
+    RAISE EXCEPTION 'non-overlapping saves did not both apply' USING ERRCODE = 'NB001';
+  END IF;
+  BEGIN
+    PERFORM public.save_restaurant_availability(
+      p_restaurant_id => v_restaurant_id,
+      p_rules => jsonb_build_object('reservation_last_seating_buffer_minutes', 40),
+      p_expected_revisions => v_revisions
+    );
+    RAISE EXCEPTION 'overlapping stale rules save was accepted' USING ERRCODE = 'NB001';
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN SQLSTATE 'NT409' THEN
+    NULL;
+  END;
+  IF (SELECT reservation_last_seating_buffer_minutes FROM public.restaurants WHERE id = v_restaurant_id) <> 25 THEN
+    RAISE EXCEPTION 'refused overlapping save changed the rules' USING ERRCODE = 'NB001';
+  END IF;
+  -- Replaying the committed rules save from the old snapshot changes nothing and is accepted.
+  PERFORM public.save_restaurant_availability(
+    p_restaurant_id => v_restaurant_id,
+    p_rules => jsonb_build_object('reservation_last_seating_buffer_minutes', 25),
+    p_expected_revisions => v_revisions
+  );
+  BEGIN
+    PERFORM public.save_restaurant_availability(
+      p_restaurant_id => v_restaurant_id,
+      p_rules => jsonb_build_object('reservation_last_seating_buffer_minutes', 25),
+      p_expected_revisions => '["not-an-object"]'::jsonb
+    );
+    RAISE EXCEPTION 'malformed expected revisions were accepted' USING ERRCODE = 'NB001';
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN SQLSTATE 'NT400' THEN
+    NULL;
+  END;
+
   -- 8. Tenant isolation: a turn-band row for another restaurant is refused.
   BEGIN
     PERFORM public.save_restaurant_availability(
@@ -321,11 +398,12 @@ BEGIN
   END;
 
   -- 10. Only service_role may call the new functions.
-  IF has_function_privilege('authenticated', 'public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text)', 'EXECUTE')
-    OR has_function_privilege('anon', 'public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text)', 'EXECUTE')
+  IF has_function_privilege('authenticated', 'public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text, jsonb)', 'EXECUTE')
+    OR has_function_privilege('anon', 'public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text, jsonb)', 'EXECUTE')
     OR has_function_privilege('authenticated', 'public.restaurant_availability_revision(uuid)', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.restaurant_availability_revisions(uuid)', 'EXECUTE')
     OR has_function_privilege('authenticated', 'public.create_booking_occasion(jsonb, uuid)', 'EXECUTE')
-    OR NOT has_function_privilege('service_role', 'public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text)', 'EXECUTE') THEN
+    OR NOT has_function_privilege('service_role', 'public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text, jsonb)', 'EXECUTE') THEN
     RAISE EXCEPTION 'unexpected function grants' USING ERRCODE = 'NB001';
   END IF;
 
@@ -386,6 +464,7 @@ BEGIN
     v_restaurant_id, NULL, NULL, NULL, jsonb_build_object('booking_policy', 'Snapshot policy'), NULL
   );
   IF v_result ->> 'revision' <> public.restaurant_availability_revision(v_restaurant_id)
+    OR v_result -> 'revisions' <> public.restaurant_availability_revisions(v_restaurant_id)
     OR jsonb_array_length(v_result -> 'operating_hours') <> (
       SELECT COUNT(*) FROM public.restaurant_operating_hours WHERE restaurant_id = v_restaurant_id
     )

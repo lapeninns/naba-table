@@ -9,8 +9,9 @@
 --    re-claimed once their lease has elapsed. attempt_count is incremented on claim;
 --    a candidate whose attempt_count has reached p_max_attempts (default 10, the
 --    app's OUTBOX_MAX_ATTEMPTS) is moved to 'dead' in the same statement instead of
---    being returned, so an event that crashes or times out the worker is not
---    re-claimed forever. Settles are fenced on attempt_count by the app, so a worker
+--    being claimed, so an event that crashes or times out the worker is not
+--    re-claimed forever. Dead-lettered rows are returned too, with status 'dead',
+--    so the worker counts and reports them; it only processes 'processing' rows. Settles are fenced on attempt_count by the app, so a worker
 --    whose lease expired cannot overwrite the row after another worker re-claimed it.
 -- 2. ensure_booking_email_intent(...)
 --    Inserts an email_dispatch_intents row only when its dedupe_key is absent
@@ -19,6 +20,15 @@
 --    processing or cancelled intent is never reset. With p_supersede_types it also
 --    cancels the booking's other still-pending intents of those types (used for
 --    modification emails, so only the latest modification's email is sent).
+--    Calls are serialised per booking (transaction advisory lock), and supersede
+--    follows booking state, not arrival order: p_booking_revision (the committed
+--    bookings.updated_at of the change the email describes) is stored in the
+--    intent payload as bookingRevision. An intent only cancels others whose
+--    revision is not newer than its own, and an intent that arrives after one with
+--    a newer revision is recorded as 'cancelled' on arrival (never sent). A missing
+--    revision counts as the oldest. updated_at is the writing transaction's start
+--    time; both modification RPCs lock the booking row first, so it follows commit
+--    order except when a transaction that started earlier took the row lock later.
 -- 3. claim_booking_email_intent(p_dedupe_key, p_restaurant_id)
 --    Atomic claim of one intent (pending, or processing with a claim older than the
 --    15 minute lease used by claim_due_email_dispatch_intents). A concurrent cron
@@ -37,7 +47,7 @@
 -- No table, column, index, constraint or data changes.
 -- Rollback:
 --   DROP FUNCTION IF EXISTS public.claim_capacity_outbox_batch(integer, integer, integer);
---   DROP FUNCTION IF EXISTS public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[]);
+--   DROP FUNCTION IF EXISTS public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[], timestamptz);
 --   DROP FUNCTION IF EXISTS public.claim_booking_email_intent(text, uuid);
 --   DROP FUNCTION IF EXISTS public.settle_booking_email_intent(uuid, uuid, text, integer, text, integer);
 --   and redeploy the previous server/outbox.ts and server/jobs/booking-side-effects.ts.
@@ -96,17 +106,24 @@ BEGIN
     FROM candidate
     WHERE outbox.id = candidate.id
       AND candidate.exhausted
-    RETURNING outbox.id
+    RETURNING outbox.*
+  ),
+  claimed AS (
+    UPDATE public.capacity_outbox AS outbox
+    SET status = 'processing',
+        attempt_count = outbox.attempt_count + 1,
+        next_attempt_at = v_now + v_lease,
+        updated_at = v_now
+    FROM candidate
+    WHERE outbox.id = candidate.id
+      AND NOT candidate.exhausted
+    RETURNING outbox.*
   )
-  UPDATE public.capacity_outbox AS outbox
-  SET status = 'processing',
-      attempt_count = outbox.attempt_count + 1,
-      next_attempt_at = v_now + v_lease,
-      updated_at = v_now
-  FROM candidate
-  WHERE outbox.id = candidate.id
-    AND NOT candidate.exhausted
-  RETURNING outbox.*;
+  -- Dead-lettered rows are returned with status 'dead' so the worker can count and
+  -- report them; only the 'processing' rows are the caller's to handle.
+  SELECT * FROM claimed
+  UNION ALL
+  SELECT * FROM dead_lettered;
 END;
 $$;
 
@@ -120,7 +137,8 @@ CREATE OR REPLACE FUNCTION public.ensure_booking_email_intent(
   p_dedupe_key text,
   p_scheduled_for timestamptz DEFAULT NULL,
   p_max_attempts integer DEFAULT 5,
-  p_supersede_types text[] DEFAULT NULL
+  p_supersede_types text[] DEFAULT NULL,
+  p_booking_revision timestamptz DEFAULT NULL
 )
 RETURNS TABLE(intent_id uuid, created boolean, intent_status text)
 LANGUAGE plpgsql
@@ -133,6 +151,10 @@ DECLARE
   v_status text;
   v_created boolean := false;
   v_now timestamptz := clock_timestamp();
+  v_supersedes boolean := p_supersede_types IS NOT NULL AND cardinality(p_supersede_types) > 0;
+  -- A missing revision sorts before every real one.
+  v_revision timestamptz := COALESCE(p_booking_revision, '-infinity'::timestamptz);
+  v_stale boolean := false;
 BEGIN
   IF p_booking_id IS NULL OR p_restaurant_id IS NULL
      OR p_email_type IS NULL OR length(btrim(p_email_type)) = 0
@@ -150,6 +172,26 @@ BEGIN
       USING ERRCODE = 'P0002';
   END IF;
 
+  -- One ensure per booking at a time: the stale check and the supersede below must
+  -- not interleave with a concurrent ensure for the same booking.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('ensure_booking_email_intent:' || p_booking_id::text, 0)
+  );
+
+  -- Stale: another intent of these types already describes a newer booking state
+  -- (whatever its status). This one is recorded as cancelled and never sent.
+  IF v_supersedes THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.email_dispatch_intents AS intent
+      WHERE intent.booking_id = p_booking_id
+        AND intent.restaurant_id = p_restaurant_id
+        AND intent.email_type = ANY (p_supersede_types)
+        AND intent.dedupe_key <> p_dedupe_key
+        AND COALESCE((intent.payload->>'bookingRevision')::timestamptz, '-infinity'::timestamptz) > v_revision
+    ) INTO v_stale;
+  END IF;
+
   INSERT INTO public.email_dispatch_intents (
     dedupe_key,
     booking_id,
@@ -160,6 +202,8 @@ BEGIN
     attempts_made,
     max_attempts,
     payload,
+    cancelled_at,
+    processed_at,
     created_at,
     updated_at
   ) VALUES (
@@ -168,23 +212,25 @@ BEGIN
     p_restaurant_id,
     p_email_type,
     COALESCE(p_scheduled_for, v_now),
-    'pending',
+    CASE WHEN v_stale THEN 'cancelled' ELSE 'pending' END,
     0,
     GREATEST(1, COALESCE(p_max_attempts, 5)),
-    jsonb_build_object(
+    jsonb_strip_nulls(jsonb_build_object(
       'bookingId', p_booking_id,
       'restaurantId', p_restaurant_id,
-      'type', p_email_type
-    ),
+      'type', p_email_type,
+      'bookingRevision', p_booking_revision
+    )),
+    CASE WHEN v_stale THEN v_now END,
+    CASE WHEN v_stale THEN v_now END,
     v_now,
     v_now
   )
   ON CONFLICT (dedupe_key) DO NOTHING
-  RETURNING id INTO v_id;
+  RETURNING id, status INTO v_id, v_status;
 
   IF v_id IS NOT NULL THEN
     v_created := true;
-    v_status := 'pending';
   ELSE
     SELECT intent.id, intent.booking_id, intent.status
     INTO v_id, v_booking_id, v_status
@@ -198,9 +244,10 @@ BEGIN
   END IF;
 
   -- Superseded intents: a newer modification replaces an unsent older one, so the
-  -- guest gets one email about the latest state. Only 'pending' rows are withdrawn;
-  -- one already being sent (processing) cannot be recalled.
-  IF p_supersede_types IS NOT NULL AND cardinality(p_supersede_types) > 0 THEN
+  -- guest gets one email about the latest state. Only 'pending' rows whose booking
+  -- revision is not newer than this one are withdrawn; one already being sent
+  -- (processing) cannot be recalled. A stale intent withdraws nothing.
+  IF v_supersedes AND NOT v_stale THEN
     UPDATE public.email_dispatch_intents AS intent
     SET status = 'cancelled',
         cancelled_at = v_now,
@@ -212,16 +259,17 @@ BEGIN
       AND intent.email_type = ANY (p_supersede_types)
       AND intent.dedupe_key <> p_dedupe_key
       AND intent.status = 'pending'
-      AND intent.cancelled_at IS NULL;
+      AND intent.cancelled_at IS NULL
+      AND COALESCE((intent.payload->>'bookingRevision')::timestamptz, '-infinity'::timestamptz) <= v_revision;
   END IF;
 
   RETURN QUERY SELECT v_id, v_created, v_status;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[])
+REVOKE ALL ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[], timestamptz)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[])
+GRANT EXECUTE ON FUNCTION public.ensure_booking_email_intent(uuid, uuid, text, text, timestamptz, integer, text[], timestamptz)
   TO service_role;
 
 CREATE OR REPLACE FUNCTION public.claim_booking_email_intent(
