@@ -127,7 +127,9 @@ function parseInstantSeconds(value: string | null | undefined): number | null {
  * When the booking is over: `end_at`, else `start_at + 4h`, else the end of
  * `booking_date` (23:59 UTC). `null` when none are known.
  */
-export function resolveBookingAccessEndSeconds(booking: BookingAccessBooking): number | null {
+export function resolveBookingAccessEndSeconds(
+  booking: Pick<BookingAccessBooking, 'start_at' | 'end_at' | 'booking_date'>,
+): number | null {
   const endAt = parseInstantSeconds(booking.end_at);
   if (endAt !== null) return endAt;
 

@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
+import { isManageLinkEligibleBooking } from '@/server/bookings/manage-link-eligibility';
 import {
   sendBookingCancellationEmail,
   sendBookingConfirmationEmail,
+  sendBookingManageLinkEmail,
   sendBookingRejectedEmail,
   sendBookingReminderEmail,
   sendBookingReviewRequestEmail,
@@ -102,12 +104,20 @@ function shouldSendByStatus(type: EmailJobType, booking: BookingRecord): boolean
     case 'booking_rejected':
     case 'updated':
       return true;
+    case 'manage_link':
+      // Same predicate the lost-link request uses to pick bookings, so a
+      // booking that was eligible when requested is still sent.
+      return isManageLinkEligibleBooking(booking, new Date(now));
     default:
       return false;
   }
 }
 
-async function dispatchEmail(type: EmailJobType, booking: BookingRecord): Promise<void> {
+async function dispatchEmail(
+  type: EmailJobType,
+  booking: BookingRecord,
+  jobId: string,
+): Promise<void> {
   switch (type) {
     case 'request_received':
     case 'confirmation':
@@ -133,6 +143,11 @@ async function dispatchEmail(type: EmailJobType, booking: BookingRecord): Promis
       return;
     case 'booking_rejected':
       await sendBookingRejectedEmail(booking);
+      return;
+    case 'manage_link':
+      // The recipient is always the booking's stored address (never request
+      // input); the job id makes each lost-link send a distinct provider send.
+      await sendBookingManageLinkEmail(booking, { nonce: jobId });
       return;
     default: {
       const exhaustive: never = type;
@@ -218,7 +233,7 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
       return { jobId: job.id, success: true };
     }
 
-    await dispatchEmail(payload.type, booking);
+    await dispatchEmail(payload.type, booking, job.id);
     return { jobId: job.id, success: true };
   } catch (error) {
     console.warn('[queue][email-processing] job failed', {
