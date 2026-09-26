@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { OnboardingState, OnboardingStep } from './types';
+import type { OnboardingState, OnboardingStep, RestaurantProfile } from './types';
 
 export const ONBOARDING_STEPS = [
   { id: 1 as OnboardingStep, title: 'Account', description: 'Create your owner login' },
@@ -39,7 +39,9 @@ export function stepFromPathname(pathname: string | null): OnboardingStep {
 }
 
 export function getMaxAccessibleStep(state: OnboardingState): OnboardingStep {
-  if (!state.account) {
+  // A server-confirmed session counts as a finished account step (for example after the
+  // signup confirmation link opened a new tab with an empty draft).
+  if (!state.account && !state.session) {
     return 1;
   }
 
@@ -54,15 +56,22 @@ export const accountSchema = z
   .object({
     email: z.string().trim().min(1, 'Email is required').email('Enter a valid email'),
     mode: z.enum(['password', 'magic_link']),
-    password: z.string().min(8, 'Use at least 8 characters').optional(),
+    // Only checked for password sign-up: the hidden field is '' in magic-link mode, and a
+    // min-length rule on it used to block magic-link submissions entirely.
+    password: z.string().optional(),
   })
   .superRefine((values, ctx) => {
-    if (values.mode === 'password' && !values.password) {
+    if (values.mode !== 'password') {
+      return;
+    }
+    if (!values.password) {
       ctx.addIssue({
         code: 'custom',
         path: ['password'],
         message: 'Password is required for password sign-up',
       });
+    } else if (values.password.length < 8) {
+      ctx.addIssue({ code: 'custom', path: ['password'], message: 'Use at least 8 characters' });
     }
   });
 
@@ -102,3 +111,28 @@ export const tablesFormSchema = z.object({
 export type TablesFormValues = z.input<typeof tablesFormSchema>;
 
 export const timeInputPlaceholder = 'e.g. 17:00';
+
+type ProfileFormValues = {
+  name: string;
+  slug: string;
+  timezone: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  bookingPolicy?: string;
+};
+
+function normalizeOptional(value: string | null | undefined): string {
+  return (value ?? '').trim();
+}
+
+/** True when the profile form differs from what was last saved for the restaurant. */
+export function hasProfileChanged(saved: RestaurantProfile, values: ProfileFormValues): boolean {
+  return (
+    saved.name.trim() !== values.name.trim() ||
+    saved.slug.trim() !== values.slug.trim() ||
+    saved.timezone !== values.timezone ||
+    normalizeOptional(saved.contactEmail) !== normalizeOptional(values.contactEmail) ||
+    normalizeOptional(saved.contactPhone) !== normalizeOptional(values.contactPhone) ||
+    normalizeOptional(saved.bookingPolicy) !== normalizeOptional(values.bookingPolicy)
+  );
+}

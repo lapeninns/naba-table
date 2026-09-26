@@ -88,4 +88,36 @@ describe('OnboardingProvider persistence', () => {
     });
     expect(screen.getByTestId('stored-password')).toHaveTextContent('');
   });
+
+  it('never persists the server session and resumes from it after the confirmation hop', async () => {
+    function SessionProbe() {
+      const { state } = useOnboarding();
+      return <span data-testid="session-email">{state.session?.email ?? ''}</span>;
+    }
+
+    render(
+      <OnboardingProvider
+        initialState={{ step: 2 }}
+        resume={{
+          session: { email: 'owner@example.com' },
+          memberRestaurantIds: [],
+          resumeRestaurant: null,
+        }}
+      >
+        <SessionProbe />
+      </OnboardingProvider>,
+    );
+
+    expect(screen.getByTestId('session-email')).toHaveTextContent('owner@example.com');
+    await waitFor(() => {
+      const persisted = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? '{}') as Record<
+        string,
+        unknown
+      >;
+      expect(persisted.step).toBe(2);
+      expect(persisted).not.toHaveProperty('session');
+      expect(persisted).not.toHaveProperty('alreadyOnboarded');
+    });
+    expect(window.localStorage.length).toBe(0);
+  });
 });

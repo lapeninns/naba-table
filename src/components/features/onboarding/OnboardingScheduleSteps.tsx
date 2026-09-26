@@ -28,9 +28,13 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Heading, Text } from '@/components/ui/typography';
-import { fetchJson } from '@/lib/http/fetchJson';
+import { toUserMessage } from '@/lib/http/userMessage';
 
 import { useOnboarding } from './context/OnboardingContext';
+import {
+  useSaveOnboardingHours,
+  useSaveOnboardingServicePeriods,
+} from './hooks/useOnboardingMutations';
 import {
   DEFAULT_BOOKING_OPTIONS,
   ONBOARDING_STEPS,
@@ -43,7 +47,8 @@ import type { OperatingHour } from './types';
 import type { z } from 'zod';
 
 export function HoursStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setOperatingHours, setStep, setError, setLoading } = useOnboarding();
+  const { state, setOperatingHours, setStep, setError } = useOnboarding();
+  const saveHours = useSaveOnboardingHours();
   const [hours, setHours] = useState<OperatingHour[]>(state.operatingHours);
 
   const updateHour = (day: number, patch: Partial<OperatingHour>) => {
@@ -52,28 +57,29 @@ export function HoursStep({ onComplete }: { onComplete: () => void }) {
     );
   };
 
-  const save = async () => {
+  const save = () => {
     if (!state.restaurantId) {
       setError('Create your restaurant first');
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/hours`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operatingHours: hours }),
-      });
-      setOperatingHours(hours);
-      setStep(4);
-      onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save hours';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    saveHours.mutate(
+      { restaurantId: state.restaurantId, operatingHours: hours },
+      {
+        onSuccess: () => {
+          setOperatingHours(hours);
+          setStep(4);
+          onComplete();
+        },
+        onError: (error) => {
+          setError(
+            toUserMessage(error, {
+              fallback: "We couldn't save your opening hours. Check the times and try again.",
+            }),
+          );
+        },
+      },
+    );
   };
 
   return (
@@ -136,14 +142,15 @@ export function HoursStep({ onComplete }: { onComplete: () => void }) {
         totalSteps={ONBOARDING_STEPS.length}
         onBack={() => setStep(2)}
         onNext={save}
-        busy={state.loading}
+        busy={saveHours.isPending}
       />
     </div>
   );
 }
 
 export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setServicePeriods, setStep, setError, setLoading } = useOnboarding();
+  const { state, setServicePeriods, setStep, setError } = useOnboarding();
+  const savePeriods = useSaveOnboardingServicePeriods();
   const form = useForm<z.infer<typeof servicePeriodsFormSchema>>({
     resolver: zodResolver(servicePeriodsFormSchema),
     defaultValues: { servicePeriods: state.servicePeriods.length ? state.servicePeriods : [] },
@@ -162,28 +169,29 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
       bookingOption: 'dinner',
     });
 
-  const save = form.handleSubmit(async (values) => {
+  const save = form.handleSubmit((values) => {
     if (!state.restaurantId) {
       setError('Create your restaurant first');
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/service-periods`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servicePeriods: values.servicePeriods }),
-      });
-      setServicePeriods(values.servicePeriods);
-      setStep(5);
-      onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save service periods';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    savePeriods.mutate(
+      { restaurantId: state.restaurantId, servicePeriods: values.servicePeriods },
+      {
+        onSuccess: () => {
+          setServicePeriods(values.servicePeriods);
+          setStep(5);
+          onComplete();
+        },
+        onError: (error) => {
+          setError(
+            toUserMessage(error, {
+              fallback: "We couldn't save your service periods. Check the times and try again.",
+            }),
+          );
+        },
+      },
+    );
   });
 
   return (
@@ -332,7 +340,7 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
           totalSteps={ONBOARDING_STEPS.length}
           onBack={() => setStep(3)}
           onNext={save}
-          busy={state.loading}
+          busy={savePeriods.isPending}
         />
       </FormRoot>
     </Form>

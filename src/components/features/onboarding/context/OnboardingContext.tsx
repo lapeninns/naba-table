@@ -1,11 +1,14 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 
 import { DEFAULT_RESERVATION_INTERVAL_MINUTES } from '@reserve/shared/config/reservations';
 
+import { applyServerResume } from '../onboardingResume';
+
 import type {
   AccountDetails,
+  OnboardingResume,
   OnboardingState,
   OnboardingStep,
   OperatingHour,
@@ -16,7 +19,8 @@ import type {
 } from '../types';
 
 const DEFAULT_TIMEZONE = 'Europe/London';
-const STORAGE_KEY = 'nabatable:onboarding:draft:v1';
+export const ONBOARDING_DRAFT_STORAGE_KEY = 'nabatable:onboarding:draft:v1';
+const STORAGE_KEY = ONBOARDING_DRAFT_STORAGE_KEY;
 
 const DEFAULT_STATE: OnboardingState = {
   step: 1,
@@ -106,12 +110,21 @@ function isOnboardingStep(value: unknown): value is OnboardingStep {
   return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
 }
 
+/** Drops the fields the server supplies on each render (`session`, `alreadyOnboarded`). */
+function withoutServerFacts(value: Partial<OnboardingState>): Partial<OnboardingState> {
+  const copy: Partial<OnboardingState> = { ...value };
+  delete copy.session;
+  delete copy.alreadyOnboarded;
+  return copy;
+}
+
 function sanitizePersistedState(value: unknown): Partial<OnboardingState> {
   if (!value || typeof value !== 'object') {
     return {};
   }
 
-  const source = value as Partial<OnboardingState>;
+  // Session facts come from the server on every render and are never restored.
+  const source = withoutServerFacts(value as Partial<OnboardingState>);
   return {
     ...source,
     account: redactAccountDetails(source.account),
@@ -121,17 +134,49 @@ function sanitizePersistedState(value: unknown): Partial<OnboardingState> {
   };
 }
 
-function getInitialState(initialState?: Partial<OnboardingState>): OnboardingState {
-  if (typeof window === 'undefined') {
-    return { ...DEFAULT_STATE, ...initialState };
-  }
+type InitArgs = { initialState?: Partial<OnboardingState>; resume?: OnboardingResume };
 
+function readPersistedDraft(): Partial<OnboardingState> {
+  if (typeof window === 'undefined') {
+    return {};
+  }
   try {
     const persistedRaw = window.sessionStorage.getItem(STORAGE_KEY);
-    const persisted = persistedRaw ? sanitizePersistedState(JSON.parse(persistedRaw)) : {};
-    return { ...DEFAULT_STATE, ...persisted, ...initialState };
+    return persistedRaw ? sanitizePersistedState(JSON.parse(persistedRaw)) : {};
   } catch {
-    return { ...DEFAULT_STATE, ...initialState };
+    return {};
+  }
+}
+
+function getInitialState({ initialState, resume }: InitArgs): OnboardingState {
+  const draft: OnboardingState = { ...DEFAULT_STATE, ...readPersistedDraft(), ...initialState };
+  return applyServerResume(draft, resume, DEFAULT_STATE);
+}
+
+function persistDraft(state: OnboardingState) {
+  const draft = withoutServerFacts(state);
+  const persistedState = {
+    ...draft,
+    account: redactAccountDetails(state.account),
+    loading: false,
+    error: null,
+  };
+  try {
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+  } catch {
+    // Storage can be unavailable (private mode, quota); the wizard still works in memory.
+  }
+}
+
+/** Removes the stored draft, e.g. after launch. */
+export function clearPersistedOnboardingDraft() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Nothing to clear when storage is unavailable.
   }
 }
 
@@ -148,6 +193,12 @@ export type OnboardingContextValue = {
   setLoading: (value: boolean) => void;
   setError: (message: string | null) => void;
   reset: (initial?: Partial<OnboardingState>) => void;
+  /**
+   * Deletes the stored draft and stops persisting it (used right before leaving the
+   * wizard after launch). In-memory state is kept so the page does not re-route while
+   * the browser navigates away.
+   */
+  discardDraft: () => void;
 };
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null);
@@ -155,24 +206,20 @@ const OnboardingContext = createContext<OnboardingContextValue | null>(null);
 export function OnboardingProvider({
   children,
   initialState,
+  resume,
 }: {
   children: React.ReactNode;
   initialState?: Partial<OnboardingState>;
+  resume?: OnboardingResume;
 }) {
-  const [state, dispatch] = useReducer(reducer, initialState, getInitialState);
+  const [state, dispatch] = useReducer(reducer, { initialState, resume }, getInitialState);
+  const clearedRef = useRef(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || clearedRef.current) {
       return;
     }
-
-    const persistedState: OnboardingState = {
-      ...state,
-      account: redactAccountDetails(state.account),
-      loading: false,
-      error: null,
-    };
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
+    persistDraft(state);
   }, [state]);
 
   const value = useMemo<OnboardingContextValue>(
@@ -189,6 +236,10 @@ export function OnboardingProvider({
       setLoading: (value) => dispatch({ type: 'SET_LOADING', value }),
       setError: (message) => dispatch({ type: 'SET_ERROR', message }),
       reset: (initial) => dispatch({ type: 'RESET', initial }),
+      discardDraft: () => {
+        clearedRef.current = true;
+        clearPersistedOnboardingDraft();
+      },
     }),
     [state],
   );

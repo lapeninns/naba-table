@@ -1,4 +1,4 @@
-import { OnboardingWizard } from '@/components/features/onboarding/OnboardingWizard';
+import { OnboardingWizardPage } from '@/components/features/onboarding/OnboardingWizardPage';
 
 import type { Metadata } from 'next';
 
@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnboardingReviewPage() {
-  return <OnboardingWizard initialState={{ step: 6 }} />;
+  return <OnboardingWizardPage initialState={{ step: 6 }} />;
 }

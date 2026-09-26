@@ -1,8 +1,12 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -23,16 +27,115 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { track } from '@/lib/analytics';
 import { emit } from '@/lib/analytics/emit';
-import { fetchJson } from '@/lib/http/fetchJson';
+import { getFieldErrors, toUserMessage } from '@/lib/http/userMessage';
 
 import { useOnboarding } from './context/OnboardingContext';
-import { ONBOARDING_STEPS, accountSchema, profileSchema } from './onboardingWizardDomain';
+import { useOnboardingSignup, useSaveOnboardingProfile } from './hooks/useOnboardingMutations';
+import {
+  ONBOARDING_STEPS,
+  STEP_PATHS,
+  accountSchema,
+  hasProfileChanged,
+  profileSchema,
+} from './onboardingWizardDomain';
 import { OnboardingNavigation } from './ui/OnboardingNavigation';
 
+import type { FieldValues, Path, UseFormReturn } from 'react-hook-form';
 import type { z } from 'zod';
 
+const SIGNUP_ERROR_COPY = {
+  RATE_LIMITED: 'Too many sign-up attempts. Wait a few minutes and try again.',
+  MAGIC_LINK_FAILED: "We couldn't send the sign-in email. Try again in a moment.",
+};
+
+const PROFILE_ERROR_COPY = {
+  SLUG_TAKEN: 'That web address is taken. Try a different slug.',
+  ONBOARDING_ALREADY_COMPLETED:
+    'This account already has a restaurant. Reload the page to continue setting it up.',
+  UNAUTHENTICATED: 'Confirm your email and sign in to continue.',
+};
+
+/** Puts server field messages (C1 `fields`) on the matching form inputs. */
+function applyServerFieldErrors<T extends FieldValues>(
+  form: UseFormReturn<T>,
+  error: unknown,
+  names: ReadonlyArray<Path<T>>,
+) {
+  const fields = getFieldErrors(error);
+  if (!fields) return;
+  for (const name of names) {
+    const message = fields[name]?.[0];
+    if (message) {
+      form.setError(name, { type: 'server', message });
+    }
+  }
+}
+
+function SignedInPanel({ email, onContinue }: { email: string | null; onContinue: () => void }) {
+  return (
+    <div className="space-y-4">
+      <Alert>
+        <AlertTitle>You&apos;re signed in</AlertTitle>
+        <AlertDescription>
+          {email
+            ? `Continue setting up your restaurant as ${email}.`
+            : 'Continue setting up your restaurant.'}
+        </AlertDescription>
+      </Alert>
+      <OnboardingNavigation
+        step={1}
+        totalSteps={ONBOARDING_STEPS.length}
+        canGoBack={false}
+        onNext={onContinue}
+        nextLabel="Continue"
+      />
+    </div>
+  );
+}
+
+function CheckEmailPanel({
+  email,
+  mode,
+  onConfirmed,
+  onUseDifferentEmail,
+}: {
+  email: string;
+  mode: 'password' | 'magic_link';
+  onConfirmed: () => void;
+  onUseDifferentEmail: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <Alert>
+        <AlertTitle>Check your email to confirm</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>
+            We sent a {mode === 'magic_link' ? 'sign-in link' : 'confirmation link'} to {email}.
+            Open it to continue setting up your restaurant. It opens in a new tab and picks up where
+            you left off, so you can close this one.
+          </p>
+        </AlertDescription>
+      </Alert>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button type="button" onClick={onConfirmed}>
+          I&apos;ve confirmed my email
+        </Button>
+        <Button type="button" variant="ghost" onClick={onUseDifferentEmail}>
+          Use a different email
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AccountStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setAccount, setStep, setError, setLoading } = useOnboarding();
+  const { state, setAccount, setStep, setError } = useOnboarding();
+  const signup = useOnboardingSignup();
+  const router = useRouter();
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<{
+    email: string;
+    mode: 'password' | 'magic_link';
+  } | null>(null);
   const form = useForm<z.infer<typeof accountSchema>>({
     resolver: zodResolver(accountSchema),
     defaultValues: {
@@ -42,27 +145,67 @@ export function AccountStep({ onComplete }: { onComplete: () => void }) {
     },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setLoading(true);
+  const selectedMode = useWatch({ control: form.control, name: 'mode' });
+
+  const onSubmit = form.handleSubmit((values) => {
     setError(null);
-    try {
-      await fetchJson('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
-      });
-      track('user_signed_up', { method: values.mode });
-      emit('user_signed_up', { method: values.mode });
-      setAccount({ email: values.email, mode: values.mode });
-      setStep(2);
-      onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to create account';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    const variables =
+      values.mode === 'password'
+        ? { email: values.email, mode: values.mode, password: values.password }
+        : { email: values.email, mode: values.mode };
+    signup.mutate(variables, {
+      onSuccess: (result) => {
+        track('user_signed_up', { method: values.mode });
+        emit('user_signed_up', { method: values.mode });
+        if (result.status === 'ok') {
+          // Password sign-up with an immediate session: the profile step can write.
+          setAccount({ email: values.email, mode: values.mode });
+          setStep(2);
+          onComplete();
+          return;
+        }
+        // 'confirmation_required' or 'magic_link_sent': no session yet, so stay here.
+        setAwaitingConfirmation({ email: values.email, mode: values.mode });
+      },
+      onError: (error) => {
+        applyServerFieldErrors(form, error, ['email', 'password']);
+        setError(
+          toUserMessage(error, {
+            copy: SIGNUP_ERROR_COPY,
+            fallback: "We couldn't create your account. Try again.",
+          }),
+        );
+      },
+    });
   });
+
+  if (state.session) {
+    return (
+      <SignedInPanel
+        email={state.session.email}
+        onContinue={() => {
+          setError(null);
+          setStep(2);
+          onComplete();
+        }}
+      />
+    );
+  }
+
+  if (awaitingConfirmation) {
+    return (
+      <CheckEmailPanel
+        email={awaitingConfirmation.email}
+        mode={awaitingConfirmation.mode}
+        // Reloads the profile route so the server resolves the confirmed session.
+        onConfirmed={() => {
+          router.push(STEP_PATHS[2]);
+          router.refresh();
+        }}
+        onUseDifferentEmail={() => setAwaitingConfirmation(null)}
+      />
+    );
+  }
 
   return (
     <Form {...form}>
@@ -104,7 +247,7 @@ export function AccountStep({ onComplete }: { onComplete: () => void }) {
           />
         </div>
 
-        {form.watch('mode') === 'password' && (
+        {selectedMode === 'password' && (
           <FormField
             control={form.control}
             name="password"
@@ -130,7 +273,7 @@ export function AccountStep({ onComplete }: { onComplete: () => void }) {
           totalSteps={ONBOARDING_STEPS.length}
           canGoBack={false}
           onNext={onSubmit}
-          busy={state.loading}
+          busy={signup.isPending}
           nextLabel="Continue"
         />
       </FormRoot>
@@ -139,7 +282,8 @@ export function AccountStep({ onComplete }: { onComplete: () => void }) {
 }
 
 export function ProfileStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setProfile, setRestaurantId, setStep, setError, setLoading } = useOnboarding();
+  const { state, setProfile, setRestaurantId, setStep, setError } = useOnboarding();
+  const saveProfile = useSaveOnboardingProfile();
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -152,35 +296,56 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
     },
   });
 
-  const onSubmit = form.handleSubmit(async (values) => {
-    setLoading(true);
+  const onSubmit = form.handleSubmit((values) => {
     setError(null);
-    try {
-      const response = await fetchJson<{ restaurant: { id: string; name: string; slug: string } }>(
-        '/api/onboarding/restaurant',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: values.name,
-            slug: values.slug,
-            timezone: values.timezone,
-            contactEmail: values.contactEmail || null,
-            contactPhone: values.contactPhone || null,
-            bookingPolicy: values.bookingPolicy || null,
-          }),
-        },
-      );
-      setProfile({ ...state.profile, ...values });
-      setRestaurantId(response.restaurant.id);
+    const advance = () => {
       setStep(3);
       onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save profile';
-      setError(message);
-    } finally {
-      setLoading(false);
+    };
+
+    // Back navigation after the restaurant exists: nothing to write when nothing changed.
+    if (state.restaurantId && !hasProfileChanged(state.profile, values)) {
+      advance();
+      return;
     }
+
+    saveProfile.mutate(
+      {
+        restaurantId: state.restaurantId,
+        profile: {
+          name: values.name,
+          slug: values.slug,
+          timezone: values.timezone,
+          contactEmail: values.contactEmail || null,
+          contactPhone: values.contactPhone || null,
+          bookingPolicy: values.bookingPolicy || null,
+        },
+      },
+      {
+        onSuccess: (restaurant) => {
+          // The server may have suffixed the slug to keep it unique.
+          setProfile({ ...state.profile, ...values, slug: restaurant.slug });
+          setRestaurantId(restaurant.id);
+          advance();
+        },
+        onError: (error) => {
+          applyServerFieldErrors(form, error, [
+            'name',
+            'slug',
+            'timezone',
+            'contactEmail',
+            'contactPhone',
+            'bookingPolicy',
+          ]);
+          setError(
+            toUserMessage(error, {
+              copy: PROFILE_ERROR_COPY,
+              fallback: "We couldn't save your restaurant profile. Try again.",
+            }),
+          );
+        },
+      },
+    );
   });
 
   return (
@@ -285,7 +450,7 @@ export function ProfileStep({ onComplete }: { onComplete: () => void }) {
           totalSteps={ONBOARDING_STEPS.length}
           onBack={() => setStep(1)}
           onNext={onSubmit}
-          busy={state.loading}
+          busy={saveProfile.isPending}
         />
       </FormRoot>
     </Form>
