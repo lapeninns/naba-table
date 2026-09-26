@@ -5,6 +5,8 @@ import type {
   CanonicalRestaurantMenuItem,
   CanonicalRestaurantMenuOption,
   CanonicalRestaurantMenuSection,
+  MenuChildOrder,
+  MenuReorderTarget,
   RestaurantMenuInput,
   RestaurantMenuItemInput,
   RestaurantMenuItemPatch,
@@ -68,6 +70,21 @@ type OptionResponse = {
   option: CanonicalRestaurantMenuOption;
 };
 
+type ReorderResponse = {
+  data: { order: MenuChildOrder[] };
+};
+
+function buildReorderUrl(restaurantId: string, target: MenuReorderTarget): string {
+  switch (target.level) {
+    case 'sections':
+      return `${buildSectionsBase(restaurantId, target.menuId)}/order`;
+    case 'items':
+      return `${buildItemsBase(restaurantId, target.menuId, target.sectionId)}/order`;
+    case 'options':
+      return `${buildOptionsBase(restaurantId, target.menuId, target.sectionId, target.itemId)}/order`;
+  }
+}
+
 export interface MenuHierarchyService {
   listMenus(restaurantId: string, options?: RequestSignalOptions): Promise<MenuHierarchyResponse>;
   createMenu(restaurantId: string, payload: RestaurantMenuInput): Promise<CanonicalRestaurantMenu>;
@@ -130,6 +147,12 @@ export interface MenuHierarchyService {
     sectionId: string,
     itemId: string,
   ): Promise<void>;
+  /** One command per level: the complete new order of a parent's children. */
+  reorderChildren(
+    restaurantId: string,
+    target: MenuReorderTarget,
+    orderedIds: readonly string[],
+  ): Promise<MenuChildOrder[]>;
 }
 
 export type MenuHierarchyServiceFactory = () => MenuHierarchyService;
@@ -301,6 +324,19 @@ class DefaultMenuHierarchyService implements MenuHierarchyService {
       method: 'DELETE',
     });
   }
+
+  async reorderChildren(
+    restaurantId: string,
+    target: MenuReorderTarget,
+    orderedIds: readonly string[],
+  ): Promise<MenuChildOrder[]> {
+    const response = await fetchJson<ReorderResponse>(buildReorderUrl(restaurantId, target), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedIds }),
+    });
+    return response.data.order;
+  }
 }
 
 class NotImplementedMenuHierarchyService implements MenuHierarchyService {
@@ -358,6 +394,10 @@ class NotImplementedMenuHierarchyService implements MenuHierarchyService {
 
   deleteItem(): Promise<void> {
     this.error('deleteItem not implemented');
+  }
+
+  reorderChildren(): Promise<MenuChildOrder[]> {
+    this.error('reorderChildren not implemented');
   }
 }
 

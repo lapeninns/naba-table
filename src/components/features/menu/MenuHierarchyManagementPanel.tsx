@@ -296,6 +296,7 @@ export function MenuHierarchyManagementPanel({
         liveItem={liveEditingItem}
         open={itemDialogOpen}
         onOpenChange={setItemDialogOpen}
+        onCreated={setEditingItem}
         optionCallbacks={optionCallbacks}
       />
       <OptionDialog

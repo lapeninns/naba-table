@@ -1,7 +1,6 @@
 'use client';
 
 import { ArrowDown, ArrowUp, EyeOff, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useOpsPatchRestaurantMenuSection } from '@/hooks/ops/useOpsMenuHierarchy';
+import { useOpsReorderMenuChildren } from '@/hooks/ops/useOpsMenuHierarchy';
 
 import { primaryLabel } from './menuHierarchyDomain';
 import {
@@ -23,7 +22,7 @@ import {
   type MenuItemFilter,
 } from './menuHierarchyItemDomain';
 import { ItemTable } from './menuHierarchyItemsTable';
-import { runMenuMutation } from './menuMutationFeedback';
+import { movedIds } from './menuHierarchyOrder';
 
 import type {
   CanonicalRestaurantMenu,
@@ -66,38 +65,16 @@ export function MenuSectionList({
     item: CanonicalRestaurantMenuItem,
   ) => void;
 }) {
-  const patchSection = useOpsPatchRestaurantMenuSection(restaurantId);
-  const [movePending, setMovePending] = useState(false);
+  const reorder = useOpsReorderMenuChildren(restaurantId);
+  const movePending = reorder.isPending;
   const filterActive = isMenuItemFilterActive(filter);
 
-  const moveSection = async (index: number, direction: -1 | 1) => {
-    const current = menu.sections[index];
-    const target = menu.sections[index + direction];
-    if (!current?.id || !target?.id || !menu.id) return;
-    const menuId = menu.id;
-    const currentId = current.id;
-    const targetId = target.id;
-    setMovePending(true);
-    await runMenuMutation(
-      () =>
-        Promise.all([
-          patchSection.mutateAsync({
-            menuId,
-            sectionId: currentId,
-            payload: { displayOrder: target.displayOrder },
-          }),
-          patchSection.mutateAsync({
-            menuId,
-            sectionId: targetId,
-            payload: { displayOrder: current.displayOrder },
-          }),
-        ]),
-      {
-        success: 'Section order saved.',
-        failure: 'Could not move the section. The order is unchanged.',
-      },
-    );
-    setMovePending(false);
+  // One reorder command: the new order shows at once and rolls back if the save fails
+  // (the hook's meta feedback reports the failure).
+  const moveSection = (index: number, direction: -1 | 1) => {
+    const orderedIds = movedIds(menu.sections, index, direction);
+    if (!menu.id || !orderedIds) return;
+    reorder.mutate({ target: { level: 'sections', menuId: menu.id }, orderedIds });
   };
 
   if (menu.sections.length === 0) {
@@ -174,7 +151,7 @@ export function MenuSectionList({
                   className={SECTION_ICON_BUTTON_CLASS}
                   disabled={index === 0 || movePending}
                   aria-label={`Move ${sectionName} up`}
-                  onClick={() => void moveSection(index, -1)}
+                  onClick={() => moveSection(index, -1)}
                 >
                   <ArrowUp aria-hidden />
                 </Button>
@@ -185,7 +162,7 @@ export function MenuSectionList({
                   className={SECTION_ICON_BUTTON_CLASS}
                   disabled={index === menu.sections.length - 1 || movePending}
                   aria-label={`Move ${sectionName} down`}
-                  onClick={() => void moveSection(index, 1)}
+                  onClick={() => moveSection(index, 1)}
                 >
                   <ArrowDown aria-hidden />
                 </Button>

@@ -14,7 +14,9 @@ import {
   type MenuKind,
   type NabatableMenuItemExtensions,
   type RestaurantMenuInput,
+  type MenuChildOrder,
   type MenuItemExtensionsMerge,
+  type MenuReorderTarget,
   type RestaurantMenuItemInput,
   type RestaurantMenuItemPatch,
   type RestaurantMenuOptionInput,
@@ -938,17 +940,7 @@ export async function deleteRestaurantMenuOption(
 
 // --- reorder ----------------------------------------------------------------------------------
 
-export type MenuReorderTarget =
-  | { readonly level: 'sections'; readonly menuId: string }
-  | { readonly level: 'items'; readonly menuId: string; readonly sectionId: string }
-  | {
-      readonly level: 'options';
-      readonly menuId: string;
-      readonly sectionId: string;
-      readonly itemId: string;
-    };
-
-export type MenuChildOrder = { id: string; displayOrder: number };
+export type { MenuChildOrder, MenuReorderTarget };
 
 function parseChildOrder(data: unknown): MenuChildOrder[] {
   if (!Array.isArray(data)) return [];

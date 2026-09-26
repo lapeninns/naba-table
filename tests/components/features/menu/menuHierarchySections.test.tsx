@@ -1,9 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MenuSectionList } from '@/components/features/menu/menuHierarchySections';
-import { HttpError } from '@/lib/http/errors';
 
 import {
   makeItem,
@@ -14,7 +13,7 @@ import {
 } from './__fixtures__/menuHierarchy';
 
 const hooks = vi.hoisted(() => ({
-  patchSection: undefined as unknown as MutationStub,
+  reorder: undefined as unknown as MutationStub,
   patchItem: undefined as unknown as MutationStub,
 }));
 
@@ -23,8 +22,8 @@ const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast: toastMock }));
 
 vi.mock('@/hooks/ops/useOpsMenuHierarchy', () => ({
-  useOpsPatchRestaurantMenuSection: () => hooks.patchSection,
-  useOpsPatchRestaurantMenuItem: () => hooks.patchItem,
+  useOpsReorderMenuChildren: () => hooks.reorder,
+  useOpsUpdateRestaurantMenuItem: () => hooks.patchItem,
 }));
 
 const twoSectionMenu = () =>
@@ -72,7 +71,7 @@ function renderSections(overrides: Partial<Parameters<typeof MenuSectionList>[0]
 
 describe('MenuSectionList', () => {
   beforeEach(() => {
-    hooks.patchSection = mutationStub();
+    hooks.reorder = mutationStub();
     hooks.patchItem = mutationStub();
     toastMock.success.mockReset();
     toastMock.error.mockReset();
@@ -101,40 +100,27 @@ describe('MenuSectionList', () => {
     expect(within(mains).getByText('No items in this section yet.')).toBeInTheDocument();
   });
 
-  it('@contract moving a section down swaps display orders via two patches', async () => {
+  it('@contract moving a section down sends one reorder command for the menu', async () => {
     const user = userEvent.setup();
     renderSections();
 
     await user.click(screen.getByRole('button', { name: 'Move Starters down' }));
 
-    await waitFor(() => expect(hooks.patchSection.mutateAsync).toHaveBeenCalledTimes(2));
-    expect(hooks.patchSection.mutateAsync).toHaveBeenCalledWith({
-      menuId: 'menu-1',
-      sectionId: 'section-1',
-      payload: { displayOrder: 2 },
+    expect(hooks.reorder.mutate).toHaveBeenCalledTimes(1);
+    expect(hooks.reorder.mutate).toHaveBeenCalledWith({
+      target: { level: 'sections', menuId: 'menu-1' },
+      orderedIds: ['section-2', 'section-1'],
     });
-    expect(hooks.patchSection.mutateAsync).toHaveBeenCalledWith({
-      menuId: 'menu-1',
-      sectionId: 'section-2',
-      payload: { displayOrder: 1 },
-    });
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Section order saved.'));
+    // Failure feedback comes from the hook's meta (global toast), with rollback in the cache.
+    expect(toastMock.error).not.toHaveBeenCalled();
   });
 
-  it('@contract keeps the failure toast when a move fails', async () => {
-    const user = userEvent.setup();
-    hooks.patchSection.mutateAsync.mockRejectedValue(
-      new HttpError({ message: 'x', status: 500, code: 'HTTP_500' }),
-    );
+  it('@contract disables every move while a reorder is saving', () => {
+    hooks.reorder = mutationStub({ isPending: true });
     renderSections();
 
-    await user.click(screen.getByRole('button', { name: 'Move Starters down' }));
-
-    await waitFor(() =>
-      expect(toastMock.error).toHaveBeenCalledWith(
-        'Could not move the section. The order is unchanged. Reason code HTTP_500.',
-      ),
-    );
+    expect(screen.getByRole('button', { name: 'Move Starters down' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move Mains up' })).toBeDisabled();
   });
 
   it('@contract disables move-up on the first and move-down on the last section', () => {

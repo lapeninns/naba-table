@@ -4,10 +4,10 @@ import { Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/typography';
-import { useOpsPatchRestaurantMenuOption } from '@/hooks/ops/useOpsMenuHierarchy';
+import { useOpsReorderMenuChildren } from '@/hooks/ops/useOpsMenuHierarchy';
 
 import { OptionRow } from './menuHierarchyItemRows';
-import { runMenuMutation } from './menuMutationFeedback';
+import { movedIds } from './menuHierarchyOrder';
 
 import type {
   CanonicalRestaurantMenu,
@@ -29,8 +29,8 @@ export type ItemOptionCallbacks = {
 };
 
 /**
- * Options guests can choose for a saved item. Each option still opens the existing option
- * dialog; reordering swaps display orders in two patches, as before.
+ * Options guests can choose for a saved item. Each option opens the option dialog; moving an
+ * option sends one reorder command for the item's options.
  */
 export function ItemOptionsList({
   restaurantId,
@@ -46,7 +46,7 @@ export function ItemOptionsList({
   readonly section: CanonicalRestaurantMenuSection | null;
   readonly item: CanonicalRestaurantMenuItem | null;
 } & ItemOptionCallbacks) {
-  const patchOption = useOpsPatchRestaurantMenuOption(restaurantId);
+  const reorder = useOpsReorderMenuChildren(restaurantId);
 
   if (!item?.id) {
     return (
@@ -54,32 +54,13 @@ export function ItemOptionsList({
     );
   }
 
-  const moveOption = async (
-    option: CanonicalRestaurantMenuOption,
-    index: number,
-    direction: -1 | 1,
-  ) => {
-    const target = item.options[index + direction];
-    if (!menu?.id || !section?.id || !item.id || !option.id || !target?.id) return;
-    const ids = { menuId: menu.id, sectionId: section.id, itemId: item.id };
-    const optionId = option.id;
-    const targetId = target.id;
-    await runMenuMutation(
-      () =>
-        Promise.all([
-          patchOption.mutateAsync({
-            ...ids,
-            optionId,
-            payload: { displayOrder: target.displayOrder },
-          }),
-          patchOption.mutateAsync({
-            ...ids,
-            optionId: targetId,
-            payload: { displayOrder: option.displayOrder },
-          }),
-        ]),
-      { failure: 'Could not move the option. The order is unchanged.' },
-    );
+  const moveOption = (index: number, direction: -1 | 1) => {
+    const orderedIds = movedIds(item.options, index, direction);
+    if (!menu?.id || !section?.id || !item.id || !orderedIds) return;
+    reorder.mutate({
+      target: { level: 'options', menuId: menu.id, sectionId: section.id, itemId: item.id },
+      orderedIds,
+    });
   };
 
   return (
@@ -96,9 +77,9 @@ export function ItemOptionsList({
               optionIndex={optionIndex}
               optionsCount={item.options.length}
               onEditOption={onEditOption}
-              onMoveOption={(_item, entry, index, direction) => moveOption(entry, index, direction)}
+              onMoveOption={(_item, _entry, index, direction) => moveOption(index, direction)}
               onRemoveOption={async (target, entry) => onDeleteOption(target, entry)}
-              patchPending={patchOption.isPending}
+              patchPending={reorder.isPending}
             />
           ))}
         </div>

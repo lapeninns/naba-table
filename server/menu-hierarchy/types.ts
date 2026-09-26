@@ -446,3 +446,16 @@ export type RestaurantMenuOptionPatch = z.infer<typeof RestaurantMenuOptionPatch
 export type MenuItemAttributesMerge = z.infer<typeof MenuItemAttributesMergeSchema>;
 export type MenuItemExtensionsMerge = z.infer<typeof MenuItemExtensionsMergeSchema>;
 export type MenuReorderInput = z.infer<typeof MenuReorderSchema>;
+
+/** The parent whose children one reorder command renumbers. */
+export type MenuReorderTarget =
+  | { readonly level: 'sections'; readonly menuId: string }
+  | { readonly level: 'items'; readonly menuId: string; readonly sectionId: string }
+  | {
+      readonly level: 'options';
+      readonly menuId: string;
+      readonly sectionId: string;
+      readonly itemId: string;
+    };
+
+export type MenuChildOrder = { id: string; displayOrder: number };
