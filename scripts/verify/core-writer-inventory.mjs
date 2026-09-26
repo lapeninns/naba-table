@@ -28,6 +28,12 @@ const RPC_TARGETS = {
   replace_gbp_canonical_business_info: CANONICAL_TABLES,
   replace_restaurant_operating_hours: ['restaurant_operating_hours'],
   replace_restaurant_service_periods: ['restaurant_service_periods'],
+  save_restaurant_availability: [
+    'restaurant_operating_hours',
+    'restaurant_service_periods',
+    'restaurants',
+  ],
+  update_restaurant_profile_v1: ['restaurants', 'restaurant_business_details'],
 };
 
 async function walk(root, relative = '') {
