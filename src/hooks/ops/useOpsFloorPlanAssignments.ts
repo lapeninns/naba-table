@@ -324,6 +324,11 @@ export function useOpsFloorPlanAssignments({
         queryClient.invalidateQueries({
           queryKey: queryKeys.opsDashboard.heatmapPrefix(restaurantId),
         }),
+        // Assigning confirms a pending booking and removing its last table reopens it, so the
+        // bookings-page status tabs refetch (opsBookings.all below only marks them stale).
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.opsBookings.statusSummaryPrefix(restaurantId),
+        }),
         queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.all, refetchType: 'none' }),
       ]);
     },

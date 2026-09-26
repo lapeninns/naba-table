@@ -134,6 +134,13 @@ export function useTableAssignmentMutations({
       void queryClient.invalidateQueries({
         queryKey: queryKeys.opsTables.timelinePrefix(restaurantId),
       });
+      // A status change (pending -> confirmed on assign, back to pending when the last table
+      // goes) moves the booking between the bookings-page status tabs.
+      if (status && status !== previous) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.opsBookings.statusSummaryPrefix(restaurantId),
+        });
+      }
     },
     [queryClient, restaurantId],
   );

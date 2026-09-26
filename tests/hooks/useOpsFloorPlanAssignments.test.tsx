@@ -152,6 +152,27 @@ describe('useOpsFloorPlanAssignments', () => {
     await waitFor(() => expect(hook.result.current.pending).toEqual([]));
   });
 
+  it('refetches the bookings-page status counts after a write that can change the status', async () => {
+    bookingService.assignTablesDirect.mockResolvedValue({ success: true });
+    const { queryClient, hook } = setup([makeBooking('b1', 'pending_allocation', [])]);
+    const statusSummaryKey = [...queryKeys.opsBookings.statusSummaryPrefix(restaurantId), 'x'];
+    queryClient.setQueryData(statusSummaryKey, { counts: {} });
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await act(async () => {
+      await hook.result.current.assign('b1', ['T3']);
+    });
+
+    expect(queryClient.getQueryState(statusSummaryKey)?.isInvalidated).toBe(true);
+    // Refetched, not only marked stale (the tabs are on screen next to the floor plan).
+    const call = invalidate.mock.calls.find(
+      ([filters]) =>
+        JSON.stringify(filters?.queryKey) ===
+        JSON.stringify(queryKeys.opsBookings.statusSummaryPrefix(restaurantId)),
+    );
+    expect(call?.[0]).not.toHaveProperty('refetchType', 'none');
+  });
+
   it('rolls back only the failed booking and maps conflicts to a safe message', async () => {
     const failing = deferred();
     const succeeding = deferred();
@@ -258,7 +279,9 @@ describe('useOpsFloorPlanAssignments', () => {
 
     let caught: unknown;
     await act(async () => {
-      caught = await hook.result.current.move('b1', ['T3'], ['T4']).catch((error: unknown) => error);
+      caught = await hook.result.current
+        .move('b1', ['T3'], ['T4'])
+        .catch((error: unknown) => error);
     });
 
     expect(caught).toMatchObject({ code: 'CONFLICT', restored: true });
@@ -278,7 +301,9 @@ describe('useOpsFloorPlanAssignments', () => {
 
     let caught: unknown;
     await act(async () => {
-      caught = await hook.result.current.move('b1', ['T3'], ['T4']).catch((error: unknown) => error);
+      caught = await hook.result.current
+        .move('b1', ['T3'], ['T4'])
+        .catch((error: unknown) => error);
     });
 
     expect(caught).toMatchObject({
@@ -300,7 +325,9 @@ describe('useOpsFloorPlanAssignments', () => {
 
     let caught: unknown;
     await act(async () => {
-      caught = await hook.result.current.move('b1', ['T3'], ['T4']).catch((error: unknown) => error);
+      caught = await hook.result.current
+        .move('b1', ['T3'], ['T4'])
+        .catch((error: unknown) => error);
     });
 
     expect(caught).toMatchObject({ code: 'VALIDATION', message: 'Table T4 is too small' });
