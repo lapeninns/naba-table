@@ -14,6 +14,11 @@ export type BookingResponseCookie = {
   options: BookingResponseCookieOptions;
 };
 
+/**
+ * @deprecated Retired with /api/bookings/confirm. Still called by the create
+ * response until S1b switches it to the booking access cookie; nothing reads
+ * `sr_confirm` any more.
+ */
 export function buildBookingConfirmationCookie(
   confirmationToken: string | null,
 ): BookingResponseCookie | null {
@@ -34,6 +39,11 @@ export function buildBookingConfirmationCookie(
   };
 }
 
+/**
+ * @deprecated Contact-scoped `sr2` cookie. Nothing reads `sr_access` any more
+ * (it is cleared on guest responses); S1b replaces this call in the create
+ * response with `mintBookingAccessGrant` + `setBookingAccessCookie`.
+ */
 export function buildBookingSessionRecoveryAccessCookie({
   secret,
   ttlSeconds,

@@ -118,3 +118,35 @@ bucket, `scripts/db/backup/s3.ts` is intentionally not shared with `scripts/ci`,
 verification refuses the staging and production project refs unconditionally. Drill evidence is
 HMAC-signed and redacted; `pnpm recovery:evidence:check` blocks delivery when a backup is older than
 24 h or a successful drill older than 30 days.
+
+## Guest booking access
+
+Guests reach a booking through a booking-scoped capability, never through contact details.
+Source of truth: `server/bookings/guest-booking-access.ts` and `server/security/booking-access-token.ts`.
+
+- **Token.** `bk1` is AES-256-GCM (`server/security/aead-token.ts`) keyed from
+  `SESSION_RECOVERY_ACCESS_TOKEN_SECRET` with its own purpose label. It names one booking and one
+  restaurant and carries a keyed fingerprint of the booking's email and phone, so changing the
+  contact revokes every link and cookie for that booking. Rotating the secret revokes all of them.
+- **Links** (`/bookings/recover?access_token=bk1…`) go only to the booking's own email address or
+  phone. Staff notifications and `.ics` files use the plain `/bookings/<id>` URL. Link lifetime is
+  the booking end plus 24 hours, at least 1 hour and at most 30 days.
+- **Cookie.** `/bookings/recover` exchanges a link for a fresh `__Host-nt_bk.<bookingId>` cookie
+  (HttpOnly, Secure, SameSite=Lax, at most 14 days, at most 10 booking cookies) and redirects with
+  no token in the URL. The API refuses tokens in the query string.
+- **Endpoints.** `GET/PUT/DELETE /api/bookings/[id]`, its history route and the confirmation PDF
+  resolve access through `resolveGuestBookingAccess`: the booking cookie (rate limited per
+  booking, bound to booking, restaurant and current contact), then a session whose user id is
+  the booking's `auth_user_id`. Writes need the CSRF double-submit token. Staff of the booking's
+  restaurant keep the staff path. Token responses mask contact details; no guest response carries
+  idempotency or confirmation keys. Guests cannot change the booking's email or phone.
+- **Email match** for signed-in users (`SESSION_EMAIL_MATCH_ENABLED`) ships off. Turn it on only
+  with recorded evidence that Supabase `mailer_autoconfirm` is off in staging and production.
+  Until then a signed-in guest binds a booking by opening its link while signed in.
+- **Lost link.** `POST /api/bookings/lookup-email` always answers the same 202 and emails a fresh
+  link to the address stored on each matching upcoming booking. It is limited per IP (5 per 15
+  minutes) and per keyed contact hash (3 per hour, 5 per day).
+- **Retired.** The contact-scoped `sr2` token and `sr_access` cookie, the
+  `x-session-recovery-token` header, `GET /api/bookings?email&phone` (410
+  `CONTACT_LOOKUP_REMOVED`) and `/api/bookings/confirm` (410). `SESSION_RECOVERY_ACCESS_TOKEN_TTL_SECONDS`
+  is still parsed but no longer sets any lifetime.
