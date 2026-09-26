@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
+import { toUserMessage } from '@/lib/http/userMessage';
 
 export function TableAssignmentLoadingState() {
   return (
@@ -33,7 +34,7 @@ export function TableAssignmentErrorState({
     <Alert variant="destructive">
       <AlertTitle>Unable to load tables</AlertTitle>
       <AlertDescription className="flex items-center justify-between gap-3">
-        <span>{error instanceof Error ? error.message : 'Failed to load tables.'}</span>
+        <span>{toUserMessage(error, { fallback: 'Failed to load tables.' })}</span>
         <Button variant="outline" size="sm" onClick={onRetry}>
           <RefreshCw data-icon="inline-start" />
           Retry
@@ -49,9 +50,7 @@ export function TableAssignmentEmptyState() {
       <CardContent className="flex flex-col items-center justify-center gap-2 p-6 text-center">
         <Grid3X3 className="size-8 text-muted-foreground" />
         <Text variant="caption">No tables available right now.</Text>
-        <Text variant="caption">
-          Try adjusting the booking time or split the party.
-        </Text>
+        <Text variant="caption">Try adjusting the booking time or split the party.</Text>
       </CardContent>
     </Card>
   );

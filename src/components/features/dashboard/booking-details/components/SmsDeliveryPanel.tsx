@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
 import { useOpsBookingSmsDeliveryLog } from '@/hooks/ops/useOpsBookingSmsDeliveryLog';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { cn } from '@/lib/utils';
 import { groupSmsDeliveryEvents } from '@/src/lib/sms-delivery/grouping';
 import {
@@ -140,10 +141,7 @@ function GroupHeader({ group, timezone }: { group: SmsDeliveryGroup; timezone: s
     <div className="flex w-full items-center justify-between gap-3 overflow-hidden">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <StatusBadge status={group.currentStatus} />
-        <ChannelBadge
-          channel={group.channel}
-          fallbackForAttemptId={group.fallbackForAttemptId}
-        />
+        <ChannelBadge channel={group.channel} fallbackForAttemptId={group.fallbackForAttemptId} />
         <div
           className="truncate text-[11px] font-bold tracking-tight text-foreground"
           title={label}
@@ -229,7 +227,9 @@ export function SmsDeliveryPanel({
       >
         <DeliveryStateBody
           title="Unexpected delivery error"
-          description={query.error.message}
+          description={toUserMessage(query.error, {
+            fallback: "Couldn't load SMS delivery. Try again.",
+          })}
           tone="danger"
         />
       </PanelShell>,
@@ -280,8 +280,7 @@ export function SmsDeliveryPanel({
                   <div className="flex flex-col gap-1.5">
                     {group.events.map((event) => {
                       const when =
-                        formatSmsDeliveryOccurredAt(event.occurredAt, timezone) ??
-                        event.occurredAt;
+                        formatSmsDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt;
                       return (
                         <div key={event.id} className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2">

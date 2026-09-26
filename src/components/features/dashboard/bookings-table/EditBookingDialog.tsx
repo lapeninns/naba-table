@@ -37,6 +37,8 @@ import {
   MIN_ONLINE_PARTY_SIZE,
   ONLINE_PARTY_SIZE_LIMIT_COPY,
 } from '@/lib/bookings/partySize';
+import { HttpError } from '@/lib/http/errors';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { cn } from '@/lib/utils';
 
 import {
@@ -46,7 +48,6 @@ import {
 } from './GuestNewLinkCta';
 
 import type { BookingDTO } from '@/hooks/useBookings';
-import type { HttpError } from '@/lib/http/errors';
 
 const errorCopy: Record<string, string> = {
   OVERLAP_DETECTED: 'That time overlaps an existing booking. Please choose another slot.',
@@ -248,7 +249,7 @@ type EditBookingMutationInput = {
 type EditBookingMutation = {
   mutateAsync: (input: EditBookingMutationInput) => Promise<unknown>;
   isPending: boolean;
-  error: HttpError | null;
+  error: unknown;
 };
 
 type UseEditBookingDialogState = {
@@ -300,6 +301,24 @@ function useEditBookingDialogState({
       return errorCopy[code];
     },
     [guestAccessRecovery],
+  );
+  /**
+   * Alert copy for a failed save. Guest HttpErrors were already rewritten to guest copy by the
+   * guest hook, so their message is kept. Ops errors and anything that is not an HttpError
+   * (network failures, unexpected throws) go through toUserMessage: 5xx and network text is
+   * never shown raw.
+   */
+  const resolveErrorMessage = useCallback(
+    (error: unknown): { message: string; code?: string } => {
+      const code = error instanceof HttpError ? error.code : undefined;
+      const preset = copyForCode(code);
+      if (preset) return { message: preset, code };
+      if (guestAccessRecovery && error instanceof HttpError && error.message.trim()) {
+        return { message: error.message, code };
+      }
+      return { message: toUserMessage(error, { copy: errorCopy }), code };
+    },
+    [copyForCode, guestAccessRecovery],
   );
   const defaultValues = useMemo(() => toDefaultValues(booking), [booking]);
   const resolver = formResolver;
@@ -440,23 +459,14 @@ function useEditBookingDialogState({
         await mutation.mutateAsync(payload);
         onOpenChange(false);
       } catch (error) {
-        const err = error as HttpError;
-        const code = err?.code;
-        const preset = copyForCode(code);
-        const message = preset ?? err?.message ?? 'Something went wrong. Please try again.';
-
-        setFormError({ message, code });
+        setFormError(resolveErrorMessage(error));
       }
     },
-    [booking, copyForCode, derivedEndIso, includeRestaurantId, mutation, onOpenChange],
+    [booking, derivedEndIso, includeRestaurantId, mutation, onOpenChange, resolveErrorMessage],
   );
 
-  const mutationError = mutation.error as HttpError | null;
-  const fallbackMessage = mutationError?.code
-    ? (copyForCode(mutationError.code) ?? mutationError.message)
-    : mutationError?.message;
-  const activeError =
-    formError ?? (fallbackMessage ? { message: fallbackMessage, code: mutationError?.code } : null);
+  const mutationError: unknown = mutation.error;
+  const activeError = formError ?? (mutationError ? resolveErrorMessage(mutationError) : null);
   const isPastTimeError = activeError?.code === 'BOOKING_IN_PAST';
   const alertTitle = isPastTimeError ? 'Booking time is in the past' : 'Unable to save changes';
   const notesValue = watch('notes') ?? '';
