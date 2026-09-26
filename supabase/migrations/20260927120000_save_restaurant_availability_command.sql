@@ -1,0 +1,440 @@
+-- Availability save command: one transaction for the restaurant-owned part of "Save availability".
+--
+-- Why:
+--   The Availability page saved hours, meal times, turn bands and the booking-rule fields on
+--   `restaurants` through 3-4 separate endpoints, one after another. A failure part-way left a
+--   mix of old and new settings, and nothing stopped two staff members overwriting each other.
+--
+-- What this migration does:
+--   1. Adds the per-restaurant advisory lock that `replace_restaurant_operating_hours` already
+--      takes to `replace_restaurant_service_periods` and `replace_restaurant_turn_bands`
+--      (bodies otherwise unchanged from 20260516082800), so concurrent replacements of the same
+--      restaurant queue instead of interleaving their upsert and delete phases.
+--   2. `restaurant_availability_revision(uuid)`: a content hash of the restaurant's hours,
+--      service periods, turn bands and booking-rule fields. Row ids and timestamps are excluded,
+--      so replaying an already-applied save produces the same revision.
+--   3. `save_restaurant_availability(...)`: replaces any subset of hours (weekly + special dates),
+--      service periods, turn bands and the booking-rule fields in ONE transaction, reusing the
+--      three replace_* functions. It takes the command lock and then every per-resource lock in a
+--      fixed order, locks the restaurant row, checks the optional expected revision, validates
+--      the resulting configuration (meal times inside open weekly hours) and returns the new
+--      revision. Any failure rolls back every part.
+--
+-- Error contract (SQLSTATE, read by server/restaurants/availabilityCommand.ts):
+--   NT400  malformed command (no parts, or a part of the wrong JSON type)
+--   NT409  STALE_WRITE: the stored availability changed since the caller loaded it
+--   NT422  SERVICE_PERIOD_OUTSIDE_HOURS: a weekday service period lies outside that day's hours
+--   P0002  restaurant not found
+--   23503  unknown booking option (FK), 23514 check constraints, P0001 from the replace_* helpers
+--
+-- Grants: service_role only, like the replace_* functions.
+--
+-- Rollback (manual, forward-only repo): DROP FUNCTION public.save_restaurant_availability(uuid,
+--   jsonb, jsonb, jsonb, jsonb, text); DROP FUNCTION public.restaurant_availability_revision(uuid);
+--   and re-apply the replace_restaurant_service_periods / replace_restaurant_turn_bands bodies from
+--   20260516082800_atomic_restaurant_schedule_replacements.sql (without the advisory lock). No data
+--   is changed by this migration, so rolling back needs no data repair.
+
+BEGIN;
+
+CREATE OR REPLACE FUNCTION public.replace_restaurant_service_periods(
+  p_restaurant_id uuid,
+  p_rows jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('replace_restaurant_service_periods:' || p_restaurant_id::text, 0)
+  );
+
+  DROP TABLE IF EXISTS pg_temp.replace_restaurant_service_periods_rows;
+
+  CREATE TEMP TABLE replace_restaurant_service_periods_rows ON COMMIT DROP AS
+  SELECT
+    row.id,
+    row.name,
+    row.day_of_week,
+    row.start_time,
+    row.end_time,
+    row.booking_option
+  FROM jsonb_to_recordset(COALESCE(p_rows, '[]'::jsonb)) AS row(
+    id uuid,
+    name text,
+    day_of_week integer,
+    start_time time,
+    end_time time,
+    booking_option text
+  );
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_temp.replace_restaurant_service_periods_rows
+    GROUP BY id
+    HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'duplicate service-period replacement id';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.restaurant_service_periods existing
+    JOIN pg_temp.replace_restaurant_service_periods_rows incoming
+      ON incoming.id = existing.id
+    WHERE existing.restaurant_id <> p_restaurant_id
+  ) THEN
+    RAISE EXCEPTION 'service-period replacement id belongs to another restaurant';
+  END IF;
+
+  INSERT INTO public.restaurant_service_periods (
+    id,
+    restaurant_id,
+    name,
+    day_of_week,
+    start_time,
+    end_time,
+    booking_option
+  )
+  SELECT
+    incoming.id,
+    p_restaurant_id,
+    incoming.name,
+    incoming.day_of_week,
+    incoming.start_time,
+    incoming.end_time,
+    incoming.booking_option
+  FROM pg_temp.replace_restaurant_service_periods_rows incoming
+  ON CONFLICT (id) DO UPDATE
+  SET
+    name = EXCLUDED.name,
+    day_of_week = EXCLUDED.day_of_week,
+    start_time = EXCLUDED.start_time,
+    end_time = EXCLUDED.end_time,
+    booking_option = EXCLUDED.booking_option,
+    updated_at = now()
+  WHERE public.restaurant_service_periods.restaurant_id = p_restaurant_id;
+
+  DELETE FROM public.restaurant_service_periods existing
+  WHERE existing.restaurant_id = p_restaurant_id
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_temp.replace_restaurant_service_periods_rows incoming
+      WHERE incoming.id = existing.id
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.replace_restaurant_service_periods(uuid, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.replace_restaurant_service_periods(uuid, jsonb) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.replace_restaurant_turn_bands(
+  p_restaurant_id uuid,
+  p_rows jsonb
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('replace_restaurant_turn_bands:' || p_restaurant_id::text, 0)
+  );
+
+  DROP TABLE IF EXISTS pg_temp.replace_restaurant_turn_bands_rows;
+
+  CREATE TEMP TABLE replace_restaurant_turn_bands_rows ON COMMIT DROP AS
+  SELECT
+    row.restaurant_id,
+    lower(trim(row.booking_option)) AS booking_option,
+    row.max_party_size,
+    row.duration_minutes
+  FROM jsonb_to_recordset(COALESCE(p_rows, '[]'::jsonb)) AS row(
+    restaurant_id uuid,
+    booking_option text,
+    max_party_size integer,
+    duration_minutes integer
+  );
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_temp.replace_restaurant_turn_bands_rows
+    WHERE restaurant_id <> p_restaurant_id
+  ) THEN
+    RAISE EXCEPTION 'turn-band replacement row belongs to another restaurant';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_temp.replace_restaurant_turn_bands_rows
+    WHERE restaurant_id IS NULL
+      OR booking_option IS NULL
+      OR booking_option = ''
+      OR max_party_size IS NULL
+      OR duration_minutes IS NULL
+  ) THEN
+    RAISE EXCEPTION 'invalid turn-band replacement row';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_temp.replace_restaurant_turn_bands_rows
+    GROUP BY booking_option, max_party_size
+    HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'duplicate turn-band replacement row';
+  END IF;
+
+  INSERT INTO public.restaurant_turn_bands (
+    restaurant_id,
+    booking_option,
+    max_party_size,
+    duration_minutes
+  )
+  SELECT
+    p_restaurant_id,
+    incoming.booking_option,
+    incoming.max_party_size,
+    incoming.duration_minutes
+  FROM pg_temp.replace_restaurant_turn_bands_rows incoming
+  ON CONFLICT (restaurant_id, booking_option, max_party_size) DO UPDATE
+  SET
+    duration_minutes = EXCLUDED.duration_minutes,
+    updated_at = now();
+
+  DELETE FROM public.restaurant_turn_bands existing
+  WHERE existing.restaurant_id = p_restaurant_id
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_temp.replace_restaurant_turn_bands_rows incoming
+      WHERE incoming.booking_option = existing.booking_option
+        AND incoming.max_party_size = existing.max_party_size
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.replace_restaurant_turn_bands(uuid, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.replace_restaurant_turn_bands(uuid, jsonb) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.restaurant_availability_revision(p_restaurant_id uuid)
+RETURNS text
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT md5(
+    jsonb_build_object(
+      'hours',
+      COALESCE(
+        (
+          SELECT jsonb_agg(
+            jsonb_build_array(
+              h.day_of_week,
+              h.effective_date,
+              h.opens_at,
+              h.closes_at,
+              h.is_closed,
+              h.notes,
+              h.reservation_interval_minutes,
+              h.reservation_slot_times
+            )
+            ORDER BY h.effective_date NULLS FIRST, h.day_of_week NULLS FIRST, h.opens_at,
+              h.closes_at, h.is_closed, h.notes
+          )
+          FROM public.restaurant_operating_hours h
+          WHERE h.restaurant_id = p_restaurant_id
+        ),
+        '[]'::jsonb
+      ),
+      'periods',
+      COALESCE(
+        (
+          SELECT jsonb_agg(
+            jsonb_build_array(p.day_of_week, p.start_time, p.end_time, p.booking_option, p.name)
+            ORDER BY p.day_of_week NULLS FIRST, p.start_time, p.end_time, p.booking_option, p.name
+          )
+          FROM public.restaurant_service_periods p
+          WHERE p.restaurant_id = p_restaurant_id
+        ),
+        '[]'::jsonb
+      ),
+      'bands',
+      COALESCE(
+        (
+          SELECT jsonb_agg(
+            jsonb_build_array(b.booking_option, b.max_party_size, b.duration_minutes)
+            ORDER BY b.booking_option, b.max_party_size
+          )
+          FROM public.restaurant_turn_bands b
+          WHERE b.restaurant_id = p_restaurant_id
+        ),
+        '[]'::jsonb
+      ),
+      'rules',
+      (
+        SELECT jsonb_build_array(
+          r.reservation_interval_minutes,
+          r.reservation_default_duration_minutes,
+          r.reservation_last_seating_buffer_minutes,
+          r.reservation_lifecycle_grace_minutes,
+          r.booking_policy
+        )
+        FROM public.restaurants r
+        WHERE r.id = p_restaurant_id
+      )
+    )::text
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.restaurant_availability_revision(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.restaurant_availability_revision(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.save_restaurant_availability(
+  p_restaurant_id uuid,
+  p_operating_hours jsonb DEFAULT NULL,
+  p_service_periods jsonb DEFAULT NULL,
+  p_turn_bands jsonb DEFAULT NULL,
+  p_rules jsonb DEFAULT NULL,
+  p_expected_revision text DEFAULT NULL
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_before text;
+  v_after text;
+BEGIN
+  IF p_restaurant_id IS NULL THEN
+    RAISE EXCEPTION 'restaurant id is required' USING ERRCODE = 'NT400';
+  END IF;
+
+  IF p_operating_hours IS NULL
+    AND p_service_periods IS NULL
+    AND p_turn_bands IS NULL
+    AND p_rules IS NULL THEN
+    RAISE EXCEPTION 'availability command has no parts' USING ERRCODE = 'NT400';
+  END IF;
+
+  IF (p_operating_hours IS NOT NULL AND jsonb_typeof(p_operating_hours) <> 'array')
+    OR (p_service_periods IS NOT NULL AND jsonb_typeof(p_service_periods) <> 'array')
+    OR (p_turn_bands IS NOT NULL AND jsonb_typeof(p_turn_bands) <> 'array')
+    OR (p_rules IS NOT NULL AND jsonb_typeof(p_rules) <> 'object') THEN
+    RAISE EXCEPTION 'availability command part has the wrong shape' USING ERRCODE = 'NT400';
+  END IF;
+
+  -- Command lock first, then every single-resource lock in a fixed order. The replace_*
+  -- helpers take their own lock again (advisory locks are re-entrant within a session), and a
+  -- single-resource writer only ever holds one of them, so no lock cycle is possible.
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('save_restaurant_availability:' || p_restaurant_id::text, 0)
+  );
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('replace_restaurant_operating_hours:' || p_restaurant_id::text, 0)
+  );
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('replace_restaurant_service_periods:' || p_restaurant_id::text, 0)
+  );
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended('replace_restaurant_turn_bands:' || p_restaurant_id::text, 0)
+  );
+
+  -- The booking-rule fields live on the restaurant row; the row lock serialises this command with
+  -- the restaurant profile PATCH.
+  PERFORM 1 FROM public.restaurants WHERE id = p_restaurant_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'restaurant not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  v_before := public.restaurant_availability_revision(p_restaurant_id);
+
+  IF p_operating_hours IS NOT NULL THEN
+    PERFORM public.replace_restaurant_operating_hours(p_restaurant_id, p_operating_hours);
+  END IF;
+
+  IF p_service_periods IS NOT NULL THEN
+    PERFORM public.replace_restaurant_service_periods(p_restaurant_id, p_service_periods);
+  END IF;
+
+  IF p_turn_bands IS NOT NULL THEN
+    PERFORM public.replace_restaurant_turn_bands(p_restaurant_id, p_turn_bands);
+  END IF;
+
+  IF p_rules IS NOT NULL THEN
+    UPDATE public.restaurants r
+    SET
+      reservation_interval_minutes = CASE
+        WHEN p_rules ? 'reservation_interval_minutes'
+          THEN (p_rules ->> 'reservation_interval_minutes')::integer
+        ELSE r.reservation_interval_minutes
+      END,
+      reservation_default_duration_minutes = CASE
+        WHEN p_rules ? 'reservation_default_duration_minutes'
+          THEN (p_rules ->> 'reservation_default_duration_minutes')::integer
+        ELSE r.reservation_default_duration_minutes
+      END,
+      reservation_last_seating_buffer_minutes = CASE
+        WHEN p_rules ? 'reservation_last_seating_buffer_minutes'
+          THEN (p_rules ->> 'reservation_last_seating_buffer_minutes')::integer
+        ELSE r.reservation_last_seating_buffer_minutes
+      END,
+      reservation_lifecycle_grace_minutes = CASE
+        WHEN p_rules ? 'reservation_lifecycle_grace_minutes'
+          THEN (p_rules ->> 'reservation_lifecycle_grace_minutes')::integer
+        ELSE r.reservation_lifecycle_grace_minutes
+      END,
+      booking_policy = CASE
+        WHEN p_rules ? 'booking_policy'
+          THEN NULLIF(btrim(p_rules ->> 'booking_policy'), '')
+        ELSE r.booking_policy
+      END
+    WHERE r.id = p_restaurant_id;
+  END IF;
+
+  -- Validate the resulting configuration, not just the parts sent: a meal time on a weekday must
+  -- sit inside that day's open hours. Only checked when hours or meal times change, so an
+  -- unrelated rules-only save is never blocked by older data. Closed days, all-day periods and
+  -- hours that wrap past midnight are left to the booking engine, as before.
+  IF p_operating_hours IS NOT NULL OR p_service_periods IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1
+      FROM public.restaurant_service_periods sp
+      JOIN public.restaurant_operating_hours oh
+        ON oh.restaurant_id = sp.restaurant_id
+        AND oh.effective_date IS NULL
+        AND oh.day_of_week = sp.day_of_week
+      WHERE sp.restaurant_id = p_restaurant_id
+        AND NOT oh.is_closed
+        AND oh.opens_at IS NOT NULL
+        AND oh.closes_at IS NOT NULL
+        AND oh.opens_at < oh.closes_at
+        AND (sp.start_time < oh.opens_at OR sp.end_time > oh.closes_at)
+    ) THEN
+      RAISE EXCEPTION 'SERVICE_PERIOD_OUTSIDE_HOURS' USING ERRCODE = 'NT422';
+    END IF;
+  END IF;
+
+  v_after := public.restaurant_availability_revision(p_restaurant_id);
+
+  -- Stale check. A caller whose revision no longer matches is refused, unless this command
+  -- changed nothing (a replay of a save that already committed, e.g. a retry after a lost
+  -- response), in which case the stored state is already what the caller asked for.
+  IF p_expected_revision IS NOT NULL
+    AND p_expected_revision <> v_before
+    AND v_after <> v_before THEN
+    RAISE EXCEPTION 'STALE_WRITE' USING ERRCODE = 'NT409';
+  END IF;
+
+  RETURN jsonb_build_object('revision', v_after);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.save_restaurant_availability(uuid, jsonb, jsonb, jsonb, jsonb, text) TO service_role;
+
+COMMIT;
