@@ -1,7 +1,16 @@
 'use client';
 
-import { CalendarDays, ChevronLeft, ChevronRight, Hourglass, Move, RefreshCw } from 'lucide-react';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Hourglass,
+  Move,
+  PencilRuler,
+  RefreshCw,
+} from 'lucide-react';
 import { DateTime } from 'luxon';
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +27,7 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Heading } from '@/components/ui/typography';
+import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { isLiveDate, isShowingNow, servicesForToolbar } from './model/floorPlanState';
@@ -31,12 +41,10 @@ import {
 } from './model/floorPlanTime';
 
 import type { FloorServiceFilter } from './model/floorPlanTypes';
-import type {
-  FloorMode,
-  FloorPlanController,
-  FloorView,
-  StatFilter,
-} from './useFloorPlanController';
+import type { FloorPlanController, FloorView, StatFilter } from './useFloorPlanController';
+
+/** Settings page where admins arrange the saved floor layout. */
+export const FLOOR_LAYOUT_SETTINGS_HREF = opsHref('/settings/restaurant/table-layout');
 
 const segmentClass =
   'h-8 min-h-0 min-w-0 px-3 text-sm data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm';
@@ -244,56 +252,55 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
   return (
     <div className="shrink-0 space-y-2 border-b bg-background px-[var(--pg-gutter,1rem)] py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Heading as="h1" variant="title" className="mr-2">
-          Floor plan
-        </Heading>
-        <DatePicker fp={fp} />
-        {services.length > 1 ? (
-          <ToggleGroup
-            type="single"
-            value={fp.service}
-            onValueChange={(v) => v && fp.actions.chooseService(v as FloorServiceFilter)}
-            aria-label="Service"
-            className="rounded-lg bg-muted p-0.5"
-          >
-            {services.map((s) => (
-              <ToggleGroupItem key={s.key} value={s.key} className={segmentClass}>
-                {s.label}
+        {arrange ? (
+          // The settings chrome owns the Floor layout heading; no service controls here.
+          <span className="flex-1" />
+        ) : (
+          <>
+            <Heading as="h1" variant="title" className="mr-2">
+              Floor plan
+            </Heading>
+            <DatePicker fp={fp} />
+            {services.length > 1 ? (
+              <ToggleGroup
+                type="single"
+                value={fp.service}
+                onValueChange={(v) => v && fp.actions.chooseService(v as FloorServiceFilter)}
+                aria-label="Service"
+                className="rounded-lg bg-muted p-0.5"
+              >
+                {services.map((s) => (
+                  <ToggleGroupItem key={s.key} value={s.key} className={segmentClass}>
+                    {s.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            ) : null}
+            <span className="flex-1" />
+            <ToggleGroup
+              type="single"
+              value={fp.view}
+              onValueChange={(v) => v && fp.actions.setView(v as FloorView)}
+              aria-label="View"
+              className="hidden rounded-lg bg-muted p-0.5 sm:flex"
+            >
+              <ToggleGroupItem value="plan" className={segmentClass}>
+                Plan
               </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        ) : null}
-        <span className="flex-1" />
-        <ToggleGroup
-          type="single"
-          value={fp.view}
-          onValueChange={(v) => v && fp.actions.setView(v as FloorView)}
-          aria-label="View"
-          className="hidden rounded-lg bg-muted p-0.5 sm:flex"
-        >
-          <ToggleGroupItem value="plan" className={segmentClass}>
-            Plan
-          </ToggleGroupItem>
-          <ToggleGroupItem value="timeline" className={segmentClass} disabled={arrange}>
-            Timeline
-          </ToggleGroupItem>
-        </ToggleGroup>
-        {fp.canArrange ? (
-          <ToggleGroup
-            type="single"
-            value={mode}
-            onValueChange={(v) => v && fp.actions.switchMode(v as FloorMode)}
-            aria-label="Mode"
-            className="hidden rounded-lg bg-muted p-0.5 sm:flex"
-          >
-            <ToggleGroupItem value="service" className={segmentClass}>
-              Service
-            </ToggleGroupItem>
-            <ToggleGroupItem value="arrange" className={segmentClass}>
-              Arrange
-            </ToggleGroupItem>
-          </ToggleGroup>
-        ) : null}
+              <ToggleGroupItem value="timeline" className={segmentClass}>
+                Timeline
+              </ToggleGroupItem>
+            </ToggleGroup>
+            {fp.canArrange ? (
+              <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+                <Link href={FLOOR_LAYOUT_SETTINGS_HREF}>
+                  <PencilRuler aria-hidden />
+                  Edit layout
+                </Link>
+              </Button>
+            ) : null}
+          </>
+        )}
         <div role="status" className="flex items-center gap-1 text-xs text-muted-foreground">
           <span>{data.isRefreshing ? 'Refreshing…' : updated ? `Updated ${updated}` : ''}</span>
           <Button
@@ -301,7 +308,7 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
             variant="ghost"
             disabled={data.isRefreshing || data.status === 'loading'}
             onClick={() => void fp.actions.refresh()}
-            aria-label="Refresh bookings"
+            aria-label={arrange ? 'Refresh tables' : 'Refresh bookings'}
           >
             <RefreshCw className={cn(data.isRefreshing && 'animate-spin')} aria-hidden />
             <span className="hidden sm:inline">Refresh</span>

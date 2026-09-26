@@ -15,7 +15,12 @@ import { useOpsEmailTemplatesPageState } from '@/hooks/ops/useOpsEmailTemplatesP
 import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
-export function OpsEmailTemplatesClient() {
+export type OpsEmailTemplatesClientProps = {
+  /** Rendered inside the settings workspace: fill its content area instead of the viewport. */
+  embedded?: boolean;
+};
+
+export function OpsEmailTemplatesClient({ embedded = false }: OpsEmailTemplatesClientProps = {}) {
   const state = useOpsEmailTemplatesPageState();
   const previewSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,7 +72,7 @@ export function OpsEmailTemplatesClient() {
     <OpsPageShell
       variant="immersive"
       as="section"
-      className="relative flex bg-muted/40 text-foreground"
+      className={cn('relative flex bg-muted/40 text-foreground', embedded && 'h-full min-h-0')}
     >
       {showSkeleton ? (
         <div className="grid h-full w-full min-w-0 gap-0 lg:grid-cols-[20rem,minmax(0,1fr)]">

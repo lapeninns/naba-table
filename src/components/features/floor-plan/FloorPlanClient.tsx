@@ -25,7 +25,11 @@ import { FloorPlanList, FloorPlanTimeline } from './FloorPlanTimeline';
 import { FloorPlanSummary, FloorPlanToolbar } from './FloorPlanToolbar';
 import { tableNumbers } from './model/floorPlanState';
 import { formatClock, formatLongDate } from './model/floorPlanTime';
-import { useFloorPlanController, type FloorPlanController } from './useFloorPlanController';
+import {
+  useFloorPlanController,
+  type FloorPlanController,
+  type FloorSurface,
+} from './useFloorPlanController';
 
 function CenteredState({
   icon,
@@ -109,7 +113,8 @@ function ViewArea({ fp, phone }: { fp: FloorPlanController; phone: boolean }) {
       </CenteredState>
     );
   }
-  if (snapshot.isClosed || !snapshot.window) {
+  // Arranging the saved layout doesn't depend on the day's services.
+  if (fp.mode === 'service' && (snapshot.isClosed || !snapshot.window)) {
     return (
       <CenteredState
         icon={<CalendarX className="size-5" />}
@@ -181,8 +186,14 @@ function ConfirmDialog({ fp }: { fp: FloorPlanController }) {
   );
 }
 
-export function FloorPlanClient({ initialDate }: { initialDate: string | null }) {
-  const fp = useFloorPlanController({ initialDate });
+export function FloorPlanClient({
+  initialDate,
+  surface = 'service',
+}: {
+  initialDate: string | null;
+  surface?: FloorSurface;
+}) {
+  const fp = useFloorPlanController({ initialDate, surface });
   const phone = useMediaQuery('(max-width: 639px)');
   const narrow = useMediaQuery('(max-width: 1099px)');
   const [sheet, setSheet] = useState<'peek' | 'open'>('peek');
@@ -210,17 +221,23 @@ export function FloorPlanClient({ initialDate }: { initialDate: string | null })
         return;
       }
       if (inField || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key === 'n' || event.key === 'N') actions.goToNow();
+      if (surface === 'service' && (event.key === 'n' || event.key === 'N')) actions.goToNow();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [actions, confirm, pick, selectedTableId, sheet]);
+  }, [actions, confirm, pick, selectedTableId, sheet, surface]);
 
   const showSummary =
     fp.data.status === 'ready' && Boolean(fp.snapshot?.tables.length) && fp.snapshot?.window;
 
   return (
-    <div className="flex min-h-[calc(100dvh-7rem)] flex-1 flex-col md:h-svh md:min-h-0 md:overflow-hidden">
+    <div
+      className={
+        surface === 'layout'
+          ? 'flex h-full min-h-0 flex-1 flex-col overflow-hidden'
+          : 'flex min-h-[calc(100dvh-7rem)] flex-1 flex-col md:h-svh md:min-h-0 md:overflow-hidden'
+      }
+    >
       <FloorPlanToolbar fp={fp} />
       <div className="relative flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col max-[1099px]:pb-14">
@@ -242,4 +259,9 @@ export function FloorPlanClient({ initialDate }: { initialDate: string | null })
       </div>
     </div>
   );
+}
+
+/** The Floor layout settings workspace: the saved room, always in arrange mode. */
+export function FloorLayoutClient() {
+  return <FloorPlanClient initialDate={null} surface="layout" />;
 }

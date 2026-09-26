@@ -53,7 +53,15 @@ export const RESTAURANT_SETTINGS_NAV_GROUPS: Array<{
   },
   {
     label: 'Restaurant details',
-    hrefs: ['/app/settings/restaurant/discovery', '/app/settings/restaurant/menu'],
+    hrefs: [
+      '/app/settings/restaurant/discovery',
+      '/app/settings/restaurant/menu',
+      '/app/settings/restaurant/table-layout',
+    ],
+  },
+  {
+    label: 'Guest communications',
+    hrefs: ['/app/settings/restaurant/email-templates'],
   },
   {
     label: 'Staff',

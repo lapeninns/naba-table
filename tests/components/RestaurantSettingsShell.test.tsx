@@ -19,6 +19,8 @@ const dynamicState = vi.hoisted(() => ({
     'tables',
     'team',
     'staff-communications',
+    'table-layout',
+    'email-templates',
   ],
   index: 0,
 }));
@@ -98,6 +100,8 @@ const expectedViews: RestaurantSettingsView[] = [
   'tables',
   'team',
   'staff-communications',
+  'table-layout',
+  'email-templates',
 ];
 
 function renderWithOpsSession(ui: ReactElement, memberships: OpsMembership[] = [membership]) {
@@ -247,6 +251,8 @@ describe('restaurant settings route contract', () => {
       '/app/settings/restaurant/tables',
       '/app/settings/restaurant/team',
       '/app/settings/restaurant/staff-communications',
+      '/app/settings/restaurant/table-layout',
+      '/app/settings/restaurant/email-templates',
     ]);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS).toHaveLength(RESTAURANT_SETTINGS_ROUTES.length);
     expect(
@@ -342,6 +348,16 @@ describe('RestaurantSettingsSubnav', () => {
     expect(screen.getByRole('link', { name: 'Restaurant profile' })).not.toHaveAttribute(
       'aria-current',
     );
+  });
+
+  it('gives full-height workspaces the content area without the page gutter', () => {
+    const { unmount } = renderPageShell('/app/settings/restaurant/email-templates');
+    expect(document.getElementById('ops-content')).toHaveAttribute('data-layout', 'workspace');
+    expect(screen.getByRole('heading', { level: 1, name: 'Email templates' })).toBeInTheDocument();
+    unmount();
+
+    renderPageShell('/app/settings/restaurant/profile');
+    expect(document.getElementById('ops-content')).toHaveAttribute('data-layout', 'page');
   });
 
   it('titles former availability routes as the Availability page and marks it active', () => {

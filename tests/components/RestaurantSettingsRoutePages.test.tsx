@@ -10,7 +10,10 @@ import AvailabilitySettingsPage, {
 import RestaurantDiscoverySettingsPage, {
   metadata as discoveryMetadata,
 } from '@/app/app/(app)/settings/restaurant/discovery/page';
-import RestaurantEmailTemplatesSettingsPage from '@/app/app/(app)/settings/restaurant/email-templates/page';
+import LegacyEmailTemplatesPage from '@/app/app/(app)/email-templates/page';
+import RestaurantEmailTemplatesSettingsPage, {
+  metadata as emailTemplatesMetadata,
+} from '@/app/app/(app)/settings/restaurant/email-templates/page';
 import GoogleBusinessProfileSettingsPage, {
   metadata as googleBusinessProfileMetadata,
 } from '@/app/app/(app)/settings/restaurant/google-business-profile/page';
@@ -35,6 +38,9 @@ import ServicePeriodsSettingsPage, {
 import StaffCommunicationsSettingsPage, {
   metadata as staffCommunicationsMetadata,
 } from '@/app/app/(app)/settings/restaurant/staff-communications/page';
+import RestaurantTableLayoutSettingsPage, {
+  metadata as tableLayoutMetadata,
+} from '@/app/app/(app)/settings/restaurant/table-layout/page';
 import RestaurantTablesSettingsPage, {
   metadata as tablesMetadata,
 } from '@/app/app/(app)/settings/restaurant/tables/page';
@@ -103,6 +109,16 @@ const routePageContracts: RoutePageContract[] = [
     metadata: staffCommunicationsMetadata,
     page: StaffCommunicationsSettingsPage,
     view: 'staff-communications',
+  },
+  {
+    metadata: tableLayoutMetadata,
+    page: RestaurantTableLayoutSettingsPage,
+    view: 'table-layout',
+  },
+  {
+    metadata: emailTemplatesMetadata,
+    page: RestaurantEmailTemplatesSettingsPage,
+    view: 'email-templates',
   },
 ];
 
@@ -175,8 +191,13 @@ describe('restaurant settings route pages', () => {
     expect(staffCommunicationsMetadata.title).toBe('Staff communications · Nab a Table Ops');
   });
 
-  it('keeps the legacy Email Templates settings route redirecting to the command center', () => {
-    RestaurantEmailTemplatesSettingsPage();
-    expect(redirectMock).toHaveBeenCalledWith('/app/email-templates');
+  it('titles the settings workspaces from the shared route copy', () => {
+    expect(tableLayoutMetadata.title).toBe('Floor layout · Nab a Table Ops');
+    expect(emailTemplatesMetadata.title).toBe('Email templates · Nab a Table Ops');
+  });
+
+  it('redirects the former standalone Email Templates route into Settings', () => {
+    LegacyEmailTemplatesPage();
+    expect(redirectMock).toHaveBeenCalledWith('/app/settings/restaurant/email-templates');
   });
 });

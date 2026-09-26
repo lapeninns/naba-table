@@ -6,7 +6,9 @@ import {
   Compass,
   BellRing,
   LayoutGrid,
+  Mail,
   MapPinned,
+  PencilRuler,
   Store,
   Users,
   UtensilsCrossed,
@@ -46,6 +48,8 @@ const NAV_ICONS: Record<SettingsHref, LucideIcon> = {
   '/app/settings/restaurant/tables': LayoutGrid,
   '/app/settings/restaurant/team': Users,
   '/app/settings/restaurant/staff-communications': BellRing,
+  '/app/settings/restaurant/table-layout': PencilRuler,
+  '/app/settings/restaurant/email-templates': Mail,
 };
 
 export type RestaurantSettingsSidebarNavProps = {

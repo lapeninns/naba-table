@@ -78,11 +78,11 @@ All routes under `/app/(app)/*` require authentication. Unauthenticated users ar
 
 ##### Seating Management
 
-| Route                     | Description                                         | File Path                                       |
-| ------------------------- | --------------------------------------------------- | ----------------------------------------------- |
-| `/app/seating`            | Seating overview                                    | `src/app/app/(app)/seating/page.tsx`            |
-| `/app/seating/capacity`   | Capacity management                                 | `src/app/app/(app)/seating/capacity/page.tsx`   |
-| `/app/seating/floor-plan` | Floor plan (live service, timeline, arrange layout) | `src/app/app/(app)/seating/floor-plan/page.tsx` |
+| Route                     | Description                            | File Path                                       |
+| ------------------------- | -------------------------------------- | ----------------------------------------------- |
+| `/app/seating`            | Seating overview                       | `src/app/app/(app)/seating/page.tsx`            |
+| `/app/seating/capacity`   | Capacity management                    | `src/app/app/(app)/seating/capacity/page.tsx`   |
+| `/app/seating/floor-plan` | Floor plan (live service and timeline) | `src/app/app/(app)/seating/floor-plan/page.tsx` |
 
 ##### Team Management
 
@@ -109,7 +109,9 @@ All routes under `/app/(app)/*` require authentication. Unauthenticated users ar
 | `/app/settings/restaurant/team`                    | Team invitations                                                            | `src/app/app/(app)/settings/restaurant/team/page.tsx`                    |
 | `/app/settings/restaurant/staff-communications`    | Staff communications: manager alerts and daily booking summary              | `src/app/app/(app)/settings/restaurant/staff-communications/page.tsx`    |
 | `/app/settings/restaurant/google-business-profile` | Google Business Profile link, compare and publish                           | `src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx` |
-| `/app/settings/restaurant/email-templates`         | Redirects to `/app/email-templates`                                         | `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`         |
+| `/app/settings/restaurant/table-layout`            | Floor layout: arrange where tables sit on the floor plan (admin only)       | `src/app/app/(app)/settings/restaurant/table-layout/page.tsx`            |
+| `/app/settings/restaurant/email-templates`         | Email templates: write, test and A/B test guest emails                      | `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`         |
+| `/app/email-templates`                             | Redirects to `/app/settings/restaurant/email-templates`                     | `src/app/app/(app)/email-templates/page.tsx`                             |
 | `/app/settings/tables`                             | Table configuration                                                         | `src/app/app/(app)/settings/tables/page.tsx`                             |
 
 ---

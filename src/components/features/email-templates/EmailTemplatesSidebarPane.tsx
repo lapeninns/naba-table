@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Heading, Text } from '@/components/ui/typography';
+import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import type { RestaurantBookingEmailTemplateKey } from '@/lib/restaurants/email-templates';
@@ -35,15 +35,8 @@ export function EmailTemplatesSidebarPane({
   return (
     <aside className="flex h-full min-h-0 w-full flex-col border-r border-border bg-muted/40 md:w-80 xl:w-[22rem]">
       <div className="border-b border-border bg-background/95 px-4 py-4 backdrop-blur">
-        <div className="space-y-1">
-          <div className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Email Templates
-          </div>
-          <Heading variant="title" as="h1" className="tracking-tight">
-            Command Center
-          </Heading>
-          <Text variant="caption">Editing copy for {restaurantName}.</Text>
-        </div>
+        {/* The settings chrome owns the page heading; this pane only says whose copy it is. */}
+        <Text variant="caption">Editing copy for {restaurantName}.</Text>
 
         <div className="mt-4">
           <Label htmlFor="email-template-search" className="sr-only">
@@ -69,7 +62,9 @@ export function EmailTemplatesSidebarPane({
               <h2 className="px-1 text-[11px] font-bold uppercase tracking-[0.22em] text-muted-foreground">
                 {group.title}
               </h2>
-              <Text variant="caption" className="px-1">{group.description}</Text>
+              <Text variant="caption" className="px-1">
+                {group.description}
+              </Text>
             </div>
 
             <div className="space-y-2">

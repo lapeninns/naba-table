@@ -361,15 +361,14 @@ test.describe('ops restaurant settings and team shipped routes', () => {
     });
   });
 
-  test('email templates settings route redirects to standalone command center @p1 @browser @smoke @local-only', async ({
+  test('former email templates route redirects into restaurant settings @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
-    await page.goto('/settings/restaurant/email-templates', { waitUntil: 'domcontentloaded' });
+    await page.goto('/email-templates', { waitUntil: 'domcontentloaded' });
     await waitForSettled(page);
 
-    await expect(page).toHaveURL(/app\.localhost:\d+\/email-templates/);
-    await expect(page.locator('aside').getByText('Email Templates')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Command Center' })).toBeVisible();
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/email-templates/);
+    await expect(page.getByRole('heading', { level: 1, name: 'Email templates' })).toBeVisible();
     await expect(page.locator('aside').getByText('Booking confirmed')).toBeVisible();
 
     await page.screenshot({

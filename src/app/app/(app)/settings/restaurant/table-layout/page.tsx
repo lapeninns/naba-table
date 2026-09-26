@@ -4,9 +4,9 @@ import { getRestaurantSettingsMetadata } from '@/components/features/restaurant-
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = getRestaurantSettingsMetadata(
-  '/settings/restaurant/email-templates',
+  '/settings/restaurant/table-layout',
 );
 
-export default function RestaurantEmailTemplatesSettingsPage() {
-  return <OpsRestaurantSettingsClient view="email-templates" />;
+export default function RestaurantTableLayoutSettingsPage() {
+  return <OpsRestaurantSettingsClient view="table-layout" />;
 }

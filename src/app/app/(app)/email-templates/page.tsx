@@ -1,12 +1,12 @@
-import { OpsEmailTemplatesClient } from '@/components/features/email-templates/OpsEmailTemplatesClient';
+import { redirect } from 'next/navigation';
 
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Email Templates · Nab a Table Ops',
-  description: 'Manage and A/B test guest-facing transactional email copy.',
+  description: 'Email templates now live in restaurant settings.',
 };
 
 export default function OpsEmailTemplatesPage() {
-  return <OpsEmailTemplatesClient />;
+  redirect('/app/settings/restaurant/email-templates');
 }
