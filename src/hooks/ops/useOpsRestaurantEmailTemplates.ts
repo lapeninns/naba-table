@@ -134,8 +134,55 @@ export function useOpsResetRestaurantEmailTemplate(
   });
 }
 
-/** Typing pause before the draft is re-rendered. The preview route allows 30 renders a minute. */
+/** Typing pause before the draft is re-rendered. */
 export const PREVIEW_DEBOUNCE_MS = 400;
+
+/**
+ * Client-side budget for draft renders. The preview route allows 30 a minute per restaurant;
+ * staying under it leaves room for other tabs and staff, so slow typing never hits a 429.
+ */
+export const PREVIEW_RATE_LIMIT = { limit: 24, windowMs: 60_000 } as const;
+
+/** Render start times per restaurant, shared by every preview in this tab. */
+const previewRenderTimes = new Map<string, number[]>();
+
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * Waits until the rolling window has room, then claims a slot. A newer draft aborts the wait,
+ * so only the latest draft is rendered once the window frees up.
+ */
+async function takePreviewSlot(restaurantId: string, signal: AbortSignal): Promise<void> {
+  const { limit, windowMs } = PREVIEW_RATE_LIMIT;
+  for (;;) {
+    const now = Date.now();
+    const times = (previewRenderTimes.get(restaurantId) ?? []).filter(
+      (startedAt) => now - startedAt < windowMs,
+    );
+    if (times.length < limit) {
+      previewRenderTimes.set(restaurantId, [...times, now]);
+      return;
+    }
+    previewRenderTimes.set(restaurantId, times);
+    await abortableDelay(times[0]! + windowMs - now, signal);
+  }
+}
 
 /** Short, stable fingerprint of a draft for the preview cache key. */
 function draftFingerprint(value: unknown): string {
@@ -150,9 +197,9 @@ function draftFingerprint(value: unknown): string {
 /**
  * The server-rendered email for the variant being edited, including unsaved changes.
  *
- * A query, not a mutation: edits are debounced, a superseded render is aborted, identical drafts
- * are served from cache, and the last preview of the same email stays visible while the next
- * one renders.
+ * A query, not a mutation: edits are debounced and kept under the route's rate limit, a
+ * superseded render is aborted, identical drafts are served from cache, and the last preview of
+ * the same email stays visible while the next one renders.
  */
 export function useOpsEmailTemplatePreview({
   restaurantId,
@@ -189,13 +236,15 @@ export function useOpsEmailTemplatePreview({
       request.variantId,
       draftFingerprint(request.variants),
     ],
-    queryFn: ({ signal }) =>
-      restaurantService.previewEmailTemplate(
+    queryFn: async ({ signal }) => {
+      await takePreviewSlot(restaurantId!, signal);
+      return restaurantService.previewEmailTemplate(
         restaurantId!,
         request.templateKey!,
         { preferredVariantId: request.variantId!, variants: [...request.variants] },
         { signal },
-      ),
+      );
+    },
     enabled: ready,
     // Keep the last render of the same email on screen while the next one loads.
     placeholderData: (previous) =>

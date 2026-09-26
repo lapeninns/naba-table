@@ -271,12 +271,12 @@ export function GbpReviewTable({
           </b>{' '}
           in {summary.sectionsWithDifferences}{' '}
           {summary.sectionsWithDifferences === 1 ? 'section' : 'sections'} · {summary.decided} of{' '}
-          {summary.differences} decided
+          {summary.toDecide} decided
         </p>
-        {summary.differences ? (
+        {summary.toDecide ? (
           <Progress
-            value={Math.round((summary.decided / summary.differences) * 100)}
-            aria-label={`${summary.decided} of ${summary.differences} decided`}
+            value={Math.round((summary.decided / summary.toDecide) * 100)}
+            aria-label={`${summary.decided} of ${summary.toDecide} decided`}
             className="h-1.5 w-[120px]"
           />
         ) : null}

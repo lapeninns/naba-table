@@ -25,6 +25,7 @@ import { FloorPlanList, FloorPlanTimeline } from './FloorPlanTimeline';
 import { FloorPlanSummary, FloorPlanToolbar } from './FloorPlanToolbar';
 import { tableNumbers } from './model/floorPlanState';
 import { formatClock, formatLongDate } from './model/floorPlanTime';
+import { floorPlanBody } from './model/floorPlanView';
 import {
   useFloorPlanController,
   type FloorPlanController,
@@ -133,8 +134,9 @@ function ViewArea({ fp, phone }: { fp: FloorPlanController; phone: boolean }) {
       </CenteredState>
     );
   }
-  if (fp.view === 'timeline' && fp.mode === 'service') return <FloorPlanTimeline fp={fp} />;
-  if (phone || fp.listOn) return <FloorPlanList fp={fp} withNeeds={phone} />;
+  const body = floorPlanBody({ mode: fp.mode, view: fp.view, listOn: fp.listOn, phone });
+  if (body === 'timeline') return <FloorPlanTimeline fp={fp} />;
+  if (body === 'list') return <FloorPlanList fp={fp} withNeeds={phone} />;
   return <FloorPlanCanvas fp={fp} />;
 }
 

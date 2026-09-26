@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query/keys';
 import {
   PREVIEW_DEBOUNCE_MS,
+  PREVIEW_RATE_LIMIT,
   useOpsEmailTemplatePreview,
   useOpsResetRestaurantEmailTemplate,
   useOpsRestaurantEmailTemplates,
@@ -184,6 +185,45 @@ describe('useOpsEmailTemplatePreview', () => {
       'confirmation',
       { preferredVariantId: 'v1', variants: [{ id: 'v1', subject: 'Hello there' }] },
       { signal: expect.any(AbortSignal) },
+    );
+  });
+
+  it('@contract holds renders once the rate window is full, then sends the latest draft', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    restaurantService.previewEmailTemplate.mockImplementation(async (_id, _key, payload) => ({
+      templateKey: 'confirmation',
+      html: payload.variants[0].subject,
+    }));
+
+    const { result, rerender } = setup(({ subject }: { subject: string } = { subject: 's0' }) =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-rate-limited',
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants: [{ id: 'v1', subject }] as never,
+        debounceMs: 0,
+      }),
+    );
+    for (let index = 1; index < PREVIEW_RATE_LIMIT.limit; index += 1) {
+      rerender({ subject: `s${index}` });
+      await waitFor(() =>
+        expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(index + 1),
+      );
+    }
+
+    rerender({ subject: 'over the limit' });
+    rerender({ subject: 'latest' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(PREVIEW_RATE_LIMIT.limit);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREVIEW_RATE_LIMIT.windowMs);
+    });
+    await waitFor(() => expect(result.current.data?.html).toBe('latest'));
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(
+      PREVIEW_RATE_LIMIT.limit + 1,
     );
   });
 

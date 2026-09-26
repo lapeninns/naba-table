@@ -331,7 +331,9 @@ export function useOpsEmailTemplatesEditor() {
         payload: {
           toEmail: toEmail.trim(),
           preferredVariantId: variant.id,
-          variants: variants.map((item, order) => ({ ...item, order })),
+          // Only the open variant: the API validates every variant sent, so an unfinished
+          // sibling would otherwise reject a test the dialog allows.
+          variants: [{ ...variant, order: 0 }],
         },
       });
       toast.success('Test handed to the email provider', {

@@ -168,9 +168,23 @@ describe('summarizeGbpReview and summarizeGbpSection', () => {
     expect(summarizeGbpReview(fields, { a: { action: 'ignore' } })).toEqual({
       differences: 2,
       sectionsWithDifferences: 2,
+      toDecide: 2,
       decided: 1,
       undecided: 1,
     });
+  });
+
+  it('leaves queued, ignored and unsupported fields out of the decisions still to make', () => {
+    const review = summarizeGbpReview(
+      [
+        field({ fieldKey: 'a', state: 'core_dirty' }),
+        field({ fieldKey: 'q', state: 'pending_export' }),
+        field({ fieldKey: 'i', state: 'ignored' }),
+        field({ fieldKey: 'u', state: 'core_dirty', conflictPolicy: 'unsupported' }),
+      ],
+      {},
+    );
+    expect(review).toMatchObject({ differences: 4, toDecide: 1, decided: 0, undecided: 1 });
   });
 
   it('describes a section by how many of its fields differ', () => {

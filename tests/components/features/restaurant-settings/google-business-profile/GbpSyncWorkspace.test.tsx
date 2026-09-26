@@ -451,6 +451,51 @@ describe('GbpSyncWorkspace', () => {
     expect(exactPublish).not.toHaveBeenCalled();
   });
 
+  it('@contract locks Review exact plan while Google values are being saved', async () => {
+    const user = userEvent.setup();
+    const fields = state([
+      field(),
+      field({
+        fieldKey: 'profile.website',
+        label: 'Website',
+        coreCanonicalHash: 'core-web-hash',
+        gbpCanonicalHash: 'gbp-web-hash',
+      }),
+    ]);
+    mocks.useOpsDualSync.mockReturnValue(dualSync({ stateQuery: query(fields) }));
+
+    const view = renderWorkspace();
+    await user.click(
+      within(screen.getByRole('group', { name: 'What to do with Phone number' })).getByRole(
+        'radio',
+        { name: 'Use Google’s' },
+      ),
+    );
+    await user.click(
+      within(screen.getByRole('group', { name: 'What to do with Website' })).getByRole('radio', {
+        name: 'Send to Google',
+      }),
+    );
+    expect(
+      within(decisionBar()).getByRole('button', { name: 'Review exact plan (1)' }),
+    ).toBeEnabled();
+
+    mocks.useOpsDualSync.mockReturnValue(
+      dualSync({
+        stateQuery: query(fields),
+        publishMutation: { ...mutation(async () => publishResult()), isPending: true },
+      }),
+    );
+    view.rerender(
+      <GbpSyncWorkspace restaurantId="restaurant-1" section={section()} operator={null} />,
+    );
+
+    expect(within(decisionBar()).getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    expect(
+      within(decisionBar()).getByRole('button', { name: 'Review exact plan (1)' }),
+    ).toBeDisabled();
+  });
+
   it('@contract previews through the legacy plan when exact publishing is unavailable', async () => {
     const user = userEvent.setup();
     const previewPublish = vi.fn(async () => plan('export_to_google'));

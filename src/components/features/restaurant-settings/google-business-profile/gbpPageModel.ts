@@ -4,6 +4,8 @@
  * Pure, so the page components stay presentational.
  */
 
+import { fieldNeedsOperatorChoice } from '../dual-sync/workspace-progress';
+
 import type { DualSyncFieldState } from '@/server/dual-sync';
 import type { DualSyncFieldSummary, GbpConnectionStateResponseV1 } from '@/services/ops/dual-sync';
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
@@ -144,14 +146,23 @@ export function isGbpFieldDifferent(field: DualSyncFieldSummary): boolean {
 export function summarizeGbpReview(
   fields: ReadonlyArray<DualSyncFieldSummary>,
   decisions: Readonly<Record<string, unknown>>,
-): { differences: number; sectionsWithDifferences: number; decided: number; undecided: number } {
+): {
+  differences: number;
+  sectionsWithDifferences: number;
+  toDecide: number;
+  decided: number;
+  undecided: number;
+} {
   const differing = fields.filter(isGbpFieldDifferent);
-  const decided = differing.filter((field) => decisions[field.fieldKey]).length;
+  // Queued, ignored and unsupported fields differ but need no choice, as in the bulk actions.
+  const actionable = differing.filter(fieldNeedsOperatorChoice);
+  const decided = actionable.filter((field) => decisions[field.fieldKey]).length;
   return {
     differences: differing.length,
     sectionsWithDifferences: new Set(differing.map((field) => field.sectionKey)).size,
+    toDecide: actionable.length,
     decided,
-    undecided: differing.length - decided,
+    undecided: actionable.length - decided,
   };
 }
 

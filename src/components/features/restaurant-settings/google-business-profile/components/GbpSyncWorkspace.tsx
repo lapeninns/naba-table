@@ -145,7 +145,14 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
           undecided={review.undecided}
           sendBlockReason={sendBlockReason}
           canImport={view.canImport}
-          canPreview={view.decisionSummary.toSend > 0 && !view.syncPaused && !sendBlockReason}
+          // Not view.canPublish: that also locks during the plan's own preview, and a disabled
+          // button would drop focus before the plan dialog opens.
+          canPreview={
+            view.decisionSummary.toSend > 0 &&
+            !view.syncPaused &&
+            !importPending &&
+            !sendBlockReason
+          }
           previewPending={previewPending || exactPublishPending}
           importPending={importPending}
           onImport={shellActions.onClickImportValues}

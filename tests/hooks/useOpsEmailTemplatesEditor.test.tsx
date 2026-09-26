@@ -265,7 +265,7 @@ describe('useOpsEmailTemplatesEditor', () => {
     expect(result.current.isDirty).toBe(false);
   });
 
-  it('@contract sends a test of the open variant with the whole draft', async () => {
+  it('@contract sends a test of only the open variant, so an unfinished sibling cannot block it', async () => {
     const { result } = setup();
     const second = result.current.variants[1]!;
     act(() => result.current.selectVariant(second.id));
@@ -279,7 +279,7 @@ describe('useOpsEmailTemplatesEditor', () => {
       payload: {
         toEmail: 'owner@example.com',
         preferredVariantId: second.id,
-        variants: result.current.variants,
+        variants: [{ ...second, order: 0 }],
       },
     });
   });
