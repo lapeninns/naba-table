@@ -18,6 +18,7 @@ export const GBP_SCENARIOS = {
   linked: 'Linked, differences to review',
   failstop: 'Publishing stopped: unknown Google updates',
   reauth: 'Reconnect needed',
+  accesslost: 'Access to the listing lost, never checked',
   rollout: 'Writes not enabled (rollout off)',
   paused: 'Sync paused',
   opsdown: 'Write controls unavailable',
@@ -149,6 +150,12 @@ export function gbpConnectionFor(scenario: GbpScenario): GoogleBusinessProfileCo
   switch (scenario) {
     case 'reauth':
       return connection({ status: 'reauth_required' });
+    case 'accesslost':
+      return connection({
+        status: 'sync_error',
+        lastError: 'Google Business Profile sync failed unexpectedly.',
+        lastPullAt: null,
+      });
     case 'authorized':
       return connection({
         ...UNLINKED,
@@ -253,6 +260,20 @@ export function gbpOperatorStateFor(scenario: GbpScenario): GbpOperatorStateFixt
           lastAttemptAt: '2026-09-26T08:12:00.000Z',
           lastSucceededAt: '2026-09-25T18:40:00.000Z',
           safeErrorCode: 'provider_invalid_grant',
+        },
+      };
+    case 'accesslost':
+      return {
+        ...base,
+        connectionStatus: 'sync_error',
+        writeState: 'blocked',
+        reasonCode: 'provider_access_lost_403',
+        rollout: { eligible: false, reason: 'rollout_off', evaluatedAt: CHECKED_AT },
+        refresh: {
+          status: 'failed',
+          lastAttemptAt: CHECKED_AT,
+          lastSucceededAt: null,
+          safeErrorCode: 'provider_refresh_failed',
         },
       };
     case 'rollout':
@@ -496,7 +517,13 @@ const FIELD_SEEDS: FieldSeed[] = [
 ];
 
 function field(seed: FieldSeed, sortOrder: number, scenario: GbpScenario): DualSyncFieldSummary {
-  const state: DualSyncFieldState = scenario === 'insync' ? 'in_sync' : seed.state;
+  // Never compared: Google has not been read for this listing yet.
+  const neverChecked = scenario === 'accesslost';
+  const state: DualSyncFieldState | null = neverChecked
+    ? null
+    : scenario === 'insync'
+      ? 'in_sync'
+      : seed.state;
   const canExport = !seed.importOnly && seed.core !== null;
   return {
     fieldKey: seed.key,
@@ -522,7 +549,7 @@ function field(seed: FieldSeed, sortOrder: number, scenario: GbpScenario): DualS
     exportable: !seed.importOnly,
     sortOrder,
     coreValue: scenario === 'insync' ? (seed.core ?? seed.gbp) : seed.core,
-    gbpValue: scenario === 'insync' ? (seed.core ?? seed.gbp) : seed.gbp,
+    gbpValue: neverChecked ? null : scenario === 'insync' ? (seed.core ?? seed.gbp) : seed.gbp,
     coreCanonicalHash: null,
     gbpCanonicalHash: null,
     capability: {
@@ -536,7 +563,7 @@ function field(seed: FieldSeed, sortOrder: number, scenario: GbpScenario): DualS
           : [],
     },
     state,
-    lastInSyncAt: CHECKED_AT,
+    lastInSyncAt: neverChecked ? null : CHECKED_AT,
     lastInSyncHash: null,
     lastCoreChangeAt: state === 'in_sync' ? null : '2026-09-26T10:00:00.000Z',
     lastGbpChangeAt: null,
@@ -558,12 +585,15 @@ export function gbpDualSyncStateFor(scenario: GbpScenario): GetDualSyncStateResp
       missingBaseline: 0,
       lastQueuedAt: CHECKED_AT,
     },
-    lastSnapshot: {
-      runId: 'snapshot-run-1',
-      runKind: 'manual',
-      startedAt: CHECKED_AT,
-      finishedAt: CHECKED_AT,
-    },
+    lastSnapshot:
+      scenario === 'accesslost'
+        ? null
+        : {
+            runId: 'snapshot-run-1',
+            runKind: 'manual',
+            startedAt: CHECKED_AT,
+            finishedAt: CHECKED_AT,
+          },
     control: {
       restaurantId: id,
       provider: 'google_business_profile',

@@ -10,6 +10,7 @@ import { GbpAlerts } from './GbpAlerts';
 import { GbpLinkedLayout } from './GbpLinkedLayout';
 import { GbpOperationsPanel } from './GbpOperationsPanel';
 import { GbpOverviewCard } from './GbpOverviewCard';
+import { getGbpReconnectReason } from '../gbpPageModel';
 
 import type { GoogleBusinessProfileSectionState } from '../useGoogleBusinessProfileSectionState';
 
@@ -55,7 +56,11 @@ export function GbpLinkedView({ restaurantId, section, canManageSettings }: GbpL
   const operatorState =
     operator.connectionQuery.data ?? operator.setWriteAccessMutation.data ?? null;
   const operatorUnavailable = canManageSettings && Boolean(operator.connectionQuery.error);
-  const needsReconnect = summary.status === 'reauth_required';
+  const reconnectReason = getGbpReconnectReason({
+    connectionStatus: summary.status,
+    operator: canManageSettings ? operatorState : null,
+  });
+  const needsReconnect = reconnectReason !== null;
 
   return (
     <GbpLinkedLayout
@@ -66,6 +71,7 @@ export function GbpLinkedView({ restaurantId, section, canManageSettings }: GbpL
           accountLabel={summary.accountLabel}
           operator={canManageSettings ? operatorState : null}
           operatorUnavailable={operatorUnavailable}
+          reconnectReason={reconnectReason}
           checkedAt={data.lastPullAt}
           manageHref={summary.manageOnGoogleHref}
           refresh={{
@@ -82,7 +88,7 @@ export function GbpLinkedView({ restaurantId, section, canManageSettings }: GbpL
           operatorUnavailable={operatorUnavailable}
           onRetryOperator={() => void operator.connectionQuery.refetch()}
           reauth={{
-            needed: needsReconnect,
+            reason: reconnectReason,
             account: summary.accountLabel,
             onReconnect: {
               label: section.startAuthorizationMutation.isPending

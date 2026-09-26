@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, CircleDashed } from 'lucide-react';
 import { useState } from 'react';
 
 import { Accordion } from '@/components/ui/accordion';
@@ -19,7 +19,12 @@ import { getDualSyncReviewActionState } from '../../dual-sync/dualSyncReviewActi
 import { getDualSyncErrorMessage } from '../../dual-sync/dualSyncShellActionDomain';
 import { DualSyncShellDialogs } from '../../dual-sync/DualSyncShellDialogs';
 import { useDualSyncShellController } from '../../dual-sync/hooks/useDualSyncShellController';
-import { getGbpSendBlockReason, summarizeGbpReview } from '../gbpPageModel';
+import {
+  getGbpReconnectReason,
+  getGbpSendBlockReason,
+  hasGbpComparison,
+  summarizeGbpReview,
+} from '../gbpPageModel';
 import { GBP_REVIEW_SECTIONS } from '../googleBusinessProfileWorkflow';
 
 import type { GoogleBusinessProfileSectionState } from '../useGoogleBusinessProfileSectionState';
@@ -79,7 +84,16 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
     connectionStatus: data.status,
     syncPaused: view.syncPaused,
   });
+  const reconnectReason = shellActions.needsReauth
+    ? 'expired'
+    : getGbpReconnectReason({ connectionStatus: data.status, operator: operatorState });
+  const reconnect = {
+    label: shellActions.isReconnectPending ? 'Reconnecting…' : 'Reconnect Google',
+    onClick: shellActions.handleReconnect,
+    pending: shellActions.isReconnectPending,
+  };
   const review = summarizeGbpReview(workspace.visibleFields, workspace.decisions);
+  const compared = hasGbpComparison(workspace.visibleFields);
   const refresh = {
     label: actions.refresh.label,
     onClick: shellActions.onClickRefresh,
@@ -127,6 +141,28 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
         No Nabatable fields can be compared with Google yet.
       </p>
     );
+  } else if (!compared) {
+    // Nothing has been read from Google, so there are no differences to decide on yet.
+    reviewContent = (
+      <div className="flex flex-col items-center gap-2 rounded-lg border px-4 py-7 text-center">
+        <CircleDashed className="size-5 text-muted-foreground" aria-hidden />
+        <p className="font-semibold">Google hasn’t been checked yet</p>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          {reconnectReason
+            ? 'Nabatable can’t read this listing until Google is reconnected. Once it can, the differences appear here.'
+            : 'Get the latest from Google to compare the listing with your Nabatable details.'}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant={reconnectReason ? 'default' : 'outline'}
+          onClick={reconnectReason ? reconnect.onClick : refresh.onClick}
+          disabled={reconnectReason ? reconnect.pending : refresh.disabled || refresh.pending}
+        >
+          {reconnectReason ? reconnect.label : refresh.label}
+        </Button>
+      </div>
+    );
   } else {
     reviewContent = (
       <>
@@ -171,6 +207,7 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
           accountLabel={summary.accountLabel}
           operator={operatorState}
           operatorUnavailable={operatorUnavailable}
+          reconnectReason={reconnectReason}
           checkedAt={view.lastSnapshotAt ?? data.lastPullAt}
           manageHref={summary.manageOnGoogleHref}
           refresh={refresh}
@@ -182,13 +219,9 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
           operatorUnavailable={operatorUnavailable}
           onRetryOperator={() => void operator?.connectionQuery.refetch()}
           reauth={{
-            needed: shellActions.needsReauth,
+            reason: reconnectReason,
             account: summary.accountLabel,
-            onReconnect: {
-              label: shellActions.isReconnectPending ? 'Reconnecting…' : 'Reconnect Google',
-              onClick: shellActions.handleReconnect,
-              pending: shellActions.isReconnectPending,
-            },
+            onReconnect: reconnect,
           }}
           syncError={data.status === 'sync_error' ? (data.lastError ?? '') : null}
           refresh={{ ...refresh, refresh: true }}
@@ -211,7 +244,7 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
           }
         />
       }
-      differenceCount={workspace.stateQuery.data ? review.differences : null}
+      differenceCount={workspace.stateQuery.data && compared ? review.differences : null}
       review={reviewContent}
       operations={
         <GbpOperationsPanel

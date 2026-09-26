@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { GbpStatusPill } from './GbpStatusPill';
-import { describeGbpConnection, describeGbpWrites, formatGbpTime } from '../gbpPageModel';
+import {
+  describeGbpConnection,
+  describeGbpWrites,
+  formatGbpTime,
+  type GbpReconnectReason,
+} from '../gbpPageModel';
 
 import type { GoogleBusinessProfileLinkedLocationDetails } from '../googleBusinessProfileSectionStateDomain';
 import type { GbpConnectionStateResponseV1 } from '@/services/ops/dual-sync';
@@ -20,6 +25,8 @@ export type GbpOverviewCardProps = {
   /** Admin-only write state; null when it is not loaded or not visible to this user. */
   readonly operator: GbpConnectionStateResponseV1 | null;
   readonly operatorUnavailable: boolean;
+  /** Set when Google must be reconnected; it names the connection problem. */
+  readonly reconnectReason?: GbpReconnectReason | null;
   /** When Nabatable last compared with Google. */
   readonly checkedAt: string | null;
   readonly manageHref: string | null;
@@ -62,11 +69,12 @@ export function GbpOverviewCard({
   accountLabel,
   operator,
   operatorUnavailable,
+  reconnectReason = null,
   checkedAt,
   manageHref,
   refresh,
 }: GbpOverviewCardProps) {
-  const connection = describeGbpConnection(data.status);
+  const connection = describeGbpConnection(data.status, reconnectReason);
   const writes = describeGbpWrites({ operator, unavailable: operatorUnavailable });
   const pending = operator?.pendingUpdates;
 

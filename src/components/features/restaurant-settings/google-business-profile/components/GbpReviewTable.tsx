@@ -109,7 +109,9 @@ function FieldRow({
   const reasonsId = reasons.length ? `gbp-field-reasons-${field.fieldKey}` : undefined;
 
   let action;
-  if (!isGbpFieldDifferent(field)) {
+  if (field.state === null) {
+    action = <span className="text-sm text-muted-foreground">Not compared yet</span>;
+  } else if (!isGbpFieldDifferent(field)) {
     action = (
       <span className="inline-flex min-h-9 items-center gap-1.5 text-sm text-muted-foreground">
         <Equal className="size-4" aria-hidden />
@@ -260,7 +262,9 @@ export function GbpReviewTable({
   const shown = sections.filter(
     (section) => showMatching || section.fields.some(isGbpFieldDifferent),
   );
-  const matchingSections = sections.filter((section) => !section.fields.some(isGbpFieldDifferent));
+  const matchingSections = sections.filter((section) =>
+    section.fields.every((field) => field.state === 'in_sync'),
+  );
 
   return (
     <div className="@container flex min-w-0 flex-col gap-3" data-testid="gbp-review">

@@ -39,10 +39,18 @@ export function describeGbpFieldNotes(field: DualSyncFieldSummary): { text: stri
   return { text: notes.join(' · '), hot: Boolean(field.state && HOT_STATES.has(field.state)) };
 }
 
-export function describeGbpConnection(status: GoogleBusinessProfileConnection['status']): {
+/** Why Google must be reconnected before Nabatable can read or publish the listing. */
+export type GbpReconnectReason = 'expired' | 'access_lost';
+
+export function describeGbpConnection(
+  status: GoogleBusinessProfileConnection['status'],
+  reconnectReason: GbpReconnectReason | null = null,
+): {
   label: string;
   tone: GbpTone;
 } {
+  if (reconnectReason === 'access_lost') return { label: 'Access lost', tone: 'bad' };
+  if (reconnectReason === 'expired') return { label: 'Reconnect needed', tone: 'bad' };
   switch (status) {
     case 'linked':
       return { label: 'Linked', tone: 'ok' };
@@ -64,6 +72,24 @@ type OperatorState = Pick<
   GbpConnectionStateResponseV1,
   'writeState' | 'reasonCode' | 'rollout' | 'pendingUpdates'
 >;
+
+/**
+ * Whether Google must be reconnected. Lost access to the listing (a Google 403) reaches the page
+ * as a sync error on the connection, so the operator's reason code is what tells it apart.
+ */
+export function getGbpReconnectReason({
+  connectionStatus,
+  operator,
+}: {
+  connectionStatus: GoogleBusinessProfileConnection['status'];
+  operator: Pick<OperatorState, 'writeState' | 'reasonCode'> | null;
+}): GbpReconnectReason | null {
+  if (connectionStatus === 'reauth_required' || operator?.writeState === 'reauth_required') {
+    return 'expired';
+  }
+  if (operator?.reasonCode?.startsWith('provider_access_lost')) return 'access_lost';
+  return null;
+}
 
 function isFailStop(operator: OperatorState | null): boolean {
   return operator?.pendingUpdates.state === 'unknown';
@@ -121,8 +147,12 @@ export function getGbpSendBlockReason({
   if (operatorUnavailable) {
     return 'Write controls could not be loaded, so publishing to Google stays off. Reload the page to try again.';
   }
-  if (connectionStatus === 'reauth_required') {
+  const reconnect = getGbpReconnectReason({ connectionStatus, operator });
+  if (reconnect === 'expired') {
     return 'Google access has expired. Reconnect Google before anything can be sent.';
+  }
+  if (reconnect === 'access_lost') {
+    return 'Google refused access to this listing. Reconnect Google before anything can be sent.';
   }
   if (isFailStop(operator)) {
     return 'Publishing is stopped until Nabatable gets the latest from Google and you create a new preview.';
@@ -139,8 +169,14 @@ export function getGbpSendBlockReason({
   return null;
 }
 
+/** A field Nabatable has compared with Google and found different. Never-compared fields are not. */
 export function isGbpFieldDifferent(field: DualSyncFieldSummary): boolean {
-  return field.state !== 'in_sync';
+  return field.state !== null && field.state !== 'in_sync';
+}
+
+/** Whether any field has been compared with Google yet. */
+export function hasGbpComparison(fields: ReadonlyArray<DualSyncFieldSummary>): boolean {
+  return fields.some((field) => field.state !== null);
 }
 
 export function summarizeGbpReview(
@@ -172,11 +208,11 @@ export function summarizeGbpSection(fields: ReadonlyArray<DualSyncFieldSummary>)
   label: string;
 } {
   const differing = fields.filter(isGbpFieldDifferent).length;
-  return {
-    differing,
-    total: fields.length,
-    label: differing ? `${differing} of ${fields.length} differ` : 'All match',
-  };
+  const unchecked = fields.filter((field) => field.state === null).length;
+  let label = 'All match';
+  if (differing) label = `${differing} of ${fields.length} differ`;
+  else if (unchecked) label = `${unchecked} not compared yet`;
+  return { differing, total: fields.length, label };
 }
 
 const DATE_TIME = new Intl.DateTimeFormat('en-GB', {
