@@ -568,7 +568,7 @@ describe('AvailabilitySettingsPage', () => {
     expect(lastCommand().expectedRevision).toBe('rev-7');
   });
 
-  it('@contract keeps the loaded revision while dirty, so a newer save elsewhere makes this one stale', async () => {
+  it('@contract rebases a dirty draft onto a newer snapshot, says so, and saves against its revision', async () => {
     const user = userEvent.setup();
     const loaded = { ...buildSaveResult({}), revision: 'rev-7' };
     availabilityState.snapshotQueryOverride = { data: loaded, error: null, isLoading: false };
@@ -588,10 +588,17 @@ describe('AvailabilitySettingsPage', () => {
         <AvailabilitySettingsPage restaurantId="rest-1" />
       </QueryClientProvider>,
     );
+    // The edit is kept on top of the newer settings, and staff are told they changed.
+    expect(await screen.findByTestId('availability-rebase-notice')).toHaveTextContent(
+      'Someone else saved changes while you were editing',
+    );
+    expect(
+      within(screen.getByRole('region', { name: 'Unsaved changes' })).getByText('1 unsaved change'),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
-    expect(lastCommand().expectedRevision).toBe('rev-7');
+    expect(lastCommand().expectedRevision).toBe('rev-8');
   });
 
   it('explains a stale save instead of overwriting newer settings', async () => {
@@ -608,12 +615,13 @@ describe('AvailabilitySettingsPage', () => {
 
     expect(await screen.findByText(/Someone else changed these settings\./)).toBeInTheDocument();
     expect(
-      screen.getByText(/Reload the page to load the latest, then make your edits again\./),
+      screen.getByText(/Your edits are still here\. Reload the latest settings, review them/),
     ).toBeInTheDocument();
-    // Discard reseeds from the same cached (stale) snapshot, so the copy must not promise that
-    // discarding loads newer settings.
-    expect(screen.queryByText(/Discard your changes to load the latest/)).not.toBeInTheDocument();
     expect(screen.getByText('CONFLICT', { selector: '.font-mono' })).toBeInTheDocument();
+    // Saving again with the same old revision can only be refused, so it is not offered.
+    const bar = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(within(bar).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    expect(within(bar).getByRole('button', { name: 'Reload latest' })).toBeInTheDocument();
   });
 
   it('saves booking rules through the availability command, not a restaurant PATCH', async () => {

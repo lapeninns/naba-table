@@ -52,7 +52,11 @@ import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCom
 import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
 import { AVAILABILITY_SAVE_CONFLICT_MESSAGE, SettingsSaveBar } from '../shared/SettingsSaveBar';
-import { getSettingsSaveReasonCode, pluralise } from '../shared/settingsSaveSequence';
+import {
+  formatSettingsSectionList,
+  getSettingsSaveReasonCode,
+  pluralise,
+} from '../shared/settingsSaveSequence';
 import {
   scrollToSettingsSection,
   type RestaurantSettingsCommandRailItem,
@@ -75,7 +79,10 @@ import {
   SpecialDateDialog,
   SpecialDatesSection,
 } from './SpecialDatesSection';
-import { useAvailabilityPageController } from './useAvailabilityPageController';
+import {
+  useAvailabilityPageController,
+  type AvailabilityRebaseNotice,
+} from './useAvailabilityPageController';
 import {
   WEEKLY_HOURS_SECTION_ID,
   WeeklyHoursSection,
@@ -488,6 +495,12 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
           <AlertDescription>{saveFailureCopy}</AlertDescription>
         </Alert>
       ) : null}
+      {controller.rebaseNotice ? (
+        <AvailabilityRebaseAlert
+          notice={controller.rebaseNotice}
+          onDismiss={controller.dismissRebaseNotice}
+        />
+      ) : null}
       {alias && !aliasDismissed ? (
         <Alert variant="info" role="status" className="pr-12">
           <Info aria-hidden />
@@ -721,8 +734,56 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
         onShowFirstIssue={showFirstIssue}
         onReview={() => setReviewOpen(true)}
         conflictMessage={AVAILABILITY_SAVE_CONFLICT_MESSAGE}
+        onReloadLatest={controller.reloadLatest}
+        isReloadingLatest={controller.isReloadingLatest}
       />
     </RestaurantSettingsCommandCenter>
+  );
+}
+
+/**
+ * Newer saved settings were loaded under unsaved edits (another manager, a Google import, or after
+ * a refused save). Staff edits are kept; sections both sides changed are named, because saving
+ * replaces the other change there.
+ */
+function AvailabilityRebaseAlert({
+  notice,
+  onDismiss,
+}: {
+  notice: AvailabilityRebaseNotice;
+  onDismiss: () => void;
+}) {
+  const names = (groups: readonly AvailabilitySaveGroup[]) =>
+    formatSettingsSectionList(groups.map((group) => AVAILABILITY_SAVE_GROUP_NAMES[group]));
+  const hasConflicts = notice.conflicts.length > 0;
+  return (
+    <Alert
+      variant={hasConflicts ? 'warning' : 'info'}
+      role="status"
+      className="pr-12"
+      data-testid="availability-rebase-notice"
+    >
+      {hasConflicts ? <AlertTriangle aria-hidden /> : <Info aria-hidden />}
+      <AlertTitle>Someone else saved changes while you were editing</AlertTitle>
+      <AlertDescription>
+        {notice.changed.length > 0
+          ? `Loaded the latest ${names(notice.changed)}. `
+          : 'Loaded the latest saved settings. '}
+        {hasConflicts
+          ? `You also changed ${names(notice.conflicts)}: your edits are kept and will replace theirs when you save. Review changes before saving.`
+          : 'Your edits are kept. Review them, then save again.'}
+      </AlertDescription>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="absolute right-2 top-2"
+        aria-label="Dismiss"
+        onClick={onDismiss}
+      >
+        <X aria-hidden />
+      </Button>
+    </Alert>
   );
 }
 

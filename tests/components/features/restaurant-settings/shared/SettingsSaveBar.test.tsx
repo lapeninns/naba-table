@@ -249,6 +249,53 @@ describe('SettingsSaveBar', () => {
     expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
   });
 
+  it('@contract offers "Reload latest" instead of a retry that can only be refused again', async () => {
+    const failure = await failHoursWith(
+      new HttpError({ message: RAW_SERVER_TEXT, status: 409, code: 'STALE_WRITE' }),
+    );
+    const onSave = vi.fn();
+    const onReloadLatest = vi.fn();
+    const view = render(
+      <DraftPage
+        changeCount={1}
+        failure={failure}
+        onSave={onSave}
+        onReloadLatest={onReloadLatest}
+        conflictMessage={AVAILABILITY_SAVE_CONFLICT_MESSAGE}
+      />,
+    );
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(within(region).queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    fireEvent.click(within(region).getByRole('button', { name: 'Reload latest' }));
+    expect(onReloadLatest).toHaveBeenCalledTimes(1);
+    expect(onSave).not.toHaveBeenCalled();
+
+    view.rerender(
+      <DraftPage
+        changeCount={1}
+        failure={failure}
+        onSave={onSave}
+        onReloadLatest={onReloadLatest}
+        isReloadingLatest
+      />,
+    );
+    expect(
+      within(screen.getByRole('region', { name: 'Unsaved changes' })).getByRole('button', {
+        name: 'Reloading…',
+      }),
+    ).toBeDisabled();
+  });
+
+  it('@contract keeps "Try again" for a non-conflict failure even when reload is available', async () => {
+    const failure = await failHoursWith(new HttpError({ message: RAW_SERVER_TEXT, status: 500 }));
+    render(<DraftPage changeCount={1} failure={failure} onReloadLatest={vi.fn()} />);
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(within(region).getByRole('button', { name: 'Try again' })).toBeEnabled();
+    expect(within(region).queryByRole('button', { name: 'Reload latest' })).not.toBeInTheDocument();
+  });
+
   it('@contract uses the page conflict copy only for conflicts', async () => {
     const failure = await failHoursWith(new HttpError({ message: RAW_SERVER_TEXT, status: 500 }));
     render(

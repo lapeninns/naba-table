@@ -185,6 +185,56 @@ describe('useOpsSaveAvailability', () => {
     ).toBe(profile);
   });
 
+  it('refetches the snapshot after STALE_WRITE so the page can rebase onto the newer revision', async () => {
+    const stale = jsonResponse(409, {
+      error: 'These settings were changed somewhere else.',
+      message: 'These settings were changed somewhere else.',
+      code: 'STALE_WRITE',
+    });
+    fetchMock.mockResolvedValueOnce(stale);
+    queryClient.setQueryData(queryKeys.opsRestaurants.availability(restaurantId), saveResult);
+    queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), saveResult.hours);
+
+    const { result } = renderHook(() => useOpsSaveAvailability(restaurantId), {
+      wrapper: wrapperFor(queryClient),
+    });
+
+    await act(async () => {
+      await result.current
+        .mutateAsync({ rules: { reservationIntervalMinutes: 30 }, expectedRevision: 'old' })
+        .catch(() => undefined);
+    });
+
+    expect(
+      queryClient.getQueryState(queryKeys.opsRestaurants.availability(restaurantId))?.isInvalidated,
+    ).toBe(true);
+    // Only the page's own snapshot; the single-resource caches are not part of its draft.
+    expect(
+      queryClient.getQueryState(queryKeys.opsRestaurants.hours(restaurantId))?.isInvalidated,
+    ).toBe(false);
+  });
+
+  it('keeps the snapshot as is after a non-conflict failure', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(500, { error: 'Internal', message: 'Internal', code: 'INTERNAL_ERROR' }),
+    );
+    queryClient.setQueryData(queryKeys.opsRestaurants.availability(restaurantId), saveResult);
+
+    const { result } = renderHook(() => useOpsSaveAvailability(restaurantId), {
+      wrapper: wrapperFor(queryClient),
+    });
+
+    await act(async () => {
+      await result.current
+        .mutateAsync({ rules: { reservationIntervalMinutes: 30 }, expectedRevision: 'old' })
+        .catch(() => undefined);
+    });
+
+    expect(
+      queryClient.getQueryState(queryKeys.opsRestaurants.availability(restaurantId))?.isInvalidated,
+    ).toBe(false);
+  });
+
   it('reads rows and revision together in ONE request (the page draft source)', async () => {
     fetchMock.mockResolvedValue(jsonResponse(200, { data: saveResult }));
 
