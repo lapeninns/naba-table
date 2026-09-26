@@ -115,7 +115,9 @@ function expandIpv6(ip: string): string[] | null {
       (piece) => piece.replace(/^0+(?=[0-9a-f])/, ''),
     );
   }
-  return explicit.length === 8 ? explicit.map((piece) => piece.replace(/^0+(?=[0-9a-f])/, '')) : null;
+  return explicit.length === 8
+    ? explicit.map((piece) => piece.replace(/^0+(?=[0-9a-f])/, ''))
+    : null;
 }
 
 /**
@@ -136,8 +138,7 @@ export function rateLimitIpKey(ip: string | null | undefined): string | null {
 
   const hextets = expandIpv6(ip);
   if (!hextets) return null;
-  const isV4Mapped =
-    hextets.slice(0, 5).every((piece) => piece === '0') && hextets[5] === 'ffff';
+  const isV4Mapped = hextets.slice(0, 5).every((piece) => piece === '0') && hextets[5] === 'ffff';
   if (isV4Mapped) {
     const high = Number.parseInt(hextets[6], 16);
     const low = Number.parseInt(hextets[7], 16);

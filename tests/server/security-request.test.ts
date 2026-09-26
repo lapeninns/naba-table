@@ -146,9 +146,7 @@ describe('rateLimitIpKey', () => {
 
   it('keys IPv6 per /64 so neighbours on other /64s get their own bucket', () => {
     expect(rateLimitIpKey('2001:db8:1:2:aaaa::1')).toBe('v6:2001:db8:1:2::/64');
-    expect(rateLimitIpKey('2001:0db8:0001:0002:ffff:ffff:ffff:ffff')).toBe(
-      'v6:2001:db8:1:2::/64',
-    );
+    expect(rateLimitIpKey('2001:0db8:0001:0002:ffff:ffff:ffff:ffff')).toBe('v6:2001:db8:1:2::/64');
     expect(rateLimitIpKey('2001:db8:1:3::1')).toBe('v6:2001:db8:1:3::/64');
     expect(rateLimitIpKey('2001:db8::1')).toBe('v6:2001:db8:0:0::/64');
     expect(rateLimitIpKey('::1')).toBe('v6:0:0:0:0::/64');

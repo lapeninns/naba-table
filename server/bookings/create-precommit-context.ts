@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { NextResponse } from 'next/server';
 
 import { deriveEndTimeFromDuration, inferMealTypeFromTime } from '@/server/bookings';
@@ -60,8 +61,12 @@ export type BookingCreatePrecommitContextResult =
     };
 
 function bookingDurationMinutes(booking: BookingRecord): number {
-  const start = booking.start_at ? Date.parse(booking.start_at) : Number.NaN;
-  const end = booking.end_at ? Date.parse(booking.end_at) : Number.NaN;
+  const start = booking.start_at
+    ? DateTime.fromISO(booking.start_at, { setZone: true }).toMillis()
+    : Number.NaN;
+  const end = booking.end_at
+    ? DateTime.fromISO(booking.end_at, { setZone: true }).toMillis()
+    : Number.NaN;
   return Number.isFinite(start) && Number.isFinite(end) && end > start
     ? Math.round((end - start) / 60_000)
     : 0;

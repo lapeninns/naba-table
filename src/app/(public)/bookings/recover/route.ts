@@ -56,10 +56,7 @@ function errorRedirect(req: NextRequest, code: RecoverErrorCode): NextResponse {
  * nothing to protect, and a shared "unknown" bucket would let one client
  * block every guest.
  */
-async function failedLinkRedirect(
-  req: NextRequest,
-  code: RecoverErrorCode,
-): Promise<NextResponse> {
+async function failedLinkRedirect(req: NextRequest, code: RecoverErrorCode): Promise<NextResponse> {
   const ipKey = rateLimitIpKey(extractClientIp(req));
   if (ipKey) {
     try {

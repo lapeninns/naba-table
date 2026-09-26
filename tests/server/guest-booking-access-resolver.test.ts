@@ -160,9 +160,9 @@ vi.mock('@/server/supabase', () => {
 });
 
 import { isVerifiedBookingOwner } from '@/server/bookings/guest-booking-access';
+import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
 import { GET as historyGET } from '@/src/app/api/bookings/[id]/history/route';
 import { DELETE, GET, PUT } from '@/src/app/api/bookings/[id]/route';
-import { buildReservationConfirmationPdfBuffer } from '@/server/reservations/confirmation-pdf';
 import { GET as pdfGET } from '@/src/app/api/reservations/[id]/confirmation/route';
 
 import {
@@ -740,9 +740,7 @@ describe('token path responses', () => {
       params(A),
     );
     expect(sessionResponse.status).toBe(200);
-    expect(buildPdf).toHaveBeenLastCalledWith(
-      expect.objectContaining({ guestName: 'Alex Guest' }),
-    );
+    expect(buildPdf).toHaveBeenLastCalledWith(expect.objectContaining({ guestName: 'Alex Guest' }));
   });
 
   it('§17 a token PUT that changes email or phone is 422 and writes nothing', async () => {

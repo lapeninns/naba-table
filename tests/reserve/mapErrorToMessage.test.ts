@@ -48,9 +48,7 @@ describe('mapErrorToMessage never shows raw transport or parser text', () => {
       status: 504,
       hasServerMessage: false,
     });
-    expect(mapErrorToMessage(error, 'Unable to process booking')).toBe(
-      DEFAULT_ERROR_COPY.server,
-    );
+    expect(mapErrorToMessage(error, 'Unable to process booking')).toBe(DEFAULT_ERROR_COPY.server);
   });
 
   it('shows network copy for a fetch TypeError', () => {

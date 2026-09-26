@@ -35,10 +35,7 @@ function maskName(value: string | null | undefined): string {
  * The guest name as shown to this caller, on every guest surface (JSON DTO,
  * confirmation PDF): token (link or cookie) access sees only the initial.
  */
-export function guestVisibleName(
-  name: string | null | undefined,
-  access: GuestAccessKind,
-): string {
+export function guestVisibleName(name: string | null | undefined, access: GuestAccessKind): string {
   return access.kind === 'token' ? maskName(name) : (name ?? '');
 }
 
