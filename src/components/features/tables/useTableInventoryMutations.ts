@@ -255,18 +255,31 @@ export function useTableInventoryMutations({
     undoToastIds.current.add(toastId);
   };
 
-  /** Refetches one restaurant's tables, timeline, capacities and zones, and no one else's. */
+  /**
+   * Refetches one restaurant's table queries and no one else's: the inventory and floor-plan list
+   * (both read `opsTables.list`), the timeline, allowed capacities and zones all sit under the
+   * restaurant prefix.
+   */
   const invalidateRestaurantTables = (target: MutationTarget | undefined) => {
     const targetRestaurantId = target?.restaurantId;
     if (!targetRestaurantId) return;
-    for (const queryKey of [
-      queryKeys.opsTables.list(targetRestaurantId),
-      queryKeys.opsTables.timeline(targetRestaurantId),
-      queryKeys.opsTables.allowedCapacities(targetRestaurantId),
-      queryKeys.opsTables.zones(targetRestaurantId),
-    ]) {
-      void queryClient.invalidateQueries({ queryKey });
-    }
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.opsTables.restaurantPrefix(targetRestaurantId),
+    });
+  };
+
+  /**
+   * The dashboard summary embeds each assigned table's number, capacity and section
+   * (`getTodayBookingsSummary`), so a rename, capacity change or delete makes every summary date
+   * stale. Creates, quick fixes (status/active) and zone edits change nothing it shows, and the
+   * heatmaps only count bookings, so those are left alone.
+   */
+  const invalidateTableLabelDependents = (target: MutationTarget | undefined) => {
+    const targetRestaurantId = target?.restaurantId;
+    if (!targetRestaurantId) return;
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.opsDashboard.summaryPrefix(targetRestaurantId),
+    });
   };
 
   /**
@@ -347,6 +360,7 @@ export function useTableInventoryMutations({
     onMutate: captureTarget,
     onSuccess: (table, _variables, context) => {
       invalidateRestaurantTables(context.target);
+      invalidateTableLabelDependents(context.target);
       toast.success(`Table ${table.tableNumber} saved.`);
       onTableSaved(table, false);
     },
@@ -426,6 +440,7 @@ export function useTableInventoryMutations({
     onMutate: captureTarget,
     onSuccess: (_result, variables, context) => {
       invalidateRestaurantTables(context.target);
+      invalidateTableLabelDependents(context.target);
       toast.success(`Table ${variables.table.tableNumber} deleted.`);
       onTableDeleted(variables.table);
     },
