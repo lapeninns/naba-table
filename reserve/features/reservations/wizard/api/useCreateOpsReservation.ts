@@ -122,9 +122,12 @@ export function useCreateOpsReservation(): CreateOpsReservationMutation {
       }
 
       if (!idempotencyKey) {
-        throw Object.assign(new Error('This booking request could not be sent. Please try again.'), {
-          code: 'MISSING_IDEMPOTENCY_KEY',
-        });
+        throw Object.assign(
+          new Error('This booking request could not be sent. Please try again.'),
+          {
+            code: 'MISSING_IDEMPOTENCY_KEY',
+          },
+        );
       }
 
       const payload = buildOpsBookingPayload(draft);
@@ -151,7 +154,13 @@ export function useCreateOpsReservation(): CreateOpsReservationMutation {
     },
     onSuccess: (result, { draft }) => {
       intentKeys.clear();
-      queryClient.invalidateQueries({ queryKey: reservationKeys.all() });
+      // The walk-in takes capacity from this restaurant's booking schedule only; other
+      // restaurants' schedules (and the calendar mask of closed dates) are unchanged.
+      void queryClient.invalidateQueries({
+        queryKey: draft.restaurantSlug
+          ? [...queryKeys.reservations.schedulePrefix(), draft.restaurantSlug]
+          : queryKeys.reservations.schedulePrefix(),
+      });
       if (result.booking) {
         queryClient.setQueryData(reservationKeys.detail(result.booking.id), result.booking);
       }
@@ -165,6 +174,13 @@ export function useCreateOpsReservation(): CreateOpsReservationMutation {
             exact: true,
           });
         }
+        // The new booking also counts in the bookings-page status tabs and the heatmap.
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.opsBookings.statusSummaryPrefix(draft.restaurantId),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.opsDashboard.heatmapPrefix(draft.restaurantId),
+        });
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.listPrefix() });
     },

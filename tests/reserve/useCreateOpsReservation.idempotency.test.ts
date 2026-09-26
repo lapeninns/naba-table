@@ -88,7 +88,20 @@ describe('useCreateOpsReservation idempotency, retry and invalidation', () => {
     const otherRestaurant = queryKeys.opsDashboard.summary('other-restaurant', '2026-03-29');
     const list = queryKeys.opsBookings.list({ page: 1 });
     const heatmap = queryKeys.opsDashboard.heatmap(RESTAURANT_ID, '2026-03-01', '2026-03-31');
-    for (const key of [summaryForDate, summaryToday, otherDate, otherRestaurant, list, heatmap]) {
+    const otherHeatmap = queryKeys.opsDashboard.heatmap(
+      'other-restaurant',
+      '2026-03-01',
+      '2026-03-31',
+    );
+    for (const key of [
+      summaryForDate,
+      summaryToday,
+      otherDate,
+      otherRestaurant,
+      list,
+      heatmap,
+      otherHeatmap,
+    ]) {
       queryClient.setQueryData(key, { cached: true });
     }
     const { result } = renderHook(() => useCreateOpsReservation(), {
@@ -104,7 +117,9 @@ describe('useCreateOpsReservation idempotency, retry and invalidation', () => {
     expect(invalidated(list)).toBe(true);
     expect(invalidated(otherDate)).toBe(false);
     expect(invalidated(otherRestaurant)).toBe(false);
-    expect(invalidated(heatmap)).toBe(false);
+    // The walk-in adds a booking to this restaurant's heatmap day count.
+    expect(invalidated(heatmap)).toBe(true);
+    expect(invalidated(otherHeatmap)).toBe(false);
   });
 
   it('sends a v4 uuid key and a new one after the walk-in succeeds', async () => {
@@ -120,7 +135,9 @@ describe('useCreateOpsReservation idempotency, retry and invalidation', () => {
     await result.current.mutateAsync({ draft });
 
     const keys = sentKeys();
-    expect(keys[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(keys[0]).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
     expect(keys[1]).not.toBe(keys[0]);
   });
 
