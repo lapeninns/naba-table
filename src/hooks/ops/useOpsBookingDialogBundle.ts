@@ -7,6 +7,8 @@ import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
+import { isOwnBookingWriteEcho } from './bookingWriteEcho';
+
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsBookingDialogBundle } from '@/services/ops/bookings';
 
@@ -93,11 +95,18 @@ export function useOpsBookingDialogBundle(
       }, REALTIME_REFETCH_DEBOUNCE_MS);
     };
 
+    // Writes from this dialog already patched the bundle from the server response; skip their
+    // realtime echoes, and events for this booking while one of its writes is in flight.
+    const onChange = (table: string) => (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, table, payload)) return;
+      invalidateBundle();
+    };
+
     channel
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bookings', filter: `id=eq.${bookingId}` },
-        invalidateBundle,
+        onChange('bookings'),
       )
       .on(
         'postgres_changes',
@@ -107,7 +116,7 @@ export function useOpsBookingDialogBundle(
           table: 'booking_table_assignments',
           filter: `booking_id=eq.${bookingId}`,
         },
-        invalidateBundle,
+        onChange('booking_table_assignments'),
       )
       .on(
         'postgres_changes',
@@ -117,7 +126,7 @@ export function useOpsBookingDialogBundle(
           table: 'booking_history',
           filter: `booking_id=eq.${bookingId}`,
         },
-        invalidateBundle,
+        onChange('booking_history'),
       )
       .on(
         'postgres_changes',
@@ -127,7 +136,7 @@ export function useOpsBookingDialogBundle(
           table: 'allocations',
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        invalidateBundle,
+        onChange('allocations'),
       )
       .on(
         'postgres_changes',
@@ -137,7 +146,7 @@ export function useOpsBookingDialogBundle(
           table: 'table_holds',
           filter: `restaurant_id=eq.${restaurantId}`,
         },
-        invalidateBundle,
+        onChange('table_holds'),
       );
 
     channel.subscribe();

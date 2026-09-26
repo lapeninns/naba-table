@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -64,35 +64,46 @@ describe('useOpsUpdateBooking', () => {
     );
   });
 
-  it('@contract invalidates ops booking queries and the dashboard summary for the restaurant', async () => {
-    bookingService.updateBooking.mockResolvedValue(updated);
+  it('@contract patches the list row and invalidates only the summaries for the old and new dates', async () => {
+    const moved = {
+      id: 'booking-1',
+      restaurantId: 'rest-1',
+      restaurantTimezone: 'UTC',
+      status: 'confirmed',
+      partySize: 4,
+      startIso: '2026-07-12T18:00:00.000Z',
+      endIso: '2026-07-12T20:00:00.000Z',
+    };
+    bookingService.updateBooking.mockResolvedValue(moved);
 
     const { result, queryClient } = setup();
-    queryClient.setQueryData(queryKeys.opsBookings.list({ restaurantId: 'rest-1' }), {
-      items: [],
+    const listKey = queryKeys.opsBookings.list({ restaurantId: 'rest-1' });
+    queryClient.setQueryData(listKey, {
+      items: [{ id: 'booking-1', status: 'confirmed', partySize: 2 }],
+      pageInfo: { page: 1, pageSize: 50, total: 1, hasNext: false },
     });
-    queryClient.setQueryData(queryKeys.opsDashboard.summary('rest-1', null), {
-      bookings: [],
+    const summary = (date: string, ids: string[]) => ({
+      restaurantId: 'rest-1',
+      date,
+      bookings: ids.map((id) => ({ id })),
     });
-    queryClient.setQueryData(queryKeys.opsDashboard.summary('rest-2', null), {
-      bookings: [],
-    });
+    // Old date (holds the booking), new date, an unrelated date, and another restaurant.
+    queryClient.setQueryData(queryKeys.opsDashboard.summary('rest-1', '2026-07-11'), summary('2026-07-11', ['booking-1']));
+    queryClient.setQueryData(queryKeys.opsDashboard.summary('rest-1', null), summary('2026-07-12', []));
+    queryClient.setQueryData(queryKeys.opsDashboard.summary('rest-1', '2026-07-20'), summary('2026-07-20', []));
+    queryClient.setQueryData(queryKeys.opsDashboard.summary('rest-2', '2026-07-11'), summary('2026-07-11', ['booking-1']));
 
-    await result.current.mutateAsync({ ...input, restaurantId: 'rest-1' });
+    await result.current.mutateAsync({ ...input, startIso: moved.startIso, restaurantId: 'rest-1' });
 
-    const bookingsQuery = queryClient
-      .getQueryCache()
-      .find({ queryKey: queryKeys.opsBookings.list({ restaurantId: 'rest-1' }) });
-    const summaryQuery = queryClient
-      .getQueryCache()
-      .find({ queryKey: queryKeys.opsDashboard.summary('rest-1', null) });
-    const otherSummaryQuery = queryClient
-      .getQueryCache()
-      .find({ queryKey: queryKeys.opsDashboard.summary('rest-2', null) });
-
-    expect(bookingsQuery?.state.isInvalidated).toBe(true);
-    expect(summaryQuery?.state.isInvalidated).toBe(true);
-    expect(otherSummaryQuery?.state.isInvalidated).toBe(false);
+    const state = (key: readonly unknown[]) => queryClient.getQueryState(key)?.isInvalidated;
+    expect(state(queryKeys.opsDashboard.summary('rest-1', '2026-07-11'))).toBe(true);
+    expect(state(queryKeys.opsDashboard.summary('rest-1', null))).toBe(true);
+    expect(state(queryKeys.opsDashboard.summary('rest-1', '2026-07-20'))).toBe(false);
+    expect(state(queryKeys.opsDashboard.summary('rest-2', '2026-07-11'))).toBe(false);
+    expect(state(listKey)).toBe(false);
+    expect(
+      queryClient.getQueryData<{ items: { partySize: number }[] }>(listKey)?.items[0]?.partySize,
+    ).toBe(4);
   });
 
   it('@contract emits a failure event with the error code on error', async () => {

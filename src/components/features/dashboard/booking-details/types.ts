@@ -99,7 +99,9 @@ export type BookingDetailsProps = {
     reason?: string | null;
   }) => Promise<void>;
   onUndoNoShow?: (reason?: string | null) => Promise<void>;
-  onCancel?: () => Promise<void>;
+  /** Resolves `false` when the cancellation failed, so the confirmation stays open. */
+  onCancel?: () => Promise<boolean | void>;
+  /** Optional extra refresh after a table change; the assignment hooks already sync caches. */
   onDataRefresh?: () => Promise<void> | void;
   pendingLifecycleAction?: BookingActionType | null;
   cancelPending?: boolean;

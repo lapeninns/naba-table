@@ -21,10 +21,10 @@ export type UseBookingsListStateProps = {
   hasAssignmentHandlers: boolean;
   sortKey: BookingSortKey;
   sortDir: BookingSortDir;
-  pendingLifecycleAction?: {
-    bookingId: string | null;
-    snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null;
-  } | null;
+  /** In-flight lifecycle actions by booking id; their pre-action snapshot keeps rows in place. */
+  pendingLifecycleActions?: Readonly<
+    Record<string, { snapshot?: Pick<OpsTodayBooking, 'status' | 'startTime' | 'endTime'> | null }>
+  >;
 };
 
 function resolveInitialNow(initialNowIso: string, timezone: string): DateTime {
@@ -42,7 +42,7 @@ export function useBookingsListState({
   hasAssignmentHandlers,
   sortKey,
   sortDir,
-  pendingLifecycleAction,
+  pendingLifecycleActions,
 }: UseBookingsListStateProps) {
   const [now, setNow] = useState(() => resolveInitialNow(initialNowIso, summary.timezone));
   const [isVisible, setIsVisible] = useState(true);
@@ -68,13 +68,13 @@ export function useBookingsListState({
 
   const normalizedSearch = useMemo(() => (searchQuery ?? '').trim().toLowerCase(), [searchQuery]);
   const bookingsForSort = useMemo(() => {
-    if (!pendingLifecycleAction?.bookingId || !pendingLifecycleAction.snapshot) {
+    if (!pendingLifecycleActions || Object.keys(pendingLifecycleActions).length === 0) {
       return bookings;
     }
-    const { bookingId, snapshot } = pendingLifecycleAction;
     let replaced = false;
     const next = bookings.map((booking) => {
-      if (booking.id !== bookingId) return booking;
+      const snapshot = pendingLifecycleActions[booking.id]?.snapshot;
+      if (!snapshot) return booking;
       replaced = true;
       return {
         ...booking,
@@ -84,7 +84,7 @@ export function useBookingsListState({
       };
     });
     return replaced ? next : bookings;
-  }, [bookings, pendingLifecycleAction]);
+  }, [bookings, pendingLifecycleActions]);
   const hasSearch = useMemo(() => normalizedSearch.length > 0, [normalizedSearch]);
 
   const searched = useMemo(() => {

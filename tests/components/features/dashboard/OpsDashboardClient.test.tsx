@@ -1,5 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {
+  PINNED_DATE_KEY,
+  PINNED_NOW_ISO,
+  attemptImport,
+  makeSummary,
+} from '@tests/components/features/dashboard/__fixtures__/dashboardFixtures';
 import { describe, expect, it, vi } from 'vitest';
 
 const { headerSpy, summarySectionSpy, dialogsSpy, useOpsDashboardStateMock } = vi.hoisted(() => ({
@@ -27,14 +33,10 @@ vi.mock('@/hooks/use-minimum-delay', () => ({
 
 import { getEmptyBookingTabCounts } from '@/components/features/dashboard/bookingFilters';
 
-import {
-  PINNED_DATE_KEY,
-  PINNED_NOW_ISO,
-  attemptImport,
-  makeSummary,
-} from '@tests/components/features/dashboard/__fixtures__/dashboardFixtures';
 
-type ClientModule = typeof import('@/components/features/dashboard/OpsDashboardClient');
+import type * as OpsDashboardClientModule from '@/components/features/dashboard/OpsDashboardClient';
+
+type ClientModule = typeof OpsDashboardClientModule;
 
 // KNOWN-ISSUE (test-infra): OpsDashboardClient.tsx imports '@/hooks/use-minimum-delay',
 // which vitest's '@' → repo-root alias cannot resolve (the hook exists only in
@@ -94,7 +96,7 @@ function makeState(overrides: Record<string, unknown> = {}) {
     handleUndoNoShow: vi.fn(),
     handleCheckIn: vi.fn(),
     handleCheckOut: vi.fn(),
-    pendingBookingAction: null,
+    pendingLifecycleActions: {},
     allowTableAssignments: true,
     detailsBooking: null,
     isDetailsOpen: false,

@@ -180,6 +180,7 @@ function createDevBookingService(): BookingService {
     createWalkInBooking: unimplemented('createWalkInBooking'),
     assignTable: unimplemented('assignTable'),
     unassignTable: unimplemented('unassignTable'),
+    moveBookingTables: unimplemented('moveBookingTables'),
     confirmHoldAssignment: unimplemented('confirmHoldAssignment'),
     getManualAssignmentContext: unimplemented('getManualAssignmentContext'),
   } as unknown as BookingService;

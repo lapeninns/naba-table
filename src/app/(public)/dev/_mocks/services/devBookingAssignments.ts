@@ -75,6 +75,38 @@ export class DevBookingAssignments extends DevBookingLifecycle {
     return { success: true, removedCount: tableIds.length };
   };
 
+  moveBookingTables: BookingService['moveBookingTables'] = async ({
+    bookingId,
+    fromTableIds,
+    toTableIds,
+  }) => {
+    const assigned = this.assignedByBookingId.get(bookingId) ?? [];
+    const next = [
+      ...new Set([...assigned.filter((id) => !fromTableIds.includes(id)), ...toTableIds]),
+    ];
+    this.assignedByBookingId.set(bookingId, next);
+    const totalCapacity = this.tables
+      .filter((table) => next.includes(table.id))
+      .reduce((sum, table) => sum + table.capacity, 0);
+    return {
+      success: true,
+      assignments: next.map((tableId) => ({
+        id: `assign-${tableId}`,
+        booking_id: bookingId,
+        table_id: tableId,
+        assigned_at: new Date().toISOString(),
+        assigned_by: null,
+      })),
+      booking: { id: bookingId, status: 'confirmed', party_size: 4 },
+      summary: {
+        tableCount: next.length,
+        totalCapacity,
+        partySize: 4,
+        slack: totalCapacity - 4,
+      },
+    };
+  };
+
   autoQuoteTables: BookingService['autoQuoteTables'] = async () => ({
     holdId: null,
     expiresAt: null,

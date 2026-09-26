@@ -4,12 +4,12 @@ import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 
 import { BookingDetailsDialog } from '@/components/features/dashboard/BookingDetailsDialog';
-import { useOpsBookingDialogBundle } from '@/hooks/ops/useOpsBookingDialogBundle';
-import { useOpsBookingLifecycleActions } from '@/hooks/ops/useOpsBookingStatusActions';
-import { useOpsCancelBooking } from '@/hooks/ops/useOpsCancelBooking';
-import { useMinimumDelay } from '@/hooks/use-minimum-delay';
 import { isTableAssignmentAllowed } from '@/lib/ops/table-assignment-policy';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
+import { useBookingLifecycle } from '@src/hooks/ops/useBookingLifecycle';
+import { useOpsBookingDialogBundle } from '@src/hooks/ops/useOpsBookingDialogBundle';
+import { useOpsCancelBooking } from '@src/hooks/ops/useOpsCancelBooking';
+import { useMinimumDelay } from '@src/hooks/use-minimum-delay';
 
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
@@ -122,7 +122,7 @@ export function BookingDetailsDialogWrapper({
   const timezone = normalized?.timezone ?? 'UTC';
   const startIso = normalized?.startIso ?? null;
 
-  const cancelBooking = useOpsCancelBooking();
+  const { cancel, isPending: isCancelPending } = useOpsCancelBooking();
 
   const summary = useMemo<OpsTodayBookingsSummary | null>(() => {
     if (!booking || !restaurantId) return null;
@@ -156,7 +156,7 @@ export function BookingDetailsDialogWrapper({
     };
   }, [booking, restaurantId, startIso, timezone]);
 
-  const { checkIn, checkOut, markNoShow, undoNoShow } = useOpsBookingLifecycleActions();
+  const { run, pendingActions } = useBookingLifecycle();
   const { allowTableAssignments, isToday } = useMemo(() => {
     if (!summary) return { allowTableAssignments: false, isToday: false };
     const today = getTodayInTimezone(summary.timezone);
@@ -170,22 +170,16 @@ export function BookingDetailsDialogWrapper({
     };
   }, [booking?.status, summary]);
 
-  const refreshDialogBundle = async () => {
-    if (!activeBookingId) return;
-    await refetch();
-  };
-
-  // Lifecycle handlers
+  // Handlers resolve (never reject): the canonical hooks own toasts, cache sync and conflict
+  // refresh, so the dialog issues no follow-up refetch of its own.
   const handleCheckIn = async () => {
     if (!restaurantId || !bookingId) return;
-    await checkIn.mutateAsync({ restaurantId, bookingId, targetDate: null });
-    await refreshDialogBundle();
+    await run({ action: 'check-in', restaurantId, bookingId, targetDate: summary?.date ?? null });
   };
 
   const handleCheckOut = async () => {
     if (!restaurantId || !bookingId) return;
-    await checkOut.mutateAsync({ restaurantId, bookingId, targetDate: null });
-    await refreshDialogBundle();
+    await run({ action: 'check-out', restaurantId, bookingId, targetDate: summary?.date ?? null });
   };
 
   const handleMarkNoShow = async (options?: {
@@ -193,55 +187,33 @@ export function BookingDetailsDialogWrapper({
     reason?: string | null;
   }) => {
     if (!restaurantId || !bookingId) return;
-    await markNoShow.mutateAsync({
+    await run({
+      action: 'no-show',
       restaurantId,
       bookingId,
-      targetDate: null,
+      targetDate: summary?.date ?? null,
       performedAt: options?.performedAt ?? null,
       reason: options?.reason ?? null,
     });
-    await refreshDialogBundle();
   };
 
   const handleUndoNoShow = async (reason?: string | null) => {
     if (!restaurantId || !bookingId) return;
-    await undoNoShow.mutateAsync({
+    await run({
+      action: 'undo-no-show',
       restaurantId,
       bookingId,
-      targetDate: null,
+      targetDate: summary?.date ?? null,
       reason: reason ?? null,
     });
-    await refreshDialogBundle();
   };
 
-  // Determine lifecycle pending state
-  const pendingLifecycleAction = useMemo(() => {
-    if (checkIn.isPending && checkIn.variables?.bookingId === bookingId) return 'check-in';
-    if (checkOut.isPending && checkOut.variables?.bookingId === bookingId) return 'check-out';
-    if (markNoShow.isPending && markNoShow.variables?.bookingId === bookingId) return 'no-show';
-    if (undoNoShow.isPending && undoNoShow.variables?.bookingId === bookingId)
-      return 'undo-no-show';
-    return null;
-  }, [
-    checkIn.isPending,
-    checkIn.variables,
-    checkOut.isPending,
-    checkOut.variables,
-    markNoShow.isPending,
-    markNoShow.variables,
-    undoNoShow.isPending,
-    undoNoShow.variables,
-    bookingId,
-  ]);
+  const pendingLifecycleAction = bookingId ? (pendingActions[bookingId]?.action ?? null) : null;
 
-  const handleCancel = async () => {
-    if (!restaurantId || !bookingId) return;
-    await cancelBooking.mutateAsync({
-      bookingId,
-      restaurantId,
-      targetDate: summary?.date ?? null,
-    });
-    await refreshDialogBundle();
+  const handleCancel = async (): Promise<boolean> => {
+    if (!restaurantId || !bookingId) return false;
+    const outcome = await cancel({ bookingId, restaurantId });
+    return outcome.status === 'done';
   };
 
   if (!open) return null;
@@ -257,9 +229,8 @@ export function BookingDetailsDialogWrapper({
       onMarkNoShow={handleMarkNoShow}
       onUndoNoShow={handleUndoNoShow}
       onCancel={handleCancel}
-      onDataRefresh={refreshDialogBundle}
       pendingLifecycleAction={pendingLifecycleAction}
-      cancelPending={cancelBooking.isPending}
+      cancelPending={isCancelPending(bookingId)}
       allowTableAssignments={allowTableAssignments}
       // The bundle hook seeds the assignment-context cache. Keep the legacy
       // assignment hook network-disabled so opening the dialog stays one

@@ -1,65 +1,179 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
-import { generateIdempotencyKey } from '@/lib/utils/idempotency';
+import {
+  buildTableAssignments,
+  patchBookingCaches,
+  readBookingRow,
+} from '@src/hooks/ops/bookingCacheSync';
+import { recordBookingWrite } from '@src/hooks/ops/bookingWriteEcho';
+import { nextStatusAfter } from '@src/hooks/ops/useOpsFloorPlanAssignments';
 
+import type { AssignmentContext, OpsBookingDialogBundle } from '@/services/ops/bookings';
+import type { OpsBookingStatus } from '@/types/ops';
+
+export type AssignTablesVariables = {
+  bookingId: string;
+  tableIds: string[];
+  /** One per user intent, reused when the same selection is retried (C5). */
+  idempotencyKey: string;
+};
+
+export type UnassignTablesVariables = { bookingId: string; tableIds: string[] };
+
+export type AutoAssignVariables = {
+  bookingId: string;
+  /** Idempotency key for confirming the smart-assign hold. */
+  idempotencyKey: string;
+};
+
+const OPS_BOOKING_STATUSES = new Set<OpsBookingStatus>([
+  'pending',
+  'pending_allocation',
+  'confirmed',
+  'checked_in',
+  'cancelled',
+  'completed',
+  'no_show',
+  'PRIORITY_WAITLIST',
+]);
+
+function asBookingStatus(value: string | null | undefined): OpsBookingStatus | null {
+  return value && OPS_BOOKING_STATUSES.has(value as OpsBookingStatus)
+    ? (value as OpsBookingStatus)
+    : null;
+}
+
+/** The booking's current table ids, from the dialog caches first. */
+function currentTableIds(queryClient: QueryClient, bookingId: string): string[] {
+  const context =
+    queryClient.getQueryData<AssignmentContext>(
+      queryKeys.opsBookings.assignmentContext(bookingId),
+    ) ??
+    queryClient.getQueryData<OpsBookingDialogBundle>(queryKeys.opsBookings.dialog(bookingId))
+      ?.assignmentContext;
+  if (context) return context.bookingAssignments;
+  return (readBookingRow(queryClient, bookingId)?.tableAssignments ?? []).flatMap((group) =>
+    group.members.map((member) => member.tableId),
+  );
+}
+
+/**
+ * Writes for the booking dialog's table panel. Each write is one request; the result is applied
+ * to every cache holding the booking (dialog bundle, assignment context, dashboard summaries,
+ * lists) and the dialog bundle is the one background revalidation (it carries conflicts and holds,
+ * which the write response does not). Writes for the booking run in its mutation scope.
+ */
 export function useTableAssignmentMutations({
   bookingId,
-  date,
   onAssignmentComplete,
-  refetch,
   restaurantId,
   resetSelectedTables,
 }: {
   bookingId: string;
-  date: string | null | undefined;
   onAssignmentComplete: (() => void) | undefined;
-  refetch: () => void;
   restaurantId: string;
   resetSelectedTables: () => void;
 }) {
   const queryClient = useQueryClient();
   const bookingService = useBookingService();
+  const scope = { id: `booking:${bookingId}` };
+  const mutationKey = queryKeys.opsBookings.assignmentPanelMutation();
 
-  const invalidateAssignmentCaches = () => {
-    refetch();
-    queryClient.invalidateQueries({ queryKey: queryKeys.opsBookings.detail(bookingId) });
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.opsDashboard.summary(restaurantId, date ?? null),
-      refetchType: 'active',
-    });
-    onAssignmentComplete?.();
-  };
-
-  const assignMutation = useMutation({
-    mutationFn: async (tableIds: string[]) => {
-      return bookingService.assignTablesDirect({
-        bookingId,
+  const applyTables = useCallback(
+    (
+      targetBookingId: string,
+      tableIds: string[],
+      serverStatus: string | null,
+      kind: 'assign' | 'unassign',
+    ) => {
+      const previous = readBookingRow(queryClient, targetBookingId)?.status ?? null;
+      const status =
+        asBookingStatus(serverStatus) ??
+        (previous ? nextStatusAfter(previous, kind, tableIds.length) : null);
+      const { groups } = buildTableAssignments(
+        queryClient,
+        restaurantId,
+        targetBookingId,
         tableIds,
-        idempotencyKey: generateIdempotencyKey(),
-        requireAdjacency: false,
+      );
+      patchBookingCaches(
+        queryClient,
+        targetBookingId,
+        { tableAssignments: groups, ...(status ? { status } : {}) },
+        { restaurantId, pruneLists: true },
+      );
+      recordBookingWrite(queryClient, targetBookingId, { status });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsBookings.dialog(targetBookingId),
+        exact: true,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsBookings.assignmentContext(targetBookingId),
+        exact: true,
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsDashboard.heatmapPrefix(restaurantId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsTables.timelinePrefix(restaurantId),
       });
     },
-    onSuccess: () => {
+    [queryClient, restaurantId],
+  );
+
+  const assignMutation = useMutation({
+    mutationKey,
+    scope,
+    mutationFn: (variables: AssignTablesVariables) =>
+      bookingService.assignTablesDirect({
+        bookingId: variables.bookingId,
+        tableIds: variables.tableIds,
+        idempotencyKey: variables.idempotencyKey,
+        requireAdjacency: false,
+      }),
+    onSuccess: (result, variables) => {
+      // assign-tables lists only the requested tables; keep the ones already assigned.
+      const tableIds = [
+        ...new Set([
+          ...currentTableIds(queryClient, variables.bookingId),
+          ...result.assignments.map((row) => row.table_id),
+        ]),
+      ];
+      applyTables(variables.bookingId, tableIds, result.booking?.status ?? null, 'assign');
       resetSelectedTables();
-      invalidateAssignmentCaches();
+      onAssignmentComplete?.();
     },
   });
 
   const unassignMutation = useMutation({
-    mutationFn: async (tableIds: string[]) => {
-      return bookingService.unassignTablesDirect({ bookingId, tableIds });
+    mutationKey,
+    scope,
+    mutationFn: (variables: UnassignTablesVariables) =>
+      bookingService.unassignTablesDirect({
+        bookingId: variables.bookingId,
+        tableIds: variables.tableIds,
+      }),
+    onSuccess: (_result, variables) => {
+      const removed = new Set(variables.tableIds);
+      const tableIds = currentTableIds(queryClient, variables.bookingId).filter(
+        (id) => !removed.has(id),
+      );
+      applyTables(variables.bookingId, tableIds, null, 'unassign');
+      onAssignmentComplete?.();
     },
-    onSuccess: invalidateAssignmentCaches,
   });
 
   const autoAssignMutation = useMutation({
-    mutationFn: async () => {
+    mutationKey,
+    scope,
+    mutationFn: async (variables: AutoAssignVariables) => {
       const quoteResult = await bookingService.autoQuoteTables({
-        bookingId,
+        bookingId: variables.bookingId,
         requireAdjacency: false,
       });
 
@@ -76,15 +190,22 @@ export function useTableAssignmentMutations({
       }
 
       return bookingService.confirmHoldAssignment({
-        bookingId,
+        bookingId: variables.bookingId,
         holdId: quoteResult.holdId,
-        idempotencyKey: generateIdempotencyKey(),
+        idempotencyKey: variables.idempotencyKey,
         requireAdjacency: false,
       });
     },
-    onSuccess: () => {
+    onSuccess: (result, variables) => {
+      const tableIds = [
+        ...new Set([
+          ...currentTableIds(queryClient, variables.bookingId),
+          ...result.assignments.map((row) => row.tableId),
+        ]),
+      ];
+      applyTables(variables.bookingId, tableIds, null, 'assign');
       resetSelectedTables();
-      invalidateAssignmentCaches();
+      onAssignmentComplete?.();
     },
   });
 

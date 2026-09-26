@@ -22,6 +22,8 @@ import {
   matchesDashboardSummaryRealtimePayload,
 } from '@/utils/ops/realtimeInvalidation';
 
+import { isOwnBookingWriteEcho } from './bookingWriteEcho';
+
 import type { OpsDashboardData } from '@/types/ops';
 
 const DASHBOARD_FOCUS_REFETCH_MIN_AGE_MS = 60_000;
@@ -191,7 +193,15 @@ export function useOpsDashboardData(
       });
     };
 
+    // This client's own writes already patched the summary from the server response; skip their
+    // realtime echoes (and events for a booking whose write is still in flight).
+    const handleAllocationsChange = (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, 'allocations', payload)) return;
+      invalidateTables();
+    };
+
     const handleBookingsChange = (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, 'bookings', payload)) return;
       if (
         !matchesDashboardSummaryRealtimePayload({
           payload,
@@ -202,6 +212,12 @@ export function useOpsDashboardData(
         return;
       }
       debouncedInvalidate.run();
+    };
+
+    const handleAssignmentsChange = (payload: unknown) => {
+      if (isOwnBookingWriteEcho(queryClient, 'booking_table_assignments', payload)) return;
+      debouncedInvalidate.run();
+      invalidateTables();
     };
 
     const handleScopedChange = () => {
@@ -228,7 +244,7 @@ export function useOpsDashboardData(
         table: 'allocations',
         filter: `restaurant_id=eq.${restaurantId}`,
       },
-      invalidateTables,
+      handleAllocationsChange,
     );
 
     if (scopedBookingIds.length > 0) {
@@ -240,7 +256,7 @@ export function useOpsDashboardData(
           table: 'booking_table_assignments',
           filter: `booking_id=in.(${scopedBookingIds})`,
         },
-        handleScopedChange,
+        handleAssignmentsChange,
       );
     }
 

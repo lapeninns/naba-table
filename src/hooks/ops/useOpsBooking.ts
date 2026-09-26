@@ -7,6 +7,8 @@ import { useBookingService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
 import { getRealtimeSupabaseClient } from '@/lib/supabase/realtime-client';
 
+import { isOwnBookingWriteEcho } from './bookingWriteEcho';
+
 import type { HttpError } from '@/lib/http/errors';
 import type { OpsBookingListItem } from '@/types/ops';
 
@@ -48,8 +50,9 @@ export function useOpsBooking(
     const client = getRealtimeSupabaseClient();
     const channel = client.channel(`ops-booking-detail:${bookingId}`);
 
-    const handleChange = () => {
-      // Invalidate this specific booking's cache
+    const onChange = (table: string) => (payload: unknown) => {
+      // This client's own writes already patched the detail cache.
+      if (isOwnBookingWriteEcho(queryClient, table, payload)) return;
       queryClient.invalidateQueries({ queryKey });
     };
 
@@ -62,7 +65,7 @@ export function useOpsBooking(
         table: 'bookings',
         filter: `id=eq.${bookingId}`,
       },
-      handleChange,
+      onChange('bookings'),
     );
 
     // Listen to table assignments for this booking
@@ -74,7 +77,7 @@ export function useOpsBooking(
         table: 'booking_table_assignments',
         filter: `booking_id=eq.${bookingId}`,
       },
-      handleChange,
+      onChange('booking_table_assignments'),
     );
 
     // Listen to booking history for this booking
@@ -86,7 +89,7 @@ export function useOpsBooking(
         table: 'booking_history',
         filter: `booking_id=eq.${bookingId}`,
       },
-      handleChange,
+      onChange('booking_history'),
     );
 
     channel.subscribe();

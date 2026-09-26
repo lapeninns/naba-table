@@ -14,16 +14,20 @@ const opsBookingHook = vi.hoisted(() => ({
 }));
 
 const cancelMutation = vi.hoisted(() => ({
-  mutateAsync: vi.fn(),
+  cancel: vi.fn(),
   isPending: false,
 }));
 
-vi.mock('@/hooks/ops/useOpsBooking', () => ({
+vi.mock('@src/hooks/ops/useOpsBooking', () => ({
   useOpsBooking: (bookingId: string | null) => opsBookingHook.fn(bookingId),
 }));
 
-vi.mock('@/hooks/ops/useOpsCancelBooking', () => ({
-  useOpsCancelBooking: () => cancelMutation,
+// The real cancel controller runs on top of a mocked cancel mutation.
+vi.mock('@src/hooks/ops/useOpsCancelBooking', () => ({
+  useOpsCancelBooking: () => ({
+    cancel: cancelMutation.cancel,
+    isPending: (id: string | null | undefined) => Boolean(id) && cancelMutation.isPending,
+  }),
 }));
 
 function makeBooking(overrides: Partial<BookingDTO> = {}): BookingDTO {
@@ -46,8 +50,6 @@ function setup(overrides: Partial<UseOpsBookingsDialogsParams> = {}) {
     bookingById: new Map(),
     focusBookingId: null,
     activeRestaurantId: 'rest-1',
-    restaurantTimezone: 'Europe/London',
-    appliedDate: null,
     fallbackRestaurantSlug: 'fallback-slug',
     clearFocusParam: vi.fn(),
     ...overrides,
@@ -63,7 +65,10 @@ function setup(overrides: Partial<UseOpsBookingsDialogsParams> = {}) {
 describe('useOpsBookingsDialogs', () => {
   beforeEach(() => {
     opsBookingHook.fn.mockReturnValue({ data: undefined });
-    cancelMutation.mutateAsync.mockResolvedValue({ id: 'b-1', status: 'cancelled' });
+    cancelMutation.cancel.mockResolvedValue({
+      status: 'done',
+      result: { id: 'b-1', status: 'cancelled' },
+    });
     cancelMutation.isPending = false;
   });
 
@@ -205,114 +210,55 @@ describe('useOpsBookingsDialogs', () => {
   it('@contract onConfirmCancel is a no-op without a cancel target or resolvable restaurant', async () => {
     const { result } = setup();
     await act(async () => result.current.onConfirmCancel());
-    expect(cancelMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(cancelMutation.cancel).not.toHaveBeenCalled();
 
     const orphan = setup({ activeRestaurantId: null });
-    act(() =>
-      orphan.result.current.onCancelRequest(makeBooking({ restaurantId: null })),
-    );
+    act(() => orphan.result.current.onCancelRequest(makeBooking({ restaurantId: null })));
     await act(async () => orphan.result.current.onConfirmCancel());
 
-    expect(cancelMutation.mutateAsync).not.toHaveBeenCalled();
+    expect(cancelMutation.cancel).not.toHaveBeenCalled();
     expect(orphan.result.current.isCancelOpen).toBe(true);
   });
 
-  it('@contract cancels on the booking start date resolved in the booking timezone', async () => {
-    const { result } = setup();
-
-    // 02:30 UTC is still 2026-07-11 in New York (-04:00 in July).
-    act(() =>
-      result.current.onCancelRequest(
-        makeBooking({
-          startIso: '2026-07-12T02:30:00.000Z',
-          restaurantTimezone: 'America/New_York',
-        }),
-      ),
-    );
-    await act(async () => result.current.onConfirmCancel());
-
-    expect(cancelMutation.mutateAsync).toHaveBeenNthCalledWith(1, {
-      bookingId: 'b-1',
-      restaurantId: 'rest-9',
-      targetDate: '2026-07-11',
-    });
-    expect(result.current.isCancelOpen).toBe(false);
-    expect(result.current.cancelBooking).toBeNull();
-
-    // The same instant is already 2026-07-12 in Kathmandu (+05:45).
-    act(() =>
-      result.current.onCancelRequest(
-        makeBooking({
-          startIso: '2026-07-12T02:30:00.000Z',
-          restaurantTimezone: 'Asia/Kathmandu',
-        }),
-      ),
-    );
-    await act(async () => result.current.onConfirmCancel());
-
-    expect(cancelMutation.mutateAsync).toHaveBeenNthCalledWith(2, {
-      bookingId: 'b-1',
-      restaurantId: 'rest-9',
-      targetDate: '2026-07-12',
-    });
-  });
-
-  it('@contract falls back to the applied date and active restaurant when the start is invalid', async () => {
-    const { result } = setup({ appliedDate: '2026-07-15' });
-
-    act(() =>
-      result.current.onCancelRequest(
-        makeBooking({ startIso: 'not-a-date', restaurantId: null, restaurantTimezone: null }),
-      ),
-    );
-    await act(async () => result.current.onConfirmCancel());
-
-    expect(cancelMutation.mutateAsync).toHaveBeenCalledWith({
-      bookingId: 'b-1',
-      restaurantId: 'rest-1',
-      targetDate: '2026-07-15',
-    });
-  });
-
-  it('@contract falls back to today in the restaurant timezone without a start or applied date', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-07-11T23:30:00.000Z'));
-
-    const { result } = setup({ restaurantTimezone: 'Australia/Sydney' });
-
-    act(() =>
-      result.current.onCancelRequest(
-        makeBooking({ startIso: '', restaurantTimezone: null }),
-      ),
-    );
-    await act(async () => result.current.onConfirmCancel());
-
-    // 23:30 UTC on the 11th is already 2026-07-12 in Sydney (+10:00 in July).
-    expect(cancelMutation.mutateAsync).toHaveBeenCalledWith({
-      bookingId: 'b-1',
-      restaurantId: 'rest-9',
-      targetDate: '2026-07-12',
-    });
-  });
-
-  it('@contract closes the cancel dialog even when the cancellation fails', async () => {
-    cancelMutation.mutateAsync.mockRejectedValue(new Error('too late'));
+  it('@contract cancels the booking in its own restaurant and closes on success', async () => {
     const { result } = setup();
 
     act(() => result.current.onCancelRequest(makeBooking()));
+    await act(async () => result.current.onConfirmCancel());
 
-    await act(async () => {
-      await expect(result.current.onConfirmCancel()).rejects.toThrow('too late');
-    });
-
+    expect(cancelMutation.cancel).toHaveBeenCalledWith({ bookingId: 'b-1', restaurantId: 'rest-9' });
     expect(result.current.isCancelOpen).toBe(false);
     expect(result.current.cancelBooking).toBeNull();
   });
 
-  it('@contract isCancelling mirrors the mutation pending state', () => {
+  it('@contract falls back to the active restaurant when the booking has none', async () => {
+    const { result } = setup();
+
+    act(() => result.current.onCancelRequest(makeBooking({ restaurantId: null })));
+    await act(async () => result.current.onConfirmCancel());
+
+    expect(cancelMutation.cancel).toHaveBeenCalledWith({ bookingId: 'b-1', restaurantId: 'rest-1' });
+  });
+
+  it('@contract keeps the cancel dialog open when the cancellation fails', async () => {
+    cancelMutation.cancel.mockResolvedValue({ status: 'failed', error: new Error('too late') });
+    const { result } = setup();
+
+    act(() => result.current.onCancelRequest(makeBooking()));
+    await act(async () => {
+      await expect(result.current.onConfirmCancel()).resolves.toBeUndefined();
+    });
+
+    expect(result.current.isCancelOpen).toBe(true);
+    expect(result.current.cancelBooking?.id).toBe('b-1');
+  });
+
+  it('@contract isCancelling mirrors the pending state of the booking being cancelled', () => {
     cancelMutation.isPending = true;
     const { result } = setup();
 
+    expect(result.current.isCancelling).toBe(false);
+    act(() => result.current.onCancelRequest(makeBooking()));
     expect(result.current.isCancelling).toBe(true);
   });
 });

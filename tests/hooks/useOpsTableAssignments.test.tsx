@@ -1,242 +1,178 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { createQueryWrapper } from '@tests/utils/reactQuery';
+import { describe, expect, it, vi } from 'vitest';
 
+
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { useOpsTableAssignmentActions } from '@src/hooks/ops/useOpsTableAssignments';
 
-import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
+import {
+  RESTAURANT_ID,
+  DATE,
+  createFeedbackQueryClient,
+  deferred,
+  makeListItem,
+  makeRow,
+  makeSummary,
+  summaryKey,
+  summaryRow,
+} from './__helpers__/opsBookingFixtures';
+
+import type { OpsBookingListItem } from '@/types/ops';
 
 const bookingService = vi.hoisted(() => ({
   assignTable: vi.fn(),
   unassignTable: vi.fn(),
 }));
 
-vi.mock('@/contexts/ops-services', () => ({
-  useBookingService: () => bookingService,
-}));
+vi.mock('@/contexts/ops-services', () => ({ useBookingService: () => bookingService }));
 
-const restaurantId = 'rest-1';
-const date = '2026-07-11';
-const summaryKey = queryKeys.opsDashboard.summary(restaurantId, date);
-
-const assignedGroup = {
+const t1 = {
   groupId: null,
-  capacitySum: null,
-  members: [{ tableId: 'table-1', tableNumber: 'T1', capacity: null, section: null }],
+  capacitySum: 4,
+  members: [{ tableId: 't1', tableNumber: 'T1', capacity: 4, section: null }],
 };
 
-function makeSummary(booking: Partial<OpsTodayBooking>): OpsTodayBookingsSummary {
-  return {
-    restaurantId,
-    date,
-    timezone: 'UTC',
-    bookings: [
-      {
-        id: 'booking-1',
-        status: 'confirmed',
-        partySize: 2,
-        customerName: 'Guest One',
-        tableAssignments: [],
-        requiresTableAssignment: true,
-        ...booking,
-      },
-    ],
-    totals: {
-      total: 1,
-      confirmed: 1,
-      completed: 0,
-      pending: 0,
-      cancelled: 0,
-      noShow: 0,
-      upcoming: 1,
-      covers: 2,
+function setup(rows = [makeRow({ id: 'b1', status: 'pending' }), makeRow({ id: 'b2' })]) {
+  const { queryClient, notify } = createFeedbackQueryClient();
+  queryClient.setQueryData(summaryKey(), makeSummary(rows));
+  queryClient.setQueryData(
+    queryKeys.opsBookings.detail('b1'),
+    makeListItem({ id: 'b1', status: 'pending' }),
+  );
+  const hook = renderHook(
+    () => useOpsTableAssignmentActions({ restaurantId: RESTAURANT_ID, date: DATE }),
+    {
+      wrapper: createQueryWrapper(queryClient),
     },
-  } as unknown as OpsTodayBookingsSummary;
-}
-
-function seededSetup(booking: Partial<OpsTodayBooking> = {}) {
-  const queryClient = createTestQueryClient();
-  queryClient.setQueryData(summaryKey, makeSummary(booking));
-  const wrapper = createQueryWrapper(queryClient);
-  return {
-    queryClient,
-    ...renderHook(() => useOpsTableAssignmentActions({ restaurantId, date }), { wrapper }),
-  };
-}
-
-function cachedBooking(queryClient: ReturnType<typeof createTestQueryClient>) {
-  return queryClient.getQueryData<OpsTodayBookingsSummary>(summaryKey)?.bookings[0];
+  );
+  return { queryClient, notify, ...hook };
 }
 
 describe('useOpsTableAssignmentActions', () => {
-  beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('@contract assigns optimistically with the idempotency key in the variables, then writes the server groups', async () => {
+    const request = deferred<unknown>();
+    bookingService.assignTable.mockReturnValue(request.promise);
+    const { result, queryClient } = setup();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    let done: Promise<unknown> = Promise.resolve();
+    act(() => {
+      done = result.current.assign({
+        bookingId: 'b1',
+        tableId: 't1',
+        tableName: 'T1',
+        idempotencyKey: 'intent-1',
+      });
+    });
+
+    await waitFor(() =>
+      expect(summaryRow(queryClient, 'b1')?.tableAssignments[0]?.members[0]?.tableId).toBe('t1'),
+    );
+    expect(summaryRow(queryClient, 'b1')).toMatchObject({
+      status: 'confirmed',
+      requiresTableAssignment: false,
+    });
+    await waitFor(() =>
+      expect(result.current.pendingAction).toEqual({
+        type: 'assign',
+        bookingId: 'b1',
+        tableId: 't1',
+        tableName: 'T1',
+      }),
+    );
+    expect(bookingService.assignTable).toHaveBeenCalledWith({
+      bookingId: 'b1',
+      tableId: 't1',
+      idempotencyKey: 'intent-1',
+    });
+
+    request.resolve({ tableAssignments: [t1] });
+    await act(async () => {
+      await expect(done).resolves.toEqual([t1]);
+    });
+
+    expect(summaryRow(queryClient, 'b1')?.tableAssignments).toEqual([t1]);
+    expect(
+      queryClient.getQueryData<OpsBookingListItem>(queryKeys.opsBookings.detail('b1'))
+        ?.tableAssignments,
+    ).toEqual([t1]);
+    const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey);
+    expect(keys).not.toContainEqual(queryKeys.opsBookings.all);
+    expect(keys).not.toContainEqual(summaryKey());
+    await waitFor(() => expect(result.current.pendingAction).toBeNull());
   });
 
-  describe('assignTable', () => {
-    it('@contract optimistically adds the table member and clears requiresTableAssignment', async () => {
-      let resolveRequest: (value: unknown) => void = () => {};
-      bookingService.assignTable.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveRequest = resolve;
-          }),
-      );
+  it('@contract generates one idempotency key per intent when the caller does not pass one', async () => {
+    bookingService.assignTable.mockResolvedValue({ tableAssignments: [t1] });
+    const { result } = setup();
 
-      const { result, queryClient } = seededSetup();
-      const mutation = result.current.assignTable.mutateAsync({
-        bookingId: 'booking-1',
-        tableId: 'table-1',
-        tableName: 'T1',
-      });
-
-      await waitFor(() => {
-        const booking = cachedBooking(queryClient);
-        expect(booking?.tableAssignments?.[0]?.members).toEqual([
-          { tableId: 'table-1', tableNumber: 'T1', capacity: null, section: null },
-        ]);
-        expect(booking?.requiresTableAssignment).toBe(false);
-      });
-
-      resolveRequest({ tableAssignments: [assignedGroup] });
-      await mutation;
-
-      expect(bookingService.assignTable).toHaveBeenCalledWith({
-        bookingId: 'booking-1',
-        tableId: 'table-1',
-      });
+    await act(async () => {
+      await result.current.assign({ bookingId: 'b1', tableId: 't1' });
+      await result.current.assign({ bookingId: 'b2', tableId: 't1' });
     });
 
-    it('@contract does not duplicate a member that is already assigned', async () => {
-      bookingService.assignTable.mockResolvedValue({ tableAssignments: [assignedGroup] });
-
-      const { result, queryClient } = seededSetup({
-        tableAssignments: [assignedGroup],
-        requiresTableAssignment: false,
-      });
-
-      await result.current.assignTable.mutateAsync({
-        bookingId: 'booking-1',
-        tableId: 'table-1',
-        tableName: 'T1',
-      });
-
-      const booking = cachedBooking(queryClient);
-      expect(booking?.tableAssignments?.[0]?.members).toHaveLength(1);
-    });
-
-    it('@contract rolls the summary back when the assignment fails', async () => {
-      bookingService.assignTable.mockRejectedValue(new Error('taken'));
-
-      const { result, queryClient } = seededSetup();
-
-      await expect(
-        result.current.assignTable.mutateAsync({
-          bookingId: 'booking-1',
-          tableId: 'table-1',
-          tableName: 'T1',
-        }),
-      ).rejects.toThrow('taken');
-
-      const booking = cachedBooking(queryClient);
-      expect(booking?.tableAssignments).toEqual([]);
-      expect(booking?.requiresTableAssignment).toBe(true);
-    });
-
-    it('@contract reconciles with the server response, reverting confirmed to pending when empty', async () => {
-      bookingService.assignTable.mockResolvedValue({ tableAssignments: [] });
-
-      const { result, queryClient } = seededSetup();
-
-      await result.current.assignTable.mutateAsync({
-        bookingId: 'booking-1',
-        tableId: 'table-1',
-        tableName: 'T1',
-      });
-
-      const booking = cachedBooking(queryClient);
-      expect(booking?.status).toBe('pending');
-      expect(booking?.tableAssignments).toEqual([]);
-      expect(booking?.requiresTableAssignment).toBe(true);
-    });
+    const [first, second] = bookingService.assignTable.mock.calls.map(
+      ([input]) => input.idempotencyKey,
+    );
+    expect(first).toEqual(expect.any(String));
+    expect(second).toEqual(expect.any(String));
+    expect(first).not.toBe(second);
   });
 
-  describe('unassignTable', () => {
-    it('@contract optimistically removes the member, reverts to pending, and adjusts totals', async () => {
-      let resolveRequest: (value: unknown) => void = () => {};
-      bookingService.unassignTable.mockImplementation(
-        () =>
-          new Promise((resolve) => {
-            resolveRequest = resolve;
-          }),
-      );
+  it('@contract shows assignment errors to the user and rolls back only that booking', async () => {
+    bookingService.assignTable.mockRejectedValue(
+      new HttpError({ message: 'raw', status: 409, code: 'ASSIGNMENT_CONFLICT' }),
+    );
+    bookingService.unassignTable.mockResolvedValue({ tableAssignments: [] });
+    const { result, queryClient, notify } = setup([
+      makeRow({ id: 'b1', status: 'pending' }),
+      makeRow({ id: 'b2', tableAssignments: [t1], requiresTableAssignment: false }),
+    ]);
 
-      const { result, queryClient } = seededSetup({
-        tableAssignments: [assignedGroup],
-        requiresTableAssignment: false,
-      });
-
-      const mutation = result.current.unassignTable.mutateAsync({
-        bookingId: 'booking-1',
-        tableId: 'table-1',
-      });
-
-      await waitFor(() => {
-        const summary = queryClient.getQueryData<OpsTodayBookingsSummary>(summaryKey);
-        const booking = summary?.bookings[0];
-        expect(booking?.status).toBe('pending');
-        expect(booking?.tableAssignments).toEqual([]);
-        expect(booking?.requiresTableAssignment).toBe(true);
-        expect(summary?.totals.confirmed).toBe(0);
-        expect(summary?.totals.pending).toBe(1);
-      });
-
-      resolveRequest({ tableAssignments: [] });
-      await mutation;
-
-      expect(bookingService.unassignTable).toHaveBeenCalledWith({
-        bookingId: 'booking-1',
-        tableId: 'table-1',
-      });
+    let groups: unknown;
+    await act(async () => {
+      [groups] = await Promise.all([
+        result.current.assign({ bookingId: 'b1', tableId: 't1', tableName: 'T1' }),
+        result.current.unassign({ bookingId: 'b2', tableId: 't1' }),
+      ]);
     });
 
-    it('@contract leaves the booking untouched when the table was not assigned', async () => {
-      bookingService.unassignTable.mockResolvedValue({ tableAssignments: [assignedGroup] });
+    expect(groups).toEqual([]);
+    expect(summaryRow(queryClient, 'b1')).toMatchObject({
+      status: 'pending',
+      tableAssignments: [],
+    });
+    expect(summaryRow(queryClient, 'b2')).toMatchObject({
+      status: 'pending',
+      tableAssignments: [],
+    });
+    expect(notify.error).toHaveBeenCalledWith(
+      'That table was just taken by another booking. Pick another table.',
+    );
+  });
 
-      const { result, queryClient } = seededSetup({
-        tableAssignments: [assignedGroup],
+  it('@contract unassigning the last table reopens a confirmed booking', async () => {
+    bookingService.unassignTable.mockResolvedValue({ tableAssignments: [] });
+    const { result, queryClient } = setup([
+      makeRow({
+        id: 'b1',
+        status: 'confirmed',
+        tableAssignments: [t1],
         requiresTableAssignment: false,
-      });
+      }),
+    ]);
 
-      await result.current.unassignTable.mutateAsync({
-        bookingId: 'booking-1',
-        tableId: 'table-unknown',
-      });
-
-      const booking = cachedBooking(queryClient);
-      expect(booking?.status).toBe('confirmed');
-      expect(booking?.tableAssignments?.[0]?.members).toHaveLength(1);
+    await act(async () => {
+      await result.current.unassign({ bookingId: 'b1', tableId: 't1' });
     });
 
-    it('@contract rolls the summary back when the unassignment fails', async () => {
-      bookingService.unassignTable.mockRejectedValue(new Error('locked'));
-
-      const { result, queryClient } = seededSetup({
-        tableAssignments: [assignedGroup],
-        requiresTableAssignment: false,
-      });
-
-      await expect(
-        result.current.unassignTable.mutateAsync({
-          bookingId: 'booking-1',
-          tableId: 'table-1',
-        }),
-      ).rejects.toThrow('locked');
-
-      const booking = cachedBooking(queryClient);
-      expect(booking?.status).toBe('confirmed');
-      expect(booking?.tableAssignments?.[0]?.members).toHaveLength(1);
+    expect(bookingService.unassignTable).toHaveBeenCalledWith({ bookingId: 'b1', tableId: 't1' });
+    expect(summaryRow(queryClient, 'b1')).toMatchObject({
+      status: 'pending',
+      tableAssignments: [],
+      requiresTableAssignment: true,
     });
   });
 });
