@@ -242,7 +242,9 @@ export function RestaurantLogoUploader({
             ref={fileInputRef}
             type="file"
             accept={LOGO_ALLOWED_MIME_TYPES.join(',')}
-            className="sr-only"
+            // `size-px` replaces the Input's `w-full`/`h-9`, which would otherwise override
+            // sr-only's 1px box and let the hidden input stretch past the settings scroll area.
+            className="sr-only size-px"
             onChange={handleFileChange}
             aria-label="Upload restaurant logo"
             disabled={controlsDisabled}

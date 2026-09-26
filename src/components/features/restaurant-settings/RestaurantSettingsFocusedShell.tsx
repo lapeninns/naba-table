@@ -99,16 +99,19 @@ export function RestaurantSettingsFocusedShell({
             {sectionNav}
 
             {/* The only scroll container: chrome and docked tabs never overlap content. Scroll
-              padding keeps keyboard focus clear of sticky rails and bottom save bars. */}
+              padding keeps keyboard focus clear of sticky rails and bottom save bars. It is also
+              the containing block (`relative`), so absolutely positioned content such as
+              sr-only labels stays inside it; otherwise the frame gains hidden overflow and
+              scrollIntoView scrolls the frame, pushing the header off screen. */}
             <div
               id="ops-content"
               tabIndex={-1}
               data-layout={workspace ? 'workspace' : 'page'}
               className={
                 workspace
-                  ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+                  ? 'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
                   : cn(
-                      'min-h-0 min-w-0 flex-1 scroll-pb-28 scroll-pt-14 overflow-x-hidden overflow-y-auto overscroll-contain',
+                      'relative min-h-0 min-w-0 flex-1 scroll-pb-28 scroll-pt-14 overflow-x-hidden overflow-y-auto overscroll-contain',
                       'pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:pb-8',
                       sectionNavSlot.hasDockedSectionNav ? 'pt-4' : 'pt-4 sm:pt-6',
                       OPS_SHELL_GUTTER_X_CLASS,
