@@ -5,6 +5,12 @@ Lima runner with the `nabatable-release` label. Each job receives a disposable V
 a credential-free, prewarmed base. The seven required checks retain their commands, Node 22,
 and sanitized test environments; fork pull requests cannot enter these self-hosted jobs.
 Repository visibility remains private because retained history includes sensitive data.
+
+**2026-09-26:** the repository was made public by the owner. The seven required jobs now choose
+their runner with the repository variable `NABATABLE_CI_RUNNER`: `hosted` runs them on
+GitHub-hosted `ubuntu-latest` (secret-less, the same path fork PRs use); unset or any other value
+keeps the isolated `nabatable-release` lanes. Unset the variable before returning the repository
+to private, where hosted minutes are budget-limited.
 The historical snapshot below describes the earlier persistent self-hosted setup.
 
 The other documents in `docs/ci/` and `docs/runbooks/` describe the **intended** CI/CD design. This

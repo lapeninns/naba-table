@@ -27,7 +27,7 @@ describe('isolated stock runner safety', () => {
   });
 
   it.each(['test-suite', 'security-guards', 'quality-gates', 'shadcn-primitives', 'e2e-smoke'])(
-    'routes fork pull requests to hosted validation in %s',
+    'routes fork pull requests (and every run when NABATABLE_CI_RUNNER=hosted) to hosted validation in %s',
     (name) => {
       const source = readFileSync(
         path.join(repositoryRoot, '.github/workflows', `${name}.yml`),
@@ -38,7 +38,7 @@ describe('isolated stock runner safety', () => {
         if (job.name === 'UI visual routes') continue;
         expect(job.if).toBeUndefined();
         expect(job['runs-on']).toBe(
-          `\${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}`,
+          `\${{ (vars.NABATABLE_CI_RUNNER == 'hosted' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}`,
         );
       }
     },
