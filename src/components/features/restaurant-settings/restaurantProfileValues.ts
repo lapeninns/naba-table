@@ -10,7 +10,7 @@ import type { RestaurantProfile } from '@/services/ops/restaurants';
  * Default values used to seed the shared `RestaurantDetailsFormValues` shape when
  * no restaurant profile is loaded yet. Reservation timing and `bookingPolicy`
  * fields are required by the shared form-value type but are not edited from the
- * Profile route — the BookingRulesSubform on Availability is the canonical home
+ * Profile route; the Availability page is the canonical home
  * for those fields. The defaults here only satisfy the shared shape.
  */
 export const EMPTY_PROFILE_VALUES: RestaurantDetailsFormValues = {
@@ -27,7 +27,7 @@ export const EMPTY_PROFILE_VALUES: RestaurantDetailsFormValues = {
   managerNotificationPhone: null,
   googleMapUrl: null,
   googleReviewUrl: null,
-  // The four fields below live on the Availability route's BookingRulesSubform.
+  // The fields below are edited on the Availability page.
   // They are not rendered on Profile but are part of the shared form-value type.
   bookingPolicy: null,
   reservationIntervalMinutes: DEFAULT_RESERVATION_INTERVAL_MINUTES,

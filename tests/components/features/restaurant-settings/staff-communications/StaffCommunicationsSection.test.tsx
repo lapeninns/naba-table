@@ -5,7 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const updateProfileMock = vi.hoisted(() => vi.fn());
 const analyticsTrackMock = vi.hoisted(() => vi.fn());
 const registerUnsavedMock = vi.hoisted(() => vi.fn());
-const detailsState = vi.hoisted(() => ({ error: null as Error | null }));
+const detailsState = vi.hoisted(() => ({
+  error: null as Error | null,
+  /** A failed background refetch: the cached profile stays alongside the error. */
+  keepDataOnError: false,
+}));
 const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
 
 vi.mock('sonner', () => ({ toast: toastMock }));
@@ -48,7 +52,7 @@ const profile: RestaurantProfile = {
 
 vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
   useOpsRestaurantDetails: () => ({
-    data: detailsState.error ? undefined : profile,
+    data: detailsState.error && !detailsState.keepDataOnError ? undefined : profile,
     error: detailsState.error,
     isLoading: false,
     refetch: vi.fn(),
@@ -77,6 +81,7 @@ async function renderPage() {
 describe('StaffCommunicationsSection', () => {
   beforeEach(() => {
     detailsState.error = null;
+    detailsState.keepDataOnError = false;
     profile.managerName = 'Sam';
     profile.managerDailySummaryEnabled = true;
     profile.managerWhatsappEnabled = true;
@@ -112,7 +117,7 @@ describe('StaffCommunicationsSection', () => {
     );
   });
 
-  it('saves only the manager alert fields, with the existing payload and analytics', async () => {
+  it('saves only the changed manager alert field, so the WhatsApp consent is not re-sent', async () => {
     const user = userEvent.setup();
     await renderPage();
 
@@ -129,12 +134,7 @@ describe('StaffCommunicationsSection', () => {
 
     await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Saved Manager alerts.'));
     expect(updateProfileMock).toHaveBeenCalledTimes(1);
-    expect(updateProfileMock).toHaveBeenCalledWith({
-      managerName: 'Alex',
-      managerNotificationPhone: '+447700900123',
-      managerDailySummaryEnabled: true,
-      managerWhatsappEnabled: true,
-    });
+    expect(updateProfileMock).toHaveBeenCalledWith({ managerName: 'Alex' });
     expect(analyticsTrackMock).toHaveBeenCalledWith(
       'restaurant_profile_section_saved',
       expect.objectContaining({
@@ -216,5 +216,86 @@ describe('StaffCommunicationsSection', () => {
   it('asks for a restaurant when none is selected', () => {
     render(<StaffCommunicationsSection restaurantId={null} />);
     expect(screen.getByText('Select a restaurant')).toBeInTheDocument();
+  });
+
+  it('sends the phone and the WhatsApp withdrawal together when the alert number changes', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    const phone = screen.getByRole('textbox', { name: /manager alert number/i });
+    await user.clear(phone);
+    await user.type(phone, '+447700900999');
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(1));
+    expect(updateProfileMock).toHaveBeenCalledWith({
+      managerNotificationPhone: '+447700900999',
+      managerWhatsappEnabled: false,
+    });
+  });
+
+  it('sends a fresh WhatsApp consent when WhatsApp is ticked again after the number changes', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    const phone = screen.getByRole('textbox', { name: /manager alert number/i });
+    await user.clear(phone);
+    await user.type(phone, '+447700900999');
+    const whatsapp = screen.getByRole('switch', { name: 'Try WhatsApp first' });
+    expect(whatsapp).not.toBeChecked();
+    // Back to the saved value (on), but for a new number: this is a new consent.
+    await user.click(whatsapp);
+    expect(whatsapp).toBeChecked();
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(1));
+    expect(updateProfileMock).toHaveBeenCalledWith({
+      managerNotificationPhone: '+447700900999',
+      managerWhatsappEnabled: true,
+    });
+  });
+
+  it('keeps the loaded form and unsaved edits when a background refresh fails', async () => {
+    const user = userEvent.setup();
+    const view = await renderPage();
+
+    const managerName = screen.getByRole('textbox', { name: /manager name/i });
+    await user.clear(managerName);
+    await user.type(managerName, 'Alex');
+
+    detailsState.error = new HttpError({ message: 'Server exploded', status: 500, code: 'E500' });
+    detailsState.keepDataOnError = true;
+    view.rerender(<StaffCommunicationsSection restaurantId="rest-1" />);
+
+    expect(screen.queryByText('Couldn’t load staff communications')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /manager name/i })).toHaveValue('Alex');
+  });
+
+  it('shows server field errors on the matching field', async () => {
+    const user = userEvent.setup();
+    updateProfileMock.mockRejectedValueOnce(
+      new HttpError({
+        message: 'Some fields need attention.',
+        status: 400,
+        code: 'VALIDATION_FAILED',
+        fields: { managerNotificationPhone: ['Use international format, for example +447700900123.'] },
+      }),
+    );
+    await renderPage();
+
+    const phone = screen.getByRole('textbox', { name: /manager alert number/i });
+    await user.clear(phone);
+    await user.type(phone, '+447700900999');
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      await screen.findByText('Use international format, for example +447700900123.'),
+    ).toBeInTheDocument();
+
+    // Editing the field clears the server message.
+    await user.type(phone, '8');
+    expect(
+      screen.queryByText('Use international format, for example +447700900123.'),
+    ).not.toBeInTheDocument();
   });
 });

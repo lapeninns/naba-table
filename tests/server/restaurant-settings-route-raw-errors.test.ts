@@ -77,7 +77,7 @@ vi.mock('@/server/team/access', () => ({
 
 vi.mock('@/server/restaurants', () => ({
   deleteRestaurant: deleteRestaurantMock,
-  updateRestaurant: updateRestaurantMock,
+  updateRestaurantProfile: updateRestaurantMock,
 }));
 
 vi.mock('@/server/restaurants/details', () => ({
@@ -207,6 +207,32 @@ async function expectSafeFailure(
   return body;
 }
 
+/**
+ * Routes migrated to C1 (`internalError`) log a sanitized error message server-side (PII
+ * redacted by lib/logger) and never return it. The client body is the fixed C1 shape.
+ */
+async function expectC1InternalFailure(
+  response: Response,
+  expected: { route: string; message: string },
+): Promise<void> {
+  expect(response.status).toBe(500);
+  const text = await response.text();
+  expect(text).not.toContain(SENTINEL);
+  expect(text).not.toContain(STAFF_EMAIL);
+  expect(JSON.parse(text)).toEqual({
+    error: expected.message,
+    message: expected.message,
+    code: 'INTERNAL_ERROR',
+  });
+  expect(loggerErrorMock).toHaveBeenCalledWith(
+    'api.internal_error',
+    expect.objectContaining({ route: expected.route, restaurantId: RESTAURANT_ID }),
+  );
+  const logged = JSON.stringify(loggerErrorMock.mock.calls);
+  expect(logged).not.toContain(STAFF_EMAIL);
+  expect(logged).not.toContain('7700 900123');
+}
+
 describe('restaurant settings routes never echo raw exception text', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -271,13 +297,9 @@ describe('restaurant settings routes never echo raw exception text', () => {
       routeContext(),
     );
 
-    const body = await expectSafeFailure(response, {
-      status: 500,
+    await expectC1InternalFailure(response, {
       route: 'ops.restaurants.profile',
-    });
-    expect(body).toEqual({
-      error: 'Something went wrong saving these settings.',
-      code: 'INTERNAL_ERROR',
+      message: 'Something went wrong saving these settings.',
     });
   });
 
@@ -286,11 +308,10 @@ describe('restaurant settings routes never echo raw exception text', () => {
 
     const response = await deleteRestaurantRoute(jsonRequest('DELETE'), routeContext());
 
-    const body = await expectSafeFailure(response, {
-      status: 500,
+    await expectC1InternalFailure(response, {
       route: 'ops.restaurants.profile',
+      message: 'Unable to delete restaurant.',
     });
-    expect(body.code).toBe('INTERNAL_ERROR');
   });
 
   it('email-template PATCH returns a fixed 500 when saving throws', async () => {

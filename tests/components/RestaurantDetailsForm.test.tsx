@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,7 +22,6 @@ vi.mock('@/lib/analytics/emit', () => ({
 import { type ProfileSubformProps } from '../../components/ops/restaurants/details/shared';
 import {
   AdvancedIdentitySubform,
-  BookingRulesSubform,
   BrandIdentitySubform,
   ContactLocationSubform,
   ManagerNotificationsSubform,
@@ -197,30 +196,6 @@ describe('RestaurantDetailsForm subforms', () => {
       screen.getByText('If WhatsApp can’t deliver, the summary goes by SMS.'),
     ).toBeInTheDocument();
     expect(screen.getByText('WhatsApp was turned off')).toBeInTheDocument();
-  });
-
-  it('saves booking rules from the availability subform', async () => {
-    const user = userEvent.setup();
-
-    render(<BookingRulesSubform restaurantId="rest-1" initialValues={initialValues} />);
-
-    await user.clear(screen.getByRole('spinbutton', { name: /booking slot spacing/i }));
-    await user.type(screen.getByRole('spinbutton', { name: /booking slot spacing/i }), '30');
-    await user.type(
-      screen.getByRole('textbox', { name: /booking policy/i }),
-      '  Cancel up to 24 hours before arrival.  ',
-    );
-    await user.click(screen.getByRole('button', { name: /save booking rules/i }));
-
-    await waitFor(() =>
-      expect(mutateAsyncMock).toHaveBeenCalledWith({
-        bookingPolicy: 'Cancel up to 24 hours before arrival.',
-        reservationIntervalMinutes: 30,
-        reservationDefaultDurationMinutes: 90,
-        reservationLastSeatingBufferMinutes: 15,
-        reservationLifecycleGraceMinutes: 15,
-      }),
-    );
   });
 
   it('shows GBP match badges on brand and contact subforms', () => {

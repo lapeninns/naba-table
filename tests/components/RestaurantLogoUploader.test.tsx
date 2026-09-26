@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const uploadMutateAsyncMock = vi.hoisted(() => vi.fn());
+const removeMutateAsyncMock = vi.hoisted(() => vi.fn());
 const analyticsTrackMock = vi.hoisted(() => vi.fn());
 const analyticsEmitMock = vi.hoisted(() => vi.fn());
 const toastMock = vi.hoisted(() => Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }));
@@ -15,6 +16,10 @@ vi.mock('sonner', () => ({ toast: toastMock }));
 vi.mock('@/hooks/ops/useOpsRestaurantLogoUpload', () => ({
   useOpsRestaurantLogoUpload: () => ({
     mutateAsync: uploadMutateAsyncMock,
+    isPending: false,
+  }),
+  useOpsRemoveRestaurantLogo: () => ({
+    mutateAsync: removeMutateAsyncMock,
     isPending: false,
   }),
 }));
@@ -37,6 +42,7 @@ describe('RestaurantLogoUploader', () => {
   beforeEach(() => {
     uploadMutateAsyncMock.mockReset();
     uploadMutateAsyncMock.mockReturnValue(new Promise(() => undefined));
+    removeMutateAsyncMock.mockReset();
     analyticsTrackMock.mockReset();
     analyticsEmitMock.mockReset();
     toastMock.success.mockReset();
@@ -61,7 +67,6 @@ describe('RestaurantLogoUploader', () => {
         restaurantId="rest-1"
         restaurantName="Demo Restaurant"
         logoUrl={null}
-        updateMutation={{ mutateAsync: vi.fn(), isPending: false } as never}
         onPreviewChange={onPreviewChange}
       />,
     );
@@ -71,7 +76,7 @@ describe('RestaurantLogoUploader', () => {
 
     await user.upload(
       screen.getByLabelText(/upload restaurant logo/i),
-      new File(['<svg></svg>'], 'logo.svg', { type: 'image/svg+xml' }),
+      new File(['png-bytes'], 'logo.png', { type: 'image/png' }),
     );
 
     await waitFor(() => {
@@ -79,28 +84,32 @@ describe('RestaurantLogoUploader', () => {
     });
   });
 
-  it('tracks a successful logo upload without sending file contents', async () => {
+  it('saves through one upload call, then hands the preview back to the saved logo', async () => {
     const user = userEvent.setup();
-    const updateMutateAsync = vi.fn().mockResolvedValue({});
-    uploadMutateAsyncMock.mockResolvedValueOnce({ url: 'https://cdn.example/logo.svg' });
+    const onPreviewChange = vi.fn();
+    uploadMutateAsyncMock.mockResolvedValueOnce({ url: 'https://cdn.example/logo-v2.png' });
 
     render(
       <RestaurantLogoUploader
         restaurantId="rest-1"
         restaurantName="Demo Restaurant"
         logoUrl={null}
-        updateMutation={{ mutateAsync: updateMutateAsync, isPending: false } as never}
+        onPreviewChange={onPreviewChange}
       />,
     );
 
     await user.upload(
       screen.getByLabelText(/upload restaurant logo/i),
-      new File(['<svg></svg>'], 'logo.svg', { type: 'image/svg+xml' }),
+      new File(['png-bytes'], 'logo.png', { type: 'image/png' }),
     );
 
     await waitFor(() => {
-      expect(updateMutateAsync).toHaveBeenCalledWith({ logoUrl: 'https://cdn.example/logo.svg' });
+      expect(uploadMutateAsyncMock).toHaveBeenCalledTimes(1);
     });
+    // Local preview while uploading, then back to the saved profile logo (no sticky override).
+    await waitFor(() =>
+      expect(onPreviewChange.mock.calls).toEqual([['blob:restaurant-logo-preview'], [undefined]]),
+    );
     expect(analyticsTrackMock).toHaveBeenCalledWith(
       'restaurant_profile_logo_saved',
       expect.objectContaining({
@@ -115,19 +124,19 @@ describe('RestaurantLogoUploader', () => {
         action: 'upload',
       }),
     );
-    expect(toastMock.success).toHaveBeenCalledWith('Logo uploaded and saved.');
+    // The mutation's meta.feedback owns the success toast.
+    expect(toastMock.success).not.toHaveBeenCalled();
   });
 
   it('asks before removing the logo and removes it only when confirmed', async () => {
     const user = userEvent.setup();
-    const updateMutateAsync = vi.fn().mockResolvedValue({});
+    removeMutateAsyncMock.mockResolvedValue({});
 
     render(
       <RestaurantLogoUploader
         restaurantId="rest-1"
         restaurantName="Demo Restaurant"
         logoUrl="https://cdn.example/logo.svg"
-        updateMutation={{ mutateAsync: updateMutateAsync, isPending: false } as never}
       />,
     );
 
@@ -139,14 +148,19 @@ describe('RestaurantLogoUploader', () => {
       ),
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expect(updateMutateAsync).not.toHaveBeenCalled();
+    expect(removeMutateAsyncMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Remove logo' }));
     dialog = await screen.findByRole('alertdialog', { name: 'Remove logo?' });
     await user.click(within(dialog).getByRole('button', { name: 'Remove logo' }));
 
-    await waitFor(() => expect(updateMutateAsync).toHaveBeenCalledWith({ logoUrl: null }));
-    await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Logo removed.'));
+    await waitFor(() => expect(removeMutateAsyncMock).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(analyticsTrackMock).toHaveBeenCalledWith(
+        'restaurant_profile_logo_saved',
+        expect.objectContaining({ action: 'remove' }),
+      ),
+    );
   });
 
   it('shows fixed copy, never the server message, when the upload fails', async () => {
@@ -161,13 +175,12 @@ describe('RestaurantLogoUploader', () => {
         restaurantId="rest-1"
         restaurantName="Demo Restaurant"
         logoUrl={null}
-        updateMutation={{ mutateAsync: vi.fn(), isPending: false } as never}
       />,
     );
 
     await user.upload(
       screen.getByLabelText(/upload restaurant logo/i),
-      new File(['<svg></svg>'], 'logo.svg', { type: 'image/svg+xml' }),
+      new File(['png-bytes'], 'logo.png', { type: 'image/png' }),
     );
 
     expect(
@@ -181,18 +194,15 @@ describe('RestaurantLogoUploader', () => {
 
   it('shows fixed copy, never the server message, when removing the logo fails', async () => {
     const user = userEvent.setup();
-    const updateMutateAsync = vi
-      .fn()
-      .mockRejectedValue(
-        new HttpError({ status: 500, message: 'SECRET_DB_DETAIL relation "x" does not exist' }),
-      );
+    removeMutateAsyncMock.mockRejectedValue(
+      new HttpError({ status: 500, message: 'SECRET_DB_DETAIL relation "x" does not exist' }),
+    );
 
     render(
       <RestaurantLogoUploader
         restaurantId="rest-1"
         restaurantName="Demo Restaurant"
         logoUrl="https://cdn.example/logo.svg"
-        updateMutation={{ mutateAsync: updateMutateAsync, isPending: false } as never}
       />,
     );
 
@@ -213,8 +223,10 @@ describe('RestaurantLogoUploader', () => {
     });
     expect(validateLogoFile({ size: 128, type: 'application/pdf' })).toEqual({
       code: 'UNSUPPORTED_FILE',
-      message: 'Supported formats: JPEG, PNG, WEBP, SVG.',
+      message: 'Supported formats: JPEG, PNG, WEBP.',
     });
+    // SVG is rejected on the client too, matching the server allowlist.
+    expect(validateLogoFile({ size: 128, type: 'image/svg+xml' })?.code).toBe('UNSUPPORTED_FILE');
     expect(validateLogoFile({ size: 128, type: 'image/webp' })).toBeNull();
     expect(extractLogoInitials('Old Crown')).toBe('OC');
     expect(extractLogoInitials('Solo')).toBe('S•');

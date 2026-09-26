@@ -82,7 +82,14 @@ describe('restaurantProfileModel', () => {
       managerName: 'Sam',
     });
 
-    expect(PROFILE_SECTION_DEFINITIONS[0]?.buildPayload(state)).toEqual({
+    const publicSection = PROFILE_SECTION_DEFINITIONS[0];
+    // Public details also sends only changed fields, so resent-but-unchanged values (name, slug,
+    // timezone) never look like identity or schedule changes.
+    expect(publicSection?.buildPayload(state, new Set())).toEqual({});
+    expect(publicSection?.buildPayload(state, new Set(['address']))).toEqual({
+      address: '1 High Street',
+    });
+    expect(publicSection?.buildPayload(state, new Set(publicSection.fields))).toEqual({
       name: 'The Old Crown',
       slug: 'old-crown',
       businessDescription: 'Family pub',
@@ -93,12 +100,37 @@ describe('restaurantProfileModel', () => {
       googleMapUrl: 'https://maps.example.test',
       googleReviewUrl: 'https://reviews.example.test',
     });
-    expect(STAFF_COMMUNICATIONS_SECTION_DEFINITIONS[0]?.buildPayload(state)).toEqual({
+    // Staff communications sends only changed fields (the server keeps an unchanged consent).
+    const staff = STAFF_COMMUNICATIONS_SECTION_DEFINITIONS[0];
+    expect(
+      staff?.buildPayload(
+        state,
+        new Set([
+          'managerName',
+          'managerNotificationPhone',
+          'managerDailySummaryEnabled',
+          'managerWhatsappEnabled',
+        ]),
+      ),
+    ).toEqual({
       managerName: 'Sam',
       managerNotificationPhone: '+441223111111',
       managerDailySummaryEnabled: true,
       managerWhatsappEnabled: false,
     });
+    expect(staff?.buildPayload(state, new Set(['managerName']))).toEqual({ managerName: 'Sam' });
+    // A new alert number always carries the WhatsApp choice, so re-ticking WhatsApp after a
+    // phone change (draft back to the saved value) is still sent as a fresh consent.
+    const reconsented = mapInitialValues({
+      ...buildProfileValues(profile({ bookingPolicy: null })),
+      managerNotificationPhone: '+447700900999',
+      managerWhatsappEnabled: true,
+    });
+    expect(staff?.buildPayload(reconsented, new Set(['managerNotificationPhone']))).toEqual({
+      managerNotificationPhone: '+447700900999',
+      managerWhatsappEnabled: true,
+    });
+    expect(staff?.buildPayload(state, new Set())).toEqual({});
   });
 
   it('builds shared form values from a loaded profile and preserves booking-rule fields', () => {

@@ -7,6 +7,7 @@ vi.mock('@/server/restaurants/update', () => ({
 }));
 
 import { updateRestaurantDetails } from '@/server/restaurants/details';
+import { RestaurantUpdateError } from '@/server/restaurants/update-errors';
 
 const updatedRestaurant = {
   id: 'restaurant-1',
@@ -65,5 +66,68 @@ describe('updateRestaurantDetails', () => {
       { contactEmail: null },
       client,
     );
+  });
+});
+
+describe('updateRestaurantDetails field validation', () => {
+  beforeEach(() => {
+    updateRestaurantMock.mockReset();
+  });
+
+  it.each([
+    ['an invalid timezone', { timezone: 'Not/AZone' }, 'timezone'],
+    ['a whitespace-only name', { name: '   ' }, 'name'],
+    ['a malformed slug', { slug: 'Bad Slug' }, 'slug'],
+    ['a negative capacity', { capacity: -1 }, 'capacity'],
+  ] as const)('refuses %s with a VALIDATION_FAILED field error', async (_label, input, field) => {
+    const client = makeClient();
+
+    const failure = updateRestaurantDetails('restaurant-1', input, client as never);
+
+    await expect(failure).rejects.toBeInstanceOf(RestaurantUpdateError);
+    await expect(failure).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      status: 400,
+      fields: { [field]: [expect.any(String)] },
+    });
+    expect(updateRestaurantMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('updateRestaurantDetails business description', () => {
+  beforeEach(() => {
+    updateRestaurantMock.mockReset();
+    updateRestaurantMock.mockResolvedValue({ ...updatedRestaurant, businessDescription: 'Cosy' });
+  });
+
+  it('writes the description with the restaurant row in one update, not a second upsert', async () => {
+    const client = makeClient();
+
+    const details = await updateRestaurantDetails(
+      'restaurant-1',
+      { name: 'New Name', businessDescription: '  Cosy ' },
+      client as never,
+    );
+
+    expect(updateRestaurantMock).toHaveBeenCalledWith(
+      'restaurant-1',
+      { name: 'New Name', businessDescription: 'Cosy' },
+      client,
+    );
+    expect(client.from).not.toHaveBeenCalled();
+    expect(details.businessDescription).toBe('Cosy');
+  });
+
+  it('saves a description-only change through the same atomic update', async () => {
+    const client = makeClient();
+
+    await updateRestaurantDetails('restaurant-1', { businessDescription: null }, client as never);
+
+    expect(updateRestaurantMock).toHaveBeenCalledWith(
+      'restaurant-1',
+      { businessDescription: null },
+      client,
+    );
+    expect(client.from).not.toHaveBeenCalledWith('restaurant_business_details');
   });
 });
