@@ -116,6 +116,7 @@ export function useBusinessContextEditorDraftState({
     savedDrafts,
     baseline: state.baseline,
     seedSource: state.seedSource,
+    rebaseConflict: state.rebaseConflict,
     dirty,
     dirtyFamilies,
     isDirty: dirtyFamilies.length > 0,

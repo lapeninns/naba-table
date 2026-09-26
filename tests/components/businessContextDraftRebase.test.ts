@@ -117,17 +117,66 @@ describe('rebasing an open Discovery draft onto a newer server snapshot', () => 
     expect(state.baseline?.revision).toBe(4);
   });
 
-  it('@contract keeps my edit when the server changed the same row', () => {
+  it('@contract a true conflict on one row takes the server value and is reported', () => {
     const A = '11111111-1111-4111-8111-111111111111';
-    let state = load(snapshot({ links: [link(A, 'https://old.example')] }));
+    let state = load(snapshot({ links: [link(A, 'https://old.example')] }, {}, 1));
     state = edit(state, (drafts) => ({
       ...drafts,
       links: drafts.links.map((row) => ({ ...row, url: 'https://mine.example' })),
     }));
+    expect(state.rebaseConflict).toBeNull();
 
-    state = receive(state, snapshot({ links: [link(A, 'https://theirs.example')] }));
+    // Someone else saved the same row: the next Save must not silently overwrite it.
+    state = receive(state, snapshot({ links: [link(A, 'https://theirs.example')] }, {}, 2));
 
-    expect(state.drafts.links.map((row) => row.url)).toEqual(['https://mine.example']);
+    expect(state.drafts.links.map((row) => row.url)).toEqual(['https://theirs.example']);
+    expect(state.rebaseConflict).toEqual({ families: ['links'], seq: 1 });
+  });
+
+  it('@contract the same change on both sides is not a conflict', () => {
+    const A = '11111111-1111-4111-8111-111111111111';
+    let state = load(snapshot({ links: [link(A, 'https://old.example')] }));
+    state = edit(state, (drafts) => ({
+      ...drafts,
+      links: drafts.links.map((row) => ({ ...row, url: 'https://same.example' })),
+    }));
+
+    state = receive(state, snapshot({ links: [link(A, 'https://same.example')] }));
+
+    expect(state.drafts.links.map((row) => row.url)).toEqual(['https://same.example']);
+    expect(state.rebaseConflict).toBeNull();
+  });
+
+  it('@contract a row I edited that the server deleted goes, and one I deleted that the server edited comes back', () => {
+    const A = '11111111-1111-4111-8111-111111111111';
+    const B = '22222222-2222-4222-8222-222222222222';
+    let state = load(snapshot({ categories: [category(A, 'Pub'), category(B, 'Bar')] }));
+    state = edit(state, (drafts) => ({
+      ...drafts,
+      categories: drafts.categories
+        .filter((row) => row.id !== B)
+        .map((row) => ({ ...row, displayName: 'Gastropub' })),
+    }));
+
+    state = receive(state, snapshot({ categories: [category(B, 'Cocktail bar')] }));
+
+    expect(state.drafts.categories.map((row) => [row.id, row.displayName])).toEqual([
+      [B, 'Cocktail bar'],
+    ]);
+    expect(state.rebaseConflict?.families).toEqual(['categories']);
+  });
+
+  it('@contract a business detail both sides changed takes the server value', () => {
+    let state = load(snapshot({ businessDetails: details(null, 'open') }));
+    state = edit(state, (drafts) => ({
+      ...drafts,
+      businessDetails: { ...drafts.businessDetails, businessStatus: 'closed_temporarily' },
+    }));
+
+    state = receive(state, snapshot({ businessDetails: details(null, 'closed_permanently') }));
+
+    expect(state.drafts.businessDetails.businessStatus).toBe('closed_permanently');
+    expect(state.rebaseConflict?.families).toEqual(['businessDetails']);
   });
 
   it('@contract drops untouched rows the server removed and appends rows the server added', () => {
@@ -148,6 +197,7 @@ describe('rebasing an open Discovery draft onto a newer server snapshot', () => 
       [B, 'Cocktail bar'],
       [C, 'Inn'],
     ]);
+    expect(state.rebaseConflict).toBeNull();
   });
 
   it('@contract merges business details field by field', () => {

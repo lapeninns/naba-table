@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
@@ -94,6 +94,14 @@ export function discoverySaveSectionNames(
   }).map((family) => DISCOVERY_SECTION_TITLES[family]);
 }
 
+/** Copy for a rebase where newer saved values replaced some staff edits. */
+export function formatDiscoveryRebaseConflictToast(families: readonly FamilyKey[]): string {
+  const names = formatSettingsSectionList(
+    families.map((family) => DISCOVERY_SECTION_TITLES[family]),
+  );
+  return `Newer saved details replaced some of your edits in ${names}. Review them and save again.`;
+}
+
 export function useRestaurantBusinessContextEditor({
   restaurantId,
 }: {
@@ -103,7 +111,15 @@ export function useRestaurantBusinessContextEditor({
   const updateMutation = useOpsUpdateRestaurantBusinessContext(restaurantId);
   const draft = useBusinessContextEditorDraftState({ restaurantId, snapshot: contextQuery.data });
   const saveSequence = useSettingsSaveSequence();
-  const { applySavedSnapshot, baseline, dirtyFamilies, drafts, resetFamilies, savedDrafts } = draft;
+  const {
+    applySavedSnapshot,
+    baseline,
+    dirtyFamilies,
+    drafts,
+    rebaseConflict,
+    resetFamilies,
+    savedDrafts,
+  } = draft;
   const { mutateAsync } = updateMutation;
   const { run: runSaveSequence, clearFailure } = saveSequence;
 
@@ -112,6 +128,14 @@ export function useRestaurantBusinessContextEditor({
     draft.isDirty,
     'You have unsaved discovery detail changes. Leave without saving them?',
   );
+
+  // Tell staff once per rebase when a newer saved value (another editor, a Google import) won
+  // over one of their edits.
+  useEffect(() => {
+    if (rebaseConflict) {
+      toast.warning(formatDiscoveryRebaseConflictToast(rebaseConflict.families));
+    }
+  }, [rebaseConflict]);
 
   const providerCounts = useMemo(
     () => deriveFamilyCounts(contextQuery.data?.providerSnapshot),

@@ -47,6 +47,16 @@ export type BusinessContextDraftState = {
   baseline: BusinessContextSnapshotWithRevision | null;
   drafts: BusinessContextDrafts;
   seedSource: SeedSource;
+  /**
+   * The last rebase in which staff edits collided with a newer saved value (both sides changed
+   * the same row or field). The saved value was kept; the editor tells staff once per object.
+   */
+  rebaseConflict: BusinessContextRebaseConflict | null;
+};
+
+export type BusinessContextRebaseConflict = {
+  readonly families: readonly FamilyKey[];
+  readonly seq: number;
 };
 
 export type BusinessContextDraftAction =
@@ -88,6 +98,7 @@ export const INITIAL_BUSINESS_CONTEXT_DRAFT_STATE: BusinessContextDraftState = {
   baseline: null,
   drafts: EMPTY_BUSINESS_CONTEXT_DRAFTS,
   seedSource: EMPTY_SEED_SOURCE,
+  rebaseConflict: null,
 };
 
 /** Saved values only (never Google's), as the editor shows them. */
@@ -231,28 +242,54 @@ function comparableRow(family: FamilyKey, row: DraftRow): unknown {
  * the draft, `theirs` the newer server rows. Rows staff added or edited stay as typed; rows they
  * did not touch take the server version (or go, if the server removed them); rows the server
  * added are appended. Rows staff deleted stay deleted.
+ *
+ * When both sides changed the same row differently (edited on both, edited here but deleted on
+ * the server, or deleted here but edited on the server) the server version wins and the merge
+ * reports a conflict: a newer committed value is never silently overwritten by the next save.
  */
 function rebaseRows<Row extends DraftRow>(
   family: FamilyKey,
   base: readonly Row[],
   mine: readonly Row[],
   theirs: readonly Row[],
-): Row[] {
+): { rows: Row[]; conflict: boolean } {
   const baseById = new Map(base.map((row) => [row.id, row]));
   const theirsById = new Map(theirs.map((row) => [row.id, row]));
   const mineIds = new Set(mine.map((row) => row.id));
   const same = (left: Row, right: Row) =>
     JSON.stringify(comparableRow(family, left)) === JSON.stringify(comparableRow(family, right));
 
+  let conflict = false;
   const rows: Row[] = [];
   for (const row of mine) {
     const baseRow = baseById.get(row.id);
-    if (!baseRow || !same(row, baseRow)) {
+    const theirRow = theirsById.get(row.id);
+    if (!baseRow) {
       rows.push(row);
       continue;
     }
-    const theirRow = theirsById.get(row.id);
-    if (theirRow) {
+    if (same(row, baseRow)) {
+      if (theirRow) rows.push(theirRow);
+      continue;
+    }
+    if (!theirRow) {
+      // Edited here, deleted on the server.
+      conflict = true;
+      continue;
+    }
+    if (same(theirRow, baseRow) || same(theirRow, row)) {
+      rows.push(row);
+      continue;
+    }
+    conflict = true;
+    rows.push(theirRow);
+  }
+  for (const baseRow of base) {
+    if (mineIds.has(baseRow.id)) continue;
+    const theirRow = theirsById.get(baseRow.id);
+    if (theirRow && !same(theirRow, baseRow)) {
+      // Deleted here, edited on the server.
+      conflict = true;
       rows.push(theirRow);
     }
   }
@@ -261,13 +298,18 @@ function rebaseRows<Row extends DraftRow>(
       rows.push(row);
     }
   }
-  return rows;
+  return { rows, conflict };
 }
+
+type RebaseResult = Pick<BusinessContextDraftState, 'drafts' | 'seedSource'> & {
+  conflict: boolean;
+};
 
 /**
  * Rebases an unsaved section onto a newer server snapshot (another writer, such as a Google
  * import, saved underneath the draft), so the next page save cannot restore the values that
- * writer replaced. Business details merge field by field; list sections merge by row id.
+ * writer replaced. Business details merge field by field; list sections merge by row id. Where
+ * both sides changed the same value, the server value wins and a conflict is reported.
  * An unsaved Google pre-fill is dropped once the server holds saved rows for that section.
  */
 function rebaseDirtyFamily(
@@ -276,33 +318,44 @@ function rebaseDirtyFamily(
   previousSaved: BusinessContextDrafts,
   snapshot: RestaurantBusinessContextSnapshot,
   family: FamilyKey,
-): Pick<BusinessContextDraftState, 'drafts' | 'seedSource'> {
+): RebaseResult {
   const fromServer = withFamilyFromSnapshot(next, snapshot, family);
   const theirs = fromServer.drafts;
   if (isBusinessContextFamilyEqual(family, theirs, previousSaved)) {
     // The server did not change this section: nothing to rebase.
-    return next;
+    return { ...next, conflict: false };
   }
   if (state.seedSource[family] === 'provider' && fromServer.seedSource[family] === 'core') {
-    return fromServer;
+    return { ...fromServer, conflict: false };
   }
 
   const mine = state.drafts;
   if (family === 'businessDetails') {
-    const pick = <Field extends keyof BusinessDetailsEditor>(field: Field) =>
-      mine.businessDetails[field] !== previousSaved.businessDetails[field]
-        ? mine.businessDetails[field]
-        : theirs.businessDetails[field];
+    let conflict = false;
+    const pick = <Field extends keyof BusinessDetailsEditor>(field: Field) => {
+      const base = previousSaved.businessDetails[field];
+      const mineValue = mine.businessDetails[field];
+      const theirValue = theirs.businessDetails[field];
+      if (mineValue === base) return theirValue;
+      if (theirValue === base || theirValue === mineValue) return mineValue;
+      conflict = true;
+      return theirValue;
+    };
     const businessDetails: BusinessDetailsEditor = {
       openingDate: pick('openingDate'),
       businessStatus: pick('businessStatus'),
       isServiceAreaBusiness: pick('isServiceAreaBusiness'),
     };
-    return { ...next, drafts: { ...next.drafts, businessDetails } };
+    return { ...next, drafts: { ...next.drafts, businessDetails }, conflict };
   }
 
-  const rows = rebaseRows<DraftRow>(family, previousSaved[family], mine[family], theirs[family]);
-  return { ...next, drafts: { ...next.drafts, [family]: rows } };
+  const { rows, conflict } = rebaseRows<DraftRow>(
+    family,
+    previousSaved[family],
+    mine[family],
+    theirs[family],
+  );
+  return { ...next, drafts: { ...next.drafts, [family]: rows }, conflict };
 }
 
 /**
@@ -321,6 +374,7 @@ function reseedFromSnapshot(
     drafts: state.drafts,
     seedSource: state.seedSource,
   };
+  const conflicted: FamilyKey[] = [];
   for (const family of DISCOVERY_SECTION_ORDER) {
     if (saved?.families.includes(family)) {
       next = keepEditsSinceSend(
@@ -332,10 +386,24 @@ function reseedFromSnapshot(
     } else if (isBusinessContextFamilyEqual(family, state.drafts, previousSaved)) {
       next = withFamilyFromSnapshot(next, snapshot, family);
     } else {
-      next = rebaseDirtyFamily(next, state, previousSaved, snapshot, family);
+      const { conflict, ...rebased } = rebaseDirtyFamily(
+        next,
+        state,
+        previousSaved,
+        snapshot,
+        family,
+      );
+      next = rebased;
+      if (conflict) conflicted.push(family);
     }
   }
-  return { ...state, ...next, baseline: snapshot };
+  const rebaseConflict =
+    conflicted.length > 0
+      ? { families: conflicted, seq: (state.rebaseConflict?.seq ?? 0) + 1 }
+      : saved
+        ? null
+        : state.rebaseConflict;
+  return { ...state, ...next, baseline: snapshot, rebaseConflict };
 }
 
 export function businessContextDraftReducer(
@@ -354,6 +422,7 @@ export function businessContextDraftReducer(
           baseline: action.snapshot,
           drafts,
           seedSource,
+          rebaseConflict: null,
         };
       }
       if (state.seenSnapshot === action.snapshot) {
@@ -383,7 +452,12 @@ export function businessContextDraftReducer(
       for (const family of action.families) {
         next = withFamilyFromSnapshot(next, baseline, family);
       }
-      return { ...state, drafts: next.drafts, seedSource: next.seedSource };
+      return {
+        ...state,
+        drafts: next.drafts,
+        seedSource: next.seedSource,
+        rebaseConflict: action.families.length > 0 ? null : state.rebaseConflict,
+      };
     }
     case 'edit':
       return { ...state, drafts: action.apply(state.drafts) };

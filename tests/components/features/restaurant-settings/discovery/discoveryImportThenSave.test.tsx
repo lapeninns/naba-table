@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 import { useOpsDualSync } from '@/hooks/ops/useOpsDualSync';
+import { HttpError } from '@/lib/http/errors';
 import { createAppQueryClient } from '@/lib/query/client';
 import { publishDualSyncDecisions } from '@/services/ops/dual-sync';
 
@@ -27,9 +28,13 @@ vi.mock('@/contexts/ops-services', () => ({
 vi.mock('@/contexts/ops-unsaved-changes', () => ({
   useRegisterOpsUnsavedChanges: vi.fn(),
 }));
-vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+  warning: vi.fn(),
+  info: vi.fn(),
 }));
+vi.mock('sonner', () => ({ toast: toastMock }));
 vi.mock('@/services/ops/dual-sync', () => ({
   getDualSyncMetrics: vi.fn(),
   getDualSyncPublishJobDetail: vi.fn(),
@@ -80,6 +85,38 @@ function snapshot(categoryName: string, revision: number): RestaurantBusinessCon
     core: { ...EMPTY, categories: [category(categoryName)] },
     providerSnapshot: EMPTY,
   } as RestaurantBusinessContextSnapshot;
+}
+
+function importCategory() {
+  vi.mocked(publishDualSyncDecisions).mockResolvedValue({
+    failures: [],
+  } as unknown as DualSyncPublishResponse);
+  return {
+    clientRequestId: 'intent-1',
+    decisions: [
+      {
+        fieldKey: 'businessContext.categories.primary',
+        sectionKey: 'businessContext.categories' as const,
+        action: 'import_from_google' as const,
+        pinnedCoreHash: 'core',
+        pinnedGbpHash: 'gbp',
+      },
+    ],
+  };
+}
+
+function echoSave(revision: number) {
+  return async (_id: string, payload: BusinessContextSaveInput) => ({
+    ...snapshot('unused', revision),
+    core: {
+      ...EMPTY,
+      categories: (payload.categories ?? []).map((row, index) => ({
+        ...category(row.displayName),
+        id: row.id ?? `22222222-2222-4222-8222-22222222222${index}`,
+        isPrimary: row.isPrimary ?? false,
+      })),
+    },
+  });
 }
 
 function setup() {
@@ -164,5 +201,70 @@ describe('Discovery save after a Google import', () => {
     expect(payload.categories?.map((row) => row.displayName)).toEqual(['Gastropub', 'Bar']);
     // The save is conditioned on the post-import revision, not the one the draft started from.
     expect(payload.expectedRevision).toBe(2);
+  });
+
+  it('@contract "Use Google\'s value" wins over a local edit of the same row, and staff are told', async () => {
+    restaurantService.getBusinessContext.mockResolvedValueOnce(snapshot('Pub', 1));
+    restaurantService.updateBusinessContext.mockImplementation(echoSave(3));
+    const { result } = setup();
+    await waitFor(() => expect(result.current.editor.categories).toHaveLength(1));
+
+    act(() => {
+      result.current.editor.updateCategory(PUB_ID, 'displayName', 'Village pub');
+    });
+
+    restaurantService.getBusinessContext.mockResolvedValueOnce(snapshot('Gastropub', 2));
+    const request = importCategory();
+    await act(async () => {
+      await result.current.dualSync.publishMutation.mutateAsync(request);
+    });
+    await waitFor(() =>
+      expect(result.current.editor.categories.map((row) => row.displayName)).toEqual(['Gastropub']),
+    );
+    expect(toastMock.warning).toHaveBeenCalledTimes(1);
+    expect(toastMock.warning.mock.calls[0]?.[0]).toContain('Categories');
+    // Nothing left to save: the import is the saved value.
+    expect(result.current.editor.dirty.categories).toBe(false);
+  });
+
+  it('@contract after a 409 STALE_WRITE the draft rebases onto the latest snapshot and the next save succeeds', async () => {
+    restaurantService.getBusinessContext.mockResolvedValueOnce(snapshot('Pub', 1));
+    const { result } = setup();
+    await waitFor(() => expect(result.current.editor.categories).toHaveLength(1));
+
+    act(() => {
+      result.current.editor.addCategory('Bar');
+    });
+
+    // Someone else saved underneath this draft.
+    restaurantService.updateBusinessContext.mockRejectedValueOnce(
+      new HttpError({ message: 'stale', status: 409, code: 'STALE_WRITE' }),
+    );
+    restaurantService.getBusinessContext.mockResolvedValueOnce(snapshot('Inn', 5));
+    await act(async () => {
+      await result.current.editor.saveAll();
+    });
+    expect(result.current.editor.saveFailure).not.toBeNull();
+
+    // Exactly one reload of the snapshot, and the draft keeps my new row on top of it.
+    await waitFor(() =>
+      expect(result.current.editor.categories.map((row) => row.displayName)).toEqual([
+        'Inn',
+        'Bar',
+      ]),
+    );
+    expect(restaurantService.getBusinessContext).toHaveBeenCalledTimes(2);
+
+    restaurantService.updateBusinessContext.mockImplementationOnce(echoSave(6));
+    await act(async () => {
+      await result.current.editor.saveAll();
+    });
+    const [, payload] = restaurantService.updateBusinessContext.mock.calls[1] as [
+      string,
+      BusinessContextSaveInput,
+    ];
+    expect(payload.expectedRevision).toBe(5);
+    expect(payload.categories?.map((row) => row.displayName)).toEqual(['Inn', 'Bar']);
+    expect(result.current.editor.dirty.categories).toBe(false);
   });
 });
