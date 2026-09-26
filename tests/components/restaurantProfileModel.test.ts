@@ -82,7 +82,7 @@ describe('restaurantProfileModel', () => {
       managerName: 'Sam',
     });
 
-    expect(PROFILE_SECTION_DEFINITIONS[0]?.buildPayload(state)).toEqual({
+    expect(PROFILE_SECTION_DEFINITIONS[0]?.buildPayload(state, new Set())).toEqual({
       name: 'The Old Crown',
       slug: 'old-crown',
       businessDescription: 'Family pub',
@@ -93,12 +93,26 @@ describe('restaurantProfileModel', () => {
       googleMapUrl: 'https://maps.example.test',
       googleReviewUrl: 'https://reviews.example.test',
     });
-    expect(STAFF_COMMUNICATIONS_SECTION_DEFINITIONS[0]?.buildPayload(state)).toEqual({
+    // Staff communications sends only changed fields (the server keeps an unchanged consent).
+    const staff = STAFF_COMMUNICATIONS_SECTION_DEFINITIONS[0];
+    expect(
+      staff?.buildPayload(
+        state,
+        new Set([
+          'managerName',
+          'managerNotificationPhone',
+          'managerDailySummaryEnabled',
+          'managerWhatsappEnabled',
+        ]),
+      ),
+    ).toEqual({
       managerName: 'Sam',
       managerNotificationPhone: '+441223111111',
       managerDailySummaryEnabled: true,
       managerWhatsappEnabled: false,
     });
+    expect(staff?.buildPayload(state, new Set(['managerName']))).toEqual({ managerName: 'Sam' });
+    expect(staff?.buildPayload(state, new Set())).toEqual({});
   });
 
   it('builds shared form values from a loaded profile and preserves booking-rule fields', () => {
