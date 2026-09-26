@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 import {
   getGbpConnectionStateV1,
   getGbpTerminalNoticesV1,
@@ -48,7 +49,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
   const connectionQuery = useQuery<GbpConnectionStateResponseV1, Error>({
     enabled,
     queryKey: gbpOperatorQueryKeys.connection(queryRestaurantId),
-    queryFn: () => getGbpConnectionStateV1(queryRestaurantId),
+    queryFn: ({ signal }) => getGbpConnectionStateV1(queryRestaurantId, { signal }),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
@@ -57,7 +58,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
   const terminalNoticesQuery = useQuery<GbpTerminalNoticesResponseV1, Error>({
     enabled,
     queryKey: gbpOperatorQueryKeys.terminalNotices(queryRestaurantId),
-    queryFn: () => getGbpTerminalNoticesV1(queryRestaurantId),
+    queryFn: ({ signal }) => getGbpTerminalNoticesV1(queryRestaurantId, { signal }),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',
@@ -109,6 +110,7 @@ export function useOpsGbpOperatorState(restaurantId?: string | null) {
 
 export function useOpsGoogleBusinessProfileConnection(
   restaurantId?: string | null,
+  { enabled = true }: { readonly enabled?: boolean } = {},
 ): UseQueryResult<GoogleBusinessProfileConnection, HttpError> {
   const restaurantService = useRestaurantService();
 
@@ -116,14 +118,15 @@ export function useOpsGoogleBusinessProfileConnection(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.googleBusinessProfile(restaurantId)
       : queryKeys.opsRestaurants.googleBusinessProfile('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getGoogleBusinessProfileConnection(restaurantId);
+      return restaurantService.getGoogleBusinessProfileConnection(restaurantId, { signal });
     },
-    enabled: Boolean(restaurantId),
-    staleTime: 30_000,
+    // Disabled callers keep the real key so they still read a cached connection.
+    enabled: enabled && Boolean(restaurantId),
+    staleTime: OPS_SETTINGS_STALE_TIME.googleBusinessProfile,
     meta: { persist: false },
   });
 }
@@ -138,11 +141,11 @@ export function useOpsGoogleBusinessProfileAvailableLocations(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId)
       : queryKeys.opsRestaurants.googleBusinessProfileLocations('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getGoogleBusinessProfileAvailableLocations(restaurantId);
+      return restaurantService.getGoogleBusinessProfileAvailableLocations(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId) && enabled,
     staleTime: 10 * 60_000,
@@ -190,7 +193,7 @@ export function useOpsLinkGoogleBusinessProfileLocation(
       if (!restaurantId) return;
       removeGbpOperatorQueries(queryClient, restaurantId);
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
-      invalidateOpsIntegrationQueries(queryClient, restaurantId);
+      invalidateOpsIntegrationQueries(queryClient, restaurantId, { connectionWritten: true });
     },
   });
 }
@@ -220,7 +223,7 @@ export function useOpsDisconnectGoogleBusinessProfile(
       if (!restaurantId) return;
       removeGbpOperatorQueries(queryClient, restaurantId);
       queryClient.setQueryData(queryKeys.opsRestaurants.googleBusinessProfile(restaurantId), state);
-      invalidateOpsIntegrationQueries(queryClient, restaurantId);
+      invalidateOpsIntegrationQueries(queryClient, restaurantId, { connectionWritten: true });
     },
   });
 }

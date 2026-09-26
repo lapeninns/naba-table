@@ -1,33 +1,104 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PROFILE_FIELD_GROUPS,
+  PROFILE_FIELD_ORDER,
+  PROFILE_SECTION_DEFINITIONS,
+  STAFF_COMMUNICATIONS_SECTION_DEFINITIONS,
+} from '@/components/features/restaurant-settings/profile/profileSections';
+import {
   buildProfileValues,
   deriveReadiness,
   displayProfileValue,
   hasProfileValue,
-  PROFILE_DIRTY_SECTIONS,
-  PROFILE_SECTION_FORMS,
 } from '@/components/features/restaurant-settings/restaurantProfileModel';
+
+import { mapInitialValues } from '../../components/ops/restaurants/restaurantDetailsFormModel';
 
 import type { RestaurantProfile } from '@/services/ops/restaurants';
 
 describe('restaurantProfileModel', () => {
-  it('keeps profile dirty sections mapped to stable form ids', () => {
-    expect(PROFILE_SECTION_FORMS).toEqual({
-      advanced: 'restaurant-profile-advanced-form',
-      brand: 'restaurant-profile-brand-form',
-      contact: 'restaurant-profile-contact-form',
-      notifications: 'restaurant-profile-notifications-form',
-    });
-    expect(PROFILE_DIRTY_SECTIONS.map((section) => section.key)).toEqual([
-      'brand',
-      'contact',
-      'notifications',
-      'advanced',
+  it('keeps Profile to public details and manager alerts on Staff communications', () => {
+    expect(
+      PROFILE_SECTION_DEFINITIONS.map((section) => [
+        section.id,
+        section.name,
+        section.analyticsSection,
+      ]),
+    ).toEqual([['public', 'Public details', 'public_details']]);
+    // Older deep links (#profile-identity, #profile-contact) land on these groups.
+    expect(PROFILE_FIELD_GROUPS.map((group) => [group.name, group.anchorId])).toEqual([
+      ['Name and booking link', 'profile-identity'],
+      ['Location and contact', 'profile-contact'],
     ]);
-    expect(PROFILE_DIRTY_SECTIONS.every((section) => typeof section.formId === 'string')).toBe(
-      true,
-    );
+    expect(PROFILE_FIELD_ORDER).toEqual([
+      'name',
+      'slug',
+      'businessDescription',
+      'timezone',
+      'address',
+      'googleMapUrl',
+      'contactPhone',
+      'contactEmail',
+      'googleReviewUrl',
+    ]);
+    for (const field of [
+      'managerName',
+      'managerNotificationPhone',
+      'managerDailySummaryEnabled',
+      'managerWhatsappEnabled',
+      'bookingPolicy',
+      'reservationIntervalMinutes',
+    ] as const) {
+      expect(PROFILE_FIELD_ORDER).not.toContain(field);
+    }
+    expect(
+      STAFF_COMMUNICATIONS_SECTION_DEFINITIONS.map((section) => [
+        section.id,
+        section.name,
+        section.analyticsSection,
+        section.fields,
+      ]),
+    ).toEqual([
+      [
+        'notifications',
+        'Manager alerts',
+        'manager_notifications',
+        [
+          'managerName',
+          'managerNotificationPhone',
+          'managerDailySummaryEnabled',
+          'managerWhatsappEnabled',
+        ],
+      ],
+    ]);
+  });
+
+  it('builds each section payload from only its own fields', () => {
+    const state = mapInitialValues({
+      ...buildProfileValues(profile({ bookingPolicy: null })),
+      name: '  The Old Crown ',
+      contactEmail: '',
+      managerName: 'Sam',
+    });
+
+    expect(PROFILE_SECTION_DEFINITIONS[0]?.buildPayload(state)).toEqual({
+      name: 'The Old Crown',
+      slug: 'old-crown',
+      businessDescription: 'Family pub',
+      timezone: 'Europe/London',
+      contactEmail: null,
+      contactPhone: '+441223000000',
+      address: '1 High Street',
+      googleMapUrl: 'https://maps.example.test',
+      googleReviewUrl: 'https://reviews.example.test',
+    });
+    expect(STAFF_COMMUNICATIONS_SECTION_DEFINITIONS[0]?.buildPayload(state)).toEqual({
+      managerName: 'Sam',
+      managerNotificationPhone: '+441223111111',
+      managerDailySummaryEnabled: true,
+      managerWhatsappEnabled: false,
+    });
   });
 
   it('builds shared form values from a loaded profile and preserves booking-rule fields', () => {
@@ -73,6 +144,17 @@ describe('restaurantProfileModel', () => {
       expect.arrayContaining(['bookingUrl', 'description', 'address', 'mapUrl']),
     );
     expect(readiness.score).toBe(Math.round((5 / 9) * 100));
+    expect(readiness.items.map((item) => [item.key, item.required, item.complete])).toEqual([
+      ['name', true, true],
+      ['bookingUrl', true, false],
+      ['contactPhone', true, true],
+      ['timezone', true, true],
+      ['logo', false, true],
+      ['description', false, false],
+      ['contactEmail', false, true],
+      ['address', false, false],
+      ['mapUrl', false, false],
+    ]);
   });
 
   it('formats optional profile values for display', () => {

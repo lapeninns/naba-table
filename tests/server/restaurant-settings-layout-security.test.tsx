@@ -11,6 +11,7 @@ const cookieGetMock = vi.hoisted(() => vi.fn());
 const headerGetMock = vi.hoisted(() => vi.fn());
 const getServerComponentSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getUserMock = vi.hoisted(() => vi.fn());
+const getRequestUserMock = vi.hoisted(() => vi.fn());
 const fetchUserMembershipsCachedMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
 const resolveServiceRoleSupabaseUrlMock = vi.hoisted(() =>
@@ -32,6 +33,10 @@ vi.mock('@/server/supabase', () => ({
   resolveServiceRoleSupabaseUrl: resolveServiceRoleSupabaseUrlMock,
 }));
 
+vi.mock('@/server/auth/request-user', () => ({
+  getRequestUser: getRequestUserMock,
+}));
+
 vi.mock('@/server/team/access', () => ({
   fetchUserMembershipsCached: fetchUserMembershipsCachedMock,
   requireAdminMembership: requireAdminMembershipMock,
@@ -42,6 +47,7 @@ import RestaurantSettingsLayout from '@/src/app/app/(app)/settings/restaurant/la
 
 const USER_ID = '22222222-2222-4222-8222-222222222222';
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
+const OTHER_RESTAURANT_ID = '33333333-3333-4333-8333-333333333333';
 
 describe('RestaurantSettingsLayout security', () => {
   beforeEach(() => {
@@ -59,6 +65,14 @@ describe('RestaurantSettingsLayout security', () => {
     getServerComponentSupabaseClientMock.mockReset();
     getServerComponentSupabaseClientMock.mockResolvedValue({
       auth: { getUser: getUserMock },
+    });
+    getRequestUserMock.mockReset();
+    getRequestUserMock.mockImplementation(async () => {
+      const {
+        data: { user },
+        error,
+      } = await getUserMock();
+      return { user, error };
     });
     fetchUserMembershipsCachedMock.mockReset();
     requireAdminMembershipMock.mockReset();
@@ -112,43 +126,108 @@ describe('RestaurantSettingsLayout security', () => {
     );
   });
 
+  it('resolves the viewer through the shared per-request getRequestUser helper', async () => {
+    getUserMock.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
+
+    expect(getRequestUserMock).toHaveBeenCalledTimes(1);
+    expect(getServerComponentSupabaseClientMock).not.toHaveBeenCalled();
+  });
+
   it('redirects active non-admin restaurant members away from settings', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
     cookieGetMock.mockReturnValue({ value: RESTAURANT_ID });
     fetchUserMembershipsCachedMock.mockResolvedValue([
       { restaurant_id: RESTAURANT_ID, role: 'host' },
     ]);
-    requireAdminMembershipMock.mockRejectedValue(new Error('Insufficient permissions'));
 
     await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
       'NEXT_REDIRECT',
     );
 
-    expect(requireAdminMembershipMock).toHaveBeenCalledWith({
-      userId: USER_ID,
-      restaurantId: RESTAURANT_ID,
-    });
+    expect(fetchUserMembershipsCachedMock).toHaveBeenCalledWith(USER_ID);
+    expect(requireAdminMembershipMock).not.toHaveBeenCalled();
     expect(redirectMock).toHaveBeenCalledWith('/app/bookings');
   });
 
-  it('renders settings only after an active restaurant admin membership passes', async () => {
+  it.each(['server', 'host', 'unknown-role'])(
+    'rejects the %s role using the already-fetched memberships',
+    async (role) => {
+      getUserMock.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+      cookieGetMock.mockReturnValue({ value: RESTAURANT_ID });
+      fetchUserMembershipsCachedMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID, role }]);
+
+      await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+        'NEXT_REDIRECT',
+      );
+
+      expect(redirectMock).toHaveBeenCalledWith('/app/bookings');
+    },
+  );
+
+  it('does not grant settings for another restaurant when the active-restaurant cookie is forged', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+    // Cookie names a restaurant this user has no membership in; they are only a
+    // host at their own restaurant, so they must still be rejected.
+    cookieGetMock.mockReturnValue({ value: OTHER_RESTAURANT_ID });
+    fetchUserMembershipsCachedMock.mockResolvedValue([
+      { restaurant_id: RESTAURANT_ID, role: 'host' },
+    ]);
+
+    await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
+
+    expect(redirectMock).toHaveBeenCalledWith('/app/bookings');
+  });
+
+  it('redirects users with no memberships at all', async () => {
+    getUserMock.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+    cookieGetMock.mockReturnValue({ value: OTHER_RESTAURANT_ID });
+    fetchUserMembershipsCachedMock.mockResolvedValue([]);
+
+    await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+      'NEXT_REDIRECT',
+    );
+
+    expect(redirectMock).toHaveBeenCalledWith('/app/bookings');
+  });
+
+  it('checks the admin role of the active restaurant, not an admin role held elsewhere', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
     cookieGetMock.mockReturnValue({ value: RESTAURANT_ID });
     fetchUserMembershipsCachedMock.mockResolvedValue([
-      { restaurant_id: RESTAURANT_ID, role: 'manager' },
+      { restaurant_id: OTHER_RESTAURANT_ID, role: 'owner' },
+      { restaurant_id: RESTAURANT_ID, role: 'server' },
     ]);
-    requireAdminMembershipMock.mockResolvedValue({
-      restaurant_id: RESTAURANT_ID,
-      role: 'manager',
-    });
 
-    const result = await RestaurantSettingsLayout({ children: 'allowed' });
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        props: expect.objectContaining({ children: 'allowed' }),
-      }),
+    await expect(RestaurantSettingsLayout({ children: 'blocked' })).rejects.toThrow(
+      'NEXT_REDIRECT',
     );
-    expect(redirectMock).not.toHaveBeenCalled();
+
+    expect(redirectMock).toHaveBeenCalledWith('/app/bookings');
   });
+
+  it.each(['owner', 'manager'])(
+    'renders settings for an active restaurant %s without a second membership query',
+    async (role) => {
+      getUserMock.mockResolvedValue({ data: { user: { id: USER_ID } }, error: null });
+      cookieGetMock.mockReturnValue({ value: RESTAURANT_ID });
+      fetchUserMembershipsCachedMock.mockResolvedValue([{ restaurant_id: RESTAURANT_ID, role }]);
+
+      const result = await RestaurantSettingsLayout({ children: 'allowed' });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          props: expect.objectContaining({ children: 'allowed' }),
+        }),
+      );
+      expect(redirectMock).not.toHaveBeenCalled();
+      expect(requireAdminMembershipMock).not.toHaveBeenCalled();
+      expect(getUserMock).toHaveBeenCalledTimes(1);
+    },
+  );
 });

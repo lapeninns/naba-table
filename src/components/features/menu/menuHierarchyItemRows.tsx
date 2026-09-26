@@ -1,18 +1,22 @@
 'use client';
 
 import {
+  AlertCircle,
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
-  Bike,
-  Image as ImageIcon,
+  CheckCircle2,
+  EyeOff,
   MoreHorizontal,
   Pencil,
+  Plus,
   SlidersHorizontal,
-  Store,
-  ShoppingBasket,
   Trash2,
 } from 'lucide-react';
+import { useId } from 'react';
 
+import { openSettingsCompare } from '@/components/features/restaurant-settings/gbp/openSettingsCompare';
+import { useOptionalGbpDrift } from '@/components/features/restaurant-settings/gbp-drift/useGbpDrift';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,89 +26,75 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { formatGoogleFoodMenuEnumLabel as formatEnumLabel } from '@/lib/google-food-menu-labels';
 import { cn } from '@/lib/utils';
 
+import { moneyLabel, primaryDescription, primaryLabel } from './menuHierarchyDomain';
 import {
-  deriveItemHealth,
-  moneyLabel,
-  normalizedServiceLabel,
-  primaryLabel,
-} from './menuHierarchyDomain';
+  deriveItemReadiness,
+  itemAvailabilityPolicy,
+  itemServicesLabel,
+} from './menuHierarchyItemDomain';
 
+import type { DualSyncSectionKey } from '@/server/dual-sync';
 import type {
   CanonicalRestaurantMenuItem,
   CanonicalRestaurantMenuOption,
 } from '@/server/menu-hierarchy/types';
+import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
-export function availabilityBadges(item: CanonicalRestaurantMenuItem) {
-  const policy = item.extensions?.availabilityPolicy as Record<string, unknown> | undefined;
-  const servicePeriods = Array.isArray(policy?.servicePeriods)
-    ? policy.servicePeriods.filter((entry): entry is string => typeof entry === 'string')
-    : [];
-  const soldOut = policy?.soldOut === true;
-  const orderable = policy?.orderable !== false;
-
-  if (soldOut) {
-    return [{ label: 'Sold out', variant: 'status-cancelled' as const, Icon: Store }];
-  }
-  if (!orderable) {
-    return [{ label: 'Unavailable', variant: 'status-pending' as const, Icon: Store }];
-  }
-  if (servicePeriods.length === 0) {
-    return [{ label: 'All services', variant: 'metric' as const, Icon: Store }];
-  }
-  return servicePeriods.slice(0, 3).map((period) => {
-    const label = normalizedServiceLabel(period);
-    const Icon = label === 'Delivery' ? Bike : label === 'Pickup' ? ShoppingBasket : Store;
-    return { label, variant: 'metric' as const, Icon };
-  });
-}
-
-export function ItemHealthBadge({ item }: { item: CanonicalRestaurantMenuItem }) {
-  const { health, reasons } = deriveItemHealth(item);
-  const variant =
-    health === 'ready'
-      ? 'status-confirmed'
-      : health === 'incomplete'
-        ? 'status-pending'
-        : 'outline';
-  const label =
-    health === 'ready' ? 'Ready' : health === 'incomplete' ? 'Needs attention' : 'Inactive';
+/** "Differs from Google" badge; opens the Google compare view when the drift provider is present. */
+export function ItemDriftBadge({ field }: { readonly field: DualSyncFieldSummary | null }) {
+  const drift = useOptionalGbpDrift();
+  if (!field) return null;
+  const badge = (
+    <Badge variant="status-pending" className="gap-1">
+      <AlertTriangle className="size-3" aria-hidden />
+      Differs from Google
+    </Badge>
+  );
+  if (!drift) return badge;
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge
-            variant={variant}
-            className="cursor-default"
-            aria-label={`Status: ${label}. ${reasons.join('. ')}`}
-          >
-            {label}
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-56">
-          <ul className="flex list-disc flex-col gap-0.5 pl-4">
-            {reasons.map((reason) => (
-              <li key={reason}>{reason}</li>
-            ))}
-          </ul>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="h-auto p-0 hover:bg-transparent"
+      aria-label={`Differs from Google: compare ${field.label}`}
+      onClick={() =>
+        openSettingsCompare(drift.openCompare, {
+          preset: 'field',
+          fieldKey: field.fieldKey,
+          sectionKey: field.sectionKey as DualSyncSectionKey,
+        })
+      }
+    >
+      {badge}
+    </Button>
   );
 }
 
-export function ItemThumbnail({ item }: { item: CanonicalRestaurantMenuItem }) {
+export function ItemReadinessLine({ item }: { readonly item: CanonicalRestaurantMenuItem }) {
+  const readiness = deriveItemReadiness(item);
+  const Icon =
+    readiness.status === 'ready'
+      ? CheckCircle2
+      : readiness.status === 'hidden'
+        ? EyeOff
+        : AlertCircle;
   return (
     <span
       className={cn(
-        'inline-flex size-14 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground shadow-xs',
-        item.media.localImageUrl && 'border-primary/20 bg-primary/10 text-primary',
+        'inline-flex items-center gap-1.5 text-sm',
+        readiness.status === 'ready' && 'text-success-text',
+        readiness.status === 'needs-attention' && 'text-warning-text',
+        readiness.status === 'hidden' && 'text-muted-foreground',
       )}
-      aria-hidden
     >
-      <ImageIcon />
+      <Icon className="size-4 shrink-0" aria-hidden />
+      {readiness.label}
     </span>
   );
 }
@@ -113,18 +103,18 @@ export function ItemActions({
   item,
   itemIndex,
   itemsCount,
-  patchPending,
+  moveDisabled,
   onQuickEditItem,
-  onEditItem,
+  onCreateOption,
   onMoveItem,
   onDeleteItem,
 }: {
   item: CanonicalRestaurantMenuItem;
   itemIndex: number;
   itemsCount: number;
-  patchPending: boolean;
+  moveDisabled: boolean;
   onQuickEditItem: (item: CanonicalRestaurantMenuItem) => void;
-  onEditItem: (item: CanonicalRestaurantMenuItem) => void;
+  onCreateOption: (item: CanonicalRestaurantMenuItem) => void;
   onMoveItem: (
     item: CanonicalRestaurantMenuItem,
     index: number,
@@ -139,7 +129,7 @@ export function ItemActions({
           type="button"
           variant="ghost"
           size="icon"
-          className="size-10 shrink-0 text-muted-foreground"
+          className="size-9 shrink-0 text-muted-foreground [@media(pointer:coarse)]:size-11"
           aria-label={`Open item actions for ${primaryLabel(item, 'Menu item')}`}
         >
           <MoreHorizontal aria-hidden />
@@ -151,19 +141,19 @@ export function ItemActions({
             <SlidersHorizontal aria-hidden />
             Quick edit
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => onEditItem(item)}>
-            <Pencil aria-hidden />
-            Full edit
+          <DropdownMenuItem onSelect={() => onCreateOption(item)}>
+            <Plus aria-hidden />
+            Add option
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={itemIndex === 0 || patchPending}
+            disabled={itemIndex <= 0 || moveDisabled}
             onSelect={() => void onMoveItem(item, itemIndex, -1)}
           >
             <ArrowUp aria-hidden />
             Move item up
           </DropdownMenuItem>
           <DropdownMenuItem
-            disabled={itemIndex === itemsCount - 1 || patchPending}
+            disabled={itemIndex === itemsCount - 1 || moveDisabled}
             onSelect={() => void onMoveItem(item, itemIndex, 1)}
           >
             <ArrowDown aria-hidden />
@@ -176,6 +166,159 @@ export function ItemActions({
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+export type MenuItemRowProps = {
+  readonly item: CanonicalRestaurantMenuItem;
+  readonly itemIndex: number;
+  readonly itemsCount: number;
+  readonly driftField: DualSyncFieldSummary | null;
+  readonly togglePending: boolean;
+  readonly moveDisabled: boolean;
+  readonly onToggleActive: (item: CanonicalRestaurantMenuItem, active: boolean) => void;
+  readonly onEditItem: (item: CanonicalRestaurantMenuItem) => void;
+  readonly onQuickEditItem: (item: CanonicalRestaurantMenuItem) => void;
+  readonly onCreateOption: (item: CanonicalRestaurantMenuItem) => void;
+  readonly onMoveItem: (
+    item: CanonicalRestaurantMenuItem,
+    index: number,
+    direction: -1 | 1,
+  ) => Promise<void>;
+  readonly onDeleteItem: (item: CanonicalRestaurantMenuItem) => void;
+};
+
+/**
+ * One menu item: details, price, services, Google readiness, and the shown/hidden switch.
+ * Stacks on phones, two columns from `sm`, and five aligned columns from `xl`.
+ */
+export function MenuItemRow({
+  item,
+  itemIndex,
+  itemsCount,
+  driftField,
+  togglePending,
+  moveDisabled,
+  onToggleActive,
+  onEditItem,
+  onQuickEditItem,
+  onCreateOption,
+  onMoveItem,
+  onDeleteItem,
+}: MenuItemRowProps) {
+  const switchId = useId();
+  const name = primaryLabel(item, 'Menu item');
+  const description = primaryDescription(item).trim();
+  const { soldOut, orderable } = itemAvailabilityPolicy(item);
+  const dietary = item.attributes.dietaryRestriction ?? [];
+  const allergens = item.attributes.allergen ?? [];
+
+  return (
+    <li
+      data-testid={`menu-item-${item.id ?? item.externalItemId}`}
+      className="grid gap-x-4 gap-y-2 border-t border-border/60 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5 xl:grid-cols-[minmax(0,1fr)_5.5rem_9rem_13rem_auto] xl:items-center"
+    >
+      <div className="min-w-0 sm:col-start-1 sm:row-start-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className={cn(
+              'min-w-0 break-words font-semibold text-foreground',
+              !item.active && 'text-muted-foreground',
+            )}
+          >
+            {name}
+          </span>
+          {soldOut ? (
+            <Badge variant="status-cancelled" className="gap-1">
+              <AlertCircle className="size-3" aria-hidden />
+              Sold out
+            </Badge>
+          ) : null}
+          {!soldOut && !orderable ? (
+            <Badge variant="outline" className="gap-1">
+              <AlertCircle className="size-3" aria-hidden />
+              Not orderable
+            </Badge>
+          ) : null}
+          <ItemDriftBadge field={driftField} />
+        </div>
+        {description ? (
+          <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground text-pretty">
+            {description}
+          </p>
+        ) : null}
+        {dietary.length > 0 || allergens.length > 0 ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+            {dietary.map((value) => (
+              <Badge key={value} variant="secondary">
+                {formatEnumLabel(value)}
+              </Badge>
+            ))}
+            {allergens.length > 0 ? (
+              <span className="text-xs text-muted-foreground">
+                Allergens: {allergens.map(formatEnumLabel).join(', ')}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm sm:col-start-1 sm:row-start-2 xl:contents">
+        <span className="font-mono tabular-nums xl:col-start-2 xl:row-start-1 xl:text-right">
+          <span className="sr-only">Price </span>
+          {moneyLabel(item.attributes)}
+        </span>
+        <span className="text-muted-foreground xl:col-start-3 xl:row-start-1">
+          <span className="sr-only">Served at </span>
+          {itemServicesLabel(item)}
+        </span>
+        <span className="xl:col-start-4 xl:row-start-1">
+          <ItemReadinessLine item={item} />
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end xl:col-start-5 xl:row-span-1">
+        <div className="flex items-center gap-2">
+          <Switch
+            id={switchId}
+            checked={item.active}
+            disabled={togglePending}
+            aria-label={`${name} shown on the menu`}
+            onCheckedChange={(checked) => onToggleActive(item, checked)}
+          />
+          <Label
+            htmlFor={switchId}
+            className="w-12 text-sm font-normal text-muted-foreground"
+            aria-hidden
+          >
+            {item.active ? 'Shown' : 'Hidden'}
+          </Label>
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="[@media(pointer:coarse)]:min-h-11"
+            aria-label={`Edit ${name}`}
+            onClick={() => onEditItem(item)}
+          >
+            <Pencil data-icon="inline-start" aria-hidden />
+            Edit
+          </Button>
+          <ItemActions
+            item={item}
+            itemIndex={itemIndex}
+            itemsCount={itemsCount}
+            moveDisabled={moveDisabled}
+            onQuickEditItem={onQuickEditItem}
+            onCreateOption={onCreateOption}
+            onMoveItem={onMoveItem}
+            onDeleteItem={onDeleteItem}
+          />
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -213,7 +356,7 @@ export function OptionRow({
         type="button"
         variant="ghost"
         size="sm"
-        className="min-h-8 min-w-0 justify-start gap-2 rounded-none px-2 text-left"
+        className="min-h-8 min-w-0 justify-start gap-2 rounded-none px-2 text-left [@media(pointer:coarse)]:min-h-11"
         onClick={() => onEditOption(item, option)}
         aria-label={`Edit option ${primaryLabel(option, 'Option')}`}
       >
@@ -222,8 +365,8 @@ export function OptionRow({
         </span>
         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{price}</span>
         {!option.active ? (
-          <Badge variant="outline" className="shrink-0 text-[10px]">
-            Inactive
+          <Badge variant="outline" className="shrink-0">
+            Hidden
           </Badge>
         ) : null}
       </Button>
@@ -233,7 +376,7 @@ export function OptionRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 rounded-none border-l"
+            className="size-8 rounded-none border-l [@media(pointer:coarse)]:size-11"
             aria-label={`Open option actions for ${primaryLabel(option, 'Option')}`}
           >
             <MoreHorizontal aria-hidden />

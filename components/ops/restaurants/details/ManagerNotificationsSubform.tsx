@@ -1,257 +1,159 @@
 'use client';
 
-import { Clock3, ShieldCheck } from 'lucide-react';
+import { Info } from 'lucide-react';
 
-import { HelpTooltip } from '@/components/features/restaurant-settings/HelpTooltip';
-import { formatSaveScopeMessage } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
-import { FormRoot } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { TooltipProvider } from '@/components/ui/tooltip';
 import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
-import { FIELD_TOOLTIPS, sanitizePayload } from '../restaurantDetailsFormModel';
 import {
-  FieldRequirement,
-  NOTIFICATION_FIELDS,
-  SubformActions,
-  type RestaurantDetailsSubformProps,
-  useResetDraftRegistration,
-  useRestaurantDetailsSubform,
+  fieldDescribedBy,
+  PROFILE_CONTROL_CLASS,
+  ProfileField,
+  type ProfileSubformProps,
 } from './shared';
 
+type ManagerNotificationsSubformProps = ProfileSubformProps & {
+  /** Editing the alert number switched "Try WhatsApp first" off in this draft. */
+  whatsappTurnedOff?: boolean;
+};
+
+/** Why "Try WhatsApp first" can't be turned on yet, or null when it can. */
+function getWhatsappUnavailableReason(state: {
+  managerDailySummaryEnabled: boolean;
+  managerNotificationPhone: string;
+}): string | null {
+  if (!state.managerDailySummaryEnabled) {
+    return 'Turn on the daily summary first.';
+  }
+  if (!state.managerNotificationPhone.trim()) {
+    return 'Add a manager alert number first.';
+  }
+  return null;
+}
+
+/** Staff-only alert settings: who is named in review emails and where the daily summary goes. */
 export function ManagerNotificationsSubform({
-  restaurantId,
-  initialValues,
-  formId,
-  actionPlacement = 'inline',
-  onDirtyChange,
-  onDraftChange,
-  onResetDraftChange,
-}: RestaurantDetailsSubformProps) {
-  const {
-    state,
-    errors,
-    status,
-    isSubmitting,
-    isDirty,
-    handleChange,
-    handleToggle,
-    resetDraft,
-    submitPartial,
-  } = useRestaurantDetailsSubform({
-    initialValues,
-    fields: NOTIFICATION_FIELDS,
-    analyticsSection: 'manager_notifications',
-    onDirtyChange,
-    onDraftChange,
-    restaurantId,
-  });
-  useResetDraftRegistration(onResetDraftChange, resetDraft);
-  const summaryState = state.managerDailySummaryEnabled ? 'On' : 'Off';
+  state,
+  errors,
+  onFieldChange,
+  onFieldBlur,
+  whatsappTurnedOff = false,
+}: ManagerNotificationsSubformProps) {
+  const whatsappUnavailableReason = getWhatsappUnavailableReason(state);
 
   return (
-    <TooltipProvider delayDuration={100}>
-      <FormRoot
-        id={formId}
-        className="flex flex-col gap-4"
-        onSubmit={(event) =>
-          submitPartial(
-            event,
-            (nextState) => {
-              const payload = sanitizePayload(nextState);
-              return {
-                managerName: payload.managerName,
-                managerNotificationPhone: payload.managerNotificationPhone,
-                managerDailySummaryEnabled: payload.managerDailySummaryEnabled,
-                managerWhatsappEnabled: payload.managerWhatsappEnabled,
-              };
-            },
-            'ManagerNotificationsSubform',
-            'Manager alerts saved.',
-          )
-        }
-      >
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(220px,0.55fr)]">
-          <div className="rounded-md bg-muted/30 px-3 py-2">
-            <Text variant="label" className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-primary" aria-hidden />
-              Staff-only setting
-            </Text>
-            <Text variant="caption" className="mt-1">
-              Guests never see this number. It only controls manager booking-summary delivery.
-            </Text>
-          </div>
-          <div className="rounded-md bg-muted/30 px-3 py-2">
-            <Text variant="label" className="flex items-center gap-2">
-              <Clock3 className="size-4 text-primary" aria-hidden />
-              10:00 local summary
-            </Text>
-            <Text variant="caption" className="mt-1">
-              Current state: <span className="text-foreground">{summaryState}</span>. A valid E.164
-              phone number is required when it is on.
-            </Text>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1">
-            <Label htmlFor="restaurant-manager-name" className="inline-flex items-center gap-1">
-              Manager name
-            </Label>
-            <FieldRequirement label="Optional" />
-            <HelpTooltip
-              description={FIELD_TOOLTIPS.managerName}
-              ariaLabel="What is the manager name used for?"
-            />
-          </div>
+    <div className="flex flex-col gap-5">
+      <div className="grid gap-5 @xl:grid-cols-2">
+        <ProfileField
+          id="restaurant-manager-name"
+          label="Manager name"
+          requirement="Optional"
+          help="Shown as the sender of review-request emails, e.g. “Sam from The Old Crown”."
+          error={errors.managerName}
+        >
           <Input
             id="restaurant-manager-name"
             type="text"
             placeholder="e.g. Sam"
             maxLength={80}
+            autoComplete="off"
             value={state.managerName}
-            onChange={(event) => handleChange('managerName', event.target.value)}
+            onChange={(event) => onFieldChange('managerName', event.target.value)}
+            onBlur={() => onFieldBlur('managerName')}
             aria-invalid={Boolean(errors.managerName)}
-            aria-describedby={
-              errors.managerName ? 'restaurant-manager-name-error' : 'restaurant-manager-name-help'
-            }
-            className={cn(
-              errors.managerName && 'border-destructive focus-visible:ring-destructive/60',
-            )}
+            aria-describedby={fieldDescribedBy('restaurant-manager-name', {
+              help: true,
+              error: Boolean(errors.managerName),
+            })}
+            className={PROFILE_CONTROL_CLASS}
           />
-          <Text variant="caption" id="restaurant-manager-name-help">
-            Guests see this as the sender of review-request emails — for example, “Sam from The Old
-            Crown”. Leave blank to send as the venue name.
-          </Text>
-          {errors.managerName ? (
-            <Text
-              variant="caption"
-              id="restaurant-manager-name-error"
-              className="text-destructive"
-              role="alert"
-            >
-              {errors.managerName}
-            </Text>
-          ) : null}
-        </div>
+        </ProfileField>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center gap-1">
-              <Label
-                htmlFor="restaurant-manager-notification-phone"
-                className="inline-flex items-center gap-1"
-              >
-                Manager alert number
-              </Label>
-              <FieldRequirement label="Required if on" />
-              <HelpTooltip
-                description={FIELD_TOOLTIPS.managerNotificationPhone}
-                ariaLabel="What is the manager alert number?"
-              />
-            </div>
-            <Input
-              id="restaurant-manager-notification-phone"
-              type="tel"
-              inputMode="tel"
-              placeholder="+447700900000"
-              value={state.managerNotificationPhone}
-              onChange={(event) => {
-                handleChange('managerNotificationPhone', event.target.value);
-                handleToggle('managerWhatsappEnabled', false);
+        <ProfileField
+          id="restaurant-manager-notification-phone"
+          label="Manager alert number"
+          requirement="Needed for the daily summary"
+          help="International format, e.g. +447700900000."
+          error={errors.managerNotificationPhone}
+        >
+          <Input
+            id="restaurant-manager-notification-phone"
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            placeholder="+447700900000"
+            value={state.managerNotificationPhone}
+            onChange={(event) => onFieldChange('managerNotificationPhone', event.target.value)}
+            onBlur={() => onFieldBlur('managerNotificationPhone')}
+            aria-required={state.managerDailySummaryEnabled ? 'true' : undefined}
+            aria-invalid={Boolean(errors.managerNotificationPhone)}
+            aria-describedby={fieldDescribedBy('restaurant-manager-notification-phone', {
+              help: true,
+              error: Boolean(errors.managerNotificationPhone),
+            })}
+            className={cn('font-mono', PROFILE_CONTROL_CLASS)}
+          />
+        </ProfileField>
+      </div>
+
+      {whatsappTurnedOff ? (
+        <p
+          role="status"
+          className="flex items-start gap-1.5 rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-xs leading-5 text-foreground"
+        >
+          <Info className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          <span>
+            You changed the number, so <strong>WhatsApp was turned off</strong>. Turn it back on
+            once the new number can receive WhatsApp.
+          </span>
+        </p>
+      ) : null}
+
+      <fieldset className="flex min-w-0 flex-col gap-3">
+        <legend className="mb-3 flex flex-col gap-0.5">
+          <span className="text-sm font-semibold text-foreground">Daily booking summary</span>
+          <span className="text-xs leading-5 text-muted-foreground">Sent at 10:00 local time.</span>
+        </legend>
+        <div className="divide-y divide-border/70 rounded-lg border border-border/70">
+          <div className="flex items-start justify-between gap-4 p-4">
+            <Label htmlFor="restaurant-manager-daily-summary-enabled" className="leading-5">
+              Send the daily summary by SMS
+            </Label>
+            <Switch
+              id="restaurant-manager-daily-summary-enabled"
+              checked={state.managerDailySummaryEnabled}
+              onCheckedChange={(checked) => {
+                onFieldChange('managerDailySummaryEnabled', checked);
+                onFieldBlur('managerDailySummaryEnabled');
+                onFieldBlur('managerNotificationPhone');
               }}
-              aria-invalid={Boolean(errors.managerNotificationPhone)}
-              aria-describedby={
-                errors.managerNotificationPhone
-                  ? 'restaurant-manager-notification-phone-error'
-                  : 'restaurant-manager-notification-phone-help'
-              }
-              className={cn(
-                errors.managerNotificationPhone &&
-                  'border-destructive focus-visible:ring-destructive/60',
-              )}
             />
-            <Text variant="caption" id="restaurant-manager-notification-phone-help">
-              {FIELD_TOOLTIPS.managerNotificationPhone}
-            </Text>
-            {errors.managerNotificationPhone ? (
-              <Text
-                variant="caption"
-                id="restaurant-manager-notification-phone-error"
-                className="text-destructive"
-                role="alert"
-              >
-                {errors.managerNotificationPhone}
+          </div>
+          <div className="flex items-start justify-between gap-4 p-4">
+            <div className="flex min-w-0 flex-col gap-1">
+              <Label htmlFor="restaurant-manager-whatsapp-enabled" className="leading-5">
+                Try WhatsApp first
+              </Label>
+              <Text variant="caption" id="restaurant-manager-whatsapp-enabled-help">
+                {whatsappUnavailableReason ?? 'If WhatsApp can’t deliver, the summary goes by SMS.'}
               </Text>
-            ) : null}
-          </div>
-
-          <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1">
-                  <Label
-                    htmlFor="restaurant-manager-daily-summary-enabled"
-                    className="inline-flex items-center gap-1"
-                  >
-                    Daily manager SMS summary
-                  </Label>
-                  <FieldRequirement label="Optional" />
-                  <HelpTooltip
-                    description={FIELD_TOOLTIPS.managerDailySummaryEnabled}
-                    ariaLabel="What does the daily manager SMS summary toggle do?"
-                  />
-                </div>
-                <Text variant="caption" id="restaurant-manager-daily-summary-enabled-help">
-                  {FIELD_TOOLTIPS.managerDailySummaryEnabled}
-                </Text>
-              </div>
-              <Switch
-                id="restaurant-manager-daily-summary-enabled"
-                checked={state.managerDailySummaryEnabled}
-                onCheckedChange={(checked) => handleToggle('managerDailySummaryEnabled', checked)}
-                aria-describedby="restaurant-manager-daily-summary-enabled-help"
-              />
             </div>
-          </div>
-
-          <div className="rounded-lg border border-border/70 bg-muted/20 p-3 sm:col-span-2">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="restaurant-manager-whatsapp-enabled">
-                  Send daily summary via WhatsApp first
-                </Label>
-                <Text variant="caption" id="restaurant-manager-whatsapp-enabled-help">
-                  Nabatable sends on behalf of the restaurant to the manager number above. If
-                  WhatsApp is unavailable, we’ll send the summary by SMS instead.
-                </Text>
-              </div>
-              <Switch
-                id="restaurant-manager-whatsapp-enabled"
-                checked={state.managerWhatsappEnabled}
-                disabled={
-                  !state.managerNotificationPhone.trim() || !state.managerDailySummaryEnabled
-                }
-                onCheckedChange={(checked) => handleToggle('managerWhatsappEnabled', checked)}
-                aria-describedby="restaurant-manager-whatsapp-enabled-help"
-              />
-            </div>
+            <Switch
+              id="restaurant-manager-whatsapp-enabled"
+              checked={state.managerWhatsappEnabled}
+              disabled={Boolean(whatsappUnavailableReason)}
+              onCheckedChange={(checked) => {
+                onFieldChange('managerWhatsappEnabled', checked);
+                onFieldBlur('managerWhatsappEnabled');
+              }}
+              aria-describedby="restaurant-manager-whatsapp-enabled-help"
+            />
           </div>
         </div>
-
-        <SubformActions
-          actionPlacement={actionPlacement}
-          isSubmitting={isSubmitting}
-          isDirty={isDirty}
-          onReset={resetDraft}
-          submitLabel="Save notifications"
-          status={status}
-          saveScopeMessage={formatSaveScopeMessage('profile-notifications')}
-        />
-      </FormRoot>
-    </TooltipProvider>
+      </fieldset>
+    </div>
   );
 }

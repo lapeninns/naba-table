@@ -1,13 +1,11 @@
 'use client';
 
-import { motion } from 'motion/react';
-import { useEffect, useState, type ReactNode } from 'react';
-
-import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
+import { type ReactNode } from 'react';
 
 import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
-import { GbpDriftProvider, GbpDriftStatusPill } from './GbpDriftProvider';
+import { GbpDriftProvider } from './GbpDriftProvider';
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
+import { SETTINGS_ENTER_FADE_CLASS } from './shared/compactSettingsClasses';
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 export type RestaurantSettingsPageShellProps = {
@@ -18,120 +16,56 @@ export type RestaurantSettingsPageShellProps = {
    */
   title?: string;
   description?: string;
+  /** @deprecated No longer rendered: the settings chrome breadcrumb carries the location. */
   eyebrow?: string;
   children: ReactNode;
   envBanner?: string | null;
 };
 
-const DEFAULT_TITLE = 'Restaurant';
 const DEFAULT_DESCRIPTION =
-  'Configure the restaurant profile, availability, reservation durations, menu, tables, and team access.';
+  'Configure the restaurant profile, availability, dining durations, menu, tables, and team access.';
 
-function usePrefersReducedMotion() {
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (!mediaQuery) {
-      return;
-    }
-    setPrefersReducedMotion(mediaQuery.matches);
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      setPrefersReducedMotion(event.matches);
-    };
-
-    mediaQuery.addEventListener?.('change', handleChange);
-    return () => mediaQuery.removeEventListener?.('change', handleChange);
-  }, []);
-
-  return prefersReducedMotion;
-}
-
-function RestaurantSettingsPageHeading({
+/**
+ * Page purpose line. The settings chrome owns the page title (the only h1), so the page adds
+ * just the description, and only when the route's content does not already open with one.
+ */
+function RestaurantSettingsPageIntro({
   title,
   description,
-  eyebrow,
-}: Pick<RestaurantSettingsPageShellProps, 'title' | 'description' | 'eyebrow'>) {
-  const { headingContext, restaurantName } = useRestaurantSettingsContext();
+}: Pick<RestaurantSettingsPageShellProps, 'title' | 'description'>) {
+  const { headingContext } = useRestaurantSettingsContext();
 
   const useExplicitOverrides = title != null || description != null;
-  const resolvedTitle = title ?? headingContext?.pageTitle ?? DEFAULT_TITLE;
-  const resolvedDescription = description ?? headingContext?.pageDescription ?? DEFAULT_DESCRIPTION;
-  const suppressVisiblePageTitle =
-    !useExplicitOverrides && (headingContext?.suppressVisiblePageTitle ?? false);
   const hidePageIntro = !useExplicitOverrides && (headingContext?.hidePageIntro ?? false);
-  const showRestaurantMetaOnPage =
-    useExplicitOverrides || (headingContext?.showRestaurantMetaOnPage ?? true);
+  const resolvedDescription = description ?? headingContext?.pageDescription ?? DEFAULT_DESCRIPTION;
 
-  if (hidePageIntro) {
+  if (hidePageIntro || !resolvedDescription) {
     return null;
   }
 
-  if (suppressVisiblePageTitle) {
-    return (
-      <header className="mb-6 flex flex-col gap-3">
-        <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-          {resolvedDescription}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <GbpDriftStatusPill />
-        </div>
-      </header>
-    );
-  }
-
   return (
-    <OpsPageHeader
-      eyebrow={eyebrow}
-      title={resolvedTitle}
-      subtitle={resolvedDescription}
-      meta={
-        showRestaurantMetaOnPage && restaurantName ? (
-          <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Editing</span>
-            <span className="font-medium text-foreground">{restaurantName}</span>
-            <GbpDriftStatusPill />
-          </span>
-        ) : (
-          <GbpDriftStatusPill />
-        )
-      }
-      headingLevel="h1"
-      titleClassName="text-2xl"
-      className="mb-6"
-    />
+    <p className="max-w-[65ch] text-sm leading-6 text-muted-foreground">{resolvedDescription}</p>
   );
 }
 
 export function RestaurantSettingsPageShell({
   title,
   description,
-  eyebrow = 'Settings',
   children,
   envBanner,
 }: RestaurantSettingsPageShellProps) {
-  const reduceMotion = usePrefersReducedMotion();
-  const { headingContext } = useRestaurantSettingsContext();
+  const { headingContext, routeView } = useRestaurantSettingsContext();
   const hidePageIntro =
     title == null && description == null ? (headingContext?.hidePageIntro ?? false) : false;
+  // The Google Business Profile workspace is the comparison itself; a strip there repeats it.
+  const showGbpStrip = routeView !== 'google-business-profile';
 
   return (
     <GbpDriftProvider>
-      <RestaurantSettingsFocusedShell envBanner={envBanner}>
-        <RestaurantSettingsPageHeading title={title} description={description} eyebrow={eyebrow} />
-        <GbpDriftStatusStrip compact={hidePageIntro} />
-        <motion.div
-          initial={reduceMotion ? false : { y: 8, opacity: 0 }}
-          animate={reduceMotion ? undefined : { y: 0, opacity: 1 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-        >
-          {children}
-        </motion.div>
+      <RestaurantSettingsFocusedShell envBanner={envBanner} title={title}>
+        <RestaurantSettingsPageIntro title={title} description={description} />
+        {showGbpStrip ? <GbpDriftStatusStrip compact={hidePageIntro} /> : null}
+        <div className={SETTINGS_ENTER_FADE_CLASS}>{children}</div>
       </RestaurantSettingsFocusedShell>
     </GbpDriftProvider>
   );

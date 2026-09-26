@@ -11,12 +11,14 @@ import {
   listDualSyncJobs,
   previewDualSyncPublishPlan,
   publishDualSyncDecisions,
+  publishGbpExactV1,
   refreshDualSync,
   cancelDualSyncCandidate,
   retryDualSyncJob,
   runDualSyncAutoExport,
   setDualSyncControl,
 } from '@/services/ops/dual-sync';
+import { dualSyncQueryKeys, gbpOperatorQueryKeys } from '@src/hooks/ops/opsIntegrationQueries';
 
 vi.mock('@/services/ops/dual-sync', () => ({
   getDualSyncMetrics: vi.fn(),
@@ -28,6 +30,7 @@ vi.mock('@/services/ops/dual-sync', () => ({
   listDualSyncPublishJobs: vi.fn(),
   previewDualSyncPublishPlan: vi.fn(),
   publishDualSyncDecisions: vi.fn(),
+  publishGbpExactV1: vi.fn(),
   refreshDualSync: vi.fn(),
   cancelDualSyncCandidate: vi.fn(),
   retryDualSyncJob: vi.fn(),
@@ -36,6 +39,7 @@ vi.mock('@/services/ops/dual-sync', () => ({
 }));
 
 const restaurantId = 'restaurant-1';
+const stateQueryKey = ['dual-sync-state', restaurantId] as const;
 
 function stateResponse() {
   return {
@@ -198,6 +202,48 @@ describe('useOpsDualSync', () => {
 
     expect(dualSyncQueries).toHaveLength(7);
     expect(dualSyncQueries.every((query) => query.meta?.persist === false)).toBe(true);
+  });
+
+  it('keeps dual-sync state fresh for two minutes instead of refetching on every mount', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+    await waitFor(() => expect(result.current.stateQuery.isSuccess).toBe(true));
+
+    const stateQuery = queryClient.getQueryCache().find({ queryKey: stateQueryKey, exact: true });
+    expect(stateQuery?.options).toMatchObject({ staleTime: 2 * 60_000 });
+
+    renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+    expect(getDualSyncState).toHaveBeenCalledTimes(1);
+  });
+
+  it('serves cached dual-sync state without fetching when stateEnabled is false', () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const cached = stateResponse();
+    // Stale cache entry: an enabled query would refetch it on mount.
+    queryClient.setQueryData(stateQueryKey, cached, { updatedAt: 0 });
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId, stateEnabled: false }), {
+      wrapper,
+    });
+
+    expect(result.current.stateQuery.data).toEqual(cached);
+    expect(getDualSyncState).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch dual-sync state when stateEnabled is false and nothing is cached', () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+
+    const { result } = renderHook(() => useOpsDualSync({ restaurantId, stateEnabled: false }), {
+      wrapper,
+    });
+
+    expect(result.current.stateQuery.data).toBeUndefined();
+    expect(result.current.stateQuery.isLoading).toBe(false);
+    expect(getDualSyncState).not.toHaveBeenCalled();
   });
 
   it('invalidates cached restaurant profile details after dual-sync publish', async () => {
@@ -458,4 +504,44 @@ describe('useOpsDualSync', () => {
     });
     expect(invalidateSpy).not.toHaveBeenCalled();
   });
+  it.each([
+    ['refreshMutation', () => undefined],
+    ['publishMutation', () => ({ decisions: [] })],
+    ['exactPublishMutation', () => ({})],
+    ['autoExportMutation', () => undefined],
+  ] as const)(
+    '@contract %s invalidates exactly the restaurant integration surface it can change',
+    async (mutationName, variables) => {
+      vi.mocked(publishGbpExactV1).mockResolvedValue({} as never);
+      const queryClient = createTestQueryClient();
+      const wrapper = createQueryWrapper(queryClient);
+      const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+      const { result } = renderHook(() => useOpsDualSync({ restaurantId }), { wrapper });
+
+      await act(async () => {
+        await result.current[mutationName].mutateAsync(variables() as never);
+      });
+
+      const keys = (invalidateSpy.mock.calls as Array<[{ queryKey: readonly unknown[] }]>).map(
+        ([filters]) => filters.queryKey,
+      );
+      expect(keys).toEqual([
+        queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+        queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
+        gbpOperatorQueryKeys.root(restaurantId),
+        dualSyncQueryKeys.state(restaurantId),
+        dualSyncQueryKeys.operations(restaurantId),
+        dualSyncQueryKeys.jobs(restaurantId),
+        dualSyncQueryKeys.candidates(restaurantId),
+        dualSyncQueryKeys.metrics(restaurantId),
+        dualSyncQueryKeys.publishJobs(restaurantId),
+        dualSyncQueryKeys.publishJobDetail(restaurantId),
+        queryKeys.opsRestaurants.detail(restaurantId),
+      ]);
+      for (const key of keys) {
+        expect(key).toContain(restaurantId);
+      }
+    },
+  );
 });

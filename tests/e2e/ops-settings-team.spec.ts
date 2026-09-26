@@ -194,7 +194,8 @@ async function installSettingsApiMocks(page: Page) {
               email: 'pending.manager@example.test',
               role: 'manager',
               status: 'pending',
-              expiresAt: '2026-06-16T12:00:00.000Z',
+              // Far-future expiry keeps the fixture in the Waiting filter whatever the run date.
+              expiresAt: '2099-06-16T12:00:00.000Z',
               invitedBy: '99999999-9999-4999-8999-999999999999',
               acceptedAt: null,
               revokedAt: null,
@@ -291,13 +292,23 @@ test.describe('ops restaurant settings and team shipped routes', () => {
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/team/);
     await expect(page.getByRole('heading', { name: 'Team' })).toBeVisible();
-    await expect(page.locator('main').getByText('Team workflow')).toBeVisible();
-    await expect(page.locator('main').getByText('Invite a team member')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Send invite' })).toBeVisible();
-
-    await page.getByRole('button', { name: 'Invitations' }).click();
     await expect(
-      page.locator('main').getByRole('cell', { name: 'pending.manager@example.test' }),
+      page.locator('main').getByText(/signed in as an Owner, so you can invite people/),
+    ).toBeVisible();
+    await expect(page.getByRole('form', { name: 'Invite someone' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send invitation' })).toBeVisible();
+
+    const filters = page.getByRole('group', { name: 'Filter invitations' });
+    await expect(filters.getByRole('button', { name: 'Waiting 1' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    const inviteRow = page.getByTestId('team-invite-33333333-3333-4333-8333-333333333333');
+    await expect(inviteRow).toContainText('pending.manager@example.test');
+    await expect(inviteRow).toContainText('Waiting to be accepted');
+    await expect(inviteRow).toContainText('Expires 16 Jun 2099');
+    await expect(
+      inviteRow.getByRole('button', { name: 'Revoke invitation for pending.manager@example.test' }),
     ).toBeVisible();
 
     await page.screenshot({
@@ -309,69 +320,38 @@ test.describe('ops restaurant settings and team shipped routes', () => {
   test('availability settings routes load shipped schedule and booking type surfaces @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
-    for (const { routePath, heading, initialWorkspace } of [
-      {
-        routePath: '/settings/restaurant/availability',
-        heading: 'Availability & Booking types',
-        initialWorkspace: 'rules',
-      },
-      {
-        routePath: '/settings/restaurant/operating-hours',
-        heading: 'Operating hours',
-        initialWorkspace: 'schedule',
-      },
-      {
-        routePath: '/settings/restaurant/service-periods',
-        heading: 'Service periods',
-        initialWorkspace: 'schedule',
-      },
-      {
-        routePath: '/settings/restaurant/turn-durations',
-        heading: 'Reservation durations',
-        initialWorkspace: 'booking-types',
-      },
-      {
-        routePath: '/settings/restaurant/occasions',
-        heading: 'Booking types',
-        initialWorkspace: 'booking-types',
-      },
+    for (const { routePath, formerName } of [
+      { routePath: '/settings/restaurant/availability', formerName: null },
+      { routePath: '/settings/restaurant/operating-hours', formerName: 'Operating hours' },
+      { routePath: '/settings/restaurant/service-periods', formerName: 'Service periods' },
+      { routePath: '/settings/restaurant/turn-durations', formerName: 'Dining durations' },
+      { routePath: '/settings/restaurant/occasions', formerName: 'Booking types' },
     ] as const) {
       await page.goto(routePath, { waitUntil: 'domcontentloaded' });
       await waitForSettled(page);
 
       await expect(page).toHaveURL(new RegExp(`app\\.localhost:\\d+${routePath}`));
-      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
-      await expect(page.locator('main').getByText('Availability sections')).toBeVisible();
-      if (initialWorkspace === 'rules') {
-        await expect(
-          page.locator('#booking-rules').getByText('Booking rules', { exact: true }),
-        ).toBeVisible();
-      } else if (initialWorkspace === 'schedule') {
-        await expect(
-          page.locator('main').getByText('Weekly operating hours', { exact: true }),
-        ).toBeVisible();
-      } else {
-        await expect(page.locator('main').getByText('Booking types and turn times')).toBeVisible();
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
+      ).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'Sections on this page' })).toBeVisible();
+      if (formerName) {
+        await expect(page.getByText(`${formerName} is part of Availability.`)).toBeVisible();
       }
-
-      await page
-        .locator('main')
-        .getByRole('button', { name: /^Schedule/ })
-        .click();
       await expect(
-        page.locator('main').getByText('Weekly operating hours', { exact: true }),
+        page.getByRole('heading', { name: 'Weekly hours and meal times' }),
       ).toBeVisible();
-
-      await page
-        .locator('main')
-        .getByRole('button', { name: /^Booking types/ })
-        .click();
-      await expect(page.locator('main').getByText('Booking types and turn times')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Booking rules' })).toBeVisible();
       await expect(
-        page.locator('#booking-occasions').getByRole('row', { name: /Lunch/ }),
+        page.getByRole('heading', { name: 'Booking types and table times' }),
       ).toBeVisible();
       await expect(
-        page.locator('#booking-occasions').getByRole('row', { name: /Dinner/ }),
+        page.locator('#booking-occasions').getByRole('switch', { name: 'Lunch available to book' }),
+      ).toBeVisible();
+      await expect(
+        page
+          .locator('#booking-occasions')
+          .getByRole('switch', { name: 'Dinner available to book' }),
       ).toBeVisible();
     }
 
@@ -412,8 +392,16 @@ test.describe('ops restaurant settings and team shipped routes', () => {
     );
     await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
 
+    // The sidebar marks the page with unsaved edits in text, not just a dot.
+    await expect(
+      page.getByRole('link', { name: /Availability & Booking types/ }).getByText('Unsaved'),
+    ).toBeVisible();
+
     await expectDirtyNavigationBlocked(page, () =>
-      page.getByRole('link', { exact: true, name: 'Availability & Booking types' }).click(),
+      page
+        .getByRole('navigation', { name: 'Breadcrumb' })
+        .getByRole('link', { name: 'Settings' })
+        .click(),
     );
     await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
 

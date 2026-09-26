@@ -1,18 +1,12 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 
+import { SettingsDialog } from '@/components/features/restaurant-settings/shared/SettingsDialog';
+import { useSettingsDiscardGuard } from '@/components/features/restaurant-settings/shared/useSettingsDiscardGuard';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { FormRoot } from '@/components/ui/form';
-import { Text } from '@/components/ui/typography';
 import {
   useOpsCreateRestaurantMenuOption,
   useOpsPatchRestaurantMenuOption,
@@ -23,6 +17,7 @@ import {
   optionInitialState,
   type OptionFormState,
 } from './menuHierarchyDomain';
+import { DialogFooterActions } from './menuHierarchyFormControls';
 import {
   OptionActiveField,
   OptionGoogleAttributeFields,
@@ -55,6 +50,7 @@ export function OptionDialog({
   option: CanonicalRestaurantMenuOption | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const formId = useId();
   const [state, setState] = useState<OptionFormState>(() => optionInitialState(option));
   const createOption = useOpsCreateRestaurantMenuOption({
     restaurantId,
@@ -68,58 +64,63 @@ export function OptionDialog({
     if (item) setState(optionInitialState(option));
   }, [item, option]);
 
+  const initial = useMemo(() => optionInitialState(option), [option]);
+  const isDirty = Boolean(item) && JSON.stringify(state) !== JSON.stringify(initial);
+  const { guardOpenChange } = useSettingsDiscardGuard('menu-option-dialog', isDirty);
+  const requestOpenChange = guardOpenChange(onOpenChange);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!item) return;
     const payload = buildOptionPayload(state, option?.displayOrder ?? item.options.length, option);
-    if (option?.id && menu?.id && section?.id && item.id) {
-      await updateOption.mutateAsync({
-        menuId: menu.id,
-        sectionId: section.id,
-        itemId: item.id,
-        optionId: option.id,
-        payload,
-      });
-    } else {
-      await createOption.mutateAsync(payload as RestaurantMenuOptionInput);
+    try {
+      if (option?.id && menu?.id && section?.id && item.id) {
+        await updateOption.mutateAsync({
+          menuId: menu.id,
+          sectionId: section.id,
+          itemId: item.id,
+          optionId: option.id,
+          payload,
+        });
+      } else {
+        await createOption.mutateAsync(payload as RestaurantMenuOptionInput);
+      }
+    } catch {
+      return;
     }
+    toast.success(option?.id ? 'Option saved.' : 'Option added.');
     onOpenChange(false);
   };
   const pending = createOption.isPending || updateOption.isPending;
   const error = createOption.error ?? updateOption.error;
 
   return (
-    <Dialog open={Boolean(item)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{option ? 'Edit item option' : 'Add item option'}</DialogTitle>
-          <DialogDescription>
-            Google options are required variant choices and remain separate from internal modifier
-            groups.
-          </DialogDescription>
-        </DialogHeader>
-        <FormRoot className="flex flex-col gap-4" onSubmit={submit}>
-          {item ? <OptionParentSummary item={item} /> : null}
-          <OptionIdentityFields setState={setState} state={state} />
-          <OptionGoogleAttributeFields setState={setState} state={state} />
-          <OptionPortionNutritionFields setState={setState} state={state} />
-          <OptionMediaFields setState={setState} state={state} />
-          <OptionActiveField setState={setState} state={state} />
-          {error ? (
-            <Text variant="caption" className="text-destructive">
-              {error.message}
-            </Text>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || !item}>
-              {pending ? 'Saving...' : option ? 'Save option' : 'Add option'}
-            </Button>
-          </DialogFooter>
-        </FormRoot>
-      </DialogContent>
-    </Dialog>
+    <SettingsDialog
+      open={Boolean(item)}
+      onOpenChange={requestOpenChange}
+      size="lg"
+      testId="menu-option-dialog"
+      title={option ? 'Edit item option' : 'Add item option'}
+      description="Options guests can choose, such as a large portion. Saves when you select Save option."
+      footer={
+        <DialogFooterActions error={error}>
+          <Button type="button" variant="outline" onClick={() => requestOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} disabled={pending || !item}>
+            {pending ? 'Saving…' : option ? 'Save option' : 'Add option'}
+          </Button>
+        </DialogFooterActions>
+      }
+    >
+      <FormRoot id={formId} className="flex flex-col gap-4" onSubmit={submit}>
+        {item ? <OptionParentSummary item={item} /> : null}
+        <OptionIdentityFields setState={setState} state={state} />
+        <OptionGoogleAttributeFields setState={setState} state={state} />
+        <OptionPortionNutritionFields setState={setState} state={state} />
+        <OptionMediaFields setState={setState} state={state} />
+        <OptionActiveField setState={setState} state={state} />
+      </FormRoot>
+    </SettingsDialog>
   );
 }

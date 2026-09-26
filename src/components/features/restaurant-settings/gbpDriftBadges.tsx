@@ -36,6 +36,8 @@ const REVIEWABLE_SECTION_KEYS = new Set<DriftSectionKey>([
   'foodMenus',
 ]);
 
+const NO_DRIFT_FIELDS: ReadonlyArray<DualSyncFieldSummary> = [];
+
 export interface WorkspaceGbpDriftCheck {
   readonly fields: ReadonlyArray<DualSyncFieldSummary>;
   readonly isLoading: boolean;
@@ -80,19 +82,29 @@ export function useWorkspaceGbpDriftCheck({
         fieldNeedsOperatorChoice(field),
     );
   }, [allowedSections, driftContext, stateQuery.data?.fields]);
-  const fieldsByKey = useMemo(
-    () => new Map(fields.map((field) => [field.fieldKey, field])),
-    [fields],
-  );
+  const isLoading = driftContext?.isLoading ?? stateQuery.isLoading;
+  const isError = stateQuery.isError;
 
-  return {
-    fields,
-    isLoading: driftContext?.isLoading ?? stateQuery.isLoading,
-    isError: stateQuery.isError,
-    getField: (fieldKey) => fieldsByKey.get(fieldKey) ?? null,
-    getFieldsByPrefix: (prefix) => fields.filter((field) => field.fieldKey.startsWith(prefix)),
-    getFieldsBySection: (sectionKey) => fields.filter((field) => field.sectionKey === sectionKey),
-  };
+  // One stable object per set of drift fields, so callers can list it in memo and effect deps.
+  return useMemo(() => {
+    const fieldsByKey = new Map(fields.map((field) => [field.fieldKey, field]));
+    const fieldsBySection = new Map<DriftSectionKey, DualSyncFieldSummary[]>();
+    for (const field of fields) {
+      const sectionFields = fieldsBySection.get(field.sectionKey);
+      if (sectionFields) sectionFields.push(field);
+      else fieldsBySection.set(field.sectionKey, [field]);
+    }
+
+    return {
+      fields,
+      isLoading,
+      isError,
+      getField: (fieldKey) => fieldsByKey.get(fieldKey) ?? null,
+      getFieldsByPrefix: (prefix) => fields.filter((field) => field.fieldKey.startsWith(prefix)),
+      // Sections without drift share one empty array.
+      getFieldsBySection: (sectionKey) => fieldsBySection.get(sectionKey) ?? NO_DRIFT_FIELDS,
+    };
+  }, [fields, isError, isLoading]);
 }
 
 export function GbpDriftBadge({

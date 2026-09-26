@@ -1,10 +1,18 @@
-import { DateTime } from "luxon";
+import { DateTime } from 'luxon';
 
-import { DEFAULT_SCARCITY_WEIGHT, type StrategicConfigSnapshotOptions } from "./strategic-config";
+import {
+  DEFAULT_SERVICE_TURN_BANDS,
+  normalizeBookingOptionKey,
+  selectTurnBandOrNull,
+  type TurnBand,
+  type TurnBandsByOption,
+} from '@/lib/restaurants/guest-schedule/turn-bands';
 
-const DEFAULT_TIMEZONE = "Europe/London";
+import { DEFAULT_SCARCITY_WEIGHT, type StrategicConfigSnapshotOptions } from './strategic-config';
 
-export const SERVICE_KEYS = ["lunch", "dinner"] as const;
+const DEFAULT_TIMEZONE = 'Europe/London';
+
+export const SERVICE_KEYS = ['lunch', 'dinner'] as const;
 export type ServiceKey = (typeof SERVICE_KEYS)[number];
 
 export type TimeOfDay = {
@@ -17,12 +25,7 @@ export type BufferConfig = {
   post: number;
 };
 
-export type TurnBand = {
-  maxPartySize: number;
-  durationMinutes: number;
-};
-
-export type TurnBandsByOption = Record<string, TurnBand[]>;
+export type { TurnBand, TurnBandsByOption };
 
 export type ServiceDefinition = {
   key: ServiceKey;
@@ -89,34 +92,24 @@ function cloneService(service: ServiceDefinition): ServiceDefinition {
 
 export const defaultVenuePolicy: VenuePolicy = {
   timezone: DEFAULT_TIMEZONE,
-  serviceOrder: ["lunch", "dinner"],
+  serviceOrder: ['lunch', 'dinner'],
   services: {
     lunch: {
-      key: "lunch",
-      label: "Lunch",
+      key: 'lunch',
+      label: 'Lunch',
       start: { hour: 12, minute: 0 },
       end: { hour: 15, minute: 0 },
       buffer: { pre: 0, post: 0 },
       allowOverrun: true,
-      turnBands: [
-        { maxPartySize: 2, durationMinutes: 60 },
-        { maxPartySize: 4, durationMinutes: 75 },
-        { maxPartySize: 6, durationMinutes: 85 },
-        { maxPartySize: 8, durationMinutes: 85 },
-      ],
+      turnBands: DEFAULT_SERVICE_TURN_BANDS.lunch.map((band) => ({ ...band })),
     },
     dinner: {
-      key: "dinner",
-      label: "Dinner",
+      key: 'dinner',
+      label: 'Dinner',
       start: { hour: 16, minute: 0 },
       end: { hour: 22, minute: 0 },
       buffer: { pre: 0, post: 0 },
-      turnBands: [
-        { maxPartySize: 2, durationMinutes: 60 },
-        { maxPartySize: 4, durationMinutes: 75 },
-        { maxPartySize: 6, durationMinutes: 85 },
-        { maxPartySize: 8, durationMinutes: 90 },
-      ],
+      turnBands: DEFAULT_SERVICE_TURN_BANDS.dinner.map((band) => ({ ...band })),
     },
   },
 };
@@ -134,7 +127,9 @@ const defaultSelectorScoringConfig: SelectorScoringConfig = {
   maxTables: 3,
 };
 
-export function getSelectorScoringConfig(_options?: StrategicConfigSnapshotOptions): SelectorScoringConfig {
+export function getSelectorScoringConfig(
+  _options?: StrategicConfigSnapshotOptions,
+): SelectorScoringConfig {
   return {
     weights: { ...defaultSelectorScoringConfig.weights },
     maxOverage: defaultSelectorScoringConfig.maxOverage,
@@ -142,21 +137,26 @@ export function getSelectorScoringConfig(_options?: StrategicConfigSnapshotOptio
   };
 }
 
-export function getYieldManagementScarcityWeight(_options?: StrategicConfigSnapshotOptions): number {
+export function getYieldManagementScarcityWeight(
+  _options?: StrategicConfigSnapshotOptions,
+): number {
   return DEFAULT_SCARCITY_WEIGHT;
 }
 
 export class PolicyError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "PolicyError";
+    this.name = 'PolicyError';
   }
 }
 
 export class ServiceNotFoundError extends PolicyError {
-  constructor(public readonly attempted: DateTime, message?: string) {
-    super(message ?? `No service window matches ${attempted.toISO() ?? "provided time"}.`);
-    this.name = "ServiceNotFoundError";
+  constructor(
+    public readonly attempted: DateTime,
+    message?: string,
+  ) {
+    super(message ?? `No service window matches ${attempted.toISO() ?? 'provided time'}.`);
+    this.name = 'ServiceNotFoundError';
   }
 }
 
@@ -169,9 +169,9 @@ export class ServiceOverrunError extends PolicyError {
   ) {
     super(
       message ??
-      `Reservation would overrun ${service} service (end ${serviceEnd.toFormat("HH:mm")}).`,
+        `Reservation would overrun ${service} service (end ${serviceEnd.toFormat('HH:mm')}).`,
     );
-    this.name = "ServiceOverrunError";
+    this.name = 'ServiceOverrunError';
   }
 }
 
@@ -226,10 +226,12 @@ export function getVenuePolicy(options?: PolicyOptions): VenuePolicy {
 }
 
 function toZonedBase(dateTime: DateTime, timezone: string): DateTime {
-  const candidate = dateTime.isValid ? dateTime : DateTime.invalid("Invalid start time");
+  const candidate = dateTime.isValid ? dateTime : DateTime.invalid('Invalid start time');
   const zoned = candidate.setZone(timezone, { keepLocalTime: false });
   if (!zoned.isValid) {
-    throw new PolicyError(`Invalid DateTime for policy computation: ${candidate.invalidReason ?? "unknown reason"}`);
+    throw new PolicyError(
+      `Invalid DateTime for policy computation: ${candidate.invalidReason ?? 'unknown reason'}`,
+    );
   }
   return zoned;
 }
@@ -258,7 +260,10 @@ function activeServices(policy: VenuePolicy): ServiceDefinition[] {
     .filter((service): service is ServiceDefinition => Boolean(service));
 }
 
-export function whichService(dateTime: DateTime, policy: VenuePolicy = defaultVenuePolicy): ServiceKey | null {
+export function whichService(
+  dateTime: DateTime,
+  policy: VenuePolicy = defaultVenuePolicy,
+): ServiceKey | null {
   const zoned = toZonedBase(dateTime, policy.timezone);
 
   for (const service of activeServices(policy)) {
@@ -293,30 +298,12 @@ export function serviceEnd(
   return serviceWindowFor(serviceKey, dateTime, policy).end;
 }
 
-function normalizeBookingOptionKey(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-  const normalized = value.toString().trim().toLowerCase();
-  return normalized.length > 0 ? normalized : null;
-}
-
 function selectTurnBand(bands: TurnBand[], partySize: number): TurnBand {
-  if (!bands || bands.length === 0) {
-    throw new PolicyError("No turn bands configured.");
+  const band = selectTurnBandOrNull(bands, partySize);
+  if (!band) {
+    throw new PolicyError('No turn bands configured.');
   }
-
-  if (!Number.isFinite(partySize) || partySize <= 0) {
-    return bands[0]!;
-  }
-
-  for (const band of bands) {
-    if (partySize <= band.maxPartySize) {
-      return band;
-    }
-  }
-
-  return bands[bands.length - 1]!;
+  return band;
 }
 
 export function getTurnBand(

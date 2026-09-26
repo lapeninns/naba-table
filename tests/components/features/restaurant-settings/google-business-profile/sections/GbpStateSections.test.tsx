@@ -8,14 +8,13 @@ import {
   LoadingGbpSection,
   NoRestaurantGbpSection,
 } from '@/components/features/restaurant-settings/google-business-profile/sections/GbpStateSections';
+import { HttpError } from '@/lib/http/errors';
 
 describe('GbpStateSections', () => {
   it('@smoke prompts for a restaurant in the no-restaurant state', () => {
     render(<NoRestaurantGbpSection />);
 
-    expect(
-      screen.getByText(/Select a restaurant using the sidebar switcher/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Select a restaurant using the sidebar switcher/)).toBeInTheDocument();
   });
 
   it('@smoke @a11y announces the loading state as busy status', () => {
@@ -24,15 +23,22 @@ describe('GbpStateSections', () => {
     expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('@contract renders the load error with a working retry', async () => {
+  it('@contract renders the load error as fixed copy with a working retry', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
-    render(<ErrorGbpSection error={new Error('Connection fetch failed')} onRetry={onRetry} />);
+    const error = new HttpError({
+      status: 500,
+      message: 'SECRET_DB_DETAIL relation "x" does not exist',
+    });
+    render(<ErrorGbpSection error={error} onRetry={onRetry} />);
 
     expect(screen.getByText('Unable to load Google Business Profile')).toBeInTheDocument();
-    expect(screen.getByText('Connection fetch failed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Google Business Profile could not be loaded. Reason code: HTTP_500.'),
+    ).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
 
-    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 

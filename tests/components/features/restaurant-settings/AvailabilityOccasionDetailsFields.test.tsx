@@ -1,96 +1,91 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { AvailabilityOccasionDetailsFields } from '@/components/features/restaurant-settings/AvailabilityOccasionDetailsFields';
-import { createEmptyOccasionForm } from '@/components/features/restaurant-settings/availabilityOccasionsModel';
-
-import type {
-  OccasionFormErrors,
-  OccasionFormState,
+import {
+  AvailabilityOccasionDetailsFields,
+  suggestOccasionKey,
+} from '@/components/features/restaurant-settings/AvailabilityOccasionDetailsFields';
+import {
+  createEmptyOccasionForm,
+  type OccasionFormErrors,
+  type OccasionFormState,
 } from '@/components/features/restaurant-settings/availabilityOccasionsModel';
 
-function renderFields({
+function Harness({
   editingKey = null,
-  form = createEmptyOccasionForm(),
   formErrors = {},
+  initial = createEmptyOccasionForm(),
 }: {
   editingKey?: string | null;
-  form?: OccasionFormState;
   formErrors?: OccasionFormErrors;
-} = {}) {
-  const onFormChange = vi.fn();
-  render(
-    <AvailabilityOccasionDetailsFields
-      editingKey={editingKey}
-      form={form}
-      formErrors={formErrors}
-      onFormChange={onFormChange}
-    />,
+  initial?: OccasionFormState;
+}) {
+  const [form, setForm] = useState(initial);
+  return (
+    <>
+      <AvailabilityOccasionDetailsFields
+        part="essentials"
+        editingKey={editingKey}
+        form={form}
+        formErrors={formErrors}
+        onFormChange={setForm}
+      />
+      <AvailabilityOccasionDetailsFields
+        part="advanced"
+        editingKey={editingKey}
+        form={form}
+        formErrors={formErrors}
+        onFormChange={setForm}
+      />
+    </>
   );
-  return { form, onFormChange };
 }
 
 describe('AvailabilityOccasionDetailsFields', () => {
-  it('@smoke @a11y renders all labelled fields for a new occasion', () => {
-    renderFields();
-
-    expect(screen.getByLabelText('Key')).toBeInTheDocument();
-    expect(screen.getByLabelText('Label')).toBeInTheDocument();
-    expect(screen.getByLabelText('Short label')).toBeInTheDocument();
-    expect(screen.getByLabelText('Description')).toBeInTheDocument();
-    expect(screen.getByLabelText('Default table time (minutes)')).toBeInTheDocument();
-    expect(screen.getByLabelText('Display order')).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: 'Active' })).toBeChecked();
-  });
-
-  it('@contract hides the key field when editing an existing occasion', () => {
-    renderFields({ editingKey: 'lunch' });
-
-    expect(screen.queryByLabelText('Key')).not.toBeInTheDocument();
-  });
-
-  it('@contract propagates label edits through onFormChange', async () => {
-    const user = userEvent.setup();
-
-    // Stateful harness: the component expects a live Dispatch<SetStateAction>.
-    function Harness() {
-      const [form, setForm] = useState(createEmptyOccasionForm);
-      return (
-        <AvailabilityOccasionDetailsFields
-          editingKey={null}
-          form={form}
-          formErrors={{}}
-          onFormChange={setForm}
-        />
-      );
-    }
+  it('@smoke @a11y labels every field', () => {
     render(<Harness />);
 
-    await user.type(screen.getByLabelText('Label'), 'Birthday');
-
-    expect(screen.getByLabelText('Label')).toHaveValue('Birthday');
+    for (const label of ['Name', /Short name/, /Description/, 'Key', 'Display order']) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument();
+    }
   });
 
-  it('@contract toggles the active switch through onFormChange', async () => {
+  it('@contract suggests a key from the name until one is typed', async () => {
     const user = userEvent.setup();
-    const { form, onFormChange } = renderFields();
+    render(<Harness />);
 
-    await user.click(screen.getByRole('switch', { name: 'Active' }));
+    await user.type(screen.getByLabelText('Name'), 'Christmas party');
+    expect(screen.getByLabelText('Key')).toHaveValue('christmas_party');
 
-    const updater = onFormChange.mock.calls.at(-1)?.[0] as (prev: OccasionFormState) => OccasionFormState;
-    expect(updater(form)).toMatchObject({ isActive: false });
+    await user.clear(screen.getByLabelText('Key'));
+    await user.type(screen.getByLabelText('Key'), 'xmas');
+    await user.type(screen.getByLabelText('Name'), '!');
+    expect(screen.getByLabelText('Key')).toHaveValue('xmas');
   });
 
-  it('@contract @a11y flags invalid key and label fields with error text', () => {
-    renderFields({
-      formErrors: { key: 'Key is required', label: 'Label is required' },
-    });
+  it('@contract makes the key read-only once the booking type exists', () => {
+    render(
+      <Harness
+        editingKey="lunch"
+        initial={{ ...createEmptyOccasionForm(), key: 'lunch', label: 'Lunch' }}
+      />,
+    );
 
+    expect(screen.getByLabelText('Key')).toHaveAttribute('readonly');
+    expect(screen.getByText('Can’t be changed.')).toBeInTheDocument();
+  });
+
+  it('@contract @a11y links errors to their fields', () => {
+    render(<Harness formErrors={{ label: 'Label is required', key: 'Key is required' }} />);
+
+    expect(screen.getByLabelText('Name')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Name')).toHaveAccessibleDescription('Label is required');
     expect(screen.getByLabelText('Key')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Key is required')).toBeInTheDocument();
-    expect(screen.getByLabelText('Label')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Label is required')).toBeInTheDocument();
+  });
+
+  it('builds keys from the characters keys allow', () => {
+    expect(suggestOccasionKey('  Sunday Roast! ')).toBe('sunday_roast');
   });
 });

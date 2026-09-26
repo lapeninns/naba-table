@@ -5,7 +5,7 @@
  * `/dual-sync/*` routes; legacy and V2 contracts are not mixed in.
  */
 
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 import {
   gbpConnectionStateResponseV1Schema,
   gbpExactPublishRequestV1Schema,
@@ -75,8 +75,9 @@ const gbpBaseUrl = (restaurantId: string): string =>
 
 export async function getGbpConnectionStateV1(
   restaurantId: string,
+  options?: RequestSignalOptions,
 ): Promise<GbpConnectionStateResponseV1> {
-  const response = await fetchJson<unknown>(gbpBaseUrl(restaurantId));
+  const response = await fetchJson<unknown>(gbpBaseUrl(restaurantId), options);
   return gbpConnectionStateResponseV1Schema.parse(response);
 }
 
@@ -112,8 +113,9 @@ export async function setGbpWriteAccessV1(
 
 export async function getGbpTerminalNoticesV1(
   restaurantId: string,
+  options?: RequestSignalOptions,
 ): Promise<GbpTerminalNoticesResponseV1> {
-  const response = await fetchJson<unknown>(`${gbpBaseUrl(restaurantId)}/notifications`);
+  const response = await fetchJson<unknown>(`${gbpBaseUrl(restaurantId)}/notifications`, options);
   return gbpTerminalNoticesResponseV1Schema.parse(response);
 }
 
@@ -204,8 +206,11 @@ export interface GetDualSyncStateResponse {
   readonly control: DualSyncRestaurantControl;
 }
 
-export async function getDualSyncState(restaurantId: string): Promise<GetDualSyncStateResponse> {
-  return fetchJson<GetDualSyncStateResponse>(`${baseUrl(restaurantId)}/state`);
+export async function getDualSyncState(
+  restaurantId: string,
+  options?: RequestSignalOptions,
+): Promise<GetDualSyncStateResponse> {
+  return fetchJson<GetDualSyncStateResponse>(`${baseUrl(restaurantId)}/state`, options);
 }
 
 export interface GetDualSyncControlResponse {

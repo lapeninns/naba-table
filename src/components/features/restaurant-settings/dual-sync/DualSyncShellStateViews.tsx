@@ -1,52 +1,71 @@
 import { AlertCircle } from 'lucide-react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface DualSyncShellStateViewProps {
-  readonly className?: string;
-}
+import { getDualSyncErrorMessage } from './dualSyncShellActionDomain';
+import { GbpStepCard } from '../google-business-profile/components/GbpStepCard';
 
-export function DualSyncShellLoadingState({ className }: DualSyncShellStateViewProps) {
+const REVIEW_TITLE = 'Review differences';
+
+export function DualSyncShellLoadingState() {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-base">Google Business Profile sync</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <GbpStepCard step={3} title={REVIEW_TITLE} description="Comparing Nabatable with Google…">
+      <div role="status" aria-busy="true" className="flex flex-col gap-2">
+        <span className="sr-only">Loading the differences</span>
         <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
-      </CardContent>
-    </Card>
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    </GbpStepCard>
   );
 }
 
 export function DualSyncShellErrorState({
-  className,
   error,
-}: DualSyncShellStateViewProps & { readonly error: unknown }) {
+  onRetry,
+}: {
+  readonly error: unknown;
+  readonly onRetry?: () => void;
+}) {
   return (
-    <Alert variant="destructive" className={className}>
-      <AlertCircle className="size-4" />
-      <AlertTitle>Couldn&apos;t load dual-sync state.</AlertTitle>
-      <AlertDescription>
-        {error instanceof Error ? error.message : 'Unknown error.'}
-      </AlertDescription>
-    </Alert>
+    <GbpStepCard
+      step={3}
+      title={REVIEW_TITLE}
+      description="The comparison with Google could not be loaded."
+    >
+      <Alert variant="destructive">
+        <AlertCircle className="size-4" aria-hidden />
+        <AlertTitle>Couldn&apos;t load the differences.</AlertTitle>
+        <AlertDescription className="flex flex-col gap-1">
+          <span>
+            {getDualSyncErrorMessage(error, 'The differences could not be loaded.')} Your saved
+            settings are unchanged.
+          </span>
+          {onRetry ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="self-start"
+              onClick={onRetry}
+            >
+              Try again
+            </Button>
+          ) : null}
+        </AlertDescription>
+      </Alert>
+    </GbpStepCard>
   );
 }
 
-export function DualSyncShellEmptyState({ className }: DualSyncShellStateViewProps) {
+export function DualSyncShellEmptyState() {
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="text-base">Google Business Profile sync</CardTitle>
-      </CardHeader>
-      <CardContent className="text-muted-foreground text-sm">
-        No syncable fields in scope yet.
-      </CardContent>
-    </Card>
+    <GbpStepCard
+      step={3}
+      title={REVIEW_TITLE}
+      description="No Nabatable fields can be compared with Google yet."
+    />
   );
 }

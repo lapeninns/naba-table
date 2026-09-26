@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildDualSyncShellViewState } from '@/components/features/restaurant-settings/dual-sync/dualSyncShellDomain';
+import {
+  buildDualSyncShellViewState,
+  pickDualSyncDecisions,
+  summarizeDualSyncDecisions,
+} from '@/components/features/restaurant-settings/dual-sync/dualSyncShellDomain';
 
 import type { DualSyncFieldSummary, GetDualSyncStateResponse } from '@/services/ops/dual-sync';
 
@@ -87,7 +91,11 @@ describe('dualSyncShellDomain', () => {
     expect(
       buildDualSyncShellViewState({
         stateData: makeState(),
-        decisionCount: 1,
+        decisions: {
+          'profile.name': { action: 'export_to_google' },
+          'profile.phone': { action: 'import_from_google' },
+          'profile.website': { action: 'ignore' },
+        },
         publishPending: false,
         previewPublishPending: false,
       }),
@@ -98,14 +106,21 @@ describe('dualSyncShellDomain', () => {
       totalOpen: 3,
       lastSnapshotAt: '2026-05-09T10:00:01.000Z',
       writeBlocked: false,
-      canSubmit: true,
-      overallHeatmap: {
-        total: 2,
-        conflict: 1,
-        in_sync: 1,
-        hasActionableState: true,
-      },
+      decisionSummary: { toSend: 1, toImport: 1, ignored: 1 },
+      canPublish: true,
+      canImport: true,
     });
+  });
+
+  it('only allows publishing Send to Google choices and saving Use Google choices', () => {
+    expect(
+      buildDualSyncShellViewState({
+        stateData: makeState(),
+        decisions: { 'profile.name': { action: 'ignore' } },
+        publishPending: false,
+        previewPublishPending: false,
+      }),
+    ).toMatchObject({ canPublish: false, canImport: false });
   });
 
   it('blocks writes and submit while paused or publish mutations are pending', () => {
@@ -116,11 +131,15 @@ describe('dualSyncShellDomain', () => {
         pauseReason: 'Maintenance window.',
       },
     });
+    const decisions = {
+      'profile.name': { action: 'export_to_google' },
+      'profile.phone': { action: 'import_from_google' },
+    } as const;
 
     expect(
       buildDualSyncShellViewState({
         stateData: pausedState,
-        decisionCount: 2,
+        decisions,
         publishPending: false,
         previewPublishPending: false,
       }),
@@ -128,24 +147,25 @@ describe('dualSyncShellDomain', () => {
       syncPaused: true,
       pauseReason: 'Maintenance window.',
       writeBlocked: true,
-      canSubmit: false,
+      canPublish: false,
+      canImport: false,
     });
 
     expect(
       buildDualSyncShellViewState({
         stateData: makeState(),
-        decisionCount: 2,
+        decisions,
         publishPending: true,
         previewPublishPending: false,
       }),
-    ).toMatchObject({ writeBlocked: true, canSubmit: false });
+    ).toMatchObject({ writeBlocked: true, canPublish: false, canImport: false });
   });
 
   it('builds safe defaults before state data is available', () => {
     expect(
       buildDualSyncShellViewState({
         stateData: undefined,
-        decisionCount: 0,
+        decisions: {},
         publishPending: false,
         previewPublishPending: false,
       }),
@@ -156,11 +176,27 @@ describe('dualSyncShellDomain', () => {
       totalOpen: 0,
       lastSnapshotAt: null,
       writeBlocked: false,
-      canSubmit: false,
-      overallHeatmap: {
-        total: 0,
-        hasActionableState: false,
-      },
+      decisionSummary: { toSend: 0, toImport: 0, ignored: 0 },
+      canPublish: false,
+      canImport: false,
+    });
+  });
+
+  it('summarises and splits draft decisions by action', () => {
+    const decisions = {
+      a: { action: 'export_to_google' },
+      b: { action: 'export_to_google' },
+      c: { action: 'import_from_google' },
+      d: { action: 'ignore' },
+    } as const;
+
+    expect(summarizeDualSyncDecisions(decisions)).toEqual({ toSend: 2, toImport: 1, ignored: 1 });
+    expect(pickDualSyncDecisions(decisions, 'export_to_google')).toEqual({
+      a: { action: 'export_to_google' },
+      b: { action: 'export_to_google' },
+    });
+    expect(pickDualSyncDecisions(decisions, 'import_from_google')).toEqual({
+      c: { action: 'import_from_google' },
     });
   });
 });

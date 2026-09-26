@@ -112,11 +112,11 @@ describe('dualSyncPendingCandidatesDomain', () => {
     });
     expect(getDualSyncPendingCandidateCancelErrorToastIntent(new Error('Cancel broke'))).toEqual({
       kind: 'error',
-      message: 'Cancel broke',
+      message: 'Pending change cancellation failed. Reason code: unknown_error.',
     });
     expect(getDualSyncPendingCandidateCancelErrorToastIntent('unknown')).toEqual({
       kind: 'error',
-      message: 'Pending change cancellation failed.',
+      message: 'Pending change cancellation failed. Reason code: unknown_error.',
     });
   });
 });

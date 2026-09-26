@@ -18,6 +18,7 @@ import {
   DualSyncQueueJobsLoadingState,
 } from './DualSyncQueueJobsStates';
 import { useDualSyncQueueJobRetry } from './useDualSyncQueueJobRetry';
+import { getDualSyncErrorMessage } from '../../dualSyncShellActionDomain';
 
 import type { DualSyncJob } from '@/server/dual-sync';
 import type { ListDualSyncJobsResponse } from '@/services/ops/dual-sync';
@@ -45,7 +46,7 @@ export function DualSyncQueueJobsPanel({
     return (
       <DualSyncQueueJobsErrorState
         className={className}
-        message={jobsQuery.error?.message ?? 'Unknown error.'}
+        message={getDualSyncErrorMessage(jobsQuery.error, 'Queue jobs could not be loaded.')}
         onRetry={() => jobsQuery.refetch()}
       />
     );

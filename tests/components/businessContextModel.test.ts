@@ -277,7 +277,6 @@ describe('businessContextModel editor helpers', () => {
         placeDataJson: '{\n  "radiusMiles": 4\n}',
       }),
     ]);
-    expect(serviceAreasReset.serviceAreaDraft).toBe('');
     expect(serviceAreasReset.seedSource?.serviceAreas).toBe('provider');
 
     const attributesReset = deriveBusinessContextFamilyState(snapshot, 'attributes');
@@ -298,6 +297,27 @@ describe('businessContextModel editor helpers', () => {
       }),
     ]);
     expect(serviceItemsReset.seedSource?.serviceItems).toBe('provider');
+  });
+
+  it('seeds saved values only when Google pre-fill is turned off', () => {
+    const snapshot = buildSnapshot();
+    const savedOnly = deriveBusinessContextEditorState(snapshot, { includeProvider: false });
+
+    expect(savedOnly.businessDetails).toEqual({
+      openingDate: '',
+      businessStatus: 'unset',
+      isServiceAreaBusiness: false,
+    });
+    expect(savedOnly.categories).toEqual([]);
+    expect(savedOnly.links).toHaveLength(1);
+    expect(savedOnly.seedSource).toMatchObject({
+      businessDetails: 'empty',
+      links: 'core',
+      categories: 'empty',
+    });
+    expect(
+      deriveBusinessContextFamilyState(snapshot, 'categories', { includeProvider: false }),
+    ).toMatchObject({ categories: [], seedSource: { categories: 'empty' } });
   });
 
   it('builds family save payloads without changing API shapes', () => {

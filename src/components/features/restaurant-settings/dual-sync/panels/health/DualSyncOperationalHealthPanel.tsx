@@ -14,6 +14,7 @@ import {
   DualSyncOperationalHealthErrorState,
   DualSyncOperationalHealthLoadingState,
 } from './DualSyncOperationalHealthStates';
+import { getDualSyncErrorMessage } from '../../dualSyncShellActionDomain';
 
 import type { GetDualSyncMetricsResponse } from '@/services/ops/dual-sync';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -37,7 +38,10 @@ export function DualSyncOperationalHealthPanel({
     return (
       <DualSyncOperationalHealthErrorState
         className={className}
-        message={metricsQuery.error?.message ?? 'Unknown error.'}
+        message={getDualSyncErrorMessage(
+          metricsQuery.error,
+          'Operational health could not be loaded.',
+        )}
         onRetry={() => metricsQuery.refetch()}
       />
     );

@@ -44,13 +44,7 @@ function getRouteView(
   if (!route) {
     return null;
   }
-  if (hasRouteView(route)) {
-    return route.view;
-  }
-  if ('availabilityWorkspace' in route) {
-    return 'availability';
-  }
-  return null;
+  return hasRouteView(route) ? route.view : null;
 }
 
 export function useRestaurantSettingsContext(): RestaurantSettingsContext {

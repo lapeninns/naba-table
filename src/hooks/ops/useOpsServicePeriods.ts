@@ -10,6 +10,12 @@ import {
 
 import { useRestaurantService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
+
+import {
+  availabilityMutationScope,
+  invalidateAvailabilityDependents,
+} from './availabilityQueryDependencies';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -26,14 +32,14 @@ export function useOpsServicePeriods(
     queryKey: restaurantId
       ? queryKeys.opsRestaurants.servicePeriods(restaurantId)
       : queryKeys.opsRestaurants.servicePeriods('none'),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return restaurantService.getServicePeriods(restaurantId);
+      return restaurantService.getServicePeriods(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
-    staleTime: 5 * 60 * 1000,
+    staleTime: OPS_SETTINGS_STALE_TIME.servicePeriods,
   });
 }
 
@@ -54,6 +60,7 @@ export function useOpsUpdateServicePeriods(
     ServicePeriodRow[],
     { previous?: ServicePeriodRow[] }
   >({
+    scope: availabilityMutationScope('service-periods', restaurantId),
     mutationFn: (rows) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
@@ -72,21 +79,22 @@ export function useOpsUpdateServicePeriods(
       return { previous };
     },
     onError: (_error, _rows, context) => {
-      if (!restaurantId || !context?.previous) return;
-      queryClient.setQueryData(
-        queryKeys.opsRestaurants.servicePeriods(restaurantId),
-        context.previous,
-      );
+      if (!restaurantId) return;
+      if (context?.previous) {
+        queryClient.setQueryData(
+          queryKeys.opsRestaurants.servicePeriods(restaurantId),
+          context.previous,
+        );
+      }
+      // Re-sync after a rollback; on success the PUT response is already authoritative.
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId),
+      });
     },
     onSuccess: (periods) => {
       if (!restaurantId) return;
       queryClient.setQueryData(queryKeys.opsRestaurants.servicePeriods(restaurantId), periods);
-    },
-    onSettled: () => {
-      if (!restaurantId) return;
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.opsRestaurants.servicePeriods(restaurantId),
-      });
+      void invalidateAvailabilityDependents(queryClient, 'service-periods', restaurantId);
     },
   });
 }

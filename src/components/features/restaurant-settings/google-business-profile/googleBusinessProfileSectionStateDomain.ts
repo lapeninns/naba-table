@@ -4,11 +4,13 @@ import {
 } from './googleBusinessProfileConnectionModel';
 import {
   getConnectedAccountLabel,
+  getGbpConnectionDescription,
+  getGbpLocationStep,
   getLocationTitle,
-  getStage,
-  getStageLabel,
-  type GbpWorkflowStage,
+  isGbpConnectionStepDone,
+  type GbpLocationStep,
 } from './googleBusinessProfileWorkflow';
+import { getSafeSettingsErrorMessage } from '../shared/settingsErrorCopy';
 
 import type {
   GoogleBusinessProfileAvailableLocation,
@@ -19,16 +21,19 @@ export type GoogleBusinessProfileSectionSummary = {
   accountLabel: string;
   canDisconnect: boolean;
   canRefresh: boolean;
+  /** Step 3 is available when a location is mapped and the connection is linked or has a sync issue. */
+  canReview: boolean;
+  connectionDescription: string;
+  connectionDone: boolean;
   hasLinkedLocation: boolean;
   isLinked: boolean;
+  locationStep: GbpLocationStep;
   locationTitle: string;
   locationsArePossiblyStale: boolean;
   locationsErrorMessage: string | null;
   manageOnGoogleHref: string | null;
   showConnect: boolean;
   showPicker: boolean;
-  stage: GbpWorkflowStage;
-  stageLabel: string;
   status: GoogleBusinessProfileConnection['status'];
 };
 
@@ -65,6 +70,43 @@ export function findGoogleBusinessProfileSelectedLocation({
   );
 }
 
+export function findGoogleBusinessProfileLinkedLocation(
+  data: GoogleBusinessProfileConnection | null | undefined,
+): GoogleBusinessProfileAvailableLocation | null {
+  if (!data?.externalLocationName || !data.externalAccountName) {
+    return null;
+  }
+  return (
+    data.availableLocations.find(
+      (location) =>
+        location.locationName === data.externalLocationName &&
+        location.accountName === data.externalAccountName,
+    ) ?? null
+  );
+}
+
+export type GoogleBusinessProfileLinkedLocationDetails = {
+  business: string;
+  account: string;
+  address: string;
+};
+
+/** Business, account and address of the mapped listing, from the best source the API returns. */
+export function describeGoogleBusinessProfileLinkedLocation(
+  data: GoogleBusinessProfileConnection,
+): GoogleBusinessProfileLinkedLocationDetails {
+  const linked = findGoogleBusinessProfileLinkedLocation(data);
+  const primaryAddress =
+    data.businessInfo.addresses.find((address) => address.isPrimary) ??
+    data.businessInfo.addresses[0] ??
+    null;
+  return {
+    business: linked?.title ?? getLocationTitle(data),
+    account: linked?.accountDisplayName ?? data.externalAccountName ?? 'Not available',
+    address: linked?.addressText ?? primaryAddress?.formattedAddress ?? 'Not available',
+  };
+}
+
 export function resolveGoogleBusinessProfileSelectedLocationValue({
   data,
   selectedLocationValue,
@@ -76,15 +118,9 @@ export function resolveGoogleBusinessProfileSelectedLocationValue({
     return null;
   }
 
-  if (data.externalLocationName && data.externalAccountName) {
-    const linkedLocation = data.availableLocations.find(
-      (location) =>
-        location.locationName === data.externalLocationName &&
-        location.accountName === data.externalAccountName,
-    );
-    if (linkedLocation) {
-      return buildLocationValue(linkedLocation);
-    }
+  const linkedLocation = findGoogleBusinessProfileLinkedLocation(data);
+  if (linkedLocation) {
+    return buildLocationValue(linkedLocation);
   }
 
   if (!selectedLocationValue && data.availableLocations[0]) {
@@ -101,7 +137,6 @@ export function deriveGoogleBusinessProfileSectionSummary({
   data: GoogleBusinessProfileConnection | null | undefined;
   locationsError?: { message?: string | null } | null;
 }): GoogleBusinessProfileSectionSummary {
-  const stage = getStage(data);
   const status = data?.status ?? 'unlinked';
   const hasLinkedLocation = Boolean(data?.externalLocationId);
   const isLinked = data?.status === 'linked' || data?.status === 'sync_error';
@@ -109,21 +144,26 @@ export function deriveGoogleBusinessProfileSectionSummary({
   const showConnect = !isLinked && !showPicker && data?.status !== 'authorized';
   const canRefresh = Boolean(data && data.status !== 'unlinked');
   const canDisconnect = Boolean(data && data.status !== 'unlinked');
+  const canReview = Boolean(isLinked && data?.externalAccountId && data.externalLocationId);
 
   return {
     accountLabel: getConnectedAccountLabel(data ?? null),
     canDisconnect,
     canRefresh,
+    canReview,
+    connectionDescription: getGbpConnectionDescription(status),
+    connectionDone: isGbpConnectionStepDone(status),
     hasLinkedLocation,
     isLinked,
+    locationStep: getGbpLocationStep(status),
     locationTitle: getLocationTitle(data ?? null),
     locationsArePossiblyStale: Boolean(locationsError) && Boolean(data?.availableLocations.length),
-    locationsErrorMessage: locationsError?.message ?? null,
+    locationsErrorMessage: locationsError
+      ? getSafeSettingsErrorMessage(locationsError, 'Google locations could not be loaded.')
+      : null,
     manageOnGoogleHref: buildGoogleMapsPlaceHref(data?.externalPlaceId ?? null),
     showConnect,
     showPicker,
-    stage,
-    stageLabel: getStageLabel(stage),
     status,
   };
 }

@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 
 import { buildDualSyncWorkspaceReviewModel } from '../dualSyncWorkspaceReviewModelDomain';
 import { computeSectionReviewProgress } from '../workspace-progress';
-import { useDualSyncWorkspaceAccordionState } from './useDualSyncWorkspaceAccordionState';
 import { useDualSyncWorkspaceDecisionState } from './useDualSyncWorkspaceDecisionState';
 
 import type { DualSyncSectionKey } from '@/server/dual-sync';
@@ -11,7 +10,6 @@ import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 interface UseDualSyncWorkspaceReviewStateArgs {
   readonly fields: ReadonlyArray<DualSyncFieldSummary>;
   readonly sections?: ReadonlyArray<DualSyncSectionKey>;
-  readonly singleOpenSections: boolean;
   readonly coreSnapshotHash?: string | null;
   readonly gbpSnapshotHash?: string | null;
 }
@@ -19,7 +17,6 @@ interface UseDualSyncWorkspaceReviewStateArgs {
 export function useDualSyncWorkspaceReviewState({
   fields,
   sections,
-  singleOpenSections,
   coreSnapshotHash,
   gbpSnapshotHash,
 }: UseDualSyncWorkspaceReviewStateArgs) {
@@ -34,13 +31,7 @@ export function useDualSyncWorkspaceReviewState({
     [fields, sections, decisions],
   );
 
-  const accordionState = useDualSyncWorkspaceAccordionState({
-    orderedAccordionValues: reviewModel.orderedAccordionValues,
-    singleOpenSections,
-  });
-
   return {
-    ...accordionState,
     ...decisionState,
     ...reviewModel,
     getSectionProgress: computeSectionReviewProgress,

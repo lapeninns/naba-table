@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,9 +8,20 @@ import {
   buildLocationValue,
 } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
+import type { ReactNode } from 'react';
+
+const SENTINEL = 'SECRET_DB_DETAIL relation "x" does not exist';
+
+function expectNoSentinelAnywhere() {
+  expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
+  for (const call of vi.mocked(toast.error).mock.calls) {
+    expect(JSON.stringify(call)).not.toContain('SECRET_DB_DETAIL');
+  }
+}
 
 let mockSearchParams = new URLSearchParams();
 let mockCanManageSettings = true;
@@ -97,6 +109,30 @@ const operatorStateResult = {
   },
 };
 
+vi.mock('@/components/features/restaurant-settings/dual-sync/DualSyncShell', () => ({
+  DualSyncShell: ({
+    restaurantId,
+    renderEvidence,
+  }: {
+    restaurantId: string;
+    renderEvidence?: (evidence: {
+      syncControls: null;
+      operationalPanels: null;
+      onRequestRefresh: () => void;
+      refreshPending: boolean;
+    }) => ReactNode;
+  }) => (
+    <div data-testid="dual-sync-shell" data-restaurant-id={restaurantId}>
+      {renderEvidence?.({
+        syncControls: null,
+        operationalPanels: null,
+        onRequestRefresh: () => undefined,
+        refreshPending: false,
+      })}
+    </div>
+  ),
+}));
+
 vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
   useOpsGoogleBusinessProfileConnection: () => connectionResult,
   useOpsGoogleBusinessProfileAvailableLocations: () => locationsResult,
@@ -168,11 +204,41 @@ function buildConnection(
   };
 }
 
+const LOCATION = {
+  accountName: 'accounts/1',
+  accountId: 'a-1',
+  accountDisplayName: 'Ops Account',
+  locationName: 'locations/1',
+  locationId: 'l-1',
+  title: 'Nabatable Main',
+  addressText: '1 Test St, London',
+  placeId: 'place-1',
+};
+
+function linkedConnection(overrides: Partial<GoogleBusinessProfileConnection> = {}) {
+  return buildConnection({
+    status: 'linked',
+    connectedGoogleEmail: 'ops@example.com',
+    externalAccountId: 'a-1',
+    externalAccountName: 'accounts/1',
+    externalLocationId: 'l-1',
+    externalLocationName: 'locations/1',
+    externalLocationTitle: 'Nabatable Main',
+    externalPlaceId: 'place-1',
+    lastPullAt: '2026-04-20T10:00:00.000Z',
+    ...overrides,
+  });
+}
+
 function expectSharedChrome() {
-  expect(screen.getByTestId('gbp-overview-card')).toBeInTheDocument();
-  expect(screen.queryByTestId('gbp-action-bar')).not.toBeInTheDocument();
-  expect(screen.getByText(/google workflow/i)).toBeInTheDocument();
-  expect(screen.queryByText(/google snapshot/i)).not.toBeInTheDocument();
+  expect(
+    screen.getByText(/optional\. link your google listing to compare your public details/i),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole('navigation', { name: /google workflow/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
+}
+
+function expectRelatedSettingsLinks() {
   expect(screen.getByText(/related settings/i)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /restaurant profile/i })).toHaveAttribute(
     'href',
@@ -182,7 +248,6 @@ function expectSharedChrome() {
     'href',
     '/app/settings/restaurant/availability#availability-schedule',
   );
-  expect(screen.getByText(/google is optional/i)).toBeInTheDocument();
 }
 
 beforeEach(() => {
@@ -205,6 +270,7 @@ beforeEach(() => {
   disconnectMutation.mutate.mockReset();
   disconnectMutation.isPending = false;
   queryClientMock.invalidateQueries.mockReset();
+  vi.mocked(toast.error).mockReset();
   window.history.replaceState({}, '', '/app/settings/restaurant/google-business-profile');
 });
 
@@ -216,20 +282,13 @@ describe('GoogleBusinessProfileSection', () => {
     expectSharedChrome();
   });
 
-  it('invalidates GBP and dual-sync workspace queries when refreshing Google', async () => {
+  it('invalidates GBP and dual-sync workspace queries when checking Google again', async () => {
     const user = userEvent.setup();
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      externalAccountId: 'a-1',
-      externalAccountName: 'accounts/1',
-      externalLocationId: 'l-1',
-      externalLocationName: 'locations/1',
-      externalLocationTitle: 'Nabatable Main',
-    });
+    connectionResult.data = linkedConnection();
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    await user.click(screen.getByRole('button', { name: /refresh connection/i }));
+    await user.click(screen.getByRole('button', { name: /check again/i }));
 
     expect(connectionResult.refetch).toHaveBeenCalledTimes(1);
     expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
@@ -248,13 +307,17 @@ describe('GoogleBusinessProfileSection', () => {
     expectSharedChrome();
   });
 
-  it('renders error shared chrome with retry', () => {
-    connectionResult.error = new Error('boom');
+  it('renders error shared chrome with a try-again action', () => {
+    connectionResult.error = new HttpError({ status: 500, message: SENTINEL });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(screen.getByText(/unable to load google business profile/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(
+      screen.getByText('Google Business Profile could not be loaded. Reason code: HTTP_500.'),
+    ).toBeInTheDocument();
+    expectNoSentinelAnywhere();
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     expectSharedChrome();
   });
 
@@ -265,27 +328,70 @@ describe('GoogleBusinessProfileSection', () => {
     expectSharedChrome();
   });
 
-  it('renders the connect card without owning a page h1', () => {
+  it('renders the three steps with connect first and the later steps locked', () => {
     connectionResult.data = buildConnection({ status: 'unlinked' });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.queryByRole('heading', { level: 1 })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /connect google/i }).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /refresh connection/i })).not.toBeInTheDocument();
-    expect(document.getElementById('gbp-connection')).toBeInTheDocument();
+    const connection = screen.getByRole('region', { name: /step 1: connection/i });
+    expect(within(connection).getByText('Not connected')).toBeInTheDocument();
+    expect(within(connection).getByRole('button', { name: 'Connect Google' })).toBeEnabled();
+    expect(within(connection).queryByRole('button', { name: /check again/i })).toBeNull();
+    const location = screen.getByRole('region', { name: /step 2: business location/i });
+    expect(within(location).getByText('Locked until step 1 is done.')).toBeInTheDocument();
+    expect(screen.getByText('Available once a location is linked.')).toBeInTheDocument();
+    expect(screen.queryByTestId('dual-sync-shell')).not.toBeInTheDocument();
+    expect(document.getElementById('gbp-sync-review')).toBeNull();
     expectSharedChrome();
+    expectRelatedSettingsLinks();
   });
 
-  it('pins Google callback errors above the connection overview', async () => {
-    mockSearchParams = new URLSearchParams('gbp=error&message=OAuth%20failed');
+  it('uses the brief wording for the waiting and reconnect states', () => {
+    connectionResult.data = buildConnection({ status: 'pending_auth' });
+    const { unmount } = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.getAllByText('Waiting for Google').length).toBeGreaterThan(0);
+    unmount();
+
+    connectionResult.data = linkedConnection({ status: 'reauth_required' });
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(screen.getAllByText('Reconnect needed').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: 'Reconnect Google' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change location' })).toBeInTheDocument();
+  });
+
+  it('pins Google callback errors above the steps', async () => {
+    mockSearchParams = new URLSearchParams(
+      'gbp=error&message=Google%20authorization%20was%20cancelled%20or%20denied.',
+    );
     connectionResult.data = buildConnection({ status: 'unlinked' });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(await screen.findByText('Google connection failed')).toBeInTheDocument();
-    expect(screen.getByText('OAuth failed')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Google authorization was cancelled or denied. Connect Google to try again.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /retry connect/i })).toBeInTheDocument();
+  });
+
+  it('never renders free text from the callback message parameter', async () => {
+    mockSearchParams = new URLSearchParams({ gbp: 'error', message: SENTINEL });
+    connectionResult.data = buildConnection({ status: 'unlinked' });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    expect(await screen.findByText('Google connection failed')).toBeInTheDocument();
+    expect(
+      screen.getByText('Google Business Profile connection failed. Connect Google to try again.'),
+    ).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(
+      'Google Business Profile connection failed. Connect Google to try again.',
+    );
+    expectNoSentinelAnywhere();
   });
 
   it('pins authorization mutation errors with a retry action', async () => {
@@ -293,45 +399,55 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = buildConnection({ status: 'unlinked' });
     startAuthorizationMutation.mutate.mockImplementation(
       (_input: unknown, options: { onError: (error: Error) => void }) => {
-        options.onError(new Error('OAuth service down'));
+        options.onError(new HttpError({ status: 502, message: SENTINEL }));
       },
     );
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    await user.click(screen.getAllByRole('button', { name: /connect google/i })[0]);
+    await user.click(screen.getByRole('button', { name: 'Connect Google' }));
 
     expect(await screen.findByText('Google authorization failed')).toBeInTheDocument();
-    expect(screen.getByText('OAuth service down')).toBeInTheDocument();
+    const copy = 'Google authorization could not be started. Reason code: HTTP_502.';
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(copy);
+    expectNoSentinelAnywhere();
     expect(screen.getByRole('button', { name: /retry connect/i })).toBeInTheDocument();
   });
 
-  it('renders the location picker card when the status is authorized', () => {
+  it('chooses a location in a dialog with native radios when the status is authorized', async () => {
+    const user = userEvent.setup();
     connectionResult.data = buildConnection({
       status: 'authorized',
       connectedGoogleEmail: 'ops@example.com',
       availableLocations: [],
     });
-    locationsResult.data = [
-      {
-        accountName: 'accounts/1',
-        accountId: 'a-1',
-        accountDisplayName: 'Ops Account',
-        locationName: 'locations/1',
-        locationId: 'l-1',
-        title: 'Nabatable Main',
-        addressText: '1 Test St, London',
-        placeId: 'place-1',
-      },
-    ];
+    locationsResult.data = [LOCATION];
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByText(/choose a business profile location/i)).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: /available locations/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /link location/i })).toBeInTheDocument();
+    expect(screen.getAllByText('Choose a location').length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: 'Choose location' }));
+
+    const dialog = await screen.findByRole('dialog', {
+      name: /choose a business profile location/i,
+    });
+    const group = within(dialog).getByRole('group', { name: 'Available locations' });
+    expect(within(group).getByRole('radio', { name: /nabatable main/i })).toBeChecked();
+    expect(within(dialog).getByText('1 Test St, London · Ops Account')).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Link location' }));
+
+    expect(linkMutation.mutate).toHaveBeenCalledWith(
+      {
+        accountName: 'accounts/1',
+        accountId: 'a-1',
+        locationName: 'locations/1',
+        locationId: 'l-1',
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
     expect(document.getElementById('gbp-location')).toBeInTheDocument();
-    expectSharedChrome();
   });
 
   it('pins link-location errors with a retry action', async () => {
@@ -341,59 +457,130 @@ describe('GoogleBusinessProfileSection', () => {
       connectedGoogleEmail: 'ops@example.com',
       availableLocations: [],
     });
-    locationsResult.data = [
-      {
-        accountName: 'accounts/1',
-        accountId: 'a-1',
-        accountDisplayName: 'Ops Account',
-        locationName: 'locations/1',
-        locationId: 'l-1',
-        title: 'Nabatable Main',
-        addressText: '1 Test St, London',
-        placeId: 'place-1',
-      },
-    ];
+    locationsResult.data = [LOCATION];
     linkMutation.mutate.mockImplementation(
       (_input: unknown, options: { onError: (error: Error) => void }) => {
-        options.onError(new Error('Google rejected the location link'));
+        options.onError(new HttpError({ status: 500, message: SENTINEL }));
       },
     );
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    await user.click(await screen.findByRole('button', { name: /link location/i }));
+    await user.click(screen.getByRole('button', { name: 'Choose location' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Link location' }));
 
-    expect(await screen.findByText('Location link failed')).toBeInTheDocument();
-    expect(screen.getByText('Google rejected the location link')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retry link/i })).toBeInTheDocument();
+    const copy = 'The location could not be linked. Reason code: HTTP_500.';
+    expect(await within(dialog).findByText('Location link failed')).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(copy);
+    expectNoSentinelAnywhere();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(await screen.findByRole('button', { name: /retry link/i })).toBeInTheDocument();
+    expect(screen.getByText(copy)).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledWith(copy);
+    expectNoSentinelAnywhere();
   });
 
-  it('renders linked mode with one overview action surface', () => {
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      connectedGoogleEmail: 'ops@example.com',
-      externalAccountId: 'a-1',
-      externalAccountName: 'accounts/1',
-      externalLocationId: 'l-1',
-      externalLocationName: 'locations/1',
-      externalLocationTitle: 'Nabatable Main',
-      externalPlaceId: 'place-1',
-      lastPullAt: '2026-04-20T10:00:00.000Z',
+  it('renders linked mode with connection, location, review and write controls', () => {
+    connectionResult.data = linkedConnection({ availableLocations: [LOCATION] });
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    const connection = screen.getByTestId('gbp-connection-card');
+    expect(within(connection).getAllByText('Linked').length).toBeGreaterThan(0);
+    expect(within(connection).getByText('ops@example.com')).toBeInTheDocument();
+    const location = screen.getByTestId('gbp-location-card');
+    expect(within(location).getByText('Location chosen')).toBeInTheDocument();
+    expect(within(location).getByText('Nabatable Main')).toBeInTheDocument();
+    expect(within(location).getByText('Ops Account')).toBeInTheDocument();
+    expect(within(location).getByText('1 Test St, London')).toBeInTheDocument();
+    expect(within(location).getByRole('link', { name: /manage on google/i })).toHaveAttribute(
+      'href',
+      'https://www.google.com/maps/search/?api=1&query_place_id=place-1',
+    );
+    expect(screen.getByRole('button', { name: /check again/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
+    expect(screen.getByTestId('dual-sync-shell')).toHaveAttribute('data-restaurant-id', 'rest-1');
+    expect(document.getElementById('gbp-sync-review')).toContainElement(
+      screen.getByTestId('dual-sync-shell'),
+    );
+    expect(screen.getByRole('button', { name: /write controls and evidence/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expectRelatedSettingsLinks();
+  });
+
+  it('keeps the review step open after a sync issue so differences can still be reviewed', () => {
+    connectionResult.data = linkedConnection({
+      status: 'sync_error',
+      lastError: 'provider_pre_dispatch_failed',
     });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getAllByText('Nabatable Main').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/linked and ready/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/review changes below/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /refresh connection/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /manage on google/i })).toHaveAttribute(
-      'href',
-      'https://www.google.com/maps/search/?api=1&query_place_id=place-1',
-    );
-    expect(screen.getByRole('button', { name: /disconnect/i })).toBeInTheDocument();
-    expect(screen.getAllByTestId('gbp-overview-card')).toHaveLength(1);
-    expectSharedChrome();
+    expect(screen.getAllByText('Sync issue').length).toBeGreaterThan(0);
+    expect(screen.getByText('Couldn’t reach Google')).toBeInTheDocument();
+    expect(screen.getByText('provider_pre_dispatch_failed')).toBeInTheDocument();
+    expect(screen.getByTestId('dual-sync-shell')).toBeInTheDocument();
+  });
+
+  it('opens write controls automatically when Google pending changes are unknown', () => {
+    const connectionQuery = operatorStateResult.connectionQuery as {
+      data: unknown;
+      isLoading: boolean;
+      error: null;
+    };
+    connectionQuery.isLoading = false;
+    connectionQuery.data = {
+      version: 'v1',
+      restaurantId: 'rest-1',
+      provider: 'google_business_profile',
+      connectionStatus: 'linked',
+      writeState: 'blocked',
+      connectionGeneration: 3,
+      consentEpoch: 4,
+      reasonCode: 'pending_paths_unknown',
+      rollout: { eligible: true, cohort: 'canary', evaluatedAt: '2026-08-09T10:00:00.000Z' },
+      pendingUpdates: {
+        version: 'v1',
+        restaurantId: 'rest-1',
+        state: 'unknown',
+        locationMasks: [],
+        attributePaths: [],
+        unknownPaths: [],
+        observedAt: '2026-08-09T10:00:00.000Z',
+        expiresAt: '2026-08-10T10:00:00.000Z',
+      },
+      notifications: { enabled: false, refCount: 0 },
+      refresh: {
+        status: 'stale',
+        lastAttemptAt: null,
+        lastSucceededAt: null,
+        safeErrorCode: null,
+      },
+    };
+    connectionResult.data = linkedConnection();
+
+    try {
+      render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+      expect(screen.getByRole('button', { name: /write controls and evidence/i })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      expect(screen.getByText('Publishing stopped')).toBeInTheDocument();
+      expect(screen.getByText('Writes off')).toBeInTheDocument();
+      expect(
+        screen.getByText('Publishing is stopped: Google’s pending changes are unknown'),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Request a fresh refresh' })).toBeInTheDocument();
+    } finally {
+      connectionQuery.isLoading = true;
+      connectionQuery.data = undefined;
+    }
   });
 
   it('hides admin-only Google operator controls without settings permission', () => {
@@ -407,38 +594,25 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.queryByText(/loading google operator controls/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/loading google write controls/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Writes on')).not.toBeInTheDocument();
   });
 
   it('renders truthful linked copy when the sync workspace is unavailable', () => {
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      connectedGoogleEmail: 'ops@example.com',
-      externalAccountId: 'a-1',
-      externalAccountName: 'accounts/1',
-      externalLocationId: 'l-1',
-      externalLocationName: 'locations/1',
-      externalLocationTitle: 'Nabatable Main',
-    });
+    connectionResult.data = linkedConnection();
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" hasSyncWorkspace={false} />);
 
-    expect(screen.getByText(/google business profile linked/i)).toBeInTheDocument();
     expect(screen.getByText(/comparison tools are currently unavailable/i)).toBeInTheDocument();
-    expect(screen.queryByText(/use the sync workspace below/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /review changes/i })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('dual-sync-shell')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /write controls and evidence/i }),
+    ).toBeInTheDocument();
   });
 
   it('opens disconnect confirmation and cancels without mutating', async () => {
     const user = userEvent.setup();
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      externalAccountId: 'a-1',
-      externalAccountName: 'accounts/1',
-      externalLocationId: 'l-1',
-      externalLocationName: 'locations/1',
-      externalLocationTitle: 'Nabatable Main',
-    });
+    connectionResult.data = linkedConnection();
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
@@ -455,14 +629,7 @@ describe('GoogleBusinessProfileSection', () => {
 
   it('confirms disconnect with password through the existing mutation', async () => {
     const user = userEvent.setup();
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      externalAccountId: 'a-1',
-      externalAccountName: 'accounts/1',
-      externalLocationId: 'l-1',
-      externalLocationName: 'locations/1',
-      externalLocationTitle: 'Nabatable Main',
-    });
+    connectionResult.data = linkedConnection();
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
@@ -481,16 +648,34 @@ describe('GoogleBusinessProfileSection', () => {
     );
   });
 
+  it('pins disconnect errors as fixed copy without the server message', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = linkedConnection();
+    disconnectMutation.mutate.mockImplementation(
+      (_input: unknown, options: { onError: (error: Error) => void }) => {
+        options.onError(
+          new HttpError({ status: 403, code: 'PASSWORD_CONFIRMATION_FAILED', message: SENTINEL }),
+        );
+      },
+    );
+
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+
+    await user.click(screen.getByRole('button', { name: /disconnect/i }));
+    await user.type(screen.getByLabelText(/confirm with your password/i), 'secret-password');
+    await user.click(screen.getAllByRole('button', { name: /^disconnect$/i }).at(-1)!);
+
+    const copy =
+      'Your password was not accepted. Check it and try again. Reason code: PASSWORD_CONFIRMATION_FAILED.';
+    expect(await screen.findByText('Disconnect failed')).toBeInTheDocument();
+    expect(screen.getAllByText(copy).length).toBeGreaterThan(0);
+    expect(toast.error).toHaveBeenCalledWith(copy);
+    expectNoSentinelAnywhere();
+  });
+
   it('disables disconnect dialog controls while the mutation is pending', async () => {
     const user = userEvent.setup();
-    connectionResult.data = buildConnection({
-      status: 'linked',
-      externalAccountId: 'a-1',
-      externalAccountName: 'accounts/1',
-      externalLocationId: 'l-1',
-      externalLocationName: 'locations/1',
-      externalLocationTitle: 'Nabatable Main',
-    });
+    connectionResult.data = linkedConnection();
 
     const { rerender } = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
@@ -507,32 +692,25 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = buildConnection({
       status: 'authorized',
       connectedGoogleEmail: 'ops@example.com',
-      availableLocations: [
-        {
-          accountName: 'accounts/1',
-          accountId: 'a-1',
-          accountDisplayName: 'Ops Account',
-          locationName: 'locations/1',
-          locationId: 'l-1',
-          title: 'Fallback Main',
-          addressText: '1 Test St, London',
-          placeId: 'place-1',
-        },
-      ],
+      availableLocations: [{ ...LOCATION, title: 'Fallback Main' }],
     });
-    locationsResult.error = new Error('Google location discovery failed');
+    locationsResult.error = new HttpError({ status: 500, message: SENTINEL });
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     expect(screen.getByText(/location refresh failed/i)).toBeInTheDocument();
-    expect(screen.getByText(/google location discovery failed/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('combobox', { name: /available locations \(possibly stale\)/i }),
+      screen.getByText('Google locations could not be loaded. Reason code: HTTP_500.'),
     ).toBeInTheDocument();
+    expectNoSentinelAnywhere();
 
     await user.click(screen.getByRole('button', { name: /retry locations/i }));
-
     expect(locationsResult.refetch).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: 'Choose location' }));
+    expect(
+      await screen.findByRole('group', { name: /available locations \(possibly stale\)/i }),
+    ).toBeInTheDocument();
   });
 
   it('scrolls whitelisted hash anchors into view', async () => {

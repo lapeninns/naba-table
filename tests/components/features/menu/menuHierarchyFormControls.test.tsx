@@ -3,11 +3,15 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  DialogSaveError,
   Field,
+  FieldDisclosure,
   MultiCheckboxGroup,
   NutritionRangeInputs,
   SwitchField,
 } from '@/components/features/menu/menuHierarchyFormControls';
+import { Input } from '@/components/ui/input';
+import { HttpError } from '@/lib/http/errors';
 
 describe('menuHierarchyFormControls', () => {
   it('@smoke Field renders the label above its control', () => {
@@ -34,14 +38,20 @@ describe('menuHierarchyFormControls', () => {
     expect(onCheckedChange).toHaveBeenCalledWith(true);
   });
 
-  it('@a11y KNOWN-ISSUE: SwitchField switch has no accessible name (label not associated)', () => {
-    // The Label is rendered as a sibling without htmlFor/id wiring, so the
-    // switch cannot be queried by role+name. Pinning current behavior; fixing
-    // it belongs to product source, out of scope for this spec.
+  it('@a11y SwitchField names its switch from the visible label', () => {
     render(<SwitchField label="Item active" checked onCheckedChange={vi.fn()} />);
 
-    const control = screen.getByRole('switch');
-    expect(control).not.toHaveAccessibleName();
+    expect(screen.getByRole('switch', { name: 'Item active' })).toBeInTheDocument();
+  });
+
+  it('@a11y Field links its label to a single text control', () => {
+    render(
+      <Field label="Menu name">
+        <Input />
+      </Field>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Menu name' })).toBeInTheDocument();
   });
 
   it('@contract NutritionRangeInputs reports lower and upper edits separately', async () => {
@@ -89,5 +99,49 @@ describe('menuHierarchyFormControls', () => {
 
     await user.click(milk);
     expect(onChange).toHaveBeenCalledWith('MILK', false);
+  });
+
+  it('@a11y Field links a hint to its control', () => {
+    render(
+      <Field label="Price" hint="Needed for Google">
+        <Input />
+      </Field>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Price' })).toHaveAccessibleDescription(
+      'Needed for Google',
+    );
+  });
+
+  it('@contract @a11y FieldDisclosure toggles its content and reports aria-expanded', async () => {
+    const user = userEvent.setup();
+    render(
+      <FieldDisclosure title="Advanced" hint="Rarely needed">
+        <p>Hidden content</p>
+      </FieldDisclosure>,
+    );
+
+    const trigger = screen.getByRole('button', { name: /Advanced/ });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Hidden content')).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Hidden content')).toBeInTheDocument();
+  });
+
+  it('@contract DialogSaveError shows only the safe reason code', () => {
+    const { rerender } = render(<DialogSaveError error={null} />);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    rerender(
+      <DialogSaveError
+        error={new HttpError({ message: 'Guest Jane', status: 429, code: 'RATE_LIMITED' })}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Not saved. Your edits are still in this dialog. Reason code RATE_LIMITED.',
+    );
+    expect(screen.queryByText(/Jane/)).not.toBeInTheDocument();
   });
 });

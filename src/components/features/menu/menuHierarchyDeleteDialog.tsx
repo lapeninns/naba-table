@@ -1,5 +1,7 @@
 'use client';
 
+import { toast } from 'sonner';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Text } from '@/components/ui/typography';
+import { buttonVariants } from '@/components/ui/button';
 import {
   useOpsDeleteRestaurantMenu,
   useOpsDeleteRestaurantMenuItem,
@@ -19,6 +21,7 @@ import {
 } from '@/hooks/ops/useOpsMenuHierarchy';
 
 import { primaryLabel } from './menuHierarchyDomain';
+import { DialogSaveError } from './menuHierarchyFormControls';
 
 import type {
   CanonicalRestaurantMenu,
@@ -74,36 +77,61 @@ export function DeleteHierarchyDialog({
   })();
 
   const targetLabel = target?.type ?? 'item';
+  const effect = (() => {
+    if (!target) return '';
+    if (target.type === 'menu') {
+      const sectionCount = target.menu.sections.length;
+      return sectionCount > 0
+        ? `${targetName}, its ${sectionCount} ${sectionCount === 1 ? 'section' : 'sections'} and their items are deleted from Nabatable.`
+        : `${targetName} is deleted from Nabatable.`;
+    }
+    if (target.type === 'section') {
+      const itemCount = target.section.items.length;
+      return itemCount > 0
+        ? `${targetName} and its ${itemCount} ${itemCount === 1 ? 'item' : 'items'} are deleted from this menu.`
+        : `${targetName} is deleted from this menu.`;
+    }
+    if (target.type === 'item') {
+      return `${targetName} is removed from this menu straight away.`;
+    }
+    return `${targetName} is removed from ${primaryLabel(target.item, 'this item')}.`;
+  })();
 
   const confirm = async () => {
     if (!target) return;
-    if (target.type === 'menu' && target.menu.id) {
-      await deleteMenu.mutateAsync({ menuId: target.menu.id });
+    try {
+      if (target.type === 'menu' && target.menu.id) {
+        await deleteMenu.mutateAsync({ menuId: target.menu.id });
+      }
+      if (target.type === 'section' && target.menu.id && target.section.id) {
+        await deleteSection.mutateAsync({ menuId: target.menu.id, sectionId: target.section.id });
+      }
+      if (target.type === 'item' && target.menu.id && target.section.id && target.item.id) {
+        await deleteItem.mutateAsync({
+          menuId: target.menu.id,
+          sectionId: target.section.id,
+          itemId: target.item.id,
+        });
+      }
+      if (
+        target.type === 'option' &&
+        target.menu.id &&
+        target.section.id &&
+        target.item.id &&
+        target.option.id
+      ) {
+        await deleteOption.mutateAsync({
+          menuId: target.menu.id,
+          sectionId: target.section.id,
+          itemId: target.item.id,
+          optionId: target.option.id,
+        });
+      }
+    } catch {
+      // The error renders inside the dialog; nothing was removed.
+      return;
     }
-    if (target.type === 'section' && target.menu.id && target.section.id) {
-      await deleteSection.mutateAsync({ menuId: target.menu.id, sectionId: target.section.id });
-    }
-    if (target.type === 'item' && target.menu.id && target.section.id && target.item.id) {
-      await deleteItem.mutateAsync({
-        menuId: target.menu.id,
-        sectionId: target.section.id,
-        itemId: target.item.id,
-      });
-    }
-    if (
-      target.type === 'option' &&
-      target.menu.id &&
-      target.section.id &&
-      target.item.id &&
-      target.option.id
-    ) {
-      await deleteOption.mutateAsync({
-        menuId: target.menu.id,
-        sectionId: target.section.id,
-        itemId: target.item.id,
-        optionId: target.option.id,
-      });
-    }
+    toast.success(`${targetName} deleted.`);
     onOpenChange(false);
   };
 
@@ -111,23 +139,23 @@ export function DeleteHierarchyDialog({
     <AlertDialog open={Boolean(target)} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete {targetLabel}</AlertDialogTitle>
+          <AlertDialogTitle>Delete {targetName}?</AlertDialogTitle>
           <AlertDialogDescription>
-            This removes {targetName} from the restaurant menu structure. Publishing changes to
-            Google is handled separately.
+            {effect} This can’t be undone. Publishing to Google happens separately.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error ? <Text variant="caption" className="text-destructive">{error.message}</Text> : null}
+        <DialogSaveError error={error} message="Not deleted. Nothing was removed." />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
           <AlertDialogAction
+            className={buttonVariants({ variant: 'destructive' })}
             disabled={pending}
             onClick={(event) => {
               event.preventDefault();
               void confirm();
             }}
           >
-            {pending ? 'Deleting...' : `Delete ${targetLabel}`}
+            {pending ? 'Deleting…' : `Delete ${targetLabel}`}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

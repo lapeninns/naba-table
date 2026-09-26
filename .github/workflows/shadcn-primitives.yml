@@ -15,7 +15,7 @@ jobs:
   primitives:
     name: Primitive coverage
     runs-on: >-
-      ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}
+      ${{ (vars.NABATABLE_CI_RUNNER == 'hosted' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository)) && 'ubuntu-latest' || fromJSON('["self-hosted","nabatable-release"]') }}
 
     steps:
       - name: Checkout

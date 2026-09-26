@@ -78,7 +78,9 @@ describe('GbpExactPublishDialog', () => {
     expect(screen.getByText('location-1')).toBeInTheDocument();
     expect(screen.getByText('gbp-write-policy-v1')).toBeInTheDocument();
     expect(screen.getByText(HASH)).toBeInTheDocument();
-    expect(screen.getByText('Expires')).toBeInTheDocument();
+    expect(screen.getByText('Valid until')).toBeInTheDocument();
+    expect(screen.getByText(/valid for at most 15 minutes/i)).toBeInTheDocument();
+    expect(screen.getByText('Full replacement')).toBeInTheDocument();
     expect(screen.getByText('POST')).toBeInTheDocument();
     expect(screen.getByText('menus')).toBeInTheDocument();
     expect(screen.getByText('{"sections":1}')).toBeInTheDocument();
@@ -106,7 +108,9 @@ describe('GbpExactPublishDialog', () => {
     expect(publish).toBeDisabled();
     await user.click(screen.getByLabelText(/public google business profile data/i));
     expect(publish).toBeDisabled();
-    await user.click(screen.getByLabelText(/fully replace google foodmenus/i));
+    await user.click(
+      screen.getByLabelText(/google receives a full replacement of your food menus/i),
+    );
     await user.click(publish);
 
     expect(onConfirm).toHaveBeenCalledWith({
@@ -133,8 +137,10 @@ describe('GbpExactPublishDialog', () => {
       />,
     );
 
-    expect(screen.getByText(/exact preview expired/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /refresh and create new preview/i })).toBeEnabled();
+    expect(screen.getByText(/this preview has expired/i)).toBeInTheDocument();
+    expect(screen.getByText('Expired')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /refresh and create a new preview/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /publish exact plan/i })).toBeDisabled();
+    expect(screen.getByLabelText(/public google business profile data/i)).toBeDisabled();
   });
 });

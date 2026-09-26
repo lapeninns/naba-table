@@ -11,6 +11,7 @@ import {
 
 import { useMenuHierarchyService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -45,14 +46,14 @@ export function useOpsMenuHierarchy(
 
   return useQuery<MenuHierarchyResponse, MutationError>({
     queryKey: hierarchyListKey(restaurantId),
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return menuHierarchyService.listMenus(restaurantId);
+      return menuHierarchyService.listMenus(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
-    staleTime: 60_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.menuHierarchy,
     placeholderData: keepPreviousData,
   });
 }

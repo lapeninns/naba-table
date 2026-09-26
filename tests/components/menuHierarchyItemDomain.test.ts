@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildItemPayload,
+  deriveItemReadiness,
+  isMenuItemFilterActive,
   itemInitialState,
+  itemNeedsAttention,
+  itemServicesLabel,
+  menuItemMatchesFilter,
 } from '@/components/features/menu/menuHierarchyItemDomain';
 
 import type { CanonicalRestaurantMenuItem } from '@/server/menu-hierarchy/types';
@@ -147,6 +152,89 @@ describe('menuHierarchyItemDomain', () => {
       },
       displayOrder: 4,
       legacySource: { importedFrom: 'legacy' },
+    });
+  });
+
+  describe('Google readiness and filters', () => {
+    function withOverrides(
+      overrides: Partial<CanonicalRestaurantMenuItem>,
+    ): CanonicalRestaurantMenuItem {
+      return { ...buildCanonicalItem(), ...overrides };
+    }
+    const noMedia = { googleMediaKeys: [], localMedia: {} };
+    const noPrice = {
+      ...buildCanonicalItem().attributes,
+      price: { currencyCode: 'GBP', amount: null },
+    };
+
+    it('reads Ready for Google when the item has a price and a photo', () => {
+      expect(deriveItemReadiness(buildCanonicalItem())).toEqual({
+        status: 'ready',
+        label: 'Ready for Google',
+        missing: [],
+      });
+    });
+
+    it('names exactly what is missing for Google', () => {
+      expect(deriveItemReadiness(withOverrides({ media: noMedia })).label).toBe(
+        'Needs photo for Google',
+      );
+      expect(deriveItemReadiness(withOverrides({ attributes: noPrice })).label).toBe(
+        'Needs price for Google',
+      );
+      expect(deriveItemReadiness(withOverrides({ attributes: noPrice, media: noMedia }))).toEqual({
+        status: 'needs-attention',
+        label: 'Needs price and photo for Google',
+        missing: ['price', 'photo'],
+      });
+    });
+
+    it('reports hidden items as hidden, not as needing attention', () => {
+      const hidden = withOverrides({ active: false, media: noMedia });
+      expect(deriveItemReadiness(hidden).label).toBe('Hidden from menu');
+      expect(itemNeedsAttention(hidden)).toBe(false);
+    });
+
+    it('labels services as All services or the named periods', () => {
+      const base = buildCanonicalItem();
+      expect(
+        itemServicesLabel({
+          ...base,
+          extensions: { ...base.extensions, availabilityPolicy: {} },
+        }),
+      ).toBe('All services');
+      expect(
+        itemServicesLabel({
+          ...base,
+          extensions: {
+            ...base.extensions,
+            availabilityPolicy: { servicePeriods: ['lunch', 'dinner'] },
+          },
+        }),
+      ).toBe('Lunch, Dinner');
+    });
+
+    it('filters by name or description, needs attention and sold out', () => {
+      const base = buildCanonicalItem();
+      const soldOut = {
+        ...base,
+        extensions: { ...base.extensions, availabilityPolicy: { soldOut: true } },
+      };
+
+      expect(isMenuItemFilterActive({ query: '  ', status: 'all' })).toBe(false);
+      expect(isMenuItemFilterActive({ query: 'gin', status: 'all' })).toBe(true);
+      expect(menuItemMatchesFilter(base, { query: 'SIGNATURE', status: 'all' })).toBe(true);
+      expect(menuItemMatchesFilter(base, { query: 'house special', status: 'all' })).toBe(true);
+      expect(menuItemMatchesFilter(base, { query: 'burger', status: 'all' })).toBe(false);
+      expect(menuItemMatchesFilter(base, { query: '', status: 'attention' })).toBe(false);
+      expect(
+        menuItemMatchesFilter(withOverrides({ media: noMedia }), {
+          query: '',
+          status: 'attention',
+        }),
+      ).toBe(true);
+      expect(menuItemMatchesFilter(base, { query: '', status: 'sold-out' })).toBe(false);
+      expect(menuItemMatchesFilter(soldOut, { query: '', status: 'sold-out' })).toBe(true);
     });
   });
 });

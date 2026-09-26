@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +30,10 @@ const availabilityState = vi.hoisted(() => ({
     refetch: vi.fn(),
   },
   occasionService: {
+    listOccasions: vi.fn(),
     createOccasion: vi.fn(),
+    updateOccasion: vi.fn(),
+    deleteOccasion: vi.fn(),
   },
   occasionsQuery: {
     data: [] as OpsOccasion[],
@@ -41,6 +44,7 @@ const availabilityState = vi.hoisted(() => ({
     data: null as OperatingHoursSnapshot | null,
     error: null as Error | null,
     isLoading: false,
+    refetch: vi.fn(),
   },
   servicePeriodsQuery: {
     data: [] as ServicePeriodRow[],
@@ -77,6 +81,17 @@ vi.mock('@/contexts/ops-services', () => ({
 
 vi.mock('@/contexts/ops-unsaved-changes', () => ({
   useRegisterOpsUnsavedChanges: vi.fn(),
+  useRegisterOptionalOpsUnsavedChanges: vi.fn(),
+}));
+
+const navigationState = vi.hoisted(() => ({ pathname: '/app/settings/restaurant/availability' }));
+
+vi.mock('next/navigation', () => ({
+  usePathname: () => navigationState.pathname,
+}));
+
+vi.mock('sonner', () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({
@@ -118,7 +133,7 @@ vi.mock('@/hooks/ops/useOpsDualSync', () => ({
   }),
 }));
 
-import { AvailabilityOccasionsCommandCenter } from '@/components/features/restaurant-settings/AvailabilityOccasionsCommandCenter';
+import { AvailabilitySettingsPage } from '@/components/features/restaurant-settings/availability/AvailabilitySettingsPage';
 import {
   buildAvailabilityRules,
   createRuleDraft,
@@ -127,7 +142,6 @@ import {
   isServiceWindowOccasion,
   toRuleDrafts,
 } from '@/components/features/restaurant-settings/availabilityOccasionsModel';
-import { AvailabilityScheduleManager } from '@/components/features/restaurant-settings/AvailabilityScheduleManager';
 import {
   buildOperatingHoursPayload,
   buildMissingRequiredOccasions,
@@ -147,6 +161,7 @@ import {
   validateHours,
   validateServices,
 } from '@/components/features/restaurant-settings/availabilityScheduleValidation';
+import { HttpError } from '@/lib/http/errors';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type {
@@ -214,11 +229,7 @@ function buildServicePeriods(): ServicePeriodRow[] {
 }
 
 function buildTurnBands(): TurnBandsSnapshot {
-  return {
-    restaurantId: 'rest-1',
-    bands: {},
-    defaults: {},
-  };
+  return { restaurantId: 'rest-1', bands: {}, defaults: {} };
 }
 
 function setReadyAvailabilityState({
@@ -231,59 +242,35 @@ function setReadyAvailabilityState({
 } = {}) {
   availabilityState.operatingHoursQuery.data = buildOperatingHours();
   availabilityState.operatingHoursQuery.error = null;
-  availabilityState.operatingHoursQuery.isLoading = false;
   availabilityState.servicePeriodsQuery.data = buildServicePeriods();
   availabilityState.servicePeriodsQuery.error = null;
-  availabilityState.servicePeriodsQuery.isLoading = false;
   availabilityState.occasionsQuery.data = occasions;
   availabilityState.occasionsQuery.error = null;
-  availabilityState.occasionsQuery.isLoading = false;
   availabilityState.turnBandsQuery.data = buildTurnBands();
   availabilityState.turnBandsQuery.error = null;
-  availabilityState.turnBandsQuery.isLoading = false;
 }
 
-function renderManager(
-  restaurantId: string | null = 'rest-1',
-  activeWorkspace: 'schedule' | 'booking-types' = 'schedule',
-) {
+function renderPage(restaurantId: string | null = 'rest-1') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, refetchOnWindowFocus: false },
       mutations: { retry: false },
     },
   });
-
   return render(
     <QueryClientProvider client={queryClient}>
-      <AvailabilityScheduleManager restaurantId={restaurantId} activeWorkspace={activeWorkspace} />
+      <AvailabilitySettingsPage restaurantId={restaurantId} />
     </QueryClientProvider>,
   );
 }
 
-function renderCommandCenter(
-  restaurantId: string | null = 'rest-1',
-  initialWorkspace: 'rules' | 'schedule' | 'booking-types' = 'rules',
-) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false, refetchOnWindowFocus: false },
-      mutations: { retry: false },
-    },
-  });
-
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <AvailabilityOccasionsCommandCenter
-        restaurantId={restaurantId}
-        initialWorkspace={initialWorkspace}
-      />
-    </QueryClientProvider>,
-  );
+async function openMonday(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /^Monday/ }));
 }
 
-describe('AvailabilityScheduleManager', () => {
+describe('AvailabilitySettingsPage', () => {
   beforeEach(() => {
+    navigationState.pathname = '/app/settings/restaurant/availability';
     window.history.replaceState(null, '', '/app/settings/restaurant/availability');
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -299,182 +286,351 @@ describe('AvailabilityScheduleManager', () => {
         dispatchEvent: vi.fn(),
       })),
     });
+    Element.prototype.scrollIntoView = vi.fn();
     availabilityState.detailsQuery.error = null;
-    availabilityState.detailsQuery.isLoading = false;
-    availabilityState.detailsQuery.refetch.mockReset();
-    availabilityState.updateDetails.isPending = false;
-    availabilityState.updateDetails.mutateAsync.mockReset();
     availabilityState.gbpFields = [];
-    availabilityState.occasionService.createOccasion.mockReset();
-    availabilityState.occasionService.createOccasion.mockImplementation(async (input) =>
-      buildOccasion({
-        key: input.key,
-        label: input.label,
-        shortLabel: input.shortLabel,
-        description: input.description,
-        defaultDurationMinutes: input.defaultDurationMinutes,
-        displayOrder: input.displayOrder,
-        isActive: input.isActive,
-      }),
+    for (const service of Object.values(availabilityState.occasionService)) {
+      service.mockReset();
+    }
+    // The save re-reads the catalog before writing; the page's own list query is mocked above.
+    availabilityState.occasionService.listOccasions.mockImplementation(
+      async () => availabilityState.occasionsQuery.data,
     );
-    availabilityState.updateOperatingHours.isPending = false;
-    availabilityState.updateOperatingHours.mutateAsync.mockReset();
-    availabilityState.updateServicePeriods.isPending = false;
-    availabilityState.updateServicePeriods.mutateAsync.mockReset();
-    availabilityState.updateTurnBands.isPending = false;
-    availabilityState.updateTurnBands.mutateAsync.mockReset();
+    availabilityState.occasionService.createOccasion.mockImplementation(async (input) =>
+      buildOccasion({ key: input.key, label: input.label }),
+    );
+    for (const mutation of [
+      availabilityState.updateOperatingHours,
+      availabilityState.updateServicePeriods,
+      availabilityState.updateTurnBands,
+      availabilityState.updateDetails,
+    ]) {
+      mutation.mutateAsync.mockReset();
+      mutation.mutateAsync.mockImplementation(async (payload: unknown) => payload);
+    }
+    availabilityState.updateDetails.mutateAsync.mockImplementation(async (payload: object) => ({
+      ...availabilityState.detailsQuery.data,
+      ...payload,
+    }));
     setReadyAvailabilityState();
   });
 
-  it('renders booking rule groups for guest grid and service cutoffs', async () => {
-    renderCommandCenter();
-
-    expect((await screen.findAllByText('Booking rules')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Guest booking grid')).toBeInTheDocument();
-    expect(screen.getByText('Service cutoffs')).toBeInTheDocument();
-    expect(screen.getByText('Guest-facing policy')).toBeInTheDocument();
-    expect(screen.getByText('Saves booking slot spacing and policy only.')).toBeInTheDocument();
-  });
-
-  it('scrolls to availability-schedule when initialWorkspace is schedule', async () => {
-    const scrollIntoView = vi.fn();
-    const requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
-      callback(0);
-      return 1;
-    });
-    Object.defineProperty(window, 'requestAnimationFrame', {
-      configurable: true,
-      writable: true,
-      value: requestAnimationFrame,
-    });
-    vi.stubGlobal('requestAnimationFrame', requestAnimationFrame);
-    globalThis.requestAnimationFrame = requestAnimationFrame;
-    Object.defineProperty(window.HTMLElement.prototype, 'scrollIntoView', {
-      configurable: true,
-      value: scrollIntoView,
-    });
-    window.history.replaceState({}, '', '/app/settings/restaurant/availability');
-
-    renderCommandCenter('rest-1', 'schedule');
-
-    expect(document.getElementById('availability-schedule')).toBeInTheDocument();
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
-  });
-
-  it('renders the no-restaurant state without loading editors', () => {
-    renderManager(null);
-
-    expect(screen.getByText('Weekly schedule')).toBeInTheDocument();
-    expect(screen.getByText('Select a restaurant to manage availability.')).toBeInTheDocument();
-    expect(screen.queryByText('Save configuration')).not.toBeInTheDocument();
-  });
-
-  it('renders a loading state while availability data initializes', () => {
-    availabilityState.operatingHoursQuery.data = null;
-    availabilityState.operatingHoursQuery.isLoading = true;
-
-    renderManager();
-
-    expect(screen.getByText('Operating hours and service windows together')).toBeInTheDocument();
-    expect(screen.getByText('Loading the integrated availability editor.')).toBeInTheDocument();
-  });
-
-  it('renders a load error state with the failing message', () => {
-    availabilityState.operatingHoursQuery.data = null;
-    availabilityState.operatingHoursQuery.error = new Error('Hours request failed.');
-
-    renderManager();
-
-    expect(screen.getByText('Availability editor unavailable')).toBeInTheDocument();
-    expect(screen.getByText('Hours request failed.')).toBeInTheDocument();
-  });
-
-  it('renders the ready schedule editor with save controls disabled until edits exist', async () => {
-    renderManager();
+  it('shows one page with every section, a saved status and no save bar while clean', async () => {
+    renderPage();
 
     expect(
-      await screen.findByText('Operating hours and service windows together'),
+      await screen.findByRole('heading', { name: 'Weekly hours and meal times' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Weekly schedule' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Date overrides' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save configuration' })).toBeDisabled();
+    expect(screen.getByRole('heading', { name: 'Special dates' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Booking rules' })).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Save configuration' }).closest('.sticky'),
-    ).toHaveClass('bottom-0', 'backdrop-blur-md', 'supports-[backdrop-filter]:bg-background/90');
-    expect(screen.getByText(/Turn times per party size/i).parentElement).toHaveClass(
-      'rounded-md',
-      'bg-muted/20',
-    );
-    expect(
-      screen.queryByText('Lunch and dinner booking types are required'),
-    ).not.toBeInTheDocument();
+      screen.getByRole('heading', { name: 'Booking types and table times' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Booking preview' })).toBeInTheDocument();
+    expect(screen.getByText('All changes saved')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Configuration preview, not live availability\./)).toBeInTheDocument();
   });
 
-  it('renders the booking-types workspace without the schedule tabs', async () => {
-    renderManager('rest-1', 'booking-types');
-
-    expect(await screen.findByText('Booking types and turn times')).toBeInTheDocument();
-    expect(screen.getByText(/Booking types control guest choices/i)).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Weekly schedule' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Date overrides' })).not.toBeInTheDocument();
-  });
-
-  it('shows Google review badges for drifted weekly hours', async () => {
-    availabilityState.gbpFields = [
-      {
-        fieldKey: 'operatingHours.weekly.1',
-        sectionKey: 'operatingHours',
-        kind: 'operatingHours.weekly',
-        label: 'Monday hours',
-        helpText: null,
-        conflictPolicy: 'manual',
-        deletePolicy: 'manual',
-        policy: {},
-        importable: true,
-        exportable: true,
-        sortOrder: 1,
-        coreValue: {},
-        gbpValue: {},
-        coreCanonicalHash: 'core',
-        gbpCanonicalHash: 'gbp',
-        capability: { canImport: true, canExport: true, canIgnore: true, blockedReasons: [] },
-        state: 'gbp_dirty',
-        lastInSyncAt: null,
-        lastInSyncHash: null,
-        lastCoreChangeAt: null,
-        lastGbpChangeAt: null,
-        openCandidate: null,
-      },
-    ];
-    renderManager('rest-1', 'schedule');
-
-    expect(await screen.findAllByLabelText(/Google review/i)).not.toHaveLength(0);
-  });
-
-  it('creates missing lunch and dinner occasions and reports success', async () => {
+  it('checks meal times against the draft hours and blocks saving until fixed', async () => {
     const user = userEvent.setup();
-    setReadyAvailabilityState({ occasions: [] });
+    renderPage();
+    await openMonday(user);
 
-    renderManager();
+    const closes = screen.getByLabelText('Closes', { selector: '#availability-w1-closes' });
+    await user.clear(closes);
+    await user.type(closes, '21:00');
+    await user.tab();
+
+    expect(await screen.findByText('Dinner ends after closing (21:00)')).toBeInTheDocument();
+    expect(screen.getByText('1 issue to fix before saving')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(availabilityState.updateOperatingHours.mutateAsync).not.toHaveBeenCalled();
+    expect(availabilityState.updateServicePeriods.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('writes meal times before hours when a day closes earlier, sending weekly and special dates together', async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    availabilityState.updateServicePeriods.mutateAsync.mockImplementation(
+      async (payload: unknown) => {
+        calls.push('meals');
+        return payload;
+      },
+    );
+    availabilityState.updateOperatingHours.mutateAsync.mockImplementation(
+      async (payload: unknown) => {
+        calls.push('hours');
+        return payload;
+      },
+    );
+    renderPage();
+    await openMonday(user);
+
+    const closes = screen.getByLabelText('Closes', { selector: '#availability-w1-closes' });
+    await user.clear(closes);
+    await user.type(closes, '21:00');
+    const dinnerEnd = screen.getAllByLabelText('Meal time ends')[1]!;
+    await user.clear(dinnerEnd);
+    await user.type(dinnerEnd, '21:00');
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(calls).toEqual(['meals', 'hours']));
+    const hoursPayload = availabilityState.updateOperatingHours.mutateAsync.mock
+      .calls[0]![0] as OperatingHoursSnapshot;
+    expect(hoursPayload.weekly.find((row) => row.dayOfWeek === 1)?.closesAt).toBe('21:00');
+    expect(hoursPayload.overrides).toEqual([]);
+    expect(await screen.findByText('All changes saved')).toBeInTheDocument();
+  });
+
+  it('writes hours before meal times when a day opens longer', async () => {
+    const user = userEvent.setup();
+    const calls: string[] = [];
+    availabilityState.updateServicePeriods.mutateAsync.mockImplementation(
+      async (payload: unknown) => {
+        calls.push('meals');
+        return payload;
+      },
+    );
+    availabilityState.updateOperatingHours.mutateAsync.mockImplementation(
+      async (payload: unknown) => {
+        calls.push('hours');
+        return payload;
+      },
+    );
+    renderPage();
+    await openMonday(user);
+
+    const closes = screen.getByLabelText('Closes', { selector: '#availability-w1-closes' });
+    await user.clear(closes);
+    await user.type(closes, '23:00');
+    const dinnerEnd = screen.getAllByLabelText('Meal time ends')[1]!;
+    await user.clear(dinnerEnd);
+    await user.type(dinnerEnd, '22:30');
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(calls).toEqual(['hours', 'meals']));
+  });
+
+  it('reports a partial failure with what saved, what did not and the reason code', async () => {
+    const user = userEvent.setup();
+    availabilityState.updateOperatingHours.mutateAsync.mockRejectedValue(
+      new HttpError({ message: 'Internal Server Error', status: 500, code: 'HTTP_500' }),
+    );
+    renderPage();
+    await openMonday(user);
+
+    const closes = screen.getByLabelText('Closes', { selector: '#availability-w1-closes' });
+    await user.clear(closes);
+    await user.type(closes, '23:00');
+    const interval = screen.getByLabelText('Decrease time between booking slots by 5 minutes');
+    await user.click(interval);
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(
-      await screen.findByText('Lunch and dinner booking types are required'),
+      await screen.findByText(
+        'Opening hours and special dates not saved. Your edits are still here.',
+      ),
     ).toBeInTheDocument();
+    expect(screen.getByText(/Not attempted: Booking rules\./)).toBeInTheDocument();
+    expect(screen.getByText('HTTP_500', { selector: '.font-mono' })).toBeInTheDocument();
+    expect(screen.getByText('Not all changes saved')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(availabilityState.updateDetails.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('saves booking rules through the restaurant details endpoint', async () => {
+    const user = userEvent.setup();
+    renderPage();
 
     await user.click(
-      screen.getByRole('button', { name: 'Create missing lunch and dinner booking types' }),
+      await screen.findByLabelText('Increase last seating before closing by 15 minutes'),
     );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    await waitFor(() => {
-      expect(availabilityState.occasionService.createOccasion).toHaveBeenCalledTimes(2);
+    await waitFor(() =>
+      expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledWith({
+        bookingPolicy: null,
+        reservationIntervalMinutes: 15,
+        reservationLastSeatingBufferMinutes: 30,
+        reservationLifecycleGraceMinutes: 15,
+      }),
+    );
+    // The default table time saves with Booking types and table times, not with the rules.
+    expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(availabilityState.updateOperatingHours.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('edits the default table time in one place, beside the booking types', async () => {
+    renderPage();
+
+    const typesCard = await waitFor(() => {
+      const element = document.getElementById('booking-occasions');
+      expect(element).not.toBeNull();
+      return element as HTMLElement;
     });
-    expect(availabilityState.occasionService.createOccasion).toHaveBeenCalledWith(
-      expect.objectContaining({ key: 'lunch', label: 'Lunch' }),
+    const rulesCard = document.getElementById('booking-rules') as HTMLElement;
+
+    expect(screen.getAllByRole('textbox', { name: 'Default table time' })).toHaveLength(1);
+    expect(within(typesCard).getByRole('textbox', { name: 'Default table time' })).toHaveValue(
+      '90',
     );
-    expect(availabilityState.occasionService.createOccasion).toHaveBeenCalledWith(
-      expect.objectContaining({ key: 'dinner', label: 'Dinner' }),
+    expect(within(rulesCard).queryByText('Default table time')).not.toBeInTheDocument();
+    // Slot spacing, last seating, grace period and policy stay in Booking rules.
+    expect(within(rulesCard).getByText('Time between booking slots')).toBeInTheDocument();
+    expect(within(rulesCard).getByText('Last seating before closing')).toBeInTheDocument();
+    expect(within(rulesCard).getByText('Late grace period and booking policy')).toBeInTheDocument();
+  });
+
+  it('saves, reviews and undoes the default table time with Booking types and table times', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByLabelText('Increase default table time by 15 minutes'));
+
+    const rail = screen.getByRole('navigation', { name: 'Sections on this page' });
+    expect(within(rail).getByRole('link', { name: /Booking types/ })).toHaveTextContent('1');
+    expect(within(rail).getByRole('link', { name: /Booking rules/ })).not.toHaveTextContent('1');
+
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+    const dialog = await screen.findByTestId('settings-review-changes');
+    expect(dialog).toHaveTextContent('Booking types and table times');
+    expect(dialog).toHaveTextContent('Default table time');
+    expect(dialog).not.toHaveTextContent('Booking rules');
+    await user.click(
+      screen.getByRole('button', { name: /Undo section Booking types and table times/ }),
     );
-    expect(await screen.findByText('Required booking types created')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument());
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByLabelText('Increase default table time by 15 minutes'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledWith({
+        reservationDefaultDurationMinutes: 105,
+      }),
+    );
+    expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledTimes(1);
+    expect(availabilityState.updateTurnBands.mutateAsync).not.toHaveBeenCalled();
+    expect(availabilityState.occasionService.createOccasion).not.toHaveBeenCalled();
+    expect(availabilityState.occasionService.updateOccasion).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument());
+  });
+
+  it('reports a failed default table time save without claiming the section saved', async () => {
+    const user = userEvent.setup();
+    availabilityState.updateDetails.mutateAsync.mockRejectedValue(
+      new HttpError({ message: 'Forbidden', status: 403, code: 'FORBIDDEN' }),
+    );
+    renderPage();
+
+    await user.click(await screen.findByLabelText('Increase default table time by 15 minutes'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(
+      await screen.findByText(
+        'Booking types and table times not saved. Your edits are still here.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText('FORBIDDEN', { selector: '.font-mono' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Default table time' })).toHaveValue('105');
+    expect(availabilityState.updateTurnBands.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('flags an out-of-range default table time in Booking types and table times', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const field = await screen.findByRole('textbox', { name: 'Default table time' });
+    await user.clear(field);
+    await user.type(field, '5');
+    await user.tab();
+
+    const rail = screen.getByRole('navigation', { name: 'Sections on this page' });
+    await waitFor(() =>
+      expect(within(rail).getByRole('link', { name: /Booking types/ })).toHaveTextContent('1'),
+    );
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('lists was → now changes and undoes a section from Review changes', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByLabelText('Increase last seating before closing by 15 minutes'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Review changes' }));
+
+    const dialog = await screen.findByTestId('settings-review-changes');
+    expect(dialog).toHaveTextContent('Last seating before closing');
+    expect(dialog).toHaveTextContent('15 min');
+    expect(dialog).toHaveTextContent('30 min');
+
+    await user.click(screen.getByRole('button', { name: /Undo section Booking rules/ }));
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument());
+  });
+
+  it('adds Lunch and Dinner to the draft and creates them on save', async () => {
+    const user = userEvent.setup();
+    setReadyAvailabilityState({ occasions: [] });
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: 'Create Lunch and Dinner' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(availabilityState.occasionService.createOccasion).toHaveBeenCalledTimes(2),
+    );
+    expect(
+      availabilityState.occasionService.createOccasion.mock.calls.map(([input]) => input.key),
+    ).toEqual(['lunch', 'dinner']);
+  });
+
+  it('explains when a former route opens Availability on a section', async () => {
+    navigationState.pathname = '/app/settings/restaurant/operating-hours';
+    renderPage();
+
+    expect(await screen.findByText('Operating hours is part of Availability.')).toBeInTheDocument();
+    expect(screen.getByText('/app/settings/restaurant/operating-hours')).toBeInTheDocument();
+  });
+
+  it.each([
+    ['service-periods', 'Service periods'],
+    ['operating-hours', 'Operating hours'],
+    ['occasions', 'Booking types'],
+    ['turn-durations', 'Dining durations'],
+  ])('opens Availability from the former %s route with a dismissible note', async (slug, title) => {
+    const user = userEvent.setup();
+    navigationState.pathname = `/app/settings/restaurant/${slug}`;
+    renderPage();
+
+    expect(await screen.findByText(`${title} is part of Availability.`)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByText(`${title} is part of Availability.`)).not.toBeInTheDocument();
+  });
+
+  it('shows a retryable error when settings cannot load', async () => {
+    availabilityState.operatingHoursQuery.data = null;
+    availabilityState.operatingHoursQuery.error = new HttpError({
+      message: 'x',
+      status: 503,
+      code: 'HTTP_503',
+    });
+    renderPage();
+
+    expect(await screen.findByText('Availability settings couldn’t load')).toBeInTheDocument();
+    expect(screen.getByText('HTTP_503')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+  });
+
+  it('asks for a restaurant when none is selected', () => {
+    renderPage(null);
+    expect(screen.getByText('No restaurant selected')).toBeInTheDocument();
   });
 });
 

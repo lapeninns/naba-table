@@ -5,109 +5,94 @@ import { useCallback, useEffect, useState } from 'react';
 import type { TableZone } from './tableInventoryModel';
 import type { TableInventory } from '@/services/ops/tables';
 
+export type ZoneWithTables = { zone: TableZone; tableCount: number };
+
 export type UseTableInventoryDialogStateParams = {
   activeRestaurantId: string | null;
   tables: TableInventory[];
 };
 
+/** Zone dialog and delete confirmations. The table editor lives in `useTableEditorState`. */
 export function useTableInventoryDialogState({
   activeRestaurantId,
   tables,
 }: UseTableInventoryDialogStateParams) {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTable, setEditingTable] = useState<TableInventory | null>(null);
   const [isZoneDialogOpen, setIsZoneDialogOpen] = useState(false);
   const [editingZone, setEditingZone] = useState<TableZone | null>(null);
+  /** The zone dialog was opened from "Add table" with no zones: continue to the new table. */
+  const [zoneDialogContinuesToTable, setZoneDialogContinuesToTable] = useState(false);
+  /** Increments per zone dialog opening so the form starts fresh each time. */
+  const [zoneDialogSession, setZoneDialogSession] = useState(0);
   const [tableDeleteTarget, setTableDeleteTarget] = useState<TableInventory | null>(null);
   const [zoneDeleteTarget, setZoneDeleteTarget] = useState<TableZone | null>(null);
-  const [zoneDeleteBlockedMessage, setZoneDeleteBlockedMessage] = useState<string | null>(null);
-
-  const resetDialogState = useCallback(() => {
-    setEditingTable(null);
-    setIsDialogOpen(false);
-    setEditingZone(null);
-    setIsZoneDialogOpen(false);
-    setTableDeleteTarget(null);
-    setZoneDeleteTarget(null);
-    setZoneDeleteBlockedMessage(null);
-  }, []);
+  const [zoneWithTables, setZoneWithTables] = useState<ZoneWithTables | null>(null);
 
   useEffect(() => {
-    resetDialogState();
-  }, [activeRestaurantId, resetDialogState]);
+    setEditingZone(null);
+    setIsZoneDialogOpen(false);
+    setZoneDialogContinuesToTable(false);
+    setTableDeleteTarget(null);
+    setZoneDeleteTarget(null);
+    setZoneWithTables(null);
+  }, [activeRestaurantId]);
 
-  const openNewTableDialog = useCallback(() => {
-    setEditingTable(null);
-    setIsDialogOpen(true);
+  const openZoneDialog = useCallback((zone: TableZone | null, continueToTable = false) => {
+    setEditingZone(zone);
+    setZoneDialogContinuesToTable(continueToTable);
+    setZoneDialogSession((session) => session + 1);
+    setIsZoneDialogOpen(true);
   }, []);
 
-  const closeOpenDialogs = useCallback(() => {
-    if (isDialogOpen) setIsDialogOpen(false);
-    if (isZoneDialogOpen) setIsZoneDialogOpen(false);
-  }, [isDialogOpen, isZoneDialogOpen]);
-
+  /** A zone that still has tables can't be deleted; explain why instead of confirming. */
   const handleZoneDelete = useCallback(
     (zone: TableZone) => {
-      const tablesInZone = tables.filter((table) => table.zoneId === zone.id);
-      if (tablesInZone.length > 0) {
-        setZoneDeleteBlockedMessage(
-          `${zone.name} still has ${tablesInZone.length} table${
-            tablesInZone.length === 1 ? '' : 's'
-          }. Move or delete those tables before deleting the zone.`,
-        );
+      const tableCount = tables.filter((table) => table.zoneId === zone.id).length;
+      if (tableCount > 0) {
+        setZoneWithTables({ zone, tableCount });
         return;
       }
-
-      setZoneDeleteBlockedMessage(null);
       setZoneDeleteTarget(zone);
     },
     [tables],
   );
 
-  const handleTableDialogOpenChange = useCallback((open: boolean) => {
-    setIsDialogOpen(open);
-  }, []);
-
   const handleTableDeleteOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setTableDeleteTarget(null);
-    }
+    if (!open) setTableDeleteTarget(null);
   }, []);
 
   const handleZoneDialogOpenChange = useCallback((open: boolean) => {
     setIsZoneDialogOpen(open);
     if (!open) {
       setEditingZone(null);
+      setZoneDialogContinuesToTable(false);
     }
   }, []);
 
   const handleZoneDeleteOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      setZoneDeleteTarget(null);
-    }
+    if (!open) setZoneDeleteTarget(null);
+  }, []);
+
+  const handleZoneWithTablesOpenChange = useCallback((open: boolean) => {
+    if (!open) setZoneWithTables(null);
   }, []);
 
   return {
-    closeOpenDialogs,
-    editingTable,
     editingZone,
     handleTableDeleteOpenChange,
-    handleTableDialogOpenChange,
     handleZoneDelete,
     handleZoneDeleteOpenChange,
     handleZoneDialogOpenChange,
-    isDialogOpen,
+    handleZoneWithTablesOpenChange,
     isZoneDialogOpen,
-    openNewTableDialog,
-    setEditingTable,
-    setEditingZone,
-    setIsDialogOpen,
+    openZoneDialog,
     setIsZoneDialogOpen,
     setTableDeleteTarget,
-    setZoneDeleteBlockedMessage,
     setZoneDeleteTarget,
+    setZoneWithTables,
     tableDeleteTarget,
-    zoneDeleteBlockedMessage,
     zoneDeleteTarget,
+    zoneDialogContinuesToTable,
+    zoneDialogSession,
+    zoneWithTables,
   } as const;
 }

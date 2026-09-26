@@ -1,6 +1,6 @@
 export function formatLastSync(value: string | null): string {
   if (!value) {
-    return 'Never synced';
+    return 'Not checked yet';
   }
 
   const parsed = new Date(value);

@@ -28,6 +28,8 @@ export interface DualSyncPublishPreviewDialogProps {
   readonly isPublishing: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly onConfirm: () => void;
+  /** `import`: Google values are saved in Nabatable only; nothing is sent to Google. */
+  readonly purpose?: 'publish' | 'import';
 }
 
 export function DualSyncPublishPreviewDialog({
@@ -36,6 +38,7 @@ export function DualSyncPublishPreviewDialog({
   isPublishing,
   onOpenChange,
   onConfirm,
+  purpose = 'publish',
 }: DualSyncPublishPreviewDialogProps) {
   const {
     acknowledged,
@@ -47,15 +50,20 @@ export function DualSyncPublishPreviewDialog({
     open,
     plan,
     isPublishing,
+    purpose,
   });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Review publish plan</DialogTitle>
+      <DialogContent className="max-h-[86dvh] max-w-4xl overflow-y-auto">
+        <DialogHeader className="pr-12 sm:pr-0">
+          <DialogTitle>
+            {purpose === 'import' ? 'Use values from Google?' : 'Review publish plan'}
+          </DialogTitle>
           <DialogDescription>
-            This preview was built from fresh Core and Google snapshots before publish.
+            {purpose === 'import'
+              ? 'These Google values will be saved in Nabatable only. Nothing is sent to Google.'
+              : 'This preview was built from fresh Core and Google snapshots before publish.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -64,6 +72,7 @@ export function DualSyncPublishPreviewDialog({
           needsAcknowledgement={needsAcknowledgement}
           onAcknowledgedChange={setAcknowledged}
           plan={plan}
+          purpose={purpose}
         />
 
         <DialogFooter>

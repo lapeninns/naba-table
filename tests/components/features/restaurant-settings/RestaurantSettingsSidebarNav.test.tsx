@@ -72,6 +72,38 @@ describe('RestaurantSettingsSidebarNav', () => {
     expect(props.onLinkClick).toHaveBeenCalled();
   });
 
+  it('@contract does not prefetch again when focus comes from a mouse click', async () => {
+    const user = userEvent.setup();
+    const props = renderNav();
+
+    const availabilityLink = screen.getByRole('link', { name: 'Availability & Booking types' });
+    await user.hover(availabilityLink);
+    await user.click(availabilityLink);
+
+    expect(availabilityLink).toHaveFocus();
+    expect(props.prefetchSettingsView).toHaveBeenCalledTimes(1);
+    expect(props.onLinkClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('@contract @a11y still prefetches when a link receives keyboard focus', async () => {
+    const user = userEvent.setup();
+    const props = renderNav();
+
+    // A mouse click elsewhere must not suppress a later keyboard focus.
+    await user.click(screen.getByRole('link', { name: 'Restaurant profile' }));
+    props.prefetchSettingsView.mockClear();
+
+    await user.tab();
+
+    expect(document.activeElement).not.toBe(
+      screen.getByRole('link', { name: 'Restaurant profile' }),
+    );
+    expect(props.prefetchSettingsView).toHaveBeenCalledTimes(1);
+    expect(props.prefetchSettingsView).toHaveBeenCalledWith(
+      document.activeElement?.getAttribute('href'),
+    );
+  });
+
   it('@contract renders nav badges supplied by the badge lookup', () => {
     renderNav({
       getNavBadge: vi.fn((href: string) =>
@@ -82,10 +114,61 @@ describe('RestaurantSettingsSidebarNav', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
-  it('@contract shows the unsaved-changes dot for a dirty section', () => {
-    unsavedState.entries = [{ id: 'restaurant-profile' }];
+  it('@contract labels a page with unsaved changes "Unsaved" in text, not a dot', () => {
+    unsavedState.entries = [{ id: 'restaurant-availability' }];
     renderNav();
 
-    expect(screen.getByLabelText('Unsaved changes alert')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /Availability & Booking types/ });
+    expect(within(link).getByText('Unsaved')).toBeInTheDocument();
+    expect(screen.getAllByText('Unsaved')).toHaveLength(1);
   });
+
+  it('@contract lists Restaurant setup first, then the groups by the job each page does', () => {
+    renderNav();
+
+    const nav = screen.getByRole('navigation', { name: 'Restaurant settings' });
+    const links = within(nav).getAllByRole('link');
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/app/settings/restaurant',
+      '/app/settings/restaurant/profile',
+      '/app/settings/restaurant/availability',
+      '/app/settings/restaurant/tables',
+      '/app/settings/restaurant/discovery',
+      '/app/settings/restaurant/menu',
+      '/app/settings/restaurant/team',
+      '/app/settings/restaurant/staff-communications',
+      '/app/settings/restaurant/google-business-profile',
+    ]);
+    const labels = ['Required setup', 'Restaurant details', 'Staff', 'Integrations'];
+    for (const label of labels) {
+      expect(screen.getByText(label, { selector: '[data-sidebar="group-label"]' })).toBeVisible();
+    }
+    expect(screen.queryByText('Operations')).not.toBeInTheDocument();
+    // Email Templates stays in the main app navigation, not in restaurant settings.
+    expect(within(nav).queryByRole('link', { name: /email templates/i })).toBeNull();
+  });
+
+  it('@contract marks Staff communications active and "Unsaved" from its own draft', () => {
+    unsavedState.entries = [{ id: 'restaurant-staff-communications' }];
+    renderNav({ normalizedPathname: '/settings/restaurant/staff-communications' });
+
+    const link = screen.getByRole('link', { name: /Staff communications/ });
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(within(link).getByText('Unsaved')).toBeInTheDocument();
+    expect(screen.getAllByText('Unsaved')).toHaveLength(1);
+  });
+
+  it.each(['service-periods', 'operating-hours', 'occasions', 'turn-durations'])(
+    '@contract keeps Availability active on the former %s route',
+    (slug) => {
+      renderNav({ normalizedPathname: `/settings/restaurant/${slug}` });
+
+      const active = screen
+        .getAllByRole('link')
+        .filter((link) => link.getAttribute('aria-current') === 'page');
+      expect(active.map((link) => link.getAttribute('href'))).toEqual([
+        '/app/settings/restaurant/availability',
+      ]);
+    },
+  );
 });

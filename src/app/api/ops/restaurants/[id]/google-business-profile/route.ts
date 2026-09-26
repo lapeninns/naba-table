@@ -5,6 +5,7 @@ import {
   ensureRestaurantAdminAccess,
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
+import { logger } from '@/lib/logger';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
@@ -39,6 +40,23 @@ type RouteContext = {
 
 function errorResponse(message: string, status: number, extra?: Record<string, unknown>) {
   return gbpNoStoreJson({ message, error: message, ...extra }, { status });
+}
+
+// The status is still derived from the domain message, but the response carries fixed copy and a
+// stable code only: the message can carry provider or database internals.
+function unexpectedErrorResponse(
+  error: unknown,
+  restaurantId: string,
+  action: 'link' | 'sync' | 'disconnect',
+  response: { message: string; status: number; code: string },
+) {
+  logger.error(`ops.restaurants.google-business-profile.${action} failed`, {
+    route: 'ops.restaurants.google-business-profile',
+    restaurantId,
+    status: response.status,
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+  });
+  return errorResponse(response.message, response.status, { code: response.code });
 }
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
@@ -106,10 +124,23 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     const state = await linkGoogleBusinessProfileLocation(restaurantId, payload);
     return gbpNoStoreJson(state);
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Unable to link Google Business Profile location.';
-    const status = message.includes('no longer available') ? 404 : 500;
-    return errorResponse(message, status);
+    const message = error instanceof Error ? error.message : '';
+    return unexpectedErrorResponse(
+      error,
+      restaurantId,
+      'link',
+      message.includes('no longer available')
+        ? {
+            message: 'The selected Google Business Profile location is no longer available.',
+            status: 404,
+            code: 'GBP_LOCATION_NOT_FOUND',
+          }
+        : {
+            message: 'Unable to link Google Business Profile location.',
+            status: 500,
+            code: 'GBP_LINK_FAILED',
+          },
+    );
   }
 }
 
@@ -162,20 +193,31 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : 'Unable to sync Google Business Profile business information.';
-
-    const status =
+    const message = error instanceof Error ? error.message : '';
+    return unexpectedErrorResponse(
+      error,
+      restaurantId,
+      'sync',
       message.includes('Link a Google Business Profile location') ||
-      message.includes('not connected')
-        ? 409
+        message.includes('not connected')
+        ? {
+            message:
+              'Connect Google and link a Google Business Profile location before syncing business information.',
+            status: 409,
+            code: 'GBP_LOCATION_NOT_LINKED',
+          }
         : message.includes('authorization') || message.includes('reconnect')
-          ? 409
-          : 500;
-
-    return errorResponse(message, status);
+          ? {
+              message: 'Reconnect Google Business Profile, then try again.',
+              status: 409,
+              code: 'GBP_REAUTH_REQUIRED',
+            }
+          : {
+              message: 'Unable to sync Google Business Profile business information.',
+              status: 500,
+              code: 'GBP_SYNC_FAILED',
+            },
+    );
   }
 }
 
@@ -219,8 +261,10 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    const message =
-      error instanceof Error ? error.message : 'Unable to disconnect Google Business Profile.';
-    return errorResponse(message, 500);
+    return unexpectedErrorResponse(error, restaurantId, 'disconnect', {
+      message: 'Unable to disconnect Google Business Profile.',
+      status: 500,
+      code: 'GBP_DISCONNECT_FAILED',
+    });
   }
 }

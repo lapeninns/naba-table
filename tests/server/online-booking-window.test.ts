@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 
-import { evaluateOnlineBookingWindow } from '@/server/booking/online-booking-window';
+import { evaluateOnlineBookingWindow } from '@/lib/restaurants/guest-schedule/online-booking-window';
 
 function evaluate(overrides: {
   readonly durationMinutes?: number;

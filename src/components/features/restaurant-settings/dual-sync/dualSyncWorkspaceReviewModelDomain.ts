@@ -1,5 +1,4 @@
 import {
-  getDualSyncAccordionValues,
   getOrderedDualSyncSectionKeys,
   getVisibleDualSyncFields,
   groupDualSyncFieldsBySection,
@@ -21,7 +20,6 @@ export interface DualSyncWorkspaceReviewModel {
   readonly workspaceProgress: WorkspaceReviewProgress;
   readonly fieldsBySection: ReadonlyMap<DualSyncSectionKey, ReadonlyArray<DualSyncFieldSummary>>;
   readonly orderedSectionKeys: ReadonlyArray<DualSyncSectionKey>;
-  readonly orderedAccordionValues: ReadonlyArray<string>;
 }
 
 export function buildDualSyncWorkspaceReviewModel({
@@ -33,13 +31,11 @@ export function buildDualSyncWorkspaceReviewModel({
   const workspaceProgress = computeWorkspaceReviewProgress(visibleFields, decisions);
   const fieldsBySection = groupDualSyncFieldsBySection(visibleFields);
   const orderedSectionKeys = getOrderedDualSyncSectionKeys(fieldsBySection);
-  const orderedAccordionValues = getDualSyncAccordionValues(orderedSectionKeys);
 
   return {
     visibleFields,
     workspaceProgress,
     fieldsBySection,
     orderedSectionKeys,
-    orderedAccordionValues,
   };
 }

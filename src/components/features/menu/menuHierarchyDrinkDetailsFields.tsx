@@ -1,10 +1,7 @@
 'use client';
 
-import { Beer } from 'lucide-react';
-
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Text } from '@/components/ui/typography';
 
 import { type ItemFormState } from './menuHierarchyDomain';
 import { Field, SwitchField } from './menuHierarchyFormControls';
@@ -18,12 +15,8 @@ export function DrinkDetailsFields({
   readonly state: ItemFormState;
 }) {
   return (
-    <div className="rounded-md border p-4">
-      <div className="flex items-center gap-2">
-        <Beer className="size-4 text-muted-foreground" aria-hidden />
-        <Text variant="subheading" as="h3">Drink details</Text>
-      </div>
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="ABV %">
           <Input
             type="number"
@@ -76,7 +69,7 @@ export function DrinkDetailsFields({
           />
         </Field>
       </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <SwitchField
           label="Contains dairy"
           checked={state.containsDairy}
@@ -108,7 +101,7 @@ export function DrinkDetailsFields({
           onCheckedChange={(checked) => patchItemState(setState, { decafAvailable: checked })}
         />
       </div>
-      <Field label="Drink profile note" className="mt-4">
+      <Field label="Drink profile note">
         <Textarea
           value={state.drinkProfileNote}
           onChange={(event) => patchItemState(setState, { drinkProfileNote: event.target.value })}

@@ -50,5 +50,7 @@ export type GbpDriftContextValue = {
 
 export type GbpDriftProviderProps = {
   readonly restaurantId: string | null;
+  /** `false` reads cached Google state without fetching it. Defaults to `true`. */
+  readonly enabled?: boolean;
   readonly children: ReactNode;
 };

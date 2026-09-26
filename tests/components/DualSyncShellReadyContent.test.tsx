@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   dialogs: vi.fn(),
   reauthAlert: vi.fn(),
   workspaceCard: vi.fn(),
+  publishResults: vi.fn(),
 }));
 
 vi.mock('@/components/features/restaurant-settings/dual-sync/DualSyncShellDialogs', () => ({
@@ -22,6 +23,13 @@ vi.mock('@/components/features/restaurant-settings/dual-sync/DualSyncShellReauth
   DualSyncShellReauthAlert: (props: unknown) => {
     mocks.reauthAlert(props);
     return <div data-testid="reauth-alert" />;
+  },
+}));
+
+vi.mock('@/components/features/restaurant-settings/dual-sync/GbpPublishResults', () => ({
+  GbpPublishResults: (props: unknown) => {
+    mocks.publishResults(props);
+    return <div data-testid="publish-results" />;
   },
 }));
 
@@ -39,6 +47,8 @@ function makeProps(
     handleReconnect: vi.fn(),
     isReconnectPending: false,
     needsReauth: false,
+    usesExactPublish: true,
+    exactPublishActions: { result: null },
   };
   const workspace = {
     publishMutation: {
@@ -47,18 +57,10 @@ function makeProps(
   };
   const viewState = {
     autoExportable: 0,
-    canSubmit: false,
+    canPublish: false,
+    canImport: false,
+    decisionSummary: { toSend: 0, toImport: 0, ignored: 0 },
     lastSnapshotAt: null,
-    overallHeatmap: {
-      total: 0,
-      in_sync: 0,
-      drift: 0,
-      conflict: 0,
-      pending: 0,
-      failed: 0,
-      inactive: 0,
-      hasActionableState: false,
-    },
     pauseReason: 'Dual-sync is paused for this restaurant.',
     syncPaused: false,
     totalOpen: 0,
@@ -66,11 +68,9 @@ function makeProps(
   };
 
   return {
-    className: 'custom-shell',
-    onToggleDriftOnly: vi.fn(),
+    onShowDriftOnlyChange: vi.fn(),
     shellActions,
     showDriftOnly: true,
-    singleOpenSections: false,
     viewState,
     workspace,
     ...overrides,
@@ -81,15 +81,15 @@ beforeEach(() => {
   mocks.dialogs.mockClear();
   mocks.reauthAlert.mockClear();
   mocks.workspaceCard.mockClear();
+  mocks.publishResults.mockClear();
 });
 
 describe('DualSyncShellReadyContent', () => {
-  it('forwards ready-state props to dialogs and the workspace card', () => {
-    const onToggleDriftOnly = vi.fn();
+  it('forwards ready-state props to dialogs, the review card and the publish results', () => {
+    const onShowDriftOnlyChange = vi.fn();
     const props = makeProps({
-      onToggleDriftOnly,
+      onShowDriftOnlyChange,
       showDriftOnly: false,
-      singleOpenSections: true,
       workspace: {
         publishMutation: {
           isPending: true,
@@ -104,17 +104,34 @@ describe('DualSyncShellReadyContent', () => {
     expect(mocks.dialogs).toHaveBeenCalledWith({
       shellActions: props.shellActions,
       publishPending: true,
+      importPending: true,
     });
     expect(mocks.workspaceCard).toHaveBeenCalledWith({
-      className: 'custom-shell',
       workspace: props.workspace,
       shellActions: props.shellActions,
       viewState: props.viewState,
       showDriftOnly: false,
-      onToggleDriftOnly,
-      singleOpenSections: true,
+      onShowDriftOnlyChange,
     });
+    expect(mocks.publishResults).toHaveBeenCalledWith({ result: null });
     expect(mocks.reauthAlert).not.toHaveBeenCalled();
+  });
+
+  it('shows publish results only for the exact publish path', () => {
+    const props = makeProps();
+    render(
+      <DualSyncShellReadyContent
+        {...props}
+        shellActions={
+          {
+            ...props.shellActions,
+            usesExactPublish: false,
+          } as DualSyncShellReadyContentProps['shellActions']
+        }
+      />,
+    );
+
+    expect(screen.queryByTestId('publish-results')).not.toBeInTheDocument();
   });
 
   it('renders and wires the reauth alert only when the shell needs reconnect', () => {
@@ -124,7 +141,9 @@ describe('DualSyncShellReadyContent', () => {
         handleReconnect,
         isReconnectPending: true,
         needsReauth: true,
-      } as DualSyncShellReadyContentProps['shellActions'],
+        usesExactPublish: true,
+        exactPublishActions: { result: null },
+      } as unknown as DualSyncShellReadyContentProps['shellActions'],
     });
 
     render(<DualSyncShellReadyContent {...props} />);

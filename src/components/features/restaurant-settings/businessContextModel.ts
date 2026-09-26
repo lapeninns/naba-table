@@ -46,7 +46,6 @@ export type FamilyKey =
 
 export type SeedSource = Record<FamilyKey, 'core' | 'provider' | 'empty'>;
 export type DirtyState = Record<FamilyKey, boolean>;
-export type ErrorState = Partial<Record<FamilyKey, string | null>>;
 
 export type FamilyCounts = Record<FamilyKey, number>;
 
@@ -120,7 +119,6 @@ export type BusinessContextEditorState = {
   links: LinkEditor[];
   categories: CategoryEditor[];
   serviceAreas: ServiceAreaEditor[];
-  serviceAreaDraft: string;
   attributes: AttributeEditor[];
   serviceItems: ServiceItemEditor[];
   seedSource: SeedSource;
@@ -131,13 +129,14 @@ export type BusinessContextFamilyPayloadState = Pick<
   'businessDetails' | 'links' | 'categories' | 'serviceAreas' | 'attributes' | 'serviceItems'
 >;
 
-export const TAB_LABELS: Record<FamilyKey, string> = {
-  businessDetails: 'Profile basics',
-  links: 'Online links',
-  categories: 'Dining categories',
-  serviceAreas: 'Where you serve',
+/** Section names shown on the page, in the jump bar, the save bar and the success toast. */
+export const DISCOVERY_SECTION_TITLES: Record<FamilyKey, string> = {
+  businessDetails: 'Business status',
+  categories: 'Categories',
+  links: 'Links',
   attributes: 'Amenities',
   serviceItems: 'Services',
+  serviceAreas: 'Where you serve',
 };
 
 export const DISCOVERY_SECTION_ORDER: FamilyKey[] = [
@@ -150,23 +149,22 @@ export const DISCOVERY_SECTION_ORDER: FamilyKey[] = [
 ];
 
 export const DISCOVERY_SECTION_DESCRIPTIONS: Record<FamilyKey, string> = {
-  businessDetails: 'Opening status and whether this restaurant also serves guests off-site.',
-  categories: 'The main dining categories guests and profile providers use to describe the venue.',
-  serviceAreas: 'Places or regions this restaurant serves beyond the venue.',
-  attributes: 'Useful amenities and profile facts guests may care about.',
-  serviceItems: 'Services or offers that help describe what the restaurant provides.',
-  links: 'Website, menu, reservation, ordering, chat, and social links guests may use.',
+  businessDetails: 'Whether you’re open, and since when.',
+  categories: 'What kind of place you are. The main category matters most.',
+  links: 'Your website and social pages.',
+  attributes: '“Not set” means you haven’t said either way. Guests see Yes and No.',
+  serviceItems: 'Things you offer beyond the menu, such as private dining.',
+  serviceAreas:
+    'Whether you deliver or cater away from the restaurant, and the towns or areas you cover. Leave it off if guests only come to you.',
 };
 
-export const SYNC_POSTURE: Record<FamilyKey, string> = {
-  businessDetails: 'These basics support public profile checks and guest-facing listings.',
-  links: 'Use these links on public profiles, menus, ordering journeys, and customer messages.',
-  categories: 'Categories help guests and profile providers understand what the restaurant offers.',
-  serviceAreas: 'Add areas only when the restaurant serves guests beyond the venue.',
-  attributes:
-    'Use amenities to capture helpful profile details such as accessibility or facilities.',
-  serviceItems: 'Use services to describe optional offers beyond the standard reservation flow.',
-};
+/**
+ * In-page anchor of each section. Kept stable because Google review links elsewhere in settings
+ * (`gbp-drift/sectionRoutes.ts`) deep-link to these ids.
+ */
+export function discoverySectionAnchorId(family: FamilyKey): string {
+  return `profile-discovery-${family}`;
+}
 
 export const LINK_TYPE_OPTIONS = RESTAURANT_LINK_TYPE_OPTIONS;
 export const EDITABLE_LINK_TYPES = new Set<RestaurantEditableLinkType>(
@@ -206,16 +204,6 @@ export function makeEditorId(prefix: string): string {
 
 export function makeFieldId(family: FamilyKey, rowId: string, field: string): string {
   return `${family}-${rowId}-${field}`;
-}
-
-export function formatSeedSource(value: SeedSource[FamilyKey], providerCount: number): string {
-  if (value === 'core') {
-    return 'Showing saved values';
-  }
-  if (value === 'provider' && providerCount > 0) {
-    return 'Pre-filled from Google until you save';
-  }
-  return 'No values yet';
 }
 
 export function splitChipDraft(value: string): string[] {

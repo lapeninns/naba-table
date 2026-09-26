@@ -1,47 +1,42 @@
-import { render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it } from 'vitest';
 
 import { BusinessDetailsPanel } from '@/components/features/restaurant-settings/discovery/panels/BusinessDetailsPanel';
 
 import { makeBusinessContextEditor } from '../../testUtils';
+import { renderWithDiscoveryForm } from '../renderWithDiscoveryForm';
 
 import type { RestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 
+function renderPanel() {
+  const editor = makeBusinessContextEditor();
+  renderWithDiscoveryForm(
+    <BusinessDetailsPanel editor={editor as unknown as RestaurantBusinessContextEditor} />,
+  );
+  return editor;
+}
+
 describe('BusinessDetailsPanel', () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date(2026, 6, 11, 12, 0, 0));
+  it('@smoke shows status and opening date; the service-location switch lives in Where you serve', () => {
+    renderPanel();
+
+    expect(screen.getByRole('combobox', { name: 'Business status' })).toHaveTextContent('Open');
+    expect(screen.getByText('Opening date')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: 'We serve customers at their location' }),
+    ).not.toBeInTheDocument();
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
+  it('@contract routes status changes to the editor', async () => {
+    const user = userEvent.setup();
+    const editor = renderPanel();
 
-  it('@smoke composes status line, details form, and family actions', () => {
-    const editor = makeBusinessContextEditor();
-    render(
-      <BusinessDetailsPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
+    await user.click(screen.getByRole('combobox', { name: 'Business status' }));
+    await user.click(await screen.findByRole('option', { name: 'Closed temporarily' }));
+    expect(editor.updateBusinessDetails).toHaveBeenCalledWith(
+      'businessStatus',
+      'closed_temporarily',
     );
-
-    expect(screen.getByRole('combobox', { name: 'Business status' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save profile basics' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /Reset draft/ })).toBeDisabled();
-  });
-
-  it('@contract surfaces the family error alert', () => {
-    const editor = makeBusinessContextEditor({
-      errors: { businessDetails: 'Could not save profile basics' },
-    });
-    render(
-      <BusinessDetailsPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
-    );
-
-    expect(screen.getByRole('alert')).toHaveTextContent('Could not save profile basics');
   });
 });

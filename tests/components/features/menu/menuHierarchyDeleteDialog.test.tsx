@@ -6,6 +6,7 @@ import {
   DeleteHierarchyDialog,
   type MenuHierarchyDeleteTarget,
 } from '@/components/features/menu/menuHierarchyDeleteDialog';
+import { HttpError } from '@/lib/http/errors';
 
 import {
   makeItem,
@@ -57,8 +58,12 @@ describe('DeleteHierarchyDialog', () => {
     const menu = makeMenu();
     const { onOpenChange } = renderDialog({ type: 'menu', menu });
 
-    expect(screen.getByRole('alertdialog', { name: 'Delete menu' })).toBeInTheDocument();
-    expect(screen.getByText(/This removes Dinner Menu/)).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog', { name: 'Delete Dinner Menu?' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Dinner Menu, its 1 section and their items are deleted from Nabatable. This can’t be undone. Publishing to Google happens separately.',
+      ),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete menu' }));
 
@@ -69,6 +74,12 @@ describe('DeleteHierarchyDialog', () => {
   it('@contract deletes a section with menu and section ids', async () => {
     const user = userEvent.setup();
     renderDialog({ type: 'section', menu: makeMenu(), section: makeSection() });
+
+    expect(
+      screen.getByText(
+        /Starters and its 1 item are deleted from this menu\. This can’t be undone\./,
+      ),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Delete section' }));
 
@@ -89,7 +100,8 @@ describe('DeleteHierarchyDialog', () => {
       option: makeOption(),
     });
 
-    expect(screen.getByText(/This removes Extra bread/)).toBeInTheDocument();
+    expect(screen.getByText(/Extra bread is removed from Burrata\./)).toBeInTheDocument();
+    expect(screen.getByText(/Publishing to Google happens separately\./)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Delete option' }));
 
     expect(hooks.deleteOption.mutateAsync).toHaveBeenCalledWith({
@@ -110,14 +122,19 @@ describe('DeleteHierarchyDialog', () => {
       item: makeItem(),
     });
 
-    expect(screen.getByRole('button', { name: 'Deleting...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
 
-  it('@contract surfaces a delete error message', () => {
-    hooks.deleteMenu = mutationStub({ error: new Error('Delete rejected') });
+  it('@contract surfaces a delete failure with the reason code, not the raw message', () => {
+    hooks.deleteMenu = mutationStub({
+      error: new HttpError({ message: 'Delete rejected', status: 409, code: 'HTTP_409' }),
+    });
     renderDialog({ type: 'menu', menu: makeMenu() });
 
-    expect(screen.getByText('Delete rejected')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Not deleted. Nothing was removed. Reason code HTTP_409.',
+    );
+    expect(screen.queryByText(/Delete rejected/)).not.toBeInTheDocument();
   });
 });

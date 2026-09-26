@@ -4,16 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { GoogleBusinessProfileDisconnectDialog } from '@/components/features/restaurant-settings/google-business-profile/sections/GoogleBusinessProfileDisconnectDialog';
 
-function renderDialog(over: Partial<Parameters<typeof GoogleBusinessProfileDisconnectDialog>[0]> = {}) {
+function renderDialog(
+  over: Partial<Parameters<typeof GoogleBusinessProfileDisconnectDialog>[0]> = {},
+) {
   const handlers = { onOpenChange: vi.fn(), onConfirm: vi.fn() };
-  render(
-    <GoogleBusinessProfileDisconnectDialog
-      open
-      isPending={false}
-      {...handlers}
-      {...over}
-    />,
-  );
+  render(<GoogleBusinessProfileDisconnectDialog open isPending={false} {...handlers} {...over} />);
   return handlers;
 }
 
@@ -41,7 +36,7 @@ describe('GoogleBusinessProfileDisconnectDialog', () => {
     renderDialog({ isPending: true });
 
     expect(screen.getByLabelText('Confirm with your password')).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Disconnecting...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Disconnecting…' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
 

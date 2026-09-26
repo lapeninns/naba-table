@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 
 type UnsavedChangeEntry = {
   id: string;
@@ -108,7 +116,9 @@ export function OpsUnsavedChangesProvider({ children }: { children: ReactNode })
     [confirmNavigation, entries, hasUnsavedChanges, setEntry, clearEntry],
   );
 
-  return <OpsUnsavedChangesContext.Provider value={value}>{children}</OpsUnsavedChangesContext.Provider>;
+  return (
+    <OpsUnsavedChangesContext.Provider value={value}>{children}</OpsUnsavedChangesContext.Provider>
+  );
 }
 
 export function useOpsUnsavedChanges() {
@@ -123,6 +133,29 @@ export function useRegisterOpsUnsavedChanges(id: string, isDirty: boolean, messa
   const { clearEntry, setEntry } = useOpsUnsavedChanges();
 
   useEffect(() => {
+    setEntry(id, isDirty, message);
+    return () => clearEntry(id);
+  }, [clearEntry, id, isDirty, message, setEntry]);
+}
+
+/**
+ * Same as `useRegisterOpsUnsavedChanges`, but a no-op outside `OpsUnsavedChangesProvider`
+ * (isolated component tests, dev harnesses). Use for shared editors that may render
+ * without the ops shell.
+ */
+export function useRegisterOptionalOpsUnsavedChanges(
+  id: string,
+  isDirty: boolean,
+  message?: string,
+) {
+  const context = useContext(OpsUnsavedChangesContext);
+  const setEntry = context?.setEntry;
+  const clearEntry = context?.clearEntry;
+
+  useEffect(() => {
+    if (!setEntry || !clearEntry) {
+      return;
+    }
     setEntry(id, isDirty, message);
     return () => clearEntry(id);
   }, [clearEntry, id, isDirty, message, setEntry]);

@@ -32,14 +32,11 @@ export {
 export {
   buildItemPayload,
   buildOptionPayload,
-  deriveItemHealth,
-  itemDescription,
   itemInitialState,
   moneyLabel,
-  normalizedServiceLabel,
   optionInitialState,
 } from './menuHierarchyItemDomain';
-export type { ItemFormState, ItemHealth, OptionFormState } from './menuHierarchyItemDomain';
+export type { ItemFormState, OptionFormState } from './menuHierarchyItemDomain';
 
 export type MenuFormState = {
   displayName: string;

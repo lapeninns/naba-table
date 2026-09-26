@@ -22,13 +22,19 @@ describe('StatusBadge', () => {
     });
     expect(connectionStatusBadge('authorized')).toEqual({
       tone: 'pending',
-      label: 'Choose location',
+      label: 'Choose a location',
+    });
+    expect(connectionStatusBadge('pending_auth')).toEqual({
+      tone: 'pending',
+      label: 'Waiting for Google',
     });
     expect(connectionStatusBadge('unlinked')).toEqual({ tone: 'muted', label: 'Not connected' });
   });
 
   it('@contract can hide the tone icon', () => {
-    const { container } = render(<StatusBadge tone="muted" label="Not connected" showIcon={false} />);
+    const { container } = render(
+      <StatusBadge tone="muted" label="Not connected" showIcon={false} />,
+    );
 
     expect(container.querySelector('svg')).toBeNull();
   });

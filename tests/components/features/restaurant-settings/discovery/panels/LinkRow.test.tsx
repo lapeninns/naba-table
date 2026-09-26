@@ -1,48 +1,67 @@
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { LinkRow } from '@/components/features/restaurant-settings/discovery/panels/LinkRow';
 
 import { makeBusinessContextEditor, makeLinkRow } from '../../testUtils';
+import { renderWithDiscoveryForm } from '../renderWithDiscoveryForm';
 
 import type { LinkEditor } from '@/components/features/restaurant-settings/businessContextModel';
 import type { RestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 
-function renderRow(rowOver: Record<string, unknown> = {}) {
+function renderRow(rowOver: Record<string, unknown> = {}, showAllIssues = false) {
   const editor = makeBusinessContextEditor();
+  const onRemove = vi.fn();
   const row = makeLinkRow(rowOver) as LinkEditor;
-  render(<LinkRow row={row} editor={editor as unknown as RestaurantBusinessContextEditor} />);
-  return { editor, row };
+  renderWithDiscoveryForm(
+    <LinkRow
+      row={row}
+      editor={editor as unknown as RestaurantBusinessContextEditor}
+      onRemove={onRemove}
+    />,
+    {
+      showAllIssues,
+      issues: [
+        {
+          family: 'links',
+          fieldId: `links-${row.id}-url`,
+          message: 'Enter a full web address, starting with https://',
+          disclosures: [],
+        },
+      ],
+    },
+  );
+  return { editor, row, onRemove };
 }
 
 describe('LinkRow', () => {
-  it('@smoke @a11y renders labelled type, label, and URL fields', () => {
+  it('@smoke shows type, web address, label and the Main switch', () => {
     renderRow();
 
-    expect(screen.getByRole('combobox', { name: 'Link type' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Type' })).toHaveTextContent('Website');
+    expect(screen.getByLabelText('Web address')).toHaveValue('https://example.com');
     expect(screen.getByLabelText('Label')).toHaveValue('Website');
-    expect(screen.getByLabelText('URL')).toHaveValue('https://example.com');
-    expect(screen.getByRole('switch', { name: 'Primary' })).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Main' })).not.toBeChecked();
   });
 
-  it('@contract edits the URL field', async () => {
+  it('@contract routes edits and removal', async () => {
     const user = userEvent.setup();
-    const { editor, row } = renderRow({ url: '' });
+    const { editor, row, onRemove } = renderRow({ label: '' });
 
-    await user.type(screen.getByLabelText('URL'), 'h');
-
-    expect(editor.updateLink).toHaveBeenCalledWith(row.id, 'url', 'h');
-  });
-
-  it('@contract toggles the primary flag and removes the link', async () => {
-    const user = userEvent.setup();
-    const { editor, row } = renderRow();
-
-    await user.click(screen.getByRole('switch', { name: 'Primary' }));
+    await user.type(screen.getByLabelText('Label'), 'W');
+    expect(editor.updateLink).toHaveBeenCalledWith(row.id, 'label', 'W');
+    await user.click(screen.getByRole('switch', { name: 'Main' }));
     expect(editor.updateLink).toHaveBeenCalledWith(row.id, 'isPrimary', true);
+    await user.click(screen.getByRole('button', { name: 'Remove Website link' }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
 
-    await user.click(screen.getByRole('button', { name: 'Remove Website' }));
-    expect(editor.removeLink).toHaveBeenCalledWith(row.id);
+  it('@a11y shows the address issue after a save attempt', () => {
+    renderRow({ url: 'example.com' }, true);
+
+    const address = screen.getByLabelText('Web address');
+    expect(address).toHaveAttribute('aria-invalid', 'true');
+    expect(address).toHaveAccessibleDescription('Enter a full web address, starting with https://');
   });
 });

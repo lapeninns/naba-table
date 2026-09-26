@@ -1,9 +1,5 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -21,55 +17,99 @@ import {
   ATTRIBUTE_ADVANCED_JSON_FIELDS,
   ATTRIBUTE_ADVANCED_TEXT_FIELDS,
   ATTRIBUTE_ADVANCED_VALUE_FIELDS,
+  type AttributeFieldSpec,
 } from './attributesPanelDomain';
 import { makeFieldId, type AttributeEditor } from '../../businessContextModel';
+import {
+  DiscoveryDisclosure,
+  DiscoveryFieldError,
+  useDiscoveryField,
+} from '../DiscoveryFormContext';
+import { DISCOVERY_DISCLOSURE_IDS } from '../discoveryValidation';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 
-export function AttributeAdvancedTextFields({
+type AttributeFieldsEditor = Pick<RestaurantBusinessContextEditor, 'updateAttribute'>;
+
+type AttributeFieldProps = {
+  row: AttributeEditor;
+  editor: AttributeFieldsEditor;
+};
+
+/** Machine-readable attribute fields, shown in the mono font. */
+const MONO_FIELDS = new Set<keyof AttributeEditor>([
+  'attributeKey',
+  'attributeName',
+  'attributeId',
+  'valueType',
+  'uriValue',
+  'uriValuesText',
+  'enumValuesText',
+  'unsetEnumValuesText',
+]);
+
+function AttributeInputField({
   row,
   editor,
-}: {
-  row: AttributeEditor;
-  editor: RestaurantBusinessContextEditor;
-}) {
+  spec,
+  multiline = false,
+}: AttributeFieldProps & { spec: AttributeFieldSpec; multiline?: boolean }) {
+  const fieldId = makeFieldId('attributes', row.id, spec.field);
+  const { issue, fieldProps } = useDiscoveryField(fieldId);
+  const value = row[spec.field];
+  const onChange = (next: string) => editor.updateAttribute(row.id, spec.field, next);
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {ATTRIBUTE_ADVANCED_TEXT_FIELDS.map(({ label, field }) => (
-        <div key={field} className="space-y-2">
-          <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-          <Input
-            id={makeFieldId('attributes', row.id, field)}
-            value={row[field] as string}
-            onChange={(event) => editor.updateAttribute(row.id, field, event.target.value)}
-          />
-        </div>
+    <div className="flex min-w-0 flex-col gap-2">
+      <Label htmlFor={fieldId}>{spec.label}</Label>
+      {multiline ? (
+        <Textarea
+          {...fieldProps}
+          value={value}
+          rows={4}
+          className="font-mono text-xs"
+          onChange={(event) => onChange(event.target.value)}
+        />
+      ) : (
+        <Input
+          {...fieldProps}
+          value={value}
+          className={MONO_FIELDS.has(spec.field) ? 'font-mono' : undefined}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      )}
+      <DiscoveryFieldError fieldId={fieldId} issue={issue} />
+    </div>
+  );
+}
+
+export function AttributeAdvancedTextFields({ row, editor }: AttributeFieldProps) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {ATTRIBUTE_ADVANCED_TEXT_FIELDS.map((spec) => (
+        <AttributeInputField key={spec.field} row={row} editor={editor} spec={spec} />
       ))}
     </div>
   );
 }
 
-export function AttributeAdvancedScalarValueFields({
-  row,
-  editor,
-}: {
-  row: AttributeEditor;
-  editor: RestaurantBusinessContextEditor;
-}) {
+export function AttributeAdvancedScalarValueFields({ row, editor }: AttributeFieldProps) {
+  const boolFieldId = makeFieldId('attributes', row.id, 'boolValue');
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
-      <div className="space-y-2">
-        <Label htmlFor={makeFieldId('attributes', row.id, 'boolValue')}>Boolean value</Label>
+    <div className="grid gap-3 sm:grid-cols-3">
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label htmlFor={boolFieldId}>Yes or no value</Label>
         <Select
           value={row.boolValue}
-          onValueChange={(value) =>
-            editor.updateAttribute(row.id, 'boolValue', value as AttributeEditor['boolValue'])
-          }
+          onValueChange={(value) => {
+            const option = ATTRIBUTE_ADVANCED_BOOL_OPTIONS.find((item) => item.value === value);
+            if (option) {
+              editor.updateAttribute(row.id, 'boolValue', option.value);
+            }
+          }}
         >
-          <SelectTrigger
-            id={makeFieldId('attributes', row.id, 'boolValue')}
-            aria-label="Boolean value"
-          >
+          <SelectTrigger id={boolFieldId} className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -83,108 +123,50 @@ export function AttributeAdvancedScalarValueFields({
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-2">
-        <Label htmlFor={makeFieldId('attributes', row.id, 'textValue')}>Text value</Label>
-        <Input
-          id={makeFieldId('attributes', row.id, 'textValue')}
-          value={row.textValue}
-          onChange={(event) => editor.updateAttribute(row.id, 'textValue', event.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor={makeFieldId('attributes', row.id, 'uriValue')}>Primary URI</Label>
-        <Input
-          id={makeFieldId('attributes', row.id, 'uriValue')}
-          value={row.uriValue}
-          onChange={(event) => editor.updateAttribute(row.id, 'uriValue', event.target.value)}
-        />
-      </div>
+      <AttributeInputField
+        row={row}
+        editor={editor}
+        spec={{ label: 'Text value', field: 'textValue' }}
+      />
+      <AttributeInputField
+        row={row}
+        editor={editor}
+        spec={{ label: 'Primary link', field: 'uriValue' }}
+      />
     </div>
   );
 }
 
-export function AttributeAdvancedGuestValueFields({
-  row,
-  editor,
-}: {
-  row: AttributeEditor;
-  editor: RestaurantBusinessContextEditor;
-}) {
+export function AttributeAdvancedGuestValueFields({ row, editor }: AttributeFieldProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {ATTRIBUTE_ADVANCED_VALUE_FIELDS.map(({ label, field }) => (
-        <div key={field} className="space-y-2">
-          <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-          <Input
-            id={makeFieldId('attributes', row.id, field)}
-            value={row[field] as string}
-            onChange={(event) => editor.updateAttribute(row.id, field, event.target.value)}
-          />
-        </div>
+    <div className="grid gap-3 sm:grid-cols-2">
+      {ATTRIBUTE_ADVANCED_VALUE_FIELDS.map((spec) => (
+        <AttributeInputField key={spec.field} row={row} editor={editor} spec={spec} />
       ))}
     </div>
   );
 }
 
-export function AttributeAdvancedJsonFields({
-  row,
-  editor,
-}: {
-  row: AttributeEditor;
-  editor: RestaurantBusinessContextEditor;
-}) {
+export function AttributeAdvancedJsonFields({ row, editor }: AttributeFieldProps) {
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
-      <div className="space-y-2">
-        <Label htmlFor={makeFieldId('attributes', row.id, 'valueMetadataJson')}>
-          Value details
-        </Label>
-        <Textarea
-          id={makeFieldId('attributes', row.id, 'valueMetadataJson')}
-          value={row.valueMetadataJson}
-          rows={5}
-          onChange={(event) =>
-            editor.updateAttribute(row.id, 'valueMetadataJson', event.target.value)
-          }
-        />
-      </div>
-      <Collapsible
-        defaultOpen={false}
-        className="rounded-md border border-border/50 bg-muted/10 p-2.5"
+    <div className="flex min-w-0 flex-col gap-3">
+      <AttributeInputField
+        row={row}
+        editor={editor}
+        spec={{ label: 'Value details (JSON array)', field: 'valueMetadataJson' }}
+        multiline
+      />
+      <DiscoveryDisclosure
+        id={DISCOVERY_DISCLOSURE_IDS.attributePayload(row.id)}
+        title="Provider payload fields"
+        hint="JSON objects"
       >
-        <CollapsibleTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            className="group h-auto w-full items-start justify-between whitespace-normal px-0 py-0 text-left hover:bg-transparent"
-          >
-            <span className="flex min-w-0 flex-col gap-1">
-              <span className="text-sm font-medium text-foreground">
-                Show provider payload fields
-              </span>
-              <span className="text-xs font-normal text-muted-foreground">
-                Raw value JSON, enum value JSON, and display value JSON from providers.
-              </span>
-            </span>
-            <ChevronDown className="ml-4 size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-4">
-          <div className="grid gap-4 lg:grid-cols-3">
-            {ATTRIBUTE_ADVANCED_JSON_FIELDS.map(({ label, field }) => (
-              <div key={field} className="space-y-2">
-                <Label htmlFor={makeFieldId('attributes', row.id, field)}>{label}</Label>
-                <Textarea
-                  id={makeFieldId('attributes', row.id, field)}
-                  value={row[field] as string}
-                  rows={5}
-                  onChange={(event) => editor.updateAttribute(row.id, field, event.target.value)}
-                />
-              </div>
-            ))}
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
+        <div className="grid gap-3 lg:grid-cols-3">
+          {ATTRIBUTE_ADVANCED_JSON_FIELDS.map((spec) => (
+            <AttributeInputField key={spec.field} row={row} editor={editor} spec={spec} multiline />
+          ))}
+        </div>
+      </DiscoveryDisclosure>
     </div>
   );
 }

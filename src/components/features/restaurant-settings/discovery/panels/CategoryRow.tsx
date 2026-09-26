@@ -1,12 +1,11 @@
 'use client';
 
-import { Plus, Trash2, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/typography';
 
 import {
@@ -15,155 +14,125 @@ import {
   getMoreHoursTypeDisplayState,
 } from './categoriesPanelDomain';
 import { makeFieldId, type CategoryEditor } from '../../businessContextModel';
+import { DiscoveryFieldError, useDiscoveryField } from '../DiscoveryFormContext';
 
 import type { RestaurantBusinessContextEditor } from '../../useRestaurantBusinessContextEditor';
 import type { KeyboardEvent } from 'react';
 
-export function CategoryRow({
+type CategoryRowEditor = Pick<
+  RestaurantBusinessContextEditor,
+  'updateCategory' | 'updateMoreHoursDraft' | 'addMoreHoursTypes' | 'removeMoreHoursType'
+>;
+
+function CategoryTextField({
   row,
   editor,
+  spec,
 }: {
   row: CategoryEditor;
-  editor: RestaurantBusinessContextEditor;
+  editor: CategoryRowEditor;
+  spec: (typeof CATEGORY_TEXT_FIELDS)[number];
 }) {
-  const rowTitle = getCategoryRowTitle(row);
+  const fieldId = makeFieldId('categories', row.id, spec.field);
+  const helpId = 'helpText' in spec ? `${fieldId}-help` : undefined;
+  const { issue, fieldProps } = useDiscoveryField(fieldId, helpId);
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border/60 p-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold text-foreground">{rowTitle}</p>
-            {row.isPrimary ? <Badge variant="secondary">Primary</Badge> : null}
-          </div>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={`Remove ${rowTitle}`}
-          title="Remove category"
-          className="text-muted-foreground hover:text-destructive"
-          onClick={() => editor.removeCategory(row.id)}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {CATEGORY_TEXT_FIELDS.map(({ label, field, placeholder, helpText }) => (
-          <div key={field} className="space-y-2">
-            <Label htmlFor={makeFieldId('categories', row.id, field)}>{label}</Label>
-            <Input
-              id={makeFieldId('categories', row.id, field)}
-              aria-describedby={
-                helpText ? makeFieldId('categories', row.id, `${field}-help`) : undefined
-              }
-              value={row[field]}
-              placeholder={placeholder}
-              onChange={(event) => editor.updateCategory(row.id, field, event.target.value)}
-            />
-            {helpText ? (
-              <Text
-                variant="caption"
-                id={makeFieldId('categories', row.id, `${field}-help`)}
-              >
-                {helpText}
-              </Text>
-            ) : null}
-          </div>
+    <div className="flex min-w-0 flex-col gap-2">
+      <Label htmlFor={fieldId}>{spec.label}</Label>
+      <Input
+        {...fieldProps}
+        value={row[spec.field]}
+        placeholder={spec.placeholder}
+        className={spec.field === 'categoryCode' ? 'font-mono' : undefined}
+        onChange={(event) => editor.updateCategory(row.id, spec.field, event.target.value)}
+      />
+      {'helpText' in spec ? (
+        <Text variant="caption" id={helpId}>
+          {spec.helpText}
+        </Text>
+      ) : null}
+      <DiscoveryFieldError fieldId={fieldId} issue={issue} />
+    </div>
+  );
+}
+
+/** Advanced details of one category: name, code and extra hours types. */
+export function CategoryRow({ row, editor }: { row: CategoryEditor; editor: CategoryRowEditor }) {
+  const title = getCategoryRowTitle(row);
+  const hoursFieldId = makeFieldId('categories', row.id, 'moreHoursTypeDraft');
+
+  return (
+    <fieldset className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 p-3">
+      <legend className="px-1 text-sm font-semibold text-foreground">{title}</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {CATEGORY_TEXT_FIELDS.map((spec) => (
+          <CategoryTextField key={spec.field} row={row} editor={editor} spec={spec} />
         ))}
       </div>
-      <div className="flex items-start gap-3 border-t border-border/60 pt-4">
-        <Switch
-          id={makeFieldId('categories', row.id, 'isPrimary')}
-          aria-labelledby={makeFieldId('categories', row.id, 'isPrimary-label')}
-          checked={row.isPrimary}
-          onCheckedChange={(checked) => editor.updateCategory(row.id, 'isPrimary', checked)}
-        />
-        <div className="space-y-1">
-          <Label
-            id={makeFieldId('categories', row.id, 'isPrimary-label')}
-            htmlFor={makeFieldId('categories', row.id, 'isPrimary')}
-          >
-            Primary category
-          </Label>
-          <Text variant="caption">
-            This is the main category guests and profile providers should see first. Only one
-            category can be primary.
-          </Text>
-        </div>
-      </div>
-      <div className="space-y-3 border-t border-border/60 pt-4">
-        <Label htmlFor={makeFieldId('categories', row.id, 'moreHoursTypeDraft')}>
-          More-hours types
-        </Label>
-        <div className="space-y-2">
-          {row.moreHoursTypes.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {row.moreHoursTypes.map((moreHoursType, typeIndex) => {
-                const display = getMoreHoursTypeDisplayState(moreHoursType);
-
-                return (
-                  <Badge
-                    key={`${display.label || 'more-hours-type'}-${typeIndex}`}
-                    variant="secondary"
-                    className="gap-1.5 rounded-md py-1 pl-2 pr-1"
-                  >
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label htmlFor={hoursFieldId}>More-hours types</Label>
+        {row.moreHoursTypes.length > 0 ? (
+          <ul className="flex flex-wrap gap-2" aria-label={`More-hours types for ${title}`}>
+            {row.moreHoursTypes.map((moreHoursType, typeIndex) => {
+              const display = getMoreHoursTypeDisplayState(moreHoursType);
+              return (
+                <li key={`${display.label || 'more-hours-type'}-${typeIndex}`}>
+                  <Badge variant="secondary" className="gap-1 py-0.5 pl-2 pr-0.5 font-mono">
                     <span>{display.badgeText}</span>
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
+                      size="icon-sm"
                       aria-label={`Remove ${display.removeLabel}`}
-                      className="size-5 rounded-sm text-muted-foreground hover:bg-background hover:text-foreground"
+                      className="size-6 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:size-10"
                       onClick={() => editor.removeMoreHoursType(row.id, typeIndex)}
                     >
-                      <X className="size-3" />
+                      <X className="size-3" aria-hidden />
                     </Button>
                   </Badge>
-                );
-              })}
-            </div>
-          ) : (
-            <Text variant="caption">
-              No extra hours types are listed for this category.
-            </Text>
-          )}
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              id={makeFieldId('categories', row.id, 'moreHoursTypeDraft')}
-              value={row.moreHoursTypeDraft}
-              placeholder="Add a type, then press Enter"
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                if (nextValue.includes(',')) {
-                  editor.addMoreHoursTypes(row.id, nextValue);
-                  return;
-                }
-                editor.updateMoreHoursDraft(row.id, nextValue);
-              }}
-              onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                if (event.key === 'Enter' || event.key === ',') {
-                  event.preventDefault();
-                  editor.addMoreHoursTypes(row.id, event.currentTarget.value);
-                }
-              }}
-              onBlur={() => editor.addMoreHoursTypes(row.id, row.moreHoursTypeDraft)}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => editor.addMoreHoursTypes(row.id, row.moreHoursTypeDraft)}
-            >
-              <Plus className="size-4" />
-              Add type
-            </Button>
-          </div>
-          <Text variant="caption">
-            Add labels such as kitchen hours or happy hour when this category needs related hours.
-          </Text>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <Text variant="caption">No extra hours types for this category.</Text>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Input
+            id={hoursFieldId}
+            value={row.moreHoursTypeDraft}
+            placeholder="Add a type, then press Enter"
+            className="min-w-0 flex-[1_1_12rem] font-mono [@media(pointer:coarse)]:min-h-11"
+            onChange={(event) => {
+              const nextValue = event.target.value;
+              if (nextValue.includes(',')) {
+                editor.addMoreHoursTypes(row.id, nextValue);
+                return;
+              }
+              editor.updateMoreHoursDraft(row.id, nextValue);
+            }}
+            onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+              if (event.key === 'Enter' || event.key === ',') {
+                event.preventDefault();
+                editor.addMoreHoursTypes(row.id, event.currentTarget.value);
+              }
+            }}
+            onBlur={() => editor.addMoreHoursTypes(row.id, row.moreHoursTypeDraft)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => editor.addMoreHoursTypes(row.id, row.moreHoursTypeDraft)}
+          >
+            <Plus data-icon="inline-start" aria-hidden />
+            Add type
+          </Button>
         </div>
+        <Text variant="caption">
+          Labels such as kitchen hours or happy hour, when this category has related hours.
+        </Text>
       </div>
-    </div>
+    </fieldset>
   );
 }

@@ -3,8 +3,10 @@
 import { useCallback, useState } from 'react';
 
 import { buildDualSyncPublishPreviewReadiness } from '../dualSyncPublishRequestDomain';
+import { getDualSyncErrorMessage } from '../dualSyncShellActionDomain';
 
 import type { DualSyncToastIntent } from '../dualSyncShellActionDomain';
+import type { DualSyncDecisionEntry } from '../dualSyncWorkspaceDecisionDomain';
 import type { GbpExactPublishConfirmation } from '../GbpExactPublishDialog';
 import type { DualSyncWorkspace } from './useDualSyncWorkspace';
 import type {
@@ -20,12 +22,15 @@ interface PendingExactPreview {
 
 export function useDualSyncExactPublishActions({
   workspace,
+  decisions,
   syncPaused,
   pauseReason,
   canSubmit,
   showToast,
 }: {
   readonly workspace: DualSyncWorkspace;
+  /** The draft decisions to publish; defaults to every draft decision. */
+  readonly decisions?: Readonly<Record<string, DualSyncDecisionEntry>>;
   readonly syncPaused: boolean;
   readonly pauseReason: string;
   readonly canSubmit: boolean;
@@ -35,12 +40,13 @@ export function useDualSyncExactPublishActions({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [result, setResult] = useState<GbpPublishResponseV1 | null>(null);
   const [resultOpen, setResultOpen] = useState(false);
+  const activeDecisions = decisions ?? workspace.decisions;
 
   const createPreview = useCallback(
     async (stateData = workspace.stateQuery.data) => {
       const readiness = buildDualSyncPublishPreviewReadiness({
         stateData,
-        decisions: workspace.decisions,
+        decisions: activeDecisions,
         syncPaused,
         pauseReason,
         canSubmit,
@@ -56,11 +62,11 @@ export function useDualSyncExactPublishActions({
       } catch (error) {
         showToast({
           kind: 'error',
-          message: error instanceof Error ? error.message : 'Exact Google preview failed.',
+          message: getDualSyncErrorMessage(error, 'Exact Google preview failed.'),
         });
       }
     },
-    [canSubmit, pauseReason, showToast, syncPaused, workspace],
+    [activeDecisions, canSubmit, pauseReason, showToast, syncPaused, workspace],
   );
 
   const confirm = useCallback(
@@ -125,7 +131,7 @@ export function useDualSyncExactPublishActions({
       } catch (error) {
         showToast({
           kind: 'error',
-          message: error instanceof Error ? error.message : 'Exact Google publish failed.',
+          message: getDualSyncErrorMessage(error, 'Exact Google publish failed.'),
         });
       }
     },
@@ -142,7 +148,7 @@ export function useDualSyncExactPublishActions({
     } catch (error) {
       showToast({
         kind: 'error',
-        message: error instanceof Error ? error.message : 'Unable to refresh expired preview.',
+        message: getDualSyncErrorMessage(error, 'Unable to refresh expired preview.'),
       });
     }
   }, [createPreview, showToast, workspace.refreshMutation, workspace.stateQuery]);

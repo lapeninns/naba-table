@@ -1,7 +1,11 @@
+import { AlertCircle } from 'lucide-react';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+
+import { getSafeSettingsErrorMessage } from '../../shared/settingsErrorCopy';
 
 type GbpErrorSectionProps = {
   error: Error;
@@ -36,11 +40,17 @@ export function ErrorGbpSection({ error, onRetry }: GbpErrorSectionProps) {
     <Card variant="compact" className="border-border/70 shadow-none">
       <CardContent className="py-6">
         <Alert variant="destructive">
+          <AlertCircle className="size-4" aria-hidden />
           <AlertTitle>Unable to load Google Business Profile</AlertTitle>
           <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>{error.message}</span>
+            <span>
+              <span>
+                {getSafeSettingsErrorMessage(error, 'Google Business Profile could not be loaded.')}
+              </span>{' '}
+              Your saved settings are unchanged.
+            </span>
             <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-              Retry
+              Try again
             </Button>
           </AlertDescription>
         </Alert>
@@ -53,8 +63,8 @@ export function EmptyGbpConnectionSection() {
   return (
     <Card variant="compact" className="border-border/70 shadow-none">
       <CardContent className="py-6 text-sm text-muted-foreground">
-        Google Business Profile connection details are not available for this restaurant yet.
-        Refresh to retry.
+        Google Business Profile connection details are not available for this restaurant yet. Reload
+        the page to try again.
       </CardContent>
     </Card>
   );

@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleDashed, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleDashed, CircleSlash, ShieldAlert } from 'lucide-react';
 
 import { OpsStatusBadge } from '@/components/features/ops-shell/patterns/OpsStatusBadge';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,7 @@ const TONE_MAP: Record<StatusTone, { tone: OpsStatusTone; icon: LucideIcon }> = 
   drift: { tone: 'warning', icon: AlertTriangle },
   error: { tone: 'danger', icon: ShieldAlert },
   pending: { tone: 'info', icon: CircleDashed },
-  muted: { tone: 'muted', icon: ShieldCheck },
+  muted: { tone: 'muted', icon: CircleSlash },
 };
 
 type StatusBadgeProps = {
@@ -56,9 +56,9 @@ export function connectionStatusBadge(status: GoogleBusinessProfileConnection['s
     case 'reauth_required':
       return { tone: 'error', label: 'Reconnect needed' };
     case 'authorized':
-      return { tone: 'pending', label: 'Choose location' };
+      return { tone: 'pending', label: 'Choose a location' };
     case 'pending_auth':
-      return { tone: 'pending', label: 'Awaiting Google' };
+      return { tone: 'pending', label: 'Waiting for Google' };
     case 'unlinked':
     default:
       return { tone: 'muted', label: 'Not connected' };

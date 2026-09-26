@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -217,20 +217,45 @@ describe('OpsMenuManagementClient', () => {
     const listMenus = vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() });
     renderClient({ listMenus });
 
-    expect(screen.getAllByRole('navigation', { name: 'Menu catalogues' }).length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.getByRole('link', { name: /Food Menu/i })).toHaveAttribute(
+    expect(screen.getByRole('navigation', { name: 'Menu catalogues' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Food menus' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: /Drinks & Bar/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Food menus' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/menu?catalog=food',
+    );
+    expect(screen.getByRole('link', { name: 'Drinks and bar' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/menu?catalog=drinks',
+    );
+    expect(
+      screen.getByText(
+        'Food and drinks guests can see. Each change saves when you confirm it. Publishing to Google happens separately.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New menu' })).toBeInTheDocument();
     expect(await screen.findByText('Dinner Menu')).toBeInTheDocument();
+    // No Google note while nothing differs from Google.
+    expect(screen.queryByTestId('menu-google-note')).not.toBeInTheDocument();
     expect(screen.getAllByText('Starters').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Burrata').length).toBeGreaterThan(0);
     expect(screen.queryByText('Legacy item panels (v1 compatibility)')).not.toBeInTheDocument();
     expect(screen.queryByText(/CSV imports/i)).not.toBeInTheDocument();
-    expect(listMenus).toHaveBeenCalledWith('rest-1');
+    expect(listMenus).toHaveBeenCalledWith('rest-1', { signal: expect.any(AbortSignal) });
+  });
+
+  it('keeps ?catalog=drinks and shows only drinks and mixed menus', async () => {
+    renderClient({ searchParams: 'catalog=drinks' });
+
+    expect(screen.getByRole('link', { name: 'Drinks and bar' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(await screen.findByRole('heading', { name: 'Drinks Menu' })).toBeInTheDocument();
+    expect(screen.queryByText('Dinner Menu')).not.toBeInTheDocument();
+    expect(screen.getByText('No sections yet')).toBeInTheDocument();
   });
 
   it('shows the canonical empty state when no hierarchy menus exist', async () => {
@@ -245,25 +270,29 @@ describe('OpsMenuManagementClient', () => {
       listMenus: vi.fn().mockRejectedValue(new Error('Menu hierarchy request failed.')),
     });
 
-    expect(await screen.findByText('Unable to load menus')).toBeInTheDocument();
-    expect(screen.getByText('Menu hierarchy request failed.')).toBeInTheDocument();
+    expect(await screen.findByText('Menus could not be loaded')).toBeInTheDocument();
+    expect(screen.queryByText('Menu hierarchy request failed.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
   it('surfaces complete GBP item and option field groups in the canonical editor', async () => {
     const user = userEvent.setup();
     renderClient({ listMenus: vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() }) });
 
-    await user.click(await screen.findByRole('button', { name: 'Burrata' }));
+    await user.click(await screen.findByRole('button', { name: 'Edit Burrata' }));
 
-    expect(screen.getByText('Essentials')).toBeInTheDocument();
-    expect(screen.getByText('Primary label language')).toBeInTheDocument();
-    expect(screen.getByText('Additional Google labels')).toBeInTheDocument();
-    expect(screen.getByText('Guest menu portion size')).toBeInTheDocument();
-    expect(screen.getAllByPlaceholderText('Upper GRAM').length).toBeGreaterThan(0);
+    const dialog = await screen.findByRole('dialog', { name: 'Edit Burrata' });
+    expect(within(dialog).getByText('Item name')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: /Google details/ }));
+    expect(within(dialog).getByText('Primary label language')).toBeInTheDocument();
+    expect(within(dialog).getByText('Additional Google labels')).toBeInTheDocument();
+    expect(within(dialog).getByText('Guest menu portion size')).toBeInTheDocument();
+    expect(within(dialog).getAllByPlaceholderText('Upper GRAM').length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
-    await user.click(screen.getAllByRole('button', { name: 'Edit option Extra bread' })[0]!);
+    await user.click(within(dialog).getByRole('button', { name: /Options guests can choose/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Edit option Extra bread' }));
 
+    expect(await screen.findByRole('dialog', { name: 'Edit item option' })).toBeInTheDocument();
     expect(screen.getByText('Option Google attributes')).toBeInTheDocument();
     expect(screen.getByText('Option portion and nutrition')).toBeInTheDocument();
     expect(screen.getByText('Option media keys')).toBeInTheDocument();
@@ -343,6 +372,14 @@ describe('OpsMenuManagementClient', () => {
     ];
     renderClient({ listMenus: vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() }) });
 
-    expect(await screen.findAllByLabelText(/Google.*review/i)).not.toHaveLength(0);
+    expect(await screen.findByText('Differs from Google')).toBeInTheDocument();
+    const note = screen.getByTestId('menu-google-note');
+    expect(note).toHaveTextContent(
+      '1 item differs from what Google shows. Publishing a menu to Google replaces Google’s whole menu.',
+    );
+    expect(within(note).getByRole('link', { name: 'Google Business Profile' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/settings/restaurant/google-business-profile'),
+    );
   });
 });

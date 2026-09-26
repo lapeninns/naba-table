@@ -44,8 +44,8 @@ export function GoogleBusinessProfileDisconnectDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Disconnect Google Business Profile?</AlertDialogTitle>
           <AlertDialogDescription>
-            This restaurant will be unlinked from Google. Sync and review tools will stop using the
-            current listing until Google is reconnected.
+            Nabatable stops comparing with and publishing to this Google listing. Your Google
+            listing and Nabatable settings stay as they are.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="grid gap-2">
@@ -69,7 +69,7 @@ export function GoogleBusinessProfileDisconnectDialog({
               onConfirm(trimmedPassword);
             }}
           >
-            {isPending ? 'Disconnecting...' : 'Disconnect'}
+            {isPending ? 'Disconnecting…' : 'Disconnect'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -5,6 +5,7 @@ import { buildDefaultOpsCustomersListParams } from '@/components/features/custom
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import type { OpsCustomersPage } from '@/types/ops';
 
@@ -58,7 +59,7 @@ export function useOpsRoutePrefetch() {
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.detail(activeRestaurantId),
             queryFn: () => services.restaurantService.getProfile(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
           });
           break;
 
@@ -66,22 +67,22 @@ export function useOpsRoutePrefetch() {
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.hours(activeRestaurantId),
             queryFn: () => services.restaurantService.getOperatingHours(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.operatingHours,
           });
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.servicePeriods(activeRestaurantId),
             queryFn: () => services.restaurantService.getServicePeriods(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.servicePeriods,
           });
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsOccasions.list(),
             queryFn: () => services.occasionService.listOccasions(),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.occasions,
           });
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.turnBands(activeRestaurantId),
             queryFn: () => services.restaurantService.getTurnBands(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.turnBands,
           });
           break;
 
@@ -89,7 +90,7 @@ export function useOpsRoutePrefetch() {
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsMenuHierarchy.list(activeRestaurantId),
             queryFn: () => services.menuHierarchyService.listMenus(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.menuHierarchy,
           });
           break;
 
@@ -97,15 +98,16 @@ export function useOpsRoutePrefetch() {
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsTables.list(activeRestaurantId),
             queryFn: () => services.tableInventoryService.list(activeRestaurantId),
-            staleTime: 30_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.tables,
           });
           break;
 
         case '/settings/restaurant/team':
           void queryClient.prefetchQuery({
-            queryKey: queryKeys.team.invitations(activeRestaurantId, 'pending'),
-            queryFn: () => services.teamService.listInvites(activeRestaurantId, 'pending'),
-            staleTime: 60_000,
+            // The Team page loads every invitation once and filters on the device.
+            queryKey: queryKeys.team.invitations(activeRestaurantId, 'all'),
+            queryFn: () => services.teamService.listInvites(activeRestaurantId, 'all'),
+            staleTime: OPS_SETTINGS_STALE_TIME.teamInvitations,
           });
           break;
 
@@ -114,7 +116,7 @@ export function useOpsRoutePrefetch() {
             queryKey: queryKeys.opsRestaurants.googleBusinessProfile(activeRestaurantId),
             queryFn: () =>
               services.restaurantService.getGoogleBusinessProfileConnection(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.googleBusinessProfile,
           });
           break;
 
@@ -123,17 +125,17 @@ export function useOpsRoutePrefetch() {
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.detail(activeRestaurantId),
             queryFn: () => services.restaurantService.getProfile(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.restaurantDetail,
           });
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.hours(activeRestaurantId),
             queryFn: () => services.restaurantService.getOperatingHours(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.operatingHours,
           });
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsRestaurants.servicePeriods(activeRestaurantId),
             queryFn: () => services.restaurantService.getServicePeriods(activeRestaurantId),
-            staleTime: 60_000,
+            staleTime: OPS_SETTINGS_STALE_TIME.servicePeriods,
           });
           void queryClient.prefetchQuery({
             queryKey: queryKeys.opsTables.timeline(activeRestaurantId, {

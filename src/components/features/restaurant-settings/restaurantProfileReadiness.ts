@@ -21,7 +21,6 @@ export type ReadinessItemKey =
 type ReadinessItem = {
   key: ReadinessItemKey;
   label: string;
-  href: string;
   required: boolean;
   isComplete: (values: RestaurantDetailsFormValues, logoUrl: string | null) => boolean;
 };
@@ -49,63 +48,54 @@ const READINESS_ITEMS: readonly ReadinessItem[] = [
   {
     key: 'name',
     label: 'Restaurant name',
-    href: '#profile-identity',
     required: isRequiredReadinessKey('name'),
     isComplete: (values) => hasProfileValue(values.name),
   },
   {
     key: 'bookingUrl',
-    label: 'Public booking page URL',
-    href: '#profile-booking-url',
+    label: 'Booking page link',
     required: isRequiredReadinessKey('bookingUrl'),
     isComplete: (values) => hasProfileValue(values.slug),
   },
   {
     key: 'contactPhone',
-    label: 'Contact phone',
-    href: '#profile-contact',
+    label: 'Public phone',
     required: isRequiredReadinessKey('contactPhone'),
     isComplete: (values) => hasProfileValue(values.contactPhone),
   },
   {
     key: 'timezone',
     label: 'Timezone',
-    href: '#profile-contact',
     required: isRequiredReadinessKey('timezone'),
     isComplete: (values) => hasProfileValue(values.timezone),
   },
   {
     key: 'logo',
     label: 'Logo',
-    href: '#profile-identity',
     required: false,
     isComplete: (_values, logoUrl) => hasProfileValue(logoUrl),
   },
   {
     key: 'description',
     label: 'Business description',
-    href: '#profile-identity',
     required: false,
     isComplete: (values) => hasProfileValue(values.businessDescription),
   },
   {
     key: 'contactEmail',
     label: 'Contact email',
-    href: '#profile-contact',
     required: false,
     isComplete: (values) => hasProfileValue(values.contactEmail),
   },
   {
     key: 'address',
     label: 'Address',
-    href: '#profile-contact',
     required: false,
     isComplete: (values) => hasProfileValue(values.address),
   },
   {
     key: 'mapUrl',
     label: 'Google Maps link',
-    href: '#profile-contact',
     required: false,
     isComplete: (values) => hasProfileValue(values.googleMapUrl),
   },
@@ -114,26 +104,30 @@ const READINESS_ITEMS: readonly ReadinessItem[] = [
 export type ReadinessSummaryItem = {
   key: ReadinessItemKey;
   label: string;
-  href: string;
   required: boolean;
 };
+
+export type ReadinessChecklistItem = ReadinessSummaryItem & { complete: boolean };
 
 export function isProfileReadinessBlockingComplete(values: RestaurantDetailsFormValues): boolean {
   return isProfileSetupComplete(values);
 }
 
 /**
- * Computes the readiness summary that powers both analytics and the rendered
- * readiness checklist at the top of the Profile page (RP-UX-04). Required items
+ * Computes the readiness summary that powers both analytics and the Profile readiness
+ * checklist (RP-UX-04). Required items
  * gate "make booking link live" (RP-UX-03); the remainder enrich discovery.
  */
 export function deriveReadiness(values: RestaurantDetailsFormValues, logoUrl: string | null) {
   const toSummary = (item: ReadinessItem): ReadinessSummaryItem => ({
     key: item.key,
     label: item.label,
-    href: item.href,
     required: item.required,
   });
+  const items: ReadinessChecklistItem[] = READINESS_ITEMS.map((item) => ({
+    ...toSummary(item),
+    complete: item.isComplete(values, logoUrl),
+  }));
   const completed = READINESS_ITEMS.filter((item) => item.isComplete(values, logoUrl)).map(
     toSummary,
   );
@@ -144,6 +138,8 @@ export function deriveReadiness(values: RestaurantDetailsFormValues, logoUrl: st
   const score = Math.round((completed.length / READINESS_ITEMS.length) * 100);
 
   return {
+    /** Every item, required first, in checklist order. */
+    items,
     completed,
     missing,
     missingRequired,

@@ -90,7 +90,7 @@ export function TurnBandsEditor({
           onClick={handleAddRow}
           disabled={disabled}
         >
-          <Plus className="mr-2 size-4" aria-hidden />
+          <Plus data-icon="inline-start" aria-hidden />
           Add band
         </Button>
         {!hasOverrides && effectiveDefaults.length > 0 ? (
@@ -120,10 +120,13 @@ export function TurnBandsEditor({
         </Alert>
       ) : (
         <div className={dense ? 'space-y-2' : 'space-y-3'}>
-          <div className="grid grid-cols-12 gap-2 text-xs font-medium text-muted-foreground">
-            <span className="col-span-5">Max party size</span>
-            <span className="col-span-5">Duration (minutes)</span>
-            <span className="col-span-2 text-right">Actions</span>
+          <div
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2 text-xs font-medium text-muted-foreground"
+            aria-hidden
+          >
+            <span>Max party size</span>
+            <span>Duration (minutes)</span>
+            <span className="sr-only">Actions</span>
           </div>
 
           {bands.map((row, index) => {
@@ -131,8 +134,11 @@ export function TurnBandsEditor({
             const sizeId = `turn-band-size-${index}`;
             const durationId = `turn-band-duration-${index}`;
             return (
-              <div key={index} className="grid grid-cols-12 items-start gap-2">
-                <div className="col-span-5 space-y-1">
+              <div
+                key={index}
+                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] gap-2 items-start"
+              >
+                <div className="min-w-0 space-y-1">
                   <Label className="sr-only" htmlFor={sizeId}>
                     Max party size
                   </Label>
@@ -148,15 +154,23 @@ export function TurnBandsEditor({
                         : ''
                     }
                     aria-invalid={Boolean(error.maxPartySize)}
+                    aria-describedby={error.maxPartySize ? `${sizeId}-error` : undefined}
                     onChange={(event) => handleUpdate(index, 'maxPartySize', event.target.value)}
                     onBlur={handleSortOnBlur}
                   />
                   {error.maxPartySize ? (
-                    <Text variant="caption" className="text-destructive">{error.maxPartySize}</Text>
+                    <Text
+                      id={`${sizeId}-error`}
+                      variant="caption"
+                      className="text-destructive"
+                      role="alert"
+                    >
+                      {error.maxPartySize}
+                    </Text>
                   ) : null}
                 </div>
 
-                <div className="col-span-5 space-y-1">
+                <div className="min-w-0 space-y-1">
                   <Label className="sr-only" htmlFor={durationId}>
                     Duration in minutes
                   </Label>
@@ -172,23 +186,31 @@ export function TurnBandsEditor({
                         : ''
                     }
                     aria-invalid={Boolean(error.durationMinutes)}
+                    aria-describedby={error.durationMinutes ? `${durationId}-error` : undefined}
                     onChange={(event) => handleUpdate(index, 'durationMinutes', event.target.value)}
                   />
                   {error.durationMinutes ? (
-                    <Text variant="caption" className="text-destructive">{error.durationMinutes}</Text>
+                    <Text
+                      id={`${durationId}-error`}
+                      variant="caption"
+                      className="text-destructive"
+                      role="alert"
+                    >
+                      {error.durationMinutes}
+                    </Text>
                   ) : null}
                 </div>
 
-                <div className="col-span-2 flex items-center justify-end pt-1">
+                <div className="flex items-start justify-end">
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     disabled={disabled}
                     onClick={() => handleRemoveRow(index)}
-                    aria-label="Remove band"
+                    aria-label={`Remove band ${index + 1}`}
                   >
-                    <Trash2 className="size-4" aria-hidden />
+                    <Trash2 aria-hidden />
                   </Button>
                 </div>
               </div>

@@ -45,7 +45,7 @@ function makeField(overrides: Partial<DualSyncFieldSummary> = {}): DualSyncField
 }
 
 describe('buildDualSyncWorkspaceReviewModel', () => {
-  it('filters visible fields, groups them by section, and derives ordered accordion values', () => {
+  it('filters visible fields, groups them by section, and orders the sections', () => {
     const model = buildDualSyncWorkspaceReviewModel({
       fields: [
         makeField({ fieldKey: 'profile.later', sectionKey: 'profile', sortOrder: 2 }),
@@ -67,15 +67,6 @@ describe('buildDualSyncWorkspaceReviewModel', () => {
       'profile.later',
     ]);
     expect(model.orderedSectionKeys).toEqual(['profile', 'operatingHours']);
-    expect(model.orderedAccordionValues).toEqual([
-      'profile',
-      'operatingHours',
-      '__metrics',
-      '__pendingCandidates',
-      '__queueJobs',
-      '__publishes',
-      '__operations',
-    ]);
   });
 
   it('computes workspace progress from visible fields and draft decisions', () => {

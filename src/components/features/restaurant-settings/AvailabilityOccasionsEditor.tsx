@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/typography';
+import { Switch } from '@/components/ui/switch';
 
-import { AVAILABILITY_ANCHORS } from './availabilityAnchors';
+import { TOUCH_TARGET_CLASS } from './availability/AvailabilityFields';
 import { AvailabilityOccasionDialog } from './AvailabilityOccasionDialog';
 import {
   buildOccasionSubmitResult,
@@ -18,36 +20,69 @@ import {
   buildAvailabilityRules,
   createEmptyOccasionForm,
   formatAvailabilitySummary,
+  isServiceWindowOccasion,
   type OccasionFormErrors,
   type OccasionFormState,
 } from './availabilityOccasionsModel';
-import { AvailabilityOccasionsTable } from './AvailabilityOccasionsTable';
 import { ConfirmDialog } from './ConfirmDialog';
+import { useSettingsDiscardGuard } from './shared/useSettingsDiscardGuard';
+import { validateTurnBandRows, type TurnBandRowError } from './turnBandsDomain';
 
-import type { TurnBandRowError } from './turnBandsDomain';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type { TurnBandInput, TurnBandsPayload } from '@/services/ops/restaurants';
 
+/**
+ * "1–2 guests 75 min · 3–4 guests 90 min · larger groups 90 min". Parties bigger than every
+ * band get the last band's time, as the booking server resolves it.
+ */
+export function describeTableTimes(
+  bands: readonly TurnBandInput[] | undefined,
+  defaultBands: readonly TurnBandInput[] | undefined,
+  defaultDurationMinutes: number,
+): string {
+  const own = [...(bands ?? [])].sort((a, b) => Number(a.maxPartySize) - Number(b.maxPartySize));
+  const source = own.length > 0 ? own : [...(defaultBands ?? [])];
+  if (source.length === 0) {
+    return `all party sizes ${defaultDurationMinutes} min`;
+  }
+  let previous = 0;
+  const parts = source.map((band) => {
+    const max = Number(band.maxPartySize);
+    const range = previous + 1 === max ? `${max}` : `${previous + 1}–${max}`;
+    previous = max;
+    return `${range} guests ${band.durationMinutes} min`;
+  });
+  parts.push(`larger groups ${source[source.length - 1]!.durationMinutes} min`);
+  return `${parts.join(' · ')}${own.length === 0 ? ' (Nabatable default)' : ''}`;
+}
+
 type AvailabilityOccasionsEditorProps = {
   occasions: OpsOccasion[];
+  savedOccasions: readonly OpsOccasion[];
+  savedTurnBands: TurnBandsPayload;
   onChange: (next: OpsOccasion[]) => void;
-  turnBands?: TurnBandsPayload;
+  turnBands: TurnBandsPayload;
   turnBandDefaults?: TurnBandsPayload;
-  turnBandErrors?: Record<string, TurnBandRowError[]>;
-  onTurnBandsChange?: (optionKey: string, next: TurnBandInput[]) => void;
+  onTurnBandsChange: (optionKey: string, next: TurnBandInput[]) => void;
+  /** Opens a booking type's dialog from elsewhere on the page (Needs attention). */
+  editRequest?: { key: string; nonce: number } | null;
 };
 
 export function AvailabilityOccasionsEditor({
   occasions,
+  savedOccasions,
+  savedTurnBands,
   onChange,
   turnBands,
   turnBandDefaults,
-  turnBandErrors,
   onTurnBandsChange,
+  editRequest,
 }: AvailabilityOccasionsEditorProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<OccasionFormState>(() => createEmptyOccasionForm());
+  const [initialForm, setInitialForm] = useState<OccasionFormState | null>(null);
   const [formErrors, setFormErrors] = useState<OccasionFormErrors>({});
+  const [bandErrors, setBandErrors] = useState<TurnBandRowError[] | undefined>(undefined);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
 
@@ -60,117 +95,207 @@ export function AvailabilityOccasionsEditor({
     const result = buildAvailabilityRules(form.availabilityRules);
     return result.valid
       ? formatAvailabilitySummary(result.rules)
-      : 'Finish the rule details to preview how guests will see this occasion.';
+      : 'Finish the rule details to preview how guests will see this booking type.';
   }, [form.availabilityRules]);
 
   const openForCreate = () => {
+    const nextForm = createOccasionFormForCreate(sortedOccasions);
     setEditingKey(null);
-    setForm(createOccasionFormForCreate(sortedOccasions));
+    setForm(nextForm);
+    setInitialForm(nextForm);
     setFormErrors({});
+    setBandErrors(undefined);
     setDialogOpen(true);
   };
 
   const openForEdit = (occasion: OpsOccasion) => {
-    setEditingKey(occasion.key);
-    setForm(
-      createOccasionFormForEdit(
-        occasion,
-        (turnBands?.[occasion.key] ?? []).map((band) => ({ ...band })),
-      ),
+    const nextForm = createOccasionFormForEdit(
+      occasion,
+      (turnBands[occasion.key] ?? []).map((band) => ({ ...band })),
     );
+    setEditingKey(occasion.key);
+    setForm(nextForm);
+    setInitialForm(nextForm);
     setFormErrors({});
+    setBandErrors(undefined);
     setDialogOpen(true);
   };
 
+  // Each request carries a new nonce; the ref keeps later draft changes from reopening it.
+  const handledRequestRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!editRequest || handledRequestRef.current === editRequest.nonce) return;
+    handledRequestRef.current = editRequest.nonce;
+    const occasion = occasions.find((item) => item.key === editRequest.key);
+    if (occasion) {
+      openForEdit(occasion);
+    }
+  });
+
   const closeDialog = () => {
     setDialogOpen(false);
-    setForm(createEmptyOccasionForm());
+    setInitialForm(null);
     setEditingKey(null);
     setFormErrors({});
+    setBandErrors(undefined);
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const isFormDirty =
+    dialogOpen && initialForm !== null && JSON.stringify(form) !== JSON.stringify(initialForm);
+  const { guardOpenChange } = useSettingsDiscardGuard(
+    'availability-booking-type-dialog',
+    isFormDirty,
+    'Discard your changes to this booking type?',
+  );
 
+  const handleSubmit = () => {
     const result = buildOccasionSubmitResult(form, editingKey);
-    if (!result.ok) {
-      setFormErrors(result.errors);
+    const bands = validateTurnBandRows(form.turnBands);
+    if (
+      !result.ok ||
+      !bands.ok ||
+      (!editingKey && sortedOccasions.some((item) => item.key === form.key.trim()))
+    ) {
+      const errors = result.ok ? {} : { ...result.errors };
+      if (!editingKey && sortedOccasions.some((item) => item.key === form.key.trim())) {
+        errors.key = 'This key is already used';
+      }
+      setFormErrors(errors);
+      setBandErrors(bands.ok ? undefined : bands.errors);
       return;
     }
-
-    setFormErrors({});
-
-    if (editingKey) {
-      onChange(
-        sortedOccasions.map((occasion) =>
-          occasion.key === editingKey
-            ? updateOccasionFromSubmitValues(occasion, result.values)
-            : occasion,
-        ),
-      );
-    } else {
-      onChange([...sortedOccasions, createOccasionFromSubmitValues(result.values)]);
-    }
-
-    if (onTurnBandsChange) {
-      onTurnBandsChange(result.submittedKey, form.turnBands);
-    }
-
+    const occasion = editingKey
+      ? sortedOccasions.find((item) => item.key === editingKey)
+      : undefined;
+    onChange(
+      occasion
+        ? sortedOccasions.map((item) =>
+            item.key === editingKey ? updateOccasionFromSubmitValues(item, result.values) : item,
+          )
+        : [...sortedOccasions, createOccasionFromSubmitValues(result.values)],
+    );
+    onTurnBandsChange(result.submittedKey, form.turnBands);
     closeDialog();
-  };
-
-  const handleDelete = (occasion: OpsOccasion) => {
-    if (occasion.isBuiltin) {
-      return;
-    }
-    setPendingDeleteKey(occasion.key);
   };
 
   const confirmDelete = () => {
     if (!pendingDeleteKey) return;
     onChange(sortedOccasions.filter((item) => item.key !== pendingDeleteKey));
-    if (onTurnBandsChange) {
-      onTurnBandsChange(pendingDeleteKey, []);
-    }
+    onTurnBandsChange(pendingDeleteKey, []);
     setPendingDeleteKey(null);
+    document.querySelector<HTMLButtonElement>('[data-booking-type-add]')?.focus();
   };
 
   const pendingDeleteOccasion = pendingDeleteKey
     ? (sortedOccasions.find((item) => item.key === pendingDeleteKey) ?? null)
     : null;
 
-  const toggleOccasion = (targetKey: string, nextActive: boolean) => {
-    onChange(
-      sortedOccasions.map((occasion) =>
-        occasion.key === targetKey ? { ...occasion, isActive: nextActive } : occasion,
-      ),
-    );
-  };
-
   return (
-    <section
-      id={AVAILABILITY_ANCHORS.bookingOccasions}
-      className="flex scroll-mt-28 flex-col gap-4"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Text variant="label">Booking types</Text>
-          <Text variant="caption">
-            Control the guest-facing booking types without leaving the availability workflow.
-          </Text>
-        </div>
-        <Button type="button" onClick={openForCreate}>
-          New booking type
+    <div className="flex flex-col">
+      <div className="flex justify-end px-4 pb-3 sm:px-5">
+        <Button
+          type="button"
+          variant="outline"
+          className={TOUCH_TARGET_CLASS}
+          onClick={openForCreate}
+          data-booking-type-add
+        >
+          <Plus data-icon="inline-start" aria-hidden />
+          Add booking type
         </Button>
       </div>
-
-      <AvailabilityOccasionsTable
-        occasions={sortedOccasions}
-        turnBands={turnBands}
-        onDelete={handleDelete}
-        onEdit={openForEdit}
-        onToggleActive={toggleOccasion}
-      />
+      {sortedOccasions.length === 0 ? (
+        <div className="flex flex-col gap-1 border-t border-border/60 px-4 py-6 sm:px-5">
+          <p className="font-medium text-foreground">No booking types</p>
+          <p className="text-sm text-muted-foreground">
+            Create Lunch and Dinner to start offering meal times.
+          </p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/60 border-t border-border/60">
+          {sortedOccasions.map((occasion) => {
+            const saved = savedOccasions.find((item) => item.key === occasion.key);
+            const state = !saved
+              ? 'Added'
+              : JSON.stringify(saved) !== JSON.stringify(occasion) ||
+                  JSON.stringify(savedTurnBands[occasion.key] ?? []) !==
+                    JSON.stringify(turnBands[occasion.key] ?? [])
+                ? 'Edited'
+                : null;
+            const switchId = `availability-occasion-${occasion.key}-active`;
+            return (
+              <li
+                key={occasion.key}
+                className="grid gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:px-5"
+              >
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-foreground">
+                    <span>{occasion.label}</span>
+                    {isServiceWindowOccasion(occasion.key) ? (
+                      <Badge variant="secondary">Required for meal times</Badge>
+                    ) : null}
+                    {occasion.isActive ? null : <Badge variant="outline">Off</Badge>}
+                    {state ? <Badge variant="status-pending">{state}</Badge> : null}
+                  </div>
+                  <p className="text-xs">
+                    <span className="text-muted-foreground">Table time:</span>{' '}
+                    {describeTableTimes(
+                      turnBands[occasion.key],
+                      turnBandDefaults?.[occasion.key],
+                      occasion.defaultDurationMinutes,
+                    )}
+                  </p>
+                  <p className="text-xs">
+                    <span className="text-muted-foreground">Available:</span>{' '}
+                    {formatAvailabilitySummary(occasion.availability)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id={switchId}
+                    checked={occasion.isActive}
+                    aria-label={`${occasion.label} available to book`}
+                    onCheckedChange={(checked) =>
+                      onChange(
+                        sortedOccasions.map((item) =>
+                          item.key === occasion.key ? { ...item, isActive: checked } : item,
+                        ),
+                      )
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {occasion.isActive ? 'On' : 'Off'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={TOUCH_TARGET_CLASS}
+                    aria-label={`Edit ${occasion.label}`}
+                    onClick={() => openForEdit(occasion)}
+                  >
+                    Edit
+                  </Button>
+                  {occasion.isBuiltin ? null : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className={TOUCH_TARGET_CLASS}
+                      aria-label={`Remove ${occasion.label}`}
+                      onClick={() => setPendingDeleteKey(occasion.key)}
+                    >
+                      <Trash2 aria-hidden />
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <AvailabilityOccasionDialog
         availabilityPreview={availabilityPreview}
@@ -178,11 +303,10 @@ export function AvailabilityOccasionsEditor({
         form={form}
         formErrors={formErrors}
         open={dialogOpen}
-        showTurnBands={Boolean(onTurnBandsChange)}
         turnBandDefaults={turnBandDefaults}
-        turnBandErrors={turnBandErrors}
+        turnBandErrors={bandErrors}
         onFormChange={setForm}
-        onOpenChange={(open) => (!open ? closeDialog() : setDialogOpen(true))}
+        onOpenChange={guardOpenChange((open) => (!open ? closeDialog() : setDialogOpen(true)))}
         onSubmit={handleSubmit}
       />
 
@@ -191,16 +315,18 @@ export function AvailabilityOccasionsEditor({
         onOpenChange={(next) => {
           if (!next) setPendingDeleteKey(null);
         }}
-        title="Delete occasion?"
+        title={
+          pendingDeleteOccasion ? `Remove ${pendingDeleteOccasion.label}?` : 'Remove booking type?'
+        }
         description={
           pendingDeleteOccasion
-            ? `"${pendingDeleteOccasion.label}" will be removed from the occasion list. This cannot be undone.`
+            ? `${pendingDeleteOccasion.label} will be removed when you save. Existing bookings keep their type. To keep it, choose Cancel or turn it off instead.`
             : undefined
         }
-        confirmLabel="Delete occasion"
+        confirmLabel="Remove booking type"
         tone="destructive"
         onConfirm={confirmDelete}
       />
-    </section>
+    </div>
   );
 }

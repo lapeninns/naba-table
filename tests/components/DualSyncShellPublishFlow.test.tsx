@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -340,7 +340,9 @@ describe('DualSyncShell publish flow', () => {
     });
 
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
-    await user.click(screen.getByRole('button', { name: 'Export (1)' }));
+    expect(screen.getByText('0 to send · 0 to use from Google · 0 ignored')).toBeInTheDocument();
+    await user.click(screen.getByRole('radio', { name: 'Send to Google' }));
+    expect(screen.getByText('1 to send · 0 to use from Google · 0 ignored')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Review and publish (1)' }));
 
     expect(await screen.findByText('Confirm exact Google publish')).toBeInTheDocument();
@@ -360,6 +362,119 @@ describe('DualSyncShell publish flow', () => {
       'Provider outcome unknown. Refresh Google, verify the listing, and create a new preview.',
     );
     expect(mocks.toast.success).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Back to review' }));
+    const results = screen.getByRole('region', { name: 'Publish results' });
+    expect(within(results).getByText('Outcome unknown')).toBeInTheDocument();
+    expect(within(results).getByText('provider_outcome_unknown')).toBeInTheDocument();
+    expect(within(results).queryByText('Confirmed by Google')).not.toBeInTheDocument();
+    expect(within(results).getByText('Google did not confirm every change')).toBeInTheDocument();
+  });
+
+  it('saves Use Google choices in Nabatable only through the non-exact publish path', async () => {
+    const user = userEvent.setup();
+    const exactPreview = vi.fn();
+    const exactPublish = vi.fn();
+    const importPlan: DualSyncPublishPlan = {
+      ...makePlan(),
+      groups: [
+        {
+          ...makePlan().groups[0]!,
+          groupId: 'import_from_google:profile:location.profile',
+          direction: 'import_from_google',
+          fields: [
+            {
+              fieldKey: 'profile.phone',
+              sectionKey: 'profile',
+              action: 'import_from_google',
+              pinnedCoreHash: 'core-phone-hash',
+              pinnedGbpHash: 'gbp-phone-hash',
+            },
+          ],
+          riskLevel: 'low',
+          requiresManualConfirmation: false,
+        },
+      ],
+      warnings: [],
+    };
+    const previewPublish = vi.fn(async () => importPlan);
+    const publish = vi.fn(async () => makeResult());
+
+    mocks.useOpsDualSync.mockReturnValue({
+      stateQuery: makeQuery(
+        makeState([
+          makeField(),
+          makeField({
+            fieldKey: 'profile.website',
+            label: 'Website',
+            coreCanonicalHash: 'core-web-hash',
+            gbpCanonicalHash: 'gbp-web-hash',
+          }),
+        ]),
+      ),
+      refreshMutation: makeMutation(async () => ({})),
+      publishMutation: makeMutation(publish),
+      previewPublishMutation: makeMutation(previewPublish),
+      exactPreviewPublishMutation: makeMutation(exactPreview),
+      exactPublishMutation: makeMutation(exactPublish),
+      autoExportMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        candidatesConsidered: 0,
+        decisionsExecuted: 0,
+        publishResult: null,
+        skipped: [],
+      })),
+      retryJobMutation: makeMutation(async () => ({})),
+      cancelCandidateMutation: makeMutation(async () => ({})),
+      controlMutation: makeMutation(async () => ({
+        restaurantId: 'restaurant-1',
+        control: makeState().control,
+      })),
+      operationsQuery: makeQuery({ restaurantId: 'restaurant-1', operations: [] }),
+      jobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      candidatesQuery: makeQuery({ restaurantId: 'restaurant-1', candidates: [] }),
+      metricsQuery: makeQuery(null),
+      publishJobsQuery: makeQuery({ restaurantId: 'restaurant-1', jobs: [] }),
+      publishJobDetailQuery: makeQuery(null),
+    });
+
+    render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
+
+    const phone = screen.getByRole('group', { name: 'What to do with Phone number' });
+    const website = screen.getByRole('group', { name: 'What to do with Website' });
+    await user.click(within(phone).getByRole('radio', { name: 'Use Google’s' }));
+    await user.click(within(website).getByRole('radio', { name: 'Send to Google' }));
+
+    expect(screen.getByText('1 to send · 1 to use from Google · 0 ignored')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Use 1 Google value' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Use values from Google?' });
+    expect(previewPublish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decisions: [
+          {
+            fieldKey: 'profile.phone',
+            sectionKey: 'profile',
+            action: 'import_from_google',
+            pinnedCoreHash: 'core-phone-hash',
+            pinnedGbpHash: 'gbp-phone-hash',
+          },
+        ],
+      }),
+    );
+    expect(exactPreview).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Use 1 Google value' }));
+
+    await waitFor(() => {
+      expect(publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          decisions: [expect.objectContaining({ action: 'import_from_google' })],
+        }),
+      );
+    });
+    expect(exactPublish).not.toHaveBeenCalled();
+    expect(await screen.findByText('Google values saved in Nabatable')).toBeInTheDocument();
   });
 
   it('previews selected decisions, publishes accepted plan fields, and opens the result dialog', async () => {
@@ -399,7 +514,7 @@ describe('DualSyncShell publish flow', () => {
 
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
 
-    await user.click(screen.getByRole('button', { name: 'Export (1)' }));
+    await user.click(screen.getByRole('button', { name: 'Send all to Google (1)' }));
     await user.click(screen.getByRole('button', { name: 'Review and publish (1)' }));
 
     expect(await screen.findByText('Review publish plan')).toBeInTheDocument();
@@ -489,9 +604,12 @@ describe('DualSyncShell publish flow', () => {
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
 
     expect(screen.getByText('Dual-sync is paused.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /import latest google details/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /get latest from google/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /^review and publish$/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /resume sync/i })).toBeEnabled();
+    for (const radio of screen.getAllByRole('radio')) {
+      expect(radio).toBeDisabled();
+    }
   });
 
   it('counts only fields that need an operator choice for section bulk actions', () => {
@@ -537,10 +655,10 @@ describe('DualSyncShell publish flow', () => {
 
     render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
 
-    expect(screen.getByText('Draft progress')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import (1)' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Export (1)' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Ignore (1)' })).toBeEnabled();
+    expect(screen.getByText(/0 of 1 chosen/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Use all Google’s (1)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Send all to Google (1)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Ignore all (1)' })).toBeEnabled();
   });
 
   it('lazy-loads the pending changes panel when expanded', async () => {
@@ -571,13 +689,29 @@ describe('DualSyncShell publish flow', () => {
       publishJobDetailQuery: makeQuery(null),
     });
 
-    render(<DualSyncShell restaurantId="restaurant-1" sections={['profile']} />);
+    render(
+      <DualSyncShell
+        restaurantId="restaurant-1"
+        sections={['profile']}
+        renderEvidence={(evidence) => (
+          <div data-testid="evidence">
+            {evidence.syncControls}
+            {evidence.operationalPanels}
+          </div>
+        )}
+      />,
+    );
 
     expect(mocks.useOpsDualSync).toHaveBeenLastCalledWith(
       expect.objectContaining({ candidatesRequest: undefined }),
     );
+    const evidence = screen.getByTestId('evidence');
+    expect(within(evidence).getByRole('button', { name: 'Pause sync' })).toBeEnabled();
+    expect(
+      within(evidence).getByRole('button', { name: 'Publish queued changes (0)' }),
+    ).toBeDisabled();
 
-    await user.click(screen.getByRole('button', { name: 'Load pending changes' }));
+    await user.click(within(evidence).getByRole('button', { name: 'Pending changes' }));
 
     expect(mocks.useOpsDualSync).toHaveBeenLastCalledWith(
       expect.objectContaining({ candidatesRequest: { limit: 50, statuses: ['open'] } }),

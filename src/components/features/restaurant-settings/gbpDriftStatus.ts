@@ -11,6 +11,7 @@ import {
   buildGbpDriftSettingsSectionReviewCounts,
   mergeGbpDriftSectionStatuses,
 } from './gbpDriftStatusSections';
+import { getSafeSettingsErrorMessage } from './shared/settingsErrorCopy';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 
@@ -83,11 +84,18 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
     });
   }
 
+  if (input.fetchDeferred && input.connection === undefined) {
+    return emptyStatus({});
+  }
+
   if (input.connectionError) {
     return emptyStatus({
       label: 'Google status unavailable',
       shortLabel: 'Unavailable',
-      detail: input.connectionError.message,
+      detail: getSafeSettingsErrorMessage(
+        input.connectionError,
+        'Google status could not be loaded.',
+      ),
       isError: true,
     });
   }
@@ -101,6 +109,10 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
       detail: 'Connect Google Business Profile to compare public fields.',
       badgeTone: 'outline',
     });
+  }
+
+  if (input.fetchDeferred && input.dualSyncState === undefined && !input.dualSyncError) {
+    return emptyStatus({ isLinked: true });
   }
 
   const fields = input.dualSyncState?.fields ?? [];
@@ -137,8 +149,10 @@ export function deriveGbpDriftStatus(input: DeriveGbpDriftStatusInput): GbpDrift
       kind: 'connected_outdated',
       label: 'Google check needed',
       shortLabel: 'Check Google',
-      detail:
-        input.dualSyncError?.message ?? input.connection?.lastError ?? 'Refresh Google status.',
+      // Request errors get fixed copy; raw text can echo database or provider internals.
+      detail: input.dualSyncError
+        ? getSafeSettingsErrorMessage(input.dualSyncError, 'Google status could not be checked.')
+        : (input.connection?.lastError ?? 'Refresh Google status.'),
       badgeTone: 'destructive',
       isLoading: false,
       isError: isDualSyncError,

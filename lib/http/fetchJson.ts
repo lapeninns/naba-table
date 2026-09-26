@@ -6,6 +6,11 @@ export type FetchJsonInit = RequestInit & {
   parseJson?: (text: string) => unknown;
 };
 
+/** Options for read-only service calls; pass a TanStack Query `signal` so cancelQueries aborts the fetch. */
+export type RequestSignalOptions = {
+  readonly signal?: AbortSignal;
+};
+
 const defaultParseJson = (text: string) => JSON.parse(text) as unknown;
 
 function ensureHeaders(initHeaders?: HeadersInit): Headers {
@@ -32,7 +37,9 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
 
   const shouldTriggerAuthRedirect = response.status === 401 || response.status === 419;
   if (shouldTriggerAuthRedirect && typeof window !== 'undefined') {
-    void import('@/lib/http/sessionRedirect').then((mod) => mod.triggerSessionRedirect()).catch(() => {});
+    void import('@/lib/http/sessionRedirect')
+      .then((mod) => mod.triggerSessionRedirect())
+      .catch(() => {});
   }
 
   let text: string | null = null;
@@ -65,7 +72,10 @@ export async function fetchJson<T>(input: RequestInfo | URL, init: FetchJsonInit
   }
 
   if (!response.ok) {
-    const errorBody = typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : undefined;
+    const errorBody =
+      typeof parsed === 'object' && parsed !== null
+        ? (parsed as Record<string, unknown>)
+        : undefined;
     throw normalizeError({
       status: response.status,
       statusText: response.statusText,

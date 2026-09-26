@@ -24,13 +24,21 @@ export function removeGbpOperatorQueries(queryClient: QueryClient, restaurantId:
   queryClient.removeQueries({ queryKey: gbpOperatorQueryKeys.root(restaurantId) });
 }
 
+type InvalidateIntegrationOptions = {
+  /** The caller has just written the GBP connection from a mutation response; skip refetching it. */
+  connectionWritten?: boolean;
+};
+
 export function invalidateGoogleBusinessProfileQueries(
   queryClient: QueryClient,
   restaurantId: string,
+  { connectionWritten = false }: InvalidateIntegrationOptions = {},
 ) {
-  queryClient.invalidateQueries({
-    queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
-  });
+  if (!connectionWritten) {
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile(restaurantId),
+    });
+  }
   queryClient.invalidateQueries({
     queryKey: queryKeys.opsRestaurants.googleBusinessProfileLocations(restaurantId),
   });
@@ -48,7 +56,11 @@ export function invalidateDualSyncWorkspaceQueries(queryClient: QueryClient, res
   queryClient.invalidateQueries({ queryKey: queryKeys.opsRestaurants.detail(restaurantId) });
 }
 
-export function invalidateOpsIntegrationQueries(queryClient: QueryClient, restaurantId: string) {
-  invalidateGoogleBusinessProfileQueries(queryClient, restaurantId);
+export function invalidateOpsIntegrationQueries(
+  queryClient: QueryClient,
+  restaurantId: string,
+  options: InvalidateIntegrationOptions = {},
+) {
+  invalidateGoogleBusinessProfileQueries(queryClient, restaurantId, options);
   invalidateDualSyncWorkspaceQueries(queryClient, restaurantId);
 }

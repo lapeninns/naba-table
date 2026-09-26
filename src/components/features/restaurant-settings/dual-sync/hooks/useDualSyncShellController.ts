@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { buildDualSyncShellViewState } from '../dualSyncShellDomain';
 import { useDualSyncShellActions } from './useDualSyncShellActions';
@@ -9,57 +9,49 @@ import type { DualSyncSectionKey } from '@/server/dual-sync';
 interface UseDualSyncShellControllerArgs {
   readonly restaurantId: string;
   readonly sections?: ReadonlyArray<DualSyncSectionKey>;
-  readonly singleOpenSections: boolean;
 }
 
 export function useDualSyncShellController({
   restaurantId,
   sections,
-  singleOpenSections,
 }: UseDualSyncShellControllerArgs) {
-  const workspace = useDualSyncWorkspace({
-    restaurantId,
-    sections,
-    singleOpenSections,
-  });
+  const workspace = useDualSyncWorkspace({ restaurantId, sections });
   const [showDriftOnly, setShowDriftOnly] = useState(true);
+
+  // Any running publish or preview (exact, legacy or the Nabatable-only import) blocks writes.
+  const publishPending = Boolean(
+    workspace.exactPublishMutation?.isPending || workspace.publishMutation.isPending,
+  );
+  const previewPublishPending = Boolean(
+    workspace.exactPreviewPublishMutation?.isPending || workspace.previewPublishMutation.isPending,
+  );
 
   const shellViewState = useMemo(
     () =>
       buildDualSyncShellViewState({
         stateData: workspace.stateQuery.data,
-        decisionCount: workspace.decisionCount,
-        publishPending:
-          workspace.exactPublishMutation?.isPending ?? workspace.publishMutation.isPending,
-        previewPublishPending:
-          workspace.exactPreviewPublishMutation?.isPending ??
-          workspace.previewPublishMutation.isPending,
+        decisions: workspace.decisions,
+        publishPending,
+        previewPublishPending,
       }),
-    [
-      workspace.decisionCount,
-      workspace.exactPreviewPublishMutation?.isPending,
-      workspace.exactPublishMutation?.isPending,
-      workspace.previewPublishMutation.isPending,
-      workspace.publishMutation.isPending,
-      workspace.stateQuery.data,
-    ],
+    [previewPublishPending, publishPending, workspace.decisions, workspace.stateQuery.data],
   );
   const shellActions = useDualSyncShellActions({
     restaurantId,
     workspace,
     syncPaused: shellViewState.syncPaused,
     pauseReason: shellViewState.pauseReason,
-    canSubmit: shellViewState.canSubmit,
+    canPublish: shellViewState.canPublish,
+    canImport: shellViewState.canImport,
   });
-  const onToggleDriftOnly = useCallback(() => {
-    setShowDriftOnly((current) => !current);
-  }, []);
 
   return {
-    onToggleDriftOnly,
+    setShowDriftOnly,
     shellActions,
     shellViewState,
     showDriftOnly,
     workspace,
   };
 }
+
+export type DualSyncShellController = ReturnType<typeof useDualSyncShellController>;

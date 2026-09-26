@@ -20,6 +20,7 @@ import {
   DualSyncPendingCandidatesLoadingState,
 } from './DualSyncPendingCandidatesStates';
 import { useDualSyncPendingCandidateCancel } from './useDualSyncPendingCandidateCancel';
+import { getDualSyncErrorMessage } from '../../dualSyncShellActionDomain';
 
 import type { DualSyncOutboundCandidate } from '@/server/dual-sync';
 import type { ListDualSyncCandidatesResponse } from '@/services/ops/dual-sync';
@@ -53,7 +54,10 @@ export function DualSyncPendingCandidatesPanel({
   if (candidatesQuery.isError) {
     return (
       <DualSyncPendingCandidatesErrorState
-        message={candidatesQuery.error?.message ?? 'Unknown error.'}
+        message={getDualSyncErrorMessage(
+          candidatesQuery.error,
+          'Pending changes could not be loaded.',
+        )}
         onRetry={() => candidatesQuery.refetch()}
         className={className}
       />

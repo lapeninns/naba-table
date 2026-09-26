@@ -5,6 +5,7 @@ import { useMemo, type ReactNode } from 'react';
 
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
+import { OpsUnsavedChangesProvider } from '@/contexts/ops-unsaved-changes';
 
 import { DEV_MEMBERSHIPS, DEV_RESTAURANT_ID, DEV_USER } from '../_mocks/devSession';
 
@@ -43,7 +44,8 @@ export function OpsDevProviders({
           memberships={memberships}
           initialRestaurantId={initialRestaurantId}
         >
-          {children}
+          {/* Mirrors OpsShell: settings chrome, nav and editors require the unsaved-changes registry. */}
+          <OpsUnsavedChangesProvider>{children}</OpsUnsavedChangesProvider>
         </OpsSessionProvider>
       </OpsServicesProvider>
     </QueryClientProvider>

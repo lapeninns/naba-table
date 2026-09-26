@@ -192,10 +192,13 @@ export const NIGHTLY_SPECS = [
   'tests/e2e/ops-mobile-redesign.spec.ts',
   'tests/e2e/ops-new-bookings.spec.ts',
   'tests/e2e/ops-restaurant-settings-command-center.spec.ts',
+  'tests/e2e/ops-restaurant-settings-responsive.spec.ts',
   'tests/e2e/ops-review-growth.spec.ts',
   'tests/e2e/ops-settings-team.spec.ts',
   'tests/e2e/ops-sidebar-active-state.spec.ts',
   'tests/e2e/posthog-cookie-privacy.spec.ts',
+  'tests/e2e/settings-data-hooks.spec.ts',
+  'tests/e2e/settings-perf.spec.ts',
 ] as const;
 
 export const NIGHTLY_BROWSER_COMMANDS: readonly CiCommand[] = NIGHTLY_SPECS.map((spec) =>

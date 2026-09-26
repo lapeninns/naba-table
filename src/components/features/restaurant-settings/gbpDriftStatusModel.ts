@@ -46,6 +46,12 @@ export type DeriveGbpDriftStatusInput = {
   readonly dualSyncState: GetDualSyncStateResponse | null | undefined;
   readonly dualSyncLoading?: boolean;
   readonly dualSyncError?: Error | null;
+  /**
+   * `true` on routes that read cached Google state without fetching it. A missing (never
+   * fetched) connection or dual-sync state then derives a neutral `unknown` status instead of
+   * `not_connected`/`connected_outdated`, so a linked restaurant never shows a false badge.
+   */
+  readonly fetchDeferred?: boolean;
   readonly now?: Date;
 };
 

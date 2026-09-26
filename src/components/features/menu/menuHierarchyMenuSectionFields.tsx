@@ -17,7 +17,12 @@ import {
   type MenuFormState,
   type SectionFormState,
 } from './menuHierarchyDomain';
-import { Field, MultiCheckboxGroup, SwitchField } from './menuHierarchyFormControls';
+import {
+  Field,
+  FieldDisclosure,
+  MultiCheckboxGroup,
+  SwitchField,
+} from './menuHierarchyFormControls';
 
 import type { MenuKind } from '@/server/menu-hierarchy/types';
 import type { Dispatch, SetStateAction } from 'react';
@@ -42,15 +47,16 @@ export function MenuDialogFields({
 }) {
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Menu name">
           <Input
             value={state.displayName}
             onChange={(event) => patchMenu(setState, { displayName: event.target.value })}
+            placeholder="e.g. Dinner menu"
             required
           />
         </Field>
-        <Field label="Kind">
+        <Field label="Type" hint="Mixed menus show under both food and drinks.">
           <Select
             value={state.menuKind}
             onValueChange={(value) => patchMenu(setState, { menuKind: value as MenuKind })}
@@ -65,50 +71,59 @@ export function MenuDialogFields({
             </SelectContent>
           </Select>
         </Field>
-        <Field label="Default language">
-          <Input
-            value={state.defaultLanguageCode}
-            onChange={(event) => patchMenu(setState, { defaultLanguageCode: event.target.value })}
-          />
-        </Field>
-        <Field label="Source URL">
-          <Input
-            type="url"
-            value={state.sourceUrl}
-            onChange={(event) => patchMenu(setState, { sourceUrl: event.target.value })}
-          />
-        </Field>
       </div>
-      <Field label="Description">
+      <Field label="Description" hint="Optional">
         <Textarea
+          rows={2}
           value={state.description}
           onChange={(event) => patchMenu(setState, { description: event.target.value })}
         />
       </Field>
-      <Field label="Additional Google labels">
-        <Textarea
-          value={state.additionalLabels}
-          onChange={(event) => patchMenu(setState, { additionalLabels: event.target.value })}
-          placeholder="fr-FR | Nom du menu | Description"
-        />
-      </Field>
-      <MultiCheckboxGroup
-        label="Google cuisines"
-        options={CUISINE_OPTIONS}
-        getOptionLabel={formatEnumLabel}
-        values={state.cuisines}
-        onChange={(value, checked) =>
-          setState((current) => ({
-            ...current,
-            cuisines: toggleValue(current.cuisines, value, checked),
-          }))
-        }
-      />
       <SwitchField
-        label="Menu active"
+        label="Shown to guests"
         checked={state.active}
         onCheckedChange={(checked) => patchMenu(setState, { active: checked })}
       />
+      <FieldDisclosure
+        title="Advanced"
+        hint="Language, extra Google labels, cuisines and source web address"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Default language">
+            <Input
+              className="font-mono"
+              value={state.defaultLanguageCode}
+              onChange={(event) => patchMenu(setState, { defaultLanguageCode: event.target.value })}
+            />
+          </Field>
+          <Field label="Source URL">
+            <Input
+              type="url"
+              value={state.sourceUrl}
+              onChange={(event) => patchMenu(setState, { sourceUrl: event.target.value })}
+            />
+          </Field>
+        </div>
+        <Field label="Additional Google labels">
+          <Textarea
+            value={state.additionalLabels}
+            onChange={(event) => patchMenu(setState, { additionalLabels: event.target.value })}
+            placeholder="fr-FR | Nom du menu | Description"
+          />
+        </Field>
+        <MultiCheckboxGroup
+          label="Google cuisines"
+          options={CUISINE_OPTIONS}
+          getOptionLabel={formatEnumLabel}
+          values={state.cuisines}
+          onChange={(value, checked) =>
+            setState((current) => ({
+              ...current,
+              cuisines: toggleValue(current.cuisines, value, checked),
+            }))
+          }
+        />
+      </FieldDisclosure>
     </>
   );
 }
@@ -126,50 +141,58 @@ export function SectionDialogFields({
         <Input
           value={state.displayName}
           onChange={(event) => patchSection(setState, { displayName: event.target.value })}
+          placeholder="e.g. Starters"
           required
         />
       </Field>
-      <Field label="Description">
+      <Field label="Description" hint="Optional">
         <Textarea
+          rows={2}
           value={state.description}
           onChange={(event) => patchSection(setState, { description: event.target.value })}
         />
       </Field>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Primary label language">
-          <Input
-            value={state.languageCode}
-            onChange={(event) => patchSection(setState, { languageCode: event.target.value })}
-            placeholder="en-GB"
-          />
-        </Field>
-        <Field label="Additional Google labels">
-          <Textarea
-            value={state.additionalLabels}
-            onChange={(event) => patchSection(setState, { additionalLabels: event.target.value })}
-            placeholder="fr-FR | Nom de section | Description"
-          />
-        </Field>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Legacy category">
-          <Input
-            value={state.legacyCategory}
-            onChange={(event) => patchSection(setState, { legacyCategory: event.target.value })}
-          />
-        </Field>
-        <Field label="Legacy subcategory">
-          <Input
-            value={state.legacySubcategory}
-            onChange={(event) => patchSection(setState, { legacySubcategory: event.target.value })}
-          />
-        </Field>
-      </div>
       <SwitchField
-        label="Section active"
+        label="Shown on the menu"
         checked={state.active}
         onCheckedChange={(checked) => patchSection(setState, { active: checked })}
       />
+      <FieldDisclosure
+        title="Advanced"
+        hint="Label language, extra Google labels and legacy categories"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Primary label language">
+            <Input
+              className="font-mono"
+              value={state.languageCode}
+              onChange={(event) => patchSection(setState, { languageCode: event.target.value })}
+              placeholder="en-GB"
+            />
+          </Field>
+          <Field label="Additional Google labels">
+            <Textarea
+              value={state.additionalLabels}
+              onChange={(event) => patchSection(setState, { additionalLabels: event.target.value })}
+              placeholder="fr-FR | Nom de section | Description"
+            />
+          </Field>
+          <Field label="Legacy category">
+            <Input
+              value={state.legacyCategory}
+              onChange={(event) => patchSection(setState, { legacyCategory: event.target.value })}
+            />
+          </Field>
+          <Field label="Legacy subcategory">
+            <Input
+              value={state.legacySubcategory}
+              onChange={(event) =>
+                patchSection(setState, { legacySubcategory: event.target.value })
+              }
+            />
+          </Field>
+        </div>
+      </FieldDisclosure>
     </>
   );
 }

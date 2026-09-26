@@ -147,7 +147,7 @@ Do not broaden a bug fix into cleanup, rewrite unrelated user changes, or claim 
 - Branches use a descriptive prefix such as `codex/`, `fix/`, or `feat/`; never force-push `main`.
 - PRs must describe intent, risk, test evidence, observability impact, and rollback.
 - Keep release notes in `CHANGELOG.md`; Release Please owns release PRs and tags.
-- The `main` ruleset requires seven status checks today, all published by isolated self-hosted `nabatable-release` runner lanes: `Fast static gates`, `Coverage and performance evidence`, `Build performance and bundle budgets`, `Full Vitest suite`, `Service-role route authorization`, `Browser smoke packs`, `Primitive coverage`. `Release gate`, `Local CI / pr` and `CodeQL JavaScript and TypeScript` are **not** required because nothing currently publishes them. The full intended list lives in `docs/ci/release-gate.md`; current reality is in `docs/ci/current-state.md`.
+- The `main` ruleset requires seven status checks today, published by isolated self-hosted `nabatable-release` runner lanes by default, or by GitHub-hosted runners when the repository variable `NABATABLE_CI_RUNNER` is `hosted` (fork PRs always use hosted runners): `Fast static gates`, `Coverage and performance evidence`, `Build performance and bundle budgets`, `Full Vitest suite`, `Service-role route authorization`, `Browser smoke packs`, `Primitive coverage`. `Release gate`, `Local CI / pr` and `CodeQL JavaScript and TypeScript` are **not** required because nothing currently publishes them. The full intended list lives in `docs/ci/release-gate.md`; current reality is in `docs/ci/current-state.md`.
 
 ## Source-of-truth documentation
 
@@ -169,3 +169,13 @@ Do not broaden a bug fix into cleanup, rewrite unrelated user changes, or claim 
 - Operational control Worker: `cloudflare/operational-control/README.md`
 
 Update this guide in the same PR when commands, app boundaries, or safety rules change. Run `pnpm agents:validate` to verify its links and documented scripts.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

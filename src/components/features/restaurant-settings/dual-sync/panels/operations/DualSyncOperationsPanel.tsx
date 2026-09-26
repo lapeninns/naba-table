@@ -21,6 +21,7 @@ import {
   DualSyncOperationsErrorState,
   DualSyncOperationsLoadingState,
 } from './DualSyncOperationsStates';
+import { getDualSyncErrorMessage } from '../../dualSyncShellActionDomain';
 
 import type { ListDualSyncOperationsResponse } from '@/services/ops/dual-sync';
 import type { UseQueryResult } from '@tanstack/react-query';
@@ -47,7 +48,10 @@ export function DualSyncOperationsPanel({
     return (
       <DualSyncOperationsErrorState
         className={className}
-        message={operationsQuery.error?.message ?? 'Unknown error.'}
+        message={getDualSyncErrorMessage(
+          operationsQuery.error,
+          'Publish operations could not be loaded.',
+        )}
         onRetry={() => operationsQuery.refetch()}
       />
     );

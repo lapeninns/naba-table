@@ -1,17 +1,30 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { GbpOperatorControls } from '@/components/features/restaurant-settings/google-business-profile/components/GbpOperatorControls';
+import {
+  GbpOperatorControls,
+  type GbpOperatorState,
+} from '@/components/features/restaurant-settings/google-business-profile/components/GbpOperatorControls';
 import { HttpError } from '@/lib/http/errors';
+
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+const SENTINEL = 'SECRET_DB_DETAIL relation "x" does not exist';
 
 const mocks = vi.hoisted(() => ({
   useOpsGbpOperatorState: vi.fn(),
 }));
 
-vi.mock('@/hooks/ops/useOpsGoogleBusinessProfile', () => ({
-  useOpsGbpOperatorState: mocks.useOpsGbpOperatorState,
-}));
+function Controls({ onRequestRefresh }: { onRequestRefresh?: () => void }) {
+  return (
+    <GbpOperatorControls
+      operator={mocks.useOpsGbpOperatorState() as GbpOperatorState}
+      onRequestRefresh={onRequestRefresh}
+    />
+  );
+}
 
 function operatorHook(overrides: Record<string, unknown> = {}) {
   return {
@@ -85,14 +98,16 @@ describe('GbpOperatorControls', () => {
   });
 
   it('shows the exact connection, rollout, refresh, pending-mask, and notification state', () => {
-    render(<GbpOperatorControls restaurantId="restaurant-1" />);
+    render(<Controls />);
 
-    expect(screen.getByText('linked')).toBeInTheDocument();
-    expect(screen.getByText('eligible')).toBeInTheDocument();
-    expect(screen.getByText('Generation 7')).toBeInTheDocument();
-    expect(screen.getByText('Consent epoch 4')).toBeInTheDocument();
-    expect(screen.getByText('canary')).toBeInTheDocument();
-    expect(screen.getByText('succeeded')).toBeInTheDocument();
+    const term = (label: string) => screen.getByText(label, { selector: 'dt' });
+    expect(term('Connection status').nextElementSibling).toHaveTextContent('linked');
+    expect(term('Write state').nextElementSibling).toHaveTextContent('eligible');
+    expect(term('Connection generation').nextElementSibling).toHaveTextContent('7');
+    expect(term('Consent epoch').nextElementSibling).toHaveTextContent('4');
+    expect(term('Safe reason code').nextElementSibling).toHaveTextContent('none');
+    expect(term('Rollout').nextElementSibling).toHaveTextContent(/canary\s*Eligible/);
+    expect(term('Refresh state').nextElementSibling).toHaveTextContent('succeeded');
     expect(screen.getByText('regularHours')).toBeInTheDocument();
     expect(screen.getByText('attributes.has_delivery')).toBeInTheDocument();
     expect(screen.getByText(/participating · 2 linked locations/i)).toBeInTheDocument();
@@ -105,8 +120,8 @@ describe('GbpOperatorControls', () => {
       operatorHook({ setWriteAccessMutation: { isPending: false, mutateAsync } }),
     );
 
-    render(<GbpOperatorControls restaurantId="restaurant-1" />);
-    const disable = screen.getByRole('button', { name: /disable google writes/i });
+    render(<Controls />);
+    const disable = screen.getByRole('button', { name: /turn off google writes/i });
     expect(disable).toBeDisabled();
 
     await user.type(screen.getByLabelText(/confirm your password/i), 'correct horse');
@@ -124,8 +139,8 @@ describe('GbpOperatorControls', () => {
       }),
     );
 
-    render(<GbpOperatorControls restaurantId="restaurant-1" />);
-    const disable = screen.getByRole('button', { name: /disable notifications/i });
+    render(<Controls />);
+    const disable = screen.getByRole('button', { name: /turn off notifications/i });
     expect(disable).toBeDisabled();
 
     await user.type(screen.getByLabelText(/confirm your password/i), 'correct horse');
@@ -149,10 +164,29 @@ describe('GbpOperatorControls', () => {
       }),
     );
 
-    render(<GbpOperatorControls restaurantId="restaurant-1" />);
+    render(<Controls />);
 
     expect(screen.getByRole('alert')).toHaveTextContent(/google notification topic conflict/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/different managed topic/i);
+  });
+
+  it('shows fixed copy, never the server message, when a control update fails', async () => {
+    const user = userEvent.setup();
+    const error = new HttpError({ status: 500, message: SENTINEL });
+    const mutateAsync = vi.fn().mockRejectedValue(error);
+    mocks.useOpsGbpOperatorState.mockReturnValue(
+      operatorHook({ setWriteAccessMutation: { isPending: false, mutateAsync, error } }),
+    );
+
+    render(<Controls />);
+    await user.type(screen.getByLabelText(/confirm your password/i), 'correct horse');
+    await user.click(screen.getByRole('button', { name: /turn off google writes/i }));
+
+    const copy = 'Google controls could not be updated. Reason code: HTTP_500.';
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(copy));
+    expect(screen.getByRole('alert')).toHaveTextContent(copy);
+    expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
+    expect(JSON.stringify(vi.mocked(toast.error).mock.calls)).not.toContain('SECRET_DB_DETAIL');
   });
 
   it('fails closed when Google reports unknown pending paths', () => {
@@ -177,10 +211,15 @@ describe('GbpOperatorControls', () => {
       },
     });
 
-    render(<GbpOperatorControls restaurantId="restaurant-1" />);
+    const onRequestRefresh = vi.fn();
+    render(<Controls onRequestRefresh={onRequestRefresh} />);
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/publishing is stopped/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /publishing is stopped: google’s pending changes are unknown/i,
+    );
     expect(screen.getByText('attributes.unsupported_path')).toBeInTheDocument();
+    screen.getByRole('button', { name: 'Request a fresh refresh' }).click();
+    expect(onRequestRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('renders provider and operational outcome-unknown recovery instructions', () => {
@@ -216,7 +255,7 @@ describe('GbpOperatorControls', () => {
       },
     });
 
-    render(<GbpOperatorControls restaurantId="restaurant-1" />);
+    render(<Controls />);
 
     expect(screen.getByText(/refresh google, then create a new preview/i)).toBeInTheDocument();
     expect(screen.getByText(/verify the operational notification channel/i)).toBeInTheDocument();

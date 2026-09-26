@@ -1,11 +1,9 @@
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { getRestaurantSettingsMetadata } from '@/components/features/restaurant-settings/routes';
 
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Menu · Nab a Table Ops',
-  description: 'Manage menus, sections, items, options, and Google-compatible publishing fields.',
-};
+export const metadata: Metadata = getRestaurantSettingsMetadata('/settings/restaurant/menu');
 
 export default function RestaurantMenuSettingsPage() {
   return <OpsRestaurantSettingsClient view="menu" />;

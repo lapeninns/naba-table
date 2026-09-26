@@ -288,7 +288,7 @@ describe('useDualSyncPublishActions', () => {
     await act(async () => previewFailure.result.current.onClickPublish());
     expect(previewFailure.showToast).toHaveBeenCalledWith({
       kind: 'error',
-      message: 'Preview broke',
+      message: 'Publish preview failed. Reason code: unknown_error.',
     });
 
     vi.spyOn(crypto, 'randomUUID').mockReturnValue('client-request-1');
@@ -301,7 +301,7 @@ describe('useDualSyncPublishActions', () => {
     await act(async () => confirmFailure.result.current.onConfirmPublishPreview());
     expect(confirmFailure.showToast).toHaveBeenCalledWith({
       kind: 'error',
-      message: 'Publish broke',
+      message: 'Publish failed. Reason code: unknown_error.',
     });
   });
 });

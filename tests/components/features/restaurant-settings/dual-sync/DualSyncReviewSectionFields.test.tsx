@@ -9,7 +9,7 @@ import { makeDualSyncFieldSummary } from '../testUtils';
 import type {
   DualSyncReviewSectionFieldRowModel,
   DualSyncReviewSectionState,
-} from '@/components/features/restaurant-settings/dual-sync/dualSyncReviewAccordionDomain';
+} from '@/components/features/restaurant-settings/dual-sync/dualSyncReviewSectionDomain';
 
 const sectionState = {
   emptyMessage: 'Everything in this section matches Google.',
@@ -26,9 +26,7 @@ describe('DualSyncReviewSectionFields', () => {
       />,
     );
 
-    expect(
-      screen.getByText('Everything in this section matches Google.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Everything in this section matches Google.')).toBeInTheDocument();
   });
 
   it('@contract renders a field row per model and routes action changes by field key', async () => {
@@ -51,7 +49,7 @@ describe('DualSyncReviewSectionFields', () => {
 
     expect(screen.getByText('Business name')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('radio', { name: 'Import from Google' }));
+    await user.click(screen.getByRole('radio', { name: 'Use Google’s' }));
     expect(onSelectAction).toHaveBeenCalledWith('profile.name', 'import_from_google');
   });
 });

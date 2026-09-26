@@ -16,25 +16,23 @@ import { invalidateOpsIntegrationQueries } from '@src/hooks/ops/opsIntegrationQu
 
 import {
   deriveGoogleBusinessProfileSectionSummary,
+  describeGoogleBusinessProfileLinkedLocation,
   findGoogleBusinessProfileSelectedLocation,
   mergeGoogleBusinessProfileConnectionData,
   resolveGoogleBusinessProfileSelectedLocationValue,
 } from './googleBusinessProfileSectionStateDomain';
 import { useGoogleBusinessProfileCallbackStatus } from './useGoogleBusinessProfileCallbackStatus';
 import { useGoogleBusinessProfileSectionNavigation } from './useGoogleBusinessProfileSectionNavigation';
-import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
+import { getSafeSettingsErrorMessage } from '../shared/settingsErrorCopy';
 
 import type { PersistentGbpError } from './googleBusinessProfileWorkflow';
-import type { GoogleBusinessProfileOverviewPanelProps } from './sections';
 
 type UseGoogleBusinessProfileSectionStateOptions = {
   restaurantId: string | null;
-  hasSyncWorkspace: boolean;
 };
 
 export function useGoogleBusinessProfileSectionState({
   restaurantId,
-  hasSyncWorkspace,
 }: UseGoogleBusinessProfileSectionStateOptions) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -52,16 +50,13 @@ export function useGoogleBusinessProfileSectionState({
 
   const [selectedLocationValue, setSelectedLocationValue] = useState('');
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false);
+  const [locationChooserOpen, setLocationChooserOpen] = useState(false);
   const [persistentError, setPersistentError] = useState<PersistentGbpError | null>(null);
 
   useGoogleBusinessProfileCallbackStatus({
     searchParams,
     setPersistentError,
   });
-  const { chooseLocationAnchor, selectAnchor } = useGoogleBusinessProfileSectionNavigation({
-    hasSyncWorkspace,
-  });
-
   const data = useMemo(
     () =>
       mergeGoogleBusinessProfileConnectionData({
@@ -116,12 +111,12 @@ export function useGoogleBusinessProfileSectionState({
             toast.success('Google Business Profile disconnected.');
           },
           onError: (error) => {
-            setPersistentError({
-              kind: 'disconnect',
-              title: 'Disconnect failed',
-              message: error.message,
-            });
-            toast.error(error.message);
+            const message = getSafeSettingsErrorMessage(
+              error,
+              'Google Business Profile could not be disconnected.',
+            );
+            setPersistentError({ kind: 'disconnect', title: 'Disconnect failed', message });
+            toast.error(message);
           },
         },
       );
@@ -145,15 +140,13 @@ export function useGoogleBusinessProfileSectionState({
       {
         onSuccess: () => {
           setPersistentError(null);
+          setLocationChooserOpen(false);
           toast.success('Google Business Profile location linked.');
         },
         onError: (error) => {
-          setPersistentError({
-            kind: 'link',
-            title: 'Location link failed',
-            message: error.message,
-          });
-          toast.error(error.message);
+          const message = getSafeSettingsErrorMessage(error, 'The location could not be linked.');
+          setPersistentError({ kind: 'link', title: 'Location link failed', message });
+          toast.error(message);
         },
       },
     );
@@ -170,12 +163,16 @@ export function useGoogleBusinessProfileSectionState({
         window.location.assign(authorizationUrl);
       },
       onError: (error) => {
+        const message = getSafeSettingsErrorMessage(
+          error,
+          'Google authorization could not be started.',
+        );
         setPersistentError({
           kind: 'authorization',
           title: 'Google authorization failed',
-          message: error.message,
+          message,
         });
-        toast.error(error.message);
+        toast.error(message);
       },
     });
   }, [startAuthorizationMutation]);
@@ -190,7 +187,6 @@ export function useGoogleBusinessProfileSectionState({
     [disconnectMutation.isPending],
   );
 
-  const gbpDrift = useOptionalGbpDrift();
   const summary = useMemo(
     () =>
       deriveGoogleBusinessProfileSectionSummary({
@@ -198,6 +194,17 @@ export function useGoogleBusinessProfileSectionState({
         locationsError: locationsQuery.error,
       }),
     [data, locationsQuery.error],
+  );
+
+  useGoogleBusinessProfileSectionNavigation({
+    canReview: summary.canReview,
+    ready: Boolean(data),
+  });
+
+  const linkedLocation = useMemo(
+    () =>
+      data && summary.hasLinkedLocation ? describeGoogleBusinessProfileLinkedLocation(data) : null,
+    [data, summary.hasLinkedLocation],
   );
 
   const persistentErrorAction = useMemo(() => {
@@ -222,7 +229,7 @@ export function useGoogleBusinessProfileSectionState({
     }
 
     return {
-      label: 'Refresh connection',
+      label: 'Check again',
       onAction: refreshHandler,
       isPending: connectionQuery.isFetching,
     };
@@ -237,54 +244,29 @@ export function useGoogleBusinessProfileSectionState({
     startAuthorizationMutation.isPending,
   ]);
 
-  const overviewProps: GoogleBusinessProfileOverviewPanelProps = {
-    status: summary.status,
-    stageLabel: summary.stageLabel,
-    locationTitle: summary.locationTitle,
-    accountLabel: summary.accountLabel,
-    lastPullAt: data?.lastPullAt ?? null,
-    hasLinkedLocation: summary.hasLinkedLocation,
-    showConnect: summary.showConnect && Boolean(restaurantId),
-    onConnect: restaurantId ? handleConnectGoogle : null,
-    isConnecting: startAuthorizationMutation.isPending,
-    showPicker: summary.showPicker,
-    onChooseLocation: chooseLocationAnchor,
-    canRefresh: summary.canRefresh,
-    onRefresh: summary.canRefresh ? refreshHandler : null,
-    isRefreshing: connectionQuery.isFetching,
-    manageOnGoogleHref: summary.manageOnGoogleHref,
-    canDisconnect: summary.canDisconnect,
-    onRequestDisconnect: summary.canDisconnect ? handleRequestDisconnect : null,
-    isDisconnecting: disconnectMutation.isPending,
-    error: persistentError,
-    errorAction: persistentErrorAction,
-  };
-
   return {
     connectionQuery,
     data,
     disconnectDialogOpen,
     disconnectMutation,
-    gbpDrift,
     handleConfirmDisconnect,
     handleConnectGoogle,
     handleDisconnectDialogOpenChange,
     handleLinkLocation,
-    hasLinkedLocation: summary.hasLinkedLocation,
-    isLinked: summary.isLinked,
+    handleRequestDisconnect,
+    linkedLocation,
     linkMutation,
-    locationsArePossiblyStale: summary.locationsArePossiblyStale,
-    locationsErrorMessage: summary.locationsErrorMessage,
+    locationChooserOpen,
     locationsQuery,
-    overviewProps,
+    persistentError,
+    persistentErrorAction,
+    refreshHandler,
     selectedLocation,
     selectedLocationValue,
-    selectAnchor,
+    setLocationChooserOpen,
     setSelectedLocationValue,
-    showConnect: summary.showConnect,
-    showPicker: summary.showPicker,
-    stage: summary.stage,
     startAuthorizationMutation,
+    summary,
   };
 }
 

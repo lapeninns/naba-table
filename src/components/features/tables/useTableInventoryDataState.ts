@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 
 import { useTableInventoryService, useZoneService } from '@/contexts/ops-services';
 import { queryKeys } from '@/lib/query/keys';
+import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import {
   buildTableInventoryZoneOptions,
@@ -15,13 +16,8 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
   const tableService = useTableInventoryService();
   const zoneService = useZoneService();
 
-  const tablesQueryKey = activeRestaurantId
-    ? queryKeys.opsTables.list(activeRestaurantId)
-    : (['ops', 'tables', 'no-restaurant'] as const);
-
-  const zonesQueryKey = activeRestaurantId
-    ? queryKeys.opsTables.zones(activeRestaurantId)
-    : (['ops', 'tables', 'no-restaurant', 'zones'] as const);
+  const tablesQueryKey = queryKeys.opsTables.list(activeRestaurantId ?? 'none');
+  const zonesQueryKey = queryKeys.opsTables.zones(activeRestaurantId ?? 'none');
 
   const {
     data: tableQueryResult,
@@ -32,14 +28,14 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
     isFetching,
   } = useQuery({
     queryKey: tablesQueryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!activeRestaurantId) {
         throw new Error('Restaurant id is required to load tables');
       }
-      return tableService.list(activeRestaurantId);
+      return tableService.list(activeRestaurantId, {}, { signal });
     },
     enabled: Boolean(activeRestaurantId),
-    staleTime: 30_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.tables,
   });
 
   const tables = useMemo(() => tableQueryResult?.tables ?? [], [tableQueryResult?.tables]);
@@ -47,14 +43,14 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
 
   const fallbackZonesQuery = useQuery({
     queryKey: zonesQueryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (!activeRestaurantId) {
         throw new Error('Restaurant id is required to load zones');
       }
-      return zoneService.list(activeRestaurantId);
+      return zoneService.list(activeRestaurantId, { signal });
     },
     enabled: Boolean(activeRestaurantId) && !isLoading && !summary,
-    staleTime: 60_000,
+    staleTime: OPS_SETTINGS_STALE_TIME.zones,
   });
 
   const zones = useMemo(
@@ -72,6 +68,7 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
     isLoadingZones: !summary && (isLoading || fallbackZonesQuery.isLoading),
     isZonesError: !summary && fallbackZonesQuery.isError,
     refetch,
+    refetchZones: fallbackZonesQuery.refetch,
     summary,
     tables,
     tablesQueryKey,

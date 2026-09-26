@@ -52,14 +52,14 @@ export function SettingsCard({
           headerClassName,
         )}
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-1">
             <CardTitle className="text-base leading-6 text-foreground">{title}</CardTitle>
             {description ? (
               <CardDescription className="text-xs leading-5">{description}</CardDescription>
             ) : null}
           </div>
-          {headerAction ? <div className="shrink-0">{headerAction}</div> : null}
+          {headerAction ? <div className="min-w-0 sm:shrink-0">{headerAction}</div> : null}
         </div>
       </CardHeader>
       <CardContent className={cn(SETTINGS_COMPACT_CARD_CONTENT_CLASS, contentClassName)}>

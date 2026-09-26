@@ -25,3 +25,12 @@ export const OPS_CARD_FOOTER_CLASS =
 export const OPS_PAGE_CONTENT_STACK_CLASS = 'flex flex-col gap-[var(--pg-density-gap-tight)]';
 
 export const OPS_PAGE_RHYTHM_CLASS = 'space-y-5 sm:space-y-6';
+
+/**
+ * Focused-mode shell geometry (restaurant settings). Header, docked section tabs and page
+ * content all use this gutter so their left edges line up; the token steps 16 → 24 → 32px.
+ */
+export const OPS_SHELL_GUTTER_X_CLASS = 'px-[var(--ops-shell-gutter)]';
+
+/** Chrome row height (48px). A minimum, so a wrapped title or 200% text zoom can grow it. */
+export const OPS_CHROME_MIN_HEIGHT_CLASS = 'min-h-[var(--ops-chrome-height)]';

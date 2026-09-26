@@ -3,18 +3,41 @@ import { DualSyncPublishResultDialog } from './DualSyncPublishResultDialog';
 import { GbpExactPublishDialog } from './GbpExactPublishDialog';
 import { GbpExactPublishResultDialog } from './GbpExactPublishResultDialog';
 
-import type { useDualSyncShellActions } from './hooks/useDualSyncShellActions';
-import type { useDualSyncWorkspace } from './hooks/useDualSyncWorkspace';
-
-type DualSyncShellActions = ReturnType<typeof useDualSyncShellActions>;
-type DualSyncWorkspace = ReturnType<typeof useDualSyncWorkspace>;
+import type { DualSyncShellActions } from './hooks/useDualSyncShellActions';
 
 interface DualSyncShellDialogsProps {
   readonly shellActions: DualSyncShellActions;
-  readonly publishPending: DualSyncWorkspace['publishMutation']['isPending'];
+  /** The exact (or legacy) Google publish is running. */
+  readonly publishPending: boolean;
+  /** The Nabatable-only save of Google values is running. */
+  readonly importPending: boolean;
 }
 
-export function DualSyncShellDialogs({ shellActions, publishPending }: DualSyncShellDialogsProps) {
+export function DualSyncShellDialogs({
+  shellActions,
+  publishPending,
+  importPending,
+}: DualSyncShellDialogsProps) {
+  const imports = shellActions.importActions;
+  const importDialogs = (
+    <>
+      <DualSyncPublishPreviewDialog
+        purpose="import"
+        open={imports.publishPreviewOpen}
+        plan={imports.publishPreviewPlan}
+        isPublishing={importPending}
+        onOpenChange={imports.setPublishPreviewOpen}
+        onConfirm={imports.onConfirmPublishPreview}
+      />
+      <DualSyncPublishResultDialog
+        purpose="import"
+        open={imports.publishResultOpen}
+        result={imports.publishResult}
+        onOpenChange={imports.setPublishResultOpen}
+      />
+    </>
+  );
+
   if (!shellActions.usesExactPublish) {
     const legacy = shellActions.legacyPublishActions;
     return (
@@ -31,6 +54,7 @@ export function DualSyncShellDialogs({ shellActions, publishPending }: DualSyncS
           result={legacy.publishResult}
           onOpenChange={legacy.setPublishResultOpen}
         />
+        {importDialogs}
       </>
     );
   }
@@ -50,6 +74,7 @@ export function DualSyncShellDialogs({ shellActions, publishPending }: DualSyncS
         result={exact.result}
         onOpenChange={exact.setResultOpen}
       />
+      {importDialogs}
     </>
   );
 }

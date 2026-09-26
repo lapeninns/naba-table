@@ -1,7 +1,5 @@
 'use client';
 
-import { Globe2 } from 'lucide-react';
-
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -34,7 +32,8 @@ function patch(setState: ItemStateSetter, update: Partial<ItemFormState>) {
   setState((current) => ({ ...current, ...update }));
 }
 
-export function GoogleItemEssentialsFields({
+/** Always-visible item fields: what guests read first and what the kitchen must confirm. */
+export function ItemEssentialsFields({
   setState,
   state,
 }: {
@@ -42,56 +41,81 @@ export function GoogleItemEssentialsFields({
   readonly state: ItemFormState;
 }) {
   return (
-    <div className="rounded-md border p-4">
-      <div className="flex items-center gap-2">
-        <Globe2 className="size-4 text-muted-foreground" aria-hidden />
-        <Text variant="subheading" as="h3">Essentials</Text>
-      </div>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Field label="Item name">
-          <Input
-            value={state.displayName}
-            onChange={(event) => patch(setState, { displayName: event.target.value })}
-            required
-          />
-        </Field>
-        <Field label="Primary label language">
-          <Input
-            value={state.languageCode}
-            onChange={(event) => patch(setState, { languageCode: event.target.value })}
-            placeholder="en-GB"
-          />
-        </Field>
-        <Field label="Price">
-          <div className="grid grid-cols-[6rem_1fr] gap-2">
-            <Input
-              value={state.currencyCode}
-              onChange={(event) => patch(setState, { currencyCode: event.target.value })}
-            />
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={state.price}
-              onChange={(event) => patch(setState, { price: event.target.value })}
-            />
-          </div>
-        </Field>
-      </div>
-      <Field label="Description" className="mt-4">
+    <div className="flex flex-col gap-4">
+      <Field label="Item name">
+        <Input
+          value={state.displayName}
+          onChange={(event) => patch(setState, { displayName: event.target.value })}
+          required
+        />
+      </Field>
+      <Field label="Description" hint="Optional">
         <Textarea
+          rows={2}
           value={state.description}
           onChange={(event) => patch(setState, { description: event.target.value })}
         />
       </Field>
-      <Field label="Additional Google labels" className="mt-4">
-        <Textarea
-          value={state.additionalLabels}
-          onChange={(event) => patch(setState, { additionalLabels: event.target.value })}
-          placeholder="fr-FR | Nom affiche | Description"
-        />
+      <Field label="Price" hint="Needed for Google">
+        <div className="grid max-w-xs grid-cols-[5rem_1fr] gap-2">
+          <Input
+            aria-label="Currency"
+            className="font-mono"
+            value={state.currencyCode}
+            onChange={(event) => patch(setState, { currencyCode: event.target.value })}
+          />
+          <Input
+            aria-label="Amount"
+            type="number"
+            step="0.01"
+            min="0"
+            inputMode="decimal"
+            className="tabular-nums"
+            value={state.price}
+            onChange={(event) => patch(setState, { price: event.target.value })}
+          />
+        </div>
       </Field>
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
+      <MultiCheckboxGroup
+        label="Dietary"
+        options={DIETARY_OPTIONS}
+        getOptionLabel={formatEnumLabel}
+        values={state.dietaryRestrictions}
+        onChange={(value, checked) =>
+          setState((current) => ({
+            ...current,
+            dietaryRestrictions: toggleValue(current.dietaryRestrictions, value, checked),
+          }))
+        }
+      />
+      <MultiCheckboxGroup
+        label="Allergens"
+        hint="Check with your kitchen before publishing"
+        options={ALLERGEN_OPTIONS}
+        getOptionLabel={formatEnumLabel}
+        values={state.allergens}
+        onChange={(value, checked) =>
+          setState((current) => ({
+            ...current,
+            allergens: toggleValue(current.allergens, value, checked),
+          }))
+        }
+      />
+    </div>
+  );
+}
+
+/** Google-only item details: labels, spiciness, portion, nutrition, preparation, ingredients. */
+export function GoogleItemDetailsFields({
+  setState,
+  state,
+}: {
+  readonly setState: ItemStateSetter;
+  readonly state: ItemFormState;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Spiciness">
           <Select
             value={state.spiciness}
@@ -114,36 +138,11 @@ export function GoogleItemEssentialsFields({
           <Input
             type="number"
             min="0"
+            inputMode="numeric"
             value={state.serves}
             onChange={(event) => patch(setState, { serves: event.target.value })}
           />
         </Field>
-      </div>
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <MultiCheckboxGroup
-          label="Allergens"
-          options={ALLERGEN_OPTIONS}
-          getOptionLabel={formatEnumLabel}
-          values={state.allergens}
-          onChange={(value, checked) =>
-            setState((current) => ({
-              ...current,
-              allergens: toggleValue(current.allergens, value, checked),
-            }))
-          }
-        />
-        <MultiCheckboxGroup
-          label="Dietary restrictions"
-          options={DIETARY_OPTIONS}
-          getOptionLabel={formatEnumLabel}
-          values={state.dietaryRestrictions}
-          onChange={(value, checked) =>
-            setState((current) => ({
-              ...current,
-              dietaryRestrictions: toggleValue(current.dietaryRestrictions, value, checked),
-            }))
-          }
-        />
       </div>
       <MultiCheckboxGroup
         label="Preparation methods"
@@ -156,9 +155,8 @@ export function GoogleItemEssentialsFields({
             preparationMethods: toggleValue(current.preparationMethods, value, checked),
           }))
         }
-        className="mt-4"
       />
-      <Field label="Ingredients" className="mt-4">
+      <Field label="Ingredients">
         <Input
           value={state.ingredients}
           onChange={(event) => patch(setState, { ingredients: event.target.value })}
@@ -167,6 +165,23 @@ export function GoogleItemEssentialsFields({
       </Field>
       <GoogleItemPortionFields setState={setState} state={state} />
       <GoogleItemNutritionFields setState={setState} state={state} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Primary label language">
+          <Input
+            className="font-mono"
+            value={state.languageCode}
+            onChange={(event) => patch(setState, { languageCode: event.target.value })}
+            placeholder="en-GB"
+          />
+        </Field>
+        <Field label="Additional Google labels">
+          <Textarea
+            value={state.additionalLabels}
+            onChange={(event) => patch(setState, { additionalLabels: event.target.value })}
+            placeholder="fr-FR | Nom affiche | Description"
+          />
+        </Field>
+      </div>
     </div>
   );
 }
@@ -179,11 +194,11 @@ function GoogleItemPortionFields({
   readonly state: ItemFormState;
 }) {
   return (
-    <div className="mt-4 rounded-md border bg-muted/20 p-3">
+    <div className="rounded-md border bg-muted/20 p-3">
       <h4 className="text-xs font-medium uppercase text-muted-foreground">
         Guest menu portion size
       </h4>
-      <div className="mt-3 grid gap-3 md:grid-cols-4">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <Field label="Quantity">
           <Input
             type="number"
@@ -234,7 +249,7 @@ function GoogleItemNutritionFields({
   readonly state: ItemFormState;
 }) {
   return (
-    <div className="mt-4 rounded-md border bg-muted/20 p-3">
+    <div className="rounded-md border bg-muted/20 p-3">
       <h4 className="text-xs font-medium uppercase text-muted-foreground">
         Google nutrition facts
       </h4>
@@ -242,7 +257,7 @@ function GoogleItemNutritionFields({
         Google menu publishing includes calories, total fat, cholesterol, sodium, total
         carbohydrate, and protein. Sugar, fibre, and saturated fat remain import-tolerated.
       </Text>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <Field label="Calories">
           <NutritionRangeInputs
             lowerValue={state.calories}

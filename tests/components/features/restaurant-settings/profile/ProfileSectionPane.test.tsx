@@ -2,44 +2,36 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { ProfileSectionPane } from '@/components/features/restaurant-settings/profile/ProfileSectionPane';
-import { PROFILE_SECTION_DEFINITIONS } from '@/components/features/restaurant-settings/profile/profileSections';
+import { STAFF_COMMUNICATIONS_SECTION_DEFINITIONS } from '@/components/features/restaurant-settings/profile/profileSections';
 
-const brandSection = PROFILE_SECTION_DEFINITIONS[0];
+const notifications = STAFF_COMMUNICATIONS_SECTION_DEFINITIONS[0]!;
 
 function renderPane(over: Partial<Parameters<typeof ProfileSectionPane>[0]> = {}) {
-  render(
-    <ProfileSectionPane
-      section={brandSection}
-      isActive
-      isDirty={false}
-      isMissingRequired={false}
-      {...over}
-    >
+  return render(
+    <ProfileSectionPane section={notifications} isDirty={false} issueCount={0} {...over}>
       <p>Section body</p>
     </ProfileSectionPane>,
   );
 }
 
 describe('ProfileSectionPane', () => {
-  it('@smoke renders the section title, audience, and body when active', () => {
+  it('@a11y names the region by its heading and keeps the stable anchor id', () => {
     renderPane();
 
-    expect(screen.getByText(brandSection.paneTitle)).toBeInTheDocument();
-    expect(screen.getByText(brandSection.audience)).toBeInTheDocument();
+    const region = screen.getByRole('region', { name: 'Manager alerts' });
+    expect(region).toHaveAttribute('id', 'staff-communications-manager-alerts');
+    expect(screen.getByRole('heading', { level: 2, name: 'Manager alerts' })).toBeVisible();
+    expect(screen.getByText('Staff only')).toBeInTheDocument();
     expect(screen.getByText('Section body')).toBeVisible();
   });
 
-  it('@contract hides inactive panes without unmounting their forms', () => {
-    renderPane({ isActive: false });
+  it('@contract marks edited sections, and issues take precedence', () => {
+    const { unmount } = renderPane({ isDirty: true });
+    expect(screen.getByText('Edited')).toBeInTheDocument();
+    unmount();
 
-    expect(screen.getByText('Section body')).not.toBeVisible();
-  });
-
-  it('@contract badges dirty sections and missing-required sections', () => {
-    renderPane({ isDirty: true });
-    expect(screen.getByText('Unsaved')).toBeInTheDocument();
-
-    renderPane({ isMissingRequired: true });
-    expect(screen.getByText('Required')).toBeInTheDocument();
+    renderPane({ isDirty: true, issueCount: 2 });
+    expect(screen.getByText('2 issues')).toBeInTheDocument();
+    expect(screen.queryByText('Edited')).not.toBeInTheDocument();
   });
 });

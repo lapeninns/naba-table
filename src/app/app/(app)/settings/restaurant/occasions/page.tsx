@@ -1,12 +1,10 @@
 import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { getRestaurantSettingsMetadata } from '@/components/features/restaurant-settings/routes';
 
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Booking Occasions · Nab a Table Ops',
-  description: 'Control which occasions are available to staff and guests.',
-};
+export const metadata: Metadata = getRestaurantSettingsMetadata('/settings/restaurant/occasions');
 
 export default function BookingOccasionsSettingsPage() {
-  return <OpsRestaurantSettingsClient view="availability" availabilityWorkspace="booking-types" />;
+  return <OpsRestaurantSettingsClient view="availability" />;
 }

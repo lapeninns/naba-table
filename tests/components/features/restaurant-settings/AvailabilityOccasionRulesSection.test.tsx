@@ -36,7 +36,9 @@ describe('AvailabilityOccasionRulesSection', () => {
 
     await user.click(screen.getByRole('button', { name: /Add rule/ }));
 
-    const updater = onFormChange.mock.calls.at(-1)?.[0] as (prev: OccasionFormState) => OccasionFormState;
+    const updater = onFormChange.mock.calls.at(-1)?.[0] as (
+      prev: OccasionFormState,
+    ) => OccasionFormState;
     expect(updater(form).availabilityRules).toHaveLength(form.availabilityRules.length + 1);
   });
 
@@ -54,7 +56,9 @@ describe('AvailabilityOccasionRulesSection', () => {
 
     await user.click(screen.getAllByRole('button', { name: /Remove/ })[0]);
 
-    const updater = onFormChange.mock.calls.at(-1)?.[0] as (prev: OccasionFormState) => OccasionFormState;
+    const updater = onFormChange.mock.calls.at(-1)?.[0] as (
+      prev: OccasionFormState,
+    ) => OccasionFormState;
     expect(updater(form).availabilityRules).toHaveLength(1);
     expect(updater(form).availabilityRules[0]?.id).toBe('rule-2');
   });

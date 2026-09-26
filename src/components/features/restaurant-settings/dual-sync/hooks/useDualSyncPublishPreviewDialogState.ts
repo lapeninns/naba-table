@@ -12,12 +12,15 @@ interface UseDualSyncPublishPreviewDialogStateArgs {
   readonly open: boolean;
   readonly plan: DualSyncPublishPlan | null;
   readonly isPublishing: boolean;
+  /** `import` relabels the confirmation for Google values saved in Nabatable only. */
+  readonly purpose?: 'publish' | 'import';
 }
 
 export function useDualSyncPublishPreviewDialogState({
   open,
   plan,
   isPublishing,
+  purpose = 'publish',
 }: UseDualSyncPublishPreviewDialogStateArgs) {
   const [acknowledged, setAcknowledged] = useState(false);
   const needsAcknowledgement = useMemo(() => requiresPublishPreviewAcknowledgement(plan), [plan]);
@@ -28,9 +31,14 @@ export function useDualSyncPublishPreviewDialogState({
     needsAcknowledgement,
     acknowledged,
   });
-  const publishButtonLabel = isPublishing
-    ? 'Publishing'
-    : `Publish ${acceptedCount} ${formatPublishPreviewFieldLabel(acceptedCount)}`;
+  const publishButtonLabel =
+    purpose === 'import'
+      ? isPublishing
+        ? 'Saving…'
+        : `Use ${acceptedCount} Google ${acceptedCount === 1 ? 'value' : 'values'}`
+      : isPublishing
+        ? 'Publishing'
+        : `Publish ${acceptedCount} ${formatPublishPreviewFieldLabel(acceptedCount)}`;
 
   useEffect(() => {
     if (open) {

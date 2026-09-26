@@ -1,57 +1,91 @@
-import { render, screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import { ServiceAreasPanel } from '@/components/features/restaurant-settings/discovery/panels/ServiceAreasPanel';
 
 import { makeBusinessContextEditor, makeServiceAreaRow } from '../../testUtils';
+import { renderWithDiscoveryForm } from '../renderWithDiscoveryForm';
 
 import type { RestaurantBusinessContextEditor } from '@/components/features/restaurant-settings/useRestaurantBusinessContextEditor';
 
-describe('ServiceAreasPanel', () => {
-  it('@smoke shows the empty message without service areas', () => {
-    const editor = makeBusinessContextEditor();
-    render(
-      <ServiceAreasPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
-    );
+function renderPanel(over: Record<string, unknown> = {}) {
+  const editor = makeBusinessContextEditor(over);
+  renderWithDiscoveryForm(
+    <ServiceAreasPanel editor={editor as unknown as RestaurantBusinessContextEditor} />,
+  );
+  return editor;
+}
 
-    expect(screen.getByText('No service areas have been added.')).toBeInTheDocument();
+const serviceLocationSwitch = () =>
+  screen.getByRole('switch', { name: 'We serve customers at their location' });
+
+function withServiceLocation(on: boolean) {
+  return {
+    businessDetails: { businessStatus: 'open', openingDate: '', isServiceAreaBusiness: on },
+  };
+}
+
+describe('ServiceAreasPanel', () => {
+  it('@smoke keeps the service-location switch with the list and routes it to the editor', async () => {
+    const user = userEvent.setup();
+    const editor = renderPanel();
+
+    expect(serviceLocationSwitch()).not.toBeChecked();
+    expect(serviceLocationSwitch()).toHaveAccessibleDescription(
+      'For delivery or catering. Add the towns or areas you serve below.',
+    );
+    // Off with no areas: guests come to you, so there is nothing to add yet.
+    expect(screen.getByText('No areas. Guests come to you.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('New area')).not.toBeInTheDocument();
+
+    await user.click(serviceLocationSwitch());
+    expect(editor.updateBusinessDetails).toHaveBeenCalledWith('isServiceAreaBusiness', true);
   });
 
-  it('@contract renders chips for existing areas and removes them', async () => {
+  it('@contract adds an area from the input when the restaurant serves off-site', async () => {
     const user = userEvent.setup();
-    const editor = makeBusinessContextEditor({ serviceAreas: [makeServiceAreaRow()] });
-    render(
-      <ServiceAreasPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
-    );
+    const editor = renderPanel(withServiceLocation(true));
 
-    await user.click(screen.getByRole('button', { name: /Remove Cambridge/ }));
+    expect(serviceLocationSwitch()).toBeChecked();
+    expect(screen.getByText('No areas yet. Add the towns or areas you serve.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Area details/ })).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('New area'), 'Cambridge, UK');
+    await user.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(editor.addServiceArea).toHaveBeenCalledWith('Cambridge, UK');
+    expect(screen.getByLabelText('New area')).toHaveValue('');
+  });
+
+  it('@contract removes an area chip and returns focus to the input', async () => {
+    const user = userEvent.setup();
+    const editor = renderPanel({
+      ...withServiceLocation(true),
+      serviceAreas: [makeServiceAreaRow()],
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Remove Cambridge' }));
 
     expect(editor.removeServiceArea).toHaveBeenCalledWith('area-1');
+    await waitFor(() => expect(screen.getByLabelText('New area')).toHaveFocus());
   });
 
-  it('@contract commits the draft area on Enter and via the add button', async () => {
+  it('@contract keeps saved areas visible and editable when the switch is off', async () => {
     const user = userEvent.setup();
-    const editor = makeBusinessContextEditor({ serviceAreaDraft: 'Ely, UK' });
-    render(
-      <ServiceAreasPanel
-        embedded={false}
-        editor={editor as unknown as RestaurantBusinessContextEditor}
-      />,
-    );
+    const editor = renderPanel({ serviceAreas: [makeServiceAreaRow()] });
 
-    const input = screen.getByRole('textbox', { name: 'New service area' });
-    input.focus();
-    await user.keyboard('{Enter}');
-    expect(editor.addServiceAreaFromDraft).toHaveBeenCalledTimes(1);
+    expect(serviceLocationSwitch()).not.toBeChecked();
+    expect(screen.getByRole('list', { name: 'Areas you serve' })).toHaveTextContent('Cambridge');
+    expect(
+      screen.getByText('These areas are kept while this is off. Remove any you no longer serve.'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('New area')).toBeInTheDocument();
+    expect(editor.removeServiceArea).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: /Add area/ }));
-    expect(editor.addServiceAreaFromDraft).toHaveBeenCalledTimes(2);
+    // Removing the last area with the switch off hides the add field, so focus goes to the switch.
+    await user.click(screen.getByRole('button', { name: 'Remove Cambridge' }));
+    expect(editor.removeServiceArea).toHaveBeenCalledWith('area-1');
+    await waitFor(() => expect(serviceLocationSwitch()).toHaveFocus());
   });
 });

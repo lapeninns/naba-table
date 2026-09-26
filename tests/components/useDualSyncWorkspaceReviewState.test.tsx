@@ -49,7 +49,6 @@ function makeField(overrides: Partial<DualSyncFieldSummary> = {}): DualSyncField
 interface ReviewStateProps {
   readonly fields: ReadonlyArray<DualSyncFieldSummary>;
   readonly sections?: ReadonlyArray<DualSyncSectionKey>;
-  readonly singleOpenSections: boolean;
   readonly coreSnapshotHash?: string | null;
   readonly gbpSnapshotHash?: string | null;
 }
@@ -61,7 +60,7 @@ function renderReviewState(initialProps: ReviewStateProps) {
 }
 
 describe('useDualSyncWorkspaceReviewState', () => {
-  it('derives visible sections, grouped fields, review progress, and accordion values', async () => {
+  it('derives visible sections, grouped fields, and review progress', async () => {
     const fields = [
       makeField({ fieldKey: 'profile.later', sectionKey: 'profile', sortOrder: 2 }),
       makeField({ fieldKey: 'hours.weekly', sectionKey: 'operatingHours', sortOrder: 0 }),
@@ -72,12 +71,9 @@ describe('useDualSyncWorkspaceReviewState', () => {
     const { result } = renderReviewState({
       fields,
       sections: ['profile', 'operatingHours'],
-      singleOpenSections: true,
       coreSnapshotHash: 'core-1',
       gbpSnapshotHash: 'gbp-1',
     });
-
-    await waitFor(() => expect(result.current.openSection).toBe('profile'));
 
     expect(result.current.visibleFields.map((field) => field.fieldKey)).toEqual([
       'profile.later',
@@ -89,15 +85,6 @@ describe('useDualSyncWorkspaceReviewState', () => {
       'profile.later',
     ]);
     expect(result.current.orderedSectionKeys).toEqual(['profile', 'operatingHours']);
-    expect(result.current.orderedAccordionValues).toEqual([
-      'profile',
-      'operatingHours',
-      '__metrics',
-      '__pendingCandidates',
-      '__queueJobs',
-      '__publishes',
-      '__operations',
-    ]);
     expect(result.current.workspaceProgress.totalFields).toBe(3);
   });
 
@@ -109,7 +96,6 @@ describe('useDualSyncWorkspaceReviewState', () => {
     const { result } = renderReviewState({
       fields,
       sections: ['profile'],
-      singleOpenSections: false,
       coreSnapshotHash: 'core-1',
       gbpSnapshotHash: 'gbp-1',
     });
@@ -136,7 +122,6 @@ describe('useDualSyncWorkspaceReviewState', () => {
     const { result, rerender } = renderReviewState({
       fields,
       sections: ['profile'],
-      singleOpenSections: false,
       coreSnapshotHash: 'core-1',
       gbpSnapshotHash: 'gbp-1',
     });
@@ -148,39 +133,10 @@ describe('useDualSyncWorkspaceReviewState', () => {
     rerender({
       fields,
       sections: ['profile'],
-      singleOpenSections: false,
       coreSnapshotHash: 'core-2',
       gbpSnapshotHash: 'gbp-1',
     });
 
     await waitFor(() => expect(result.current.decisionCount).toBe(0));
-  });
-
-  it('keeps a valid open section and falls back when the current one disappears', async () => {
-    const fields = [
-      makeField({ fieldKey: 'profile.name', sectionKey: 'profile' }),
-      makeField({ fieldKey: 'hours.weekly', sectionKey: 'operatingHours' }),
-    ];
-    const { result, rerender } = renderReviewState({
-      fields,
-      sections: ['profile', 'operatingHours'],
-      singleOpenSections: true,
-      coreSnapshotHash: 'core-1',
-      gbpSnapshotHash: 'gbp-1',
-    });
-
-    await waitFor(() => expect(result.current.openSection).toBe('profile'));
-
-    act(() => result.current.setOpenSection('operatingHours'));
-
-    rerender({
-      fields,
-      sections: ['profile'],
-      singleOpenSections: true,
-      coreSnapshotHash: 'core-1',
-      gbpSnapshotHash: 'gbp-1',
-    });
-
-    await waitFor(() => expect(result.current.openSection).toBe('profile'));
   });
 });

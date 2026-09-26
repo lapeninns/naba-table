@@ -1,30 +1,16 @@
-import { useState } from 'react';
-
-import { EMPTY_BUSINESS_DETAILS } from './businessContextModel';
+import { useCallback } from 'react';
 
 import type { BusinessDetailsEditor } from './businessContextModel';
+import type { BusinessContextFamilyUpdate } from './useBusinessContextLinkDraft';
 
-type UseBusinessContextBusinessDetailsDraftOptions = {
-  onDirty: () => void;
-};
+export function useBusinessContextBusinessDetailsDraft(
+  update: BusinessContextFamilyUpdate<BusinessDetailsEditor>,
+) {
+  const updateBusinessDetails = useCallback(
+    <Key extends keyof BusinessDetailsEditor>(field: Key, value: BusinessDetailsEditor[Key]) =>
+      update((current) => ({ ...current, [field]: value })),
+    [update],
+  );
 
-export function useBusinessContextBusinessDetailsDraft({
-  onDirty,
-}: UseBusinessContextBusinessDetailsDraftOptions) {
-  const [businessDetails, setBusinessDetails] =
-    useState<BusinessDetailsEditor>(EMPTY_BUSINESS_DETAILS);
-
-  const updateBusinessDetails = <Key extends keyof BusinessDetailsEditor>(
-    field: Key,
-    value: BusinessDetailsEditor[Key],
-  ) => {
-    setBusinessDetails((current) => ({ ...current, [field]: value }));
-    onDirty();
-  };
-
-  return {
-    businessDetails,
-    setBusinessDetails,
-    updateBusinessDetails,
-  };
+  return { updateBusinessDetails };
 }

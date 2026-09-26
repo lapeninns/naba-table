@@ -1,12 +1,7 @@
 export {
-  PROFILE_DIRTY_SECTIONS,
-  PROFILE_SECTION_FORMS,
-  type ProfileDirtyKey,
-  type ProfileDirtySection,
-} from './restaurantProfileDirtySections';
-export {
   deriveReadiness,
   isProfileReadinessBlockingComplete,
+  type ReadinessChecklistItem,
   type ReadinessItemKey,
   type ReadinessSummaryItem,
 } from './restaurantProfileReadiness';

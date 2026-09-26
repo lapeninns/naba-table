@@ -6,16 +6,15 @@ import { AvailabilityOccasionDialog } from '@/components/features/restaurant-set
 import { createEmptyOccasionForm } from '@/components/features/restaurant-settings/availabilityOccasionsModel';
 
 function renderDialog(overrides: Partial<Parameters<typeof AvailabilityOccasionDialog>[0]> = {}) {
-  const onSubmit = vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault());
+  const onSubmit = vi.fn();
   const onOpenChange = vi.fn();
   render(
     <AvailabilityOccasionDialog
-      availabilityPreview="Available anytime"
+      availabilityPreview="Always available"
       editingKey={null}
       form={createEmptyOccasionForm()}
       formErrors={{}}
       open
-      showTurnBands={false}
       onFormChange={vi.fn()}
       onOpenChange={onOpenChange}
       onSubmit={onSubmit}
@@ -26,40 +25,37 @@ function renderDialog(overrides: Partial<Parameters<typeof AvailabilityOccasionD
 }
 
 describe('AvailabilityOccasionDialog', () => {
-  it('@contract @a11y presents the create dialog with its title and submit label', () => {
+  it('@contract @a11y groups essentials first and puts rules and machine fields behind disclosures', () => {
     renderDialog();
 
-    expect(screen.getByRole('dialog', { name: 'New booking type' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add occasion' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Add booking type' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toBeVisible();
+    expect(screen.getByLabelText('Guests and staff can book this')).toBeVisible();
+    expect(screen.getByText('Table time by party size')).toBeVisible();
+    expect(screen.getByText('When guests can choose it')).toBeInTheDocument();
+    expect(screen.getByText('Available only when every rule matches.')).toBeInTheDocument();
+    expect(screen.getByText('Advanced')).toBeInTheDocument();
   });
 
-  it('@contract switches to edit copy for a service window occasion', () => {
+  it('@contract uses the booking type name when editing and explains a switched-off built-in', () => {
     renderDialog({
       editingKey: 'lunch',
-      form: { ...createEmptyOccasionForm(), label: 'Lunch' },
+      form: { ...createEmptyOccasionForm(), label: 'Lunch', isActive: false },
     });
 
-    expect(screen.getByRole('dialog', { name: 'Edit booking type' })).toBeInTheDocument();
-    expect(screen.getByText(/also defines a service window/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Update occasion' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Edit Lunch' })).toBeInTheDocument();
+    expect(screen.getByText('Lunch is off.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Update booking type' })).toBeInTheDocument();
   });
 
-  it('@contract submits the form through onSubmit', async () => {
-    const user = userEvent.setup();
-    const { onSubmit } = renderDialog();
-
-    await user.click(screen.getByRole('button', { name: 'Add occasion' }));
-
-    expect(onSubmit).toHaveBeenCalledTimes(1);
-  });
-
-  it('@contract cancels by requesting close through onOpenChange', async () => {
+  it('@contract submits through onSubmit and cancels through onOpenChange', async () => {
     const user = userEvent.setup();
     const { onOpenChange, onSubmit } = renderDialog();
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Add booking type' }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
 
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
-    expect(onSubmit).not.toHaveBeenCalled();
   });
 });

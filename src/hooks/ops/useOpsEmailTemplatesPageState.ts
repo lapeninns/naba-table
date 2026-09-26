@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { getSafeSettingsErrorMessage } from '@/components/features/restaurant-settings/shared/settingsErrorCopy';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
   useOpsPreviewRestaurantEmailTemplate,
@@ -50,17 +51,55 @@ function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[])
   );
 }
 
+/**
+ * The draft to keep once a save returns: null when nothing changed after the request was sent.
+ * Otherwise the server's variants with every field edited since the send kept as the newer value;
+ * variants added after the send are kept as typed, and removed ones stay removed.
+ */
+function rebaseVariantsOnSaved(
+  current: RestaurantEmailTemplateVariant[] | undefined,
+  sent: RestaurantEmailTemplateVariant[],
+  saved: RestaurantEmailTemplateVariant[],
+): RestaurantEmailTemplateVariant[] | null {
+  if (!current || current === sent) {
+    return null;
+  }
+  const sentById = new Map(sent.map((variant) => [variant.id, variant]));
+  const savedById = new Map(saved.map((variant) => [variant.id, variant]));
+  const rebased = current.map((variant) => {
+    const sentVariant = sentById.get(variant.id);
+    const savedVariant = savedById.get(variant.id);
+    if (!sentVariant || !savedVariant) {
+      return variant;
+    }
+    const next = { ...savedVariant };
+    for (const field of Object.keys(next) as Array<keyof RestaurantEmailTemplateVariant>) {
+      if (variant[field] !== sentVariant[field]) {
+        Object.assign(next, { [field]: variant[field] });
+      }
+    }
+    return next;
+  });
+  return normalizeVariantsForCompare(rebased) === normalizeVariantsForCompare(saved)
+    ? null
+    : rebased;
+}
+
 function buildTemplateMap(snapshot: RestaurantEmailTemplatesSnapshot | undefined) {
   return new Map(
-    snapshot?.groups.flatMap((group) => group.templates).map((template) => [template.key, template]) ?? [],
+    snapshot?.groups
+      .flatMap((group) => group.templates)
+      .map((template) => [template.key, template]) ?? [],
   );
 }
 
 export function useOpsEmailTemplatesPageState() {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
-  const restaurantId = activeMembership?.restaurantId ?? activeRestaurantId ?? memberships[0]?.restaurantId ?? null;
-  const restaurantName = activeMembership?.restaurantName ?? memberships[0]?.restaurantName ?? 'Selected restaurant';
+  const restaurantId =
+    activeMembership?.restaurantId ?? activeRestaurantId ?? memberships[0]?.restaurantId ?? null;
+  const restaurantName =
+    activeMembership?.restaurantName ?? memberships[0]?.restaurantName ?? 'Selected restaurant';
 
   const templatesQuery = useOpsRestaurantEmailTemplates(restaurantId);
   const updateMutation = useOpsUpdateRestaurantEmailTemplate(restaurantId);
@@ -69,7 +108,8 @@ export function useOpsEmailTemplatesPageState() {
   const testSendMutation = useOpsSendRestaurantEmailTemplateTest(restaurantId);
   const previewDraft = previewMutation.mutate;
 
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState<RestaurantBookingEmailTemplateKey | null>(null);
+  const [selectedTemplateKey, setSelectedTemplateKey] =
+    useState<RestaurantBookingEmailTemplateKey | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<
     Partial<Record<RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant[]>>
@@ -138,14 +178,17 @@ export function useOpsEmailTemplatesPageState() {
       .filter((group) => group.templates.length > 0);
   }, [deferredSearch, templatesQuery.data]);
 
-  const baseTemplate = selectedTemplateKey ? templateMap.get(selectedTemplateKey) ?? null : null;
+  const baseTemplate = selectedTemplateKey ? (templateMap.get(selectedTemplateKey) ?? null) : null;
   const currentVariants = useMemo(() => {
     if (!selectedTemplateKey || !baseTemplate) return [];
     return drafts[selectedTemplateKey] ?? baseTemplate.variants;
   }, [baseTemplate, drafts, selectedTemplateKey]);
 
   const currentVariant = useMemo(
-    () => currentVariants.find((variant) => variant.id === selectedVariantId) ?? currentVariants[0] ?? null,
+    () =>
+      currentVariants.find((variant) => variant.id === selectedVariantId) ??
+      currentVariants[0] ??
+      null,
     [currentVariants, selectedVariantId],
   );
 
@@ -170,7 +213,9 @@ export function useOpsEmailTemplatesPageState() {
       const template = templateMap.get(key as RestaurantBookingEmailTemplateKey);
       if (!template) return;
 
-      if (normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants)) {
+      if (
+        normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants)
+      ) {
         next.add(key as RestaurantBookingEmailTemplateKey);
       }
     });
@@ -213,7 +258,8 @@ export function useOpsEmailTemplatesPageState() {
     return () => window.clearTimeout(timeoutId);
   }, [currentVariants, previewDraft, restaurantId, selectedTemplateKey, selectedVariantId]);
 
-  const preview = previewMutation.data?.templateKey === selectedTemplateKey ? previewMutation.data : null;
+  const preview =
+    previewMutation.data?.templateKey === selectedTemplateKey ? previewMutation.data : null;
   const activeVariantCount = currentVariants.filter((variant) => variant.isActive).length;
 
   const updateCurrentVariants = (
@@ -246,11 +292,18 @@ export function useOpsEmailTemplatesPageState() {
   };
 
   const handleAddVariant = () => {
-    if (!selectedTemplateKey || !baseTemplate || currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS) {
+    if (
+      !selectedTemplateKey ||
+      !baseTemplate ||
+      currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS
+    ) {
       return;
     }
 
-    const seed = currentVariant ?? currentVariants[currentVariants.length - 1] ?? baseTemplate.defaultVariants[0];
+    const seed =
+      currentVariant ??
+      currentVariants[currentVariants.length - 1] ??
+      baseTemplate.defaultVariants[0];
     const nextVariant: RestaurantEmailTemplateVariant = {
       ...seed,
       id: createVariantId(selectedTemplateKey),
@@ -309,15 +362,22 @@ export function useOpsEmailTemplatesPageState() {
   const handleSave = async () => {
     if (!selectedTemplateKey) return;
 
+    const sent = currentVariants;
     try {
-      await updateMutation.mutateAsync({
+      const saved = await updateMutation.mutateAsync({
         templateKey: selectedTemplateKey,
-        variants: currentVariants,
+        variants: sent,
       });
 
+      // Anything typed while the request was in flight stays as the newer draft.
       setDrafts((current) => {
         const next = { ...current };
-        delete next[selectedTemplateKey];
+        const rebased = rebaseVariantsOnSaved(current[selectedTemplateKey], sent, saved.variants);
+        if (rebased) {
+          next[selectedTemplateKey] = rebased;
+        } else {
+          delete next[selectedTemplateKey];
+        }
         return next;
       });
 
@@ -325,8 +385,9 @@ export function useOpsEmailTemplatesPageState() {
         description: 'Restaurant-specific copy variants are now live for future sends.',
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save template';
-      toast.error('Save failed', { description: message });
+      toast.error('Save failed', {
+        description: getSafeSettingsErrorMessage(error, 'The template could not be saved.'),
+      });
     }
   };
 
@@ -336,7 +397,9 @@ export function useOpsEmailTemplatesPageState() {
       return;
     }
 
-    const confirmed = window.confirm(`Reset "${template.title}" back to the system default variants?`);
+    const confirmed = window.confirm(
+      `Reset "${template.title}" back to the system default variants?`,
+    );
     if (!confirmed) return;
 
     try {
@@ -352,8 +415,9 @@ export function useOpsEmailTemplatesPageState() {
         description: `${template.title} is using the default copy again.`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to reset template';
-      toast.error('Reset failed', { description: message });
+      toast.error('Reset failed', {
+        description: getSafeSettingsErrorMessage(error, 'The template could not be reset.'),
+      });
     }
   };
 
@@ -378,8 +442,9 @@ export function useOpsEmailTemplatesPageState() {
         description: `Delivered to ${testEmail.trim()} via ${result.provider}.`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to send test email';
-      toast.error('Test send failed', { description: message });
+      toast.error('Test send failed', {
+        description: getSafeSettingsErrorMessage(error, 'The test email could not be sent.'),
+      });
     }
   };
 

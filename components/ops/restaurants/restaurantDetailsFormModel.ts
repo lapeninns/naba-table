@@ -230,6 +230,35 @@ export function buildTimezoneLabel(timezone: string): string {
   return `${city} (${formatTimezoneOffset(timezone)})`;
 }
 
+/** "London (GMT+1) · Europe/London": city and offset first, then the IANA zone. */
+export function buildTimezoneOptionLabel(timezone: string): string {
+  return `${buildTimezoneLabel(timezone)} · ${timezone}`;
+}
+
+export type TimezoneRegionGroup = { region: string; timezones: string[] };
+
+/**
+ * IANA zones grouped by region ("Europe", "America", …) for the timezone select. A saved
+ * zone missing from the runtime list is kept so the current value always has an option.
+ */
+export function groupTimezonesByRegion(
+  timezones: readonly string[],
+  current?: string | null,
+): TimezoneRegionGroup[] {
+  const all = current && !timezones.includes(current) ? [current, ...timezones] : timezones;
+  const groups = new Map<string, string[]>();
+  for (const timezone of all) {
+    const region = timezone.includes('/') ? (timezone.split('/')[0] ?? 'Other') : 'Other';
+    const list = groups.get(region);
+    if (list) {
+      list.push(timezone);
+    } else {
+      groups.set(region, [timezone]);
+    }
+  }
+  return [...groups.entries()].map(([region, list]) => ({ region, timezones: list }));
+}
+
 export function mapInitialValues(values: RestaurantDetailsFormValues): FormState {
   return {
     name: values.name ?? '',
@@ -347,9 +376,9 @@ export function validateRestaurantDetails(state: FormState): FormErrors {
 
   const slug = state.slug.trim();
   if (!slug) {
-    errors.slug = 'Booking page URL is required';
+    errors.slug = 'Booking page link is required';
   } else if (!SLUG_PATTERN.test(slug)) {
-    errors.slug = 'Booking page URL must contain only lowercase letters, numbers, and hyphens';
+    errors.slug = 'Booking page link must contain only lowercase letters, numbers, and hyphens';
   }
 
   if (!state.timezone.trim()) {

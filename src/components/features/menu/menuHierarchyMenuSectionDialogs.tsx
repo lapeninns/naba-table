@@ -1,18 +1,12 @@
 'use client';
 
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 
+import { SettingsDialog } from '@/components/features/restaurant-settings/shared/SettingsDialog';
+import { useSettingsDiscardGuard } from '@/components/features/restaurant-settings/shared/useSettingsDiscardGuard';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { FormRoot } from '@/components/ui/form';
-import { Text } from '@/components/ui/typography';
 import {
   useOpsCreateRestaurantMenu,
   useOpsCreateRestaurantMenuSection,
@@ -24,10 +18,12 @@ import {
   buildMenuPayload,
   buildSectionPayload,
   menuInitialState,
+  primaryLabel,
   sectionInitialState,
   type MenuFormState,
   type SectionFormState,
 } from './menuHierarchyDomain';
+import { DialogFooterActions } from './menuHierarchyFormControls';
 import { MenuDialogFields, SectionDialogFields } from './menuHierarchyMenuSectionFields';
 
 import type {
@@ -49,6 +45,7 @@ export function MenuDialog({
   defaultMenuKind: MenuKind;
   onOpenChange: (open: boolean) => void;
 }) {
+  const formId = useId();
   const [state, setState] = useState<MenuFormState>(() => menuInitialState(menu, defaultMenuKind));
   const createMenu = useOpsCreateRestaurantMenu(restaurantId);
   const updateMenu = useOpsUpdateRestaurantMenu({ restaurantId, menuId: menu?.id });
@@ -57,14 +54,26 @@ export function MenuDialog({
     if (mode) setState(menuInitialState(menu, defaultMenuKind));
   }, [defaultMenuKind, menu, mode]);
 
+  const initial = useMemo(() => menuInitialState(menu, defaultMenuKind), [defaultMenuKind, menu]);
+  const isDirty = Boolean(mode) && JSON.stringify(state) !== JSON.stringify(initial);
+  const { guardOpenChange } = useSettingsDiscardGuard('menu-dialog', isDirty);
+  const requestOpenChange = guardOpenChange(onOpenChange);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const payload = buildMenuPayload(state);
-    if (mode === 'edit' && menu?.id) {
-      await updateMenu.mutateAsync(payload);
-    } else {
-      await createMenu.mutateAsync(payload);
+    try {
+      if (mode === 'edit' && menu?.id) {
+        await updateMenu.mutateAsync(payload);
+      } else {
+        await createMenu.mutateAsync(payload);
+      }
+    } catch {
+      // The mutation error renders beside the save action; the dialog keeps the draft.
+      return;
     }
+    const savedName = state.displayName.trim() || 'Menu';
+    toast.success(mode === 'edit' ? `${savedName} saved.` : `${savedName} created.`);
     onOpenChange(false);
   };
 
@@ -72,32 +81,28 @@ export function MenuDialog({
   const error = createMenu.error ?? updateMenu.error;
 
   return (
-    <Dialog open={Boolean(mode)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{mode === 'edit' ? 'Edit menu' : 'Create menu'}</DialogTitle>
-          <DialogDescription>
-            Menu details that can be published to Google live here before sections and items.
-          </DialogDescription>
-        </DialogHeader>
-        <FormRoot className="flex flex-col gap-5" onSubmit={submit}>
-          <MenuDialogFields setState={setState} state={state} />
-          {error ? (
-            <Text variant="caption" className="text-destructive">
-              {error.message}
-            </Text>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Saving...' : 'Save menu'}
-            </Button>
-          </DialogFooter>
-        </FormRoot>
-      </DialogContent>
-    </Dialog>
+    <SettingsDialog
+      open={Boolean(mode)}
+      onOpenChange={requestOpenChange}
+      size="lg"
+      testId="menu-dialog"
+      title={mode === 'edit' ? 'Menu settings' : 'New menu'}
+      description="Saves when you select Save menu. Publishing to Google happens separately."
+      footer={
+        <DialogFooterActions error={error}>
+          <Button type="button" variant="outline" onClick={() => requestOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} disabled={pending}>
+            {pending ? 'Saving…' : mode === 'edit' ? 'Save menu' : 'Create menu'}
+          </Button>
+        </DialogFooterActions>
+      }
+    >
+      <FormRoot id={formId} className="flex flex-col gap-4" onSubmit={submit}>
+        <MenuDialogFields setState={setState} state={state} />
+      </FormRoot>
+    </SettingsDialog>
   );
 }
 
@@ -114,6 +119,7 @@ export function SectionDialog({
   section: CanonicalRestaurantMenuSection | null;
   onOpenChange: (open: boolean) => void;
 }) {
+  const formId = useId();
   const [state, setState] = useState<SectionFormState>(() => sectionInitialState(section));
   const createSection = useOpsCreateRestaurantMenuSection({ restaurantId, menuId: menu?.id });
   const updateSection = useOpsUpdateRestaurantMenuSection({
@@ -126,14 +132,25 @@ export function SectionDialog({
     if (mode) setState(sectionInitialState(section));
   }, [mode, section]);
 
+  const initial = useMemo(() => sectionInitialState(section), [section]);
+  const isDirty = Boolean(mode) && JSON.stringify(state) !== JSON.stringify(initial);
+  const { guardOpenChange } = useSettingsDiscardGuard('menu-section-dialog', isDirty);
+  const requestOpenChange = guardOpenChange(onOpenChange);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!menu) return;
-    if (mode === 'edit' && section?.id) {
-      await updateSection.mutateAsync(buildSectionPayload(state, section.displayOrder));
-    } else {
-      await createSection.mutateAsync(buildSectionPayload(state, menu.sections.length));
+    try {
+      if (mode === 'edit' && section?.id) {
+        await updateSection.mutateAsync(buildSectionPayload(state, section.displayOrder));
+      } else {
+        await createSection.mutateAsync(buildSectionPayload(state, menu.sections.length));
+      }
+    } catch {
+      return;
     }
+    const savedName = state.displayName.trim() || 'Section';
+    toast.success(mode === 'edit' ? `${savedName} saved.` : `${savedName} added.`);
     onOpenChange(false);
   };
 
@@ -141,32 +158,29 @@ export function SectionDialog({
   const error = createSection.error ?? updateSection.error;
 
   return (
-    <Dialog open={Boolean(mode)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{mode === 'edit' ? 'Edit section' : 'Create section'}</DialogTitle>
-          <DialogDescription>
-            Sections replace legacy category/subcategory grouping while preserving compatibility
-            labels.
-          </DialogDescription>
-        </DialogHeader>
-        <FormRoot className="flex flex-col gap-4" onSubmit={submit}>
-          <SectionDialogFields setState={setState} state={state} />
-          {error ? (
-            <Text variant="caption" className="text-destructive">
-              {error.message}
-            </Text>
-          ) : null}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={pending || !menu}>
-              {pending ? 'Saving...' : mode === 'edit' ? 'Save section' : 'Create section'}
-            </Button>
-          </DialogFooter>
-        </FormRoot>
-      </DialogContent>
-    </Dialog>
+    <SettingsDialog
+      open={Boolean(mode)}
+      onOpenChange={requestOpenChange}
+      size="md"
+      testId="menu-section-dialog"
+      title={
+        mode === 'edit' && section ? `Edit ${primaryLabel(section, 'section')}` : 'Add section'
+      }
+      description="Saves when you select Save section. Publishing to Google happens separately."
+      footer={
+        <DialogFooterActions error={error}>
+          <Button type="button" variant="outline" onClick={() => requestOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} disabled={pending || !menu}>
+            {pending ? 'Saving…' : mode === 'edit' ? 'Save section' : 'Add section'}
+          </Button>
+        </DialogFooterActions>
+      }
+    >
+      <FormRoot id={formId} className="flex flex-col gap-4" onSubmit={submit}>
+        <SectionDialogFields setState={setState} state={state} />
+      </FormRoot>
+    </SettingsDialog>
   );
 }

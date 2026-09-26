@@ -19,6 +19,7 @@ vi.mock('@/lib/analytics/emit', () => ({
   emit: analyticsEmitMock,
 }));
 
+import { type ProfileSubformProps } from '../../components/ops/restaurants/details/shared';
 import {
   AdvancedIdentitySubform,
   BookingRulesSubform,
@@ -73,113 +74,64 @@ describe('RestaurantDetailsForm subforms', () => {
     vi.unstubAllEnvs();
   });
 
-  it('saves brand and identity fields as a partial payload', async () => {
+  function profileProps(over: Partial<ProfileSubformProps> = {}): ProfileSubformProps {
+    const state = mapInitialValues(initialValues);
+    return {
+      state,
+      savedState: state,
+      errors: {},
+      onFieldChange: vi.fn(),
+      onFieldBlur: vi.fn(),
+      ...over,
+    };
+  }
+
+  it('reports brand edits to the page draft and shows the description counter', async () => {
     const user = userEvent.setup();
-    const onDirtyChange = vi.fn();
-    const onDraftChange = vi.fn();
-    mutateAsyncMock.mockResolvedValueOnce({
-      ...initialValues,
-      businessDescription: 'Family friendly pub and Nepalese dining.',
-      updatedAt: '2026-04-30T19:53:00.000Z',
+    const props = profileProps({
+      state: { ...mapInitialValues(initialValues), businessDescription: 'Village pub' },
     });
 
+    render(<BrandIdentitySubform {...props} />);
+
+    expect(screen.getByText(/11 \/ 4,096 characters/)).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: /business description/i }), '!');
+    expect(props.onFieldChange).toHaveBeenCalledWith('businessDescription', 'Village pub!');
+    await user.tab();
+    expect(props.onFieldBlur).toHaveBeenCalledWith('businessDescription');
+    expect(screen.queryByRole('button', { name: /save/i })).not.toBeInTheDocument();
+  });
+
+  it('shows a field error below the field, linked and marked invalid', () => {
     render(
       <BrandIdentitySubform
-        restaurantId="rest-1"
-        initialValues={initialValues}
-        formId="profile-brand-form"
-        onDirtyChange={onDirtyChange}
-        onDraftChange={onDraftChange}
+        {...profileProps({ errors: { name: 'Restaurant name is required' } })}
       />,
     );
 
-    await user.type(
-      screen.getByRole('textbox', { name: /business description/i }),
-      '  Family friendly pub and Nepalese dining.  ',
+    const name = screen.getByRole('textbox', { name: /restaurant name/i });
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAttribute('aria-describedby', 'restaurant-name-error');
+    expect(document.getElementById('restaurant-name-error')).toHaveTextContent(
+      'Restaurant name is required',
     );
-    await user.click(screen.getByRole('button', { name: /save brand & identity/i }));
-
-    await waitFor(() =>
-      expect(mutateAsyncMock).toHaveBeenCalledWith({
-        name: 'Old Crown Girton',
-        businessDescription: 'Family friendly pub and Nepalese dining.',
-      }),
-    );
-    expect(onDirtyChange).toHaveBeenCalledWith(true);
-    expect(onDraftChange).toHaveBeenCalledWith(
-      {
-        name: 'Old Crown Girton',
-        businessDescription: '  Family friendly pub and Nepalese dining.  ',
-      },
-      true,
-    );
-    await waitFor(() => {
-      expect(onDraftChange).toHaveBeenLastCalledWith({}, false);
-      expect(onDirtyChange).toHaveBeenLastCalledWith(false);
-    });
-    expect(
-      screen.getByText('Saves local brand details only. Sync with Google remains optional.'),
-    ).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Saved just now.');
-    expect(analyticsTrackMock).toHaveBeenCalledWith(
-      'restaurant_profile_section_saved',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        section: 'brand_identity',
-        changed_field_count: 1,
-        changed_fields: ['businessDescription'],
-        required_field_count: 3,
-        completed_required_field_count: 3,
-        required_fields_complete: true,
-        profile_completion_score: 100,
-        missing_profile_fields: [],
-        saved_at: '2026-04-30T19:53:00.000Z',
-      }),
-    );
-    expect(analyticsEmitMock).toHaveBeenCalledWith(
-      'restaurant_profile_section_saved',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        section: 'brand_identity',
-      }),
-    );
-    expect(
-      screen.getByRole('textbox', { name: /restaurant name/i }).closest('form'),
-    ).toHaveAttribute('id', 'profile-brand-form');
   });
 
-  it('saves contact and location fields without booking rules', async () => {
-    const user = userEvent.setup();
-
-    render(<ContactLocationSubform restaurantId="rest-1" initialValues={initialValues} />);
+  it('groups contact fields and labels the phone as needed before guests can book', () => {
+    render(<ContactLocationSubform {...profileProps()} />);
 
     expect(screen.getByText('Location')).toBeInTheDocument();
     expect(screen.getByText('Public contact')).toBeInTheDocument();
-    expect(screen.getByText('After visit')).toBeInTheDocument();
-    expect(screen.getByText('Directions link for guests (Google Maps).')).toBeInTheDocument();
-    expect(
-      screen.getByText('Post-visit review link; not the same as website/menu links in Discovery.'),
-    ).toBeInTheDocument();
-
-    await user.clear(screen.getByRole('textbox', { name: /contact phone/i }));
-    await user.type(screen.getByRole('textbox', { name: /contact phone/i }), '+447700900000');
-    await user.click(screen.getByRole('button', { name: /save contact details/i }));
-
-    await waitFor(() =>
-      expect(mutateAsyncMock).toHaveBeenCalledWith({
-        timezone: 'Europe/London',
-        contactEmail: 'ops@oldcrowngirton.example',
-        contactPhone: '+447700900000',
-        address: '1 High Street',
-        googleMapUrl: 'https://maps.google.com/demo-venue',
-        googleReviewUrl: 'https://g.page/demo-venue/review',
-      }),
+    expect(screen.getByText('After the visit')).toBeInTheDocument();
+    expect(screen.getByText('Needed before guests can book')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /public phone/i })).toHaveValue('+44 1223 277217');
+    expect(screen.getByRole('combobox', { name: /timezone/i })).toHaveTextContent(
+      /^London \(GMT[+-]?\d*\) · Europe\/London$/,
     );
-    expect(mutateAsyncMock.mock.calls[0][0]).not.toHaveProperty('bookingPolicy');
-    expect(mutateAsyncMock.mock.calls[0][0]).not.toHaveProperty('reservationIntervalMinutes');
+    expect(screen.getByText('Used in review-request emails.')).toBeInTheDocument();
   });
 
-  it('shows the full public booking URL preview and copies it as the primary action', async () => {
+  it('previews the booking page link and copies the saved link', async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -187,62 +139,64 @@ describe('RestaurantDetailsForm subforms', () => {
       value: { writeText },
     });
 
-    render(<AdvancedIdentitySubform restaurantId="rest-1" initialValues={initialValues} />);
+    render(<AdvancedIdentitySubform {...profileProps()} />);
 
-    expect(screen.getByText('/restaurants/old-crown-girton/book')).toBeInTheDocument();
-    expect(
-      screen.getByText('http://localhost:3000/restaurants/old-crown-girton/book'),
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /copy full url/i }));
+    expect(screen.getByRole('textbox', { name: /link name/i })).toHaveValue('old-crown-girton');
+    expect(screen.getByText('Guests book at')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Copy link' }));
 
     expect(writeText).toHaveBeenCalledWith(
       'http://localhost:3000/restaurants/old-crown-girton/book',
     );
-    expect(await screen.findByRole('status')).toHaveTextContent('Full booking URL copied.');
   });
 
-  it('saves manager alert fields and validates E.164 numbers', async () => {
-    const user = userEvent.setup();
-
-    render(<ManagerNotificationsSubform restaurantId="rest-1" initialValues={initialValues} />);
-
-    await user.clear(screen.getByRole('textbox', { name: /manager alert number/i }));
-    await user.type(screen.getByRole('textbox', { name: /manager alert number/i }), '07700900000');
-    await user.click(screen.getByRole('button', { name: /save notifications/i }));
-
-    expect(mutateAsyncMock).not.toHaveBeenCalled();
-    expect(screen.getByText('Use E.164 format such as +447700900000')).toBeInTheDocument();
-    expect(screen.getByText(/fix the highlighted fields/i)).toBeInTheDocument();
-    expect(analyticsTrackMock).toHaveBeenCalledWith(
-      'restaurant_profile_validation_error',
-      expect.objectContaining({
-        restaurant_id: 'rest-1',
-        section: 'manager_notifications',
-        fields: ['managerNotificationPhone'],
-      }),
+  it('shows the new booking page link beside the current one until it is saved', () => {
+    const saved = mapInitialValues(initialValues);
+    render(
+      <AdvancedIdentitySubform
+        {...profileProps({ state: { ...saved, slug: 'the-old-crown' }, savedState: saved })}
+      />,
     );
 
-    await user.clear(screen.getByRole('textbox', { name: /manager alert number/i }));
-    await user.type(
-      screen.getByRole('textbox', { name: /manager alert number/i }),
-      '+447700900000',
-    );
-    await user.type(screen.getByRole('textbox', { name: /manager name/i }), 'Sam');
-    await user.click(screen.getByRole('switch', { name: /daily manager sms summary/i }));
-    await user.click(
-      screen.getByRole('switch', { name: /send daily summary via whatsapp first/i }),
-    );
-    await user.click(screen.getByRole('button', { name: /save notifications/i }));
+    expect(
+      screen.getByText('New link after you save. Guests keep using the old one until then.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('http://localhost:3000/restaurants/the-old-crown/book'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('http://localhost:3000/restaurants/old-crown-girton/book'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy link' })).toBeDisabled();
+  });
 
-    await waitFor(() =>
-      expect(mutateAsyncMock).toHaveBeenCalledWith({
-        managerName: 'Sam',
-        managerNotificationPhone: '+447700900000',
-        managerDailySummaryEnabled: true,
-        managerWhatsappEnabled: true,
-      }),
+  it('explains why WhatsApp is unavailable and when the number change turned it off', () => {
+    const saved = mapInitialValues(initialValues);
+    const { rerender } = render(<ManagerNotificationsSubform {...profileProps()} />);
+
+    expect(screen.getByRole('switch', { name: 'Try WhatsApp first' })).toBeDisabled();
+    expect(screen.getByText('Turn on the daily summary first.')).toBeInTheDocument();
+
+    rerender(
+      <ManagerNotificationsSubform
+        {...profileProps({
+          state: { ...saved, managerDailySummaryEnabled: true, managerNotificationPhone: '' },
+        })}
+      />,
     );
+    expect(screen.getByText('Add a manager alert number first.')).toBeInTheDocument();
+
+    rerender(
+      <ManagerNotificationsSubform
+        {...profileProps({ state: { ...saved, managerDailySummaryEnabled: true } })}
+        whatsappTurnedOff
+      />,
+    );
+    expect(screen.getByRole('switch', { name: 'Try WhatsApp first' })).toBeEnabled();
+    expect(
+      screen.getByText('If WhatsApp can’t deliver, the summary goes by SMS.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('WhatsApp was turned off')).toBeInTheDocument();
   });
 
   it('saves booking rules from the availability subform', async () => {
@@ -273,8 +227,12 @@ describe('RestaurantDetailsForm subforms', () => {
     render(
       <>
         <BrandIdentitySubform
-          restaurantId="rest-1"
-          initialValues={{ ...initialValues, businessDescription: 'Family friendly pub' }}
+          {...profileProps({
+            state: {
+              ...mapInitialValues(initialValues),
+              businessDescription: 'Family friendly pub',
+            },
+          })}
           gbpFieldVerifications={{
             name: {
               status: 'verified',
@@ -299,8 +257,7 @@ describe('RestaurantDetailsForm subforms', () => {
           }}
         />
         <ContactLocationSubform
-          restaurantId="rest-1"
-          initialValues={initialValues}
+          {...profileProps()}
           gbpFieldVerifications={{
             contactPhone: {
               status: 'verified',
@@ -337,7 +294,8 @@ describe('RestaurantDetailsForm subforms', () => {
       </>,
     );
 
-    expect(screen.getAllByText(/matches gbp/i)).toHaveLength(5);
+    expect(screen.getAllByText('Matches Google')).toHaveLength(5);
+    expect(screen.getAllByRole('button', { name: 'Show the Google value' })).toHaveLength(5);
   });
 
   it('shows required or optional status and why-it-matters helper copy on the full form', async () => {
@@ -439,7 +397,7 @@ describe('RestaurantDetailsForm subforms', () => {
       businessDescription: '  Pub classics and Nepalese dishes.  ',
     });
     expect(validateRestaurantDetails({ ...state, slug: 'Bad Slug' })).toMatchObject({
-      slug: 'Booking page URL must contain only lowercase letters, numbers, and hyphens',
+      slug: 'Booking page link must contain only lowercase letters, numbers, and hyphens',
     });
     expect(
       sanitizePayload({

@@ -85,7 +85,7 @@ describe('useDualSyncControlAction', () => {
     expect(clearPublishPreview).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith({
       kind: 'error',
-      message: 'Control update broke',
+      message: 'Dual-sync control update failed. Reason code: unknown_error.',
     });
   });
 });
