@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCancelBooking } from '@/hooks/useCancelBooking';
 import { useUpdateBooking } from '@/hooks/useUpdateBooking';
 import { isGuestBookingLinkPath } from '@/lib/http/sessionRedirect';
+import { useReservation } from '@features/reservations/wizard/api/useReservation';
+import { apiClient } from '@shared/api/client';
 
 import type * as SessionRedirect from '@/lib/http/sessionRedirect';
 
@@ -91,6 +93,38 @@ describe('guest booking hooks and the sign-in redirect', () => {
     await expect(result.current.mutateAsync({ id: 'b-1' })).rejects.toMatchObject({
       code: 'UNAUTHENTICATED',
     });
+    await vi.waitFor(() => expect(triggerSessionRedirectMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not redirect when the active reservation detail refetch also gets a 401 on the guest page', async () => {
+    window.history.pushState({}, '', '/bookings/b-1');
+    stub401('INVALID_ACCESS_TOKEN');
+    const wrapper = createQueryWrapper(createTestQueryClient());
+    const { result } = renderHook(
+      () => ({ cancel: useCancelBooking(), reservation: useReservation('b-1') }),
+      { wrapper },
+    );
+    await vi.waitFor(() => expect(result.current.reservation.isError).toBe(true));
+    await expect(result.current.cancel.mutateAsync({ id: 'b-1' })).rejects.toMatchObject({
+      code: 'INVALID_ACCESS_TOKEN',
+      status: 401,
+    });
+    // onSettled invalidates reservationKeys.detail(id); the active query refetches.
+    await vi.waitFor(() => {
+      const fetchMock = vi.mocked(globalThis.fetch);
+      const gets = fetchMock.mock.calls.filter(
+        ([, init]) => (init as RequestInit | undefined)?.method === 'GET',
+      );
+      expect(gets.length).toBeGreaterThanOrEqual(2);
+    });
+    await flushDynamicImport();
+    expect(triggerSessionRedirectMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the reserve client sign-in redirect off the guest booking pages', async () => {
+    window.history.pushState({}, '', '/app/bookings');
+    stub401('UNAUTHENTICATED');
+    await expect(apiClient.get('/bookings/b-1')).rejects.toMatchObject({ status: 401 });
     await vi.waitFor(() => expect(triggerSessionRedirectMock).toHaveBeenCalledTimes(1));
   });
 });

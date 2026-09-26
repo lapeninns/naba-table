@@ -114,8 +114,12 @@ async function request<TResponse>(
 
     const shouldTriggerAuthRedirect = response.status === 401 || response.status === 419;
     if (shouldTriggerAuthRedirect && typeof window !== 'undefined') {
+      // Same rule as fetchJson: on the public /bookings link pages a 401 means the
+      // emailed link expired, and the page offers a new link instead of sign-in.
       void import('@/lib/http/sessionRedirect')
-        .then((mod) => mod.triggerSessionRedirect())
+        .then((mod) => {
+          if (mod.shouldRedirectToSignInOnUnauthenticated()) mod.triggerSessionRedirect();
+        })
         .catch(() => {});
     }
 
