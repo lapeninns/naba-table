@@ -36,6 +36,7 @@ import {
   type DeleteRestaurantResponse,
   type RestaurantDTO,
 } from '../schema';
+import { toRestaurantDto } from './_restaurantDto';
 
 import type { Database } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
@@ -275,36 +276,7 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
     }
 
     const response: RestaurantResponse = {
-      restaurant: {
-        id: restaurant.id,
-        name: restaurant.name,
-        slug: restaurant.slug,
-        isActive: restaurant.isActive ?? true,
-        timezone: restaurant.timezone,
-        capacity: restaurant.capacity,
-        contactEmail: restaurant.contactEmail,
-        contactPhone: restaurant.contactPhone,
-        address: restaurant.address,
-        businessDescription: restaurant.businessDescription,
-        managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
-        managerWhatsappEnabled: restaurant.managerWhatsappEnabled,
-        managerName: restaurant.managerName,
-        managerNotificationPhone: restaurant.managerNotificationPhone,
-        googleMapUrl: restaurant.googleMapUrl,
-        googleReviewUrl: restaurant.googleReviewUrl,
-        bookingPolicy: restaurant.bookingPolicy,
-        logoUrl: restaurant.logoUrl,
-        emailSendReminder24h: restaurant.emailSendReminder24h,
-        emailSendReminderShort: restaurant.emailSendReminderShort,
-        emailSendReviewRequest: restaurant.emailSendReviewRequest,
-        reservationIntervalMinutes: restaurant.reservationIntervalMinutes,
-        reservationDefaultDurationMinutes: restaurant.reservationDefaultDurationMinutes,
-        reservationLastSeatingBufferMinutes: restaurant.reservationLastSeatingBufferMinutes,
-        reservationLifecycleGraceMinutes: restaurant.reservationLifecycleGraceMinutes,
-        createdAt: restaurant.createdAt,
-        updatedAt: restaurant.updatedAt,
-        role: membershipRole,
-      },
+      restaurant: toRestaurantDto(restaurant, membershipRole),
     };
 
     return NextResponse.json(response);

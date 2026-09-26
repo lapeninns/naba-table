@@ -23,8 +23,15 @@ vi.mock('@/server/team/access', () => ({
   requireAdminMembership: requireAdminMembershipMock,
 }));
 
-import { POST as postProfileImage } from '@/src/app/api/profile/image/route';
+vi.mock('@/server/restaurants/update', () => ({
+  updateRestaurant: vi.fn(async (id: string, input: { logoUrl: string | null }) => ({
+    id,
+    logoUrl: input.logoUrl,
+  })),
+}));
+
 import { POST as postRestaurantLogo } from '@/src/app/api/ops/restaurants/[id]/logo/route';
+import { POST as postProfileImage } from '@/src/app/api/profile/image/route';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const RESTAURANT_ID = '22222222-2222-4222-8222-222222222222';
@@ -62,12 +69,19 @@ function authenticatedRouteClient() {
 }
 
 function serviceClientWithStorage() {
+  const restaurantsQuery = {
+    select: vi.fn(() => restaurantsQuery),
+    eq: vi.fn(() => restaurantsQuery),
+    maybeSingle: vi.fn().mockResolvedValue({ data: { logo_url: null }, error: null }),
+  };
   return {
+    from: vi.fn(() => restaurantsQuery),
     storage: {
       getBucket: vi.fn().mockResolvedValue({ data: { name: 'bucket' }, error: null }),
       createBucket: vi.fn().mockResolvedValue({ data: { name: 'bucket' }, error: null }),
       from: vi.fn(() => ({
         upload: vi.fn().mockResolvedValue({ data: { path: 'p' }, error: null }),
+        remove: vi.fn().mockResolvedValue({ data: [], error: null }),
         getPublicUrl: vi.fn(() => ({ data: { publicUrl: 'https://cdn.example.com/p' } })),
       })),
     },
@@ -148,6 +162,6 @@ describe('restaurant logo upload SVG rejection', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.path).toBe(`${RESTAURANT_ID}/logo`);
+    expect(body.path).toMatch(new RegExp(`^${RESTAURANT_ID}/logo-[a-z0-9-]+\\.png$`));
   });
 });
