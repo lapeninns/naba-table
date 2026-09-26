@@ -79,7 +79,7 @@ describe('GbpDriftProvider', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
-  it('@contract shows a Link Google pill when the profile is not connected', () => {
+  it('@contract shows a Google not linked pill when the profile is not connected', () => {
     connectionState.data = { status: 'unlinked' };
     render(
       <GbpDriftProvider restaurantId="rest-1">
@@ -87,8 +87,8 @@ describe('GbpDriftProvider', () => {
       </GbpDriftProvider>,
     );
 
-    const pill = screen.getByRole('link', { name: /GBP/ });
-    expect(pill).toHaveTextContent('Link Google');
+    const pill = screen.getByRole('link', { name: 'Google not linked' });
+    expect(pill).toHaveTextContent('Google not linked');
     expect(pill).toHaveAttribute(
       'href',
       expect.stringContaining('/settings/restaurant/google-business-profile#gbp-sync-review'),
@@ -215,7 +215,9 @@ describe('GbpDriftProvider', () => {
       </GbpDriftProvider>,
     );
 
-    expect(screen.getByRole('link', { name: /GBP/ })).toHaveTextContent('Link Google');
+    expect(screen.getByRole('link', { name: 'Google not linked' })).toHaveTextContent(
+      'Google not linked',
+    );
     expect(screen.getByTestId('nav-badge')).toHaveTextContent('Link');
   });
 
