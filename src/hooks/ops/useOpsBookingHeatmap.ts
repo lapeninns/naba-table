@@ -29,7 +29,7 @@ export function useOpsBookingHeatmap(options: UseOpsBookingHeatmapOptions) {
     () =>
       restaurantId && startDate && endDate && isUuid(restaurantId)
         ? queryKeys.opsDashboard.heatmap(restaurantId, startDate, endDate)
-        : (['ops', 'dashboard', 'heatmap', 'disabled'] as const),
+        : queryKeys.opsDashboard.heatmapDisabled(),
     [restaurantId, startDate, endDate],
   );
 

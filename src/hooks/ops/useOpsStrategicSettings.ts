@@ -12,13 +12,16 @@ export type UseOpsStrategicSettingsOptions = {
   enabled?: boolean;
 };
 
-export function useOpsStrategicSettings({ restaurantId, enabled = true }: UseOpsStrategicSettingsOptions) {
+export function useOpsStrategicSettings({
+  restaurantId,
+  enabled = true,
+}: UseOpsStrategicSettingsOptions) {
   const bookingService = useBookingService();
   const resolvedRestaurantId = restaurantId ?? null;
 
   const queryKey = resolvedRestaurantId
     ? queryKeys.opsSettings.strategicConfig(resolvedRestaurantId)
-    : (['ops', 'settings', 'strategic-config', 'disabled'] as const);
+    : queryKeys.opsSettings.strategicConfig('disabled');
 
   return useQuery<OpsStrategicSettings>({
     queryKey,

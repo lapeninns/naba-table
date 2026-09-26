@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -60,25 +61,24 @@ export function useOpsEmailDeliveryFeed(
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
   const statusKey = params.status?.length ? params.status.slice().sort().join(',') : 'all';
-  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
+  const refetchInterval =
+    typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailDeliveryFeedResponse, HttpError>({
-    queryKey: [
-      'ops',
-      'email-delivery',
-      restaurantId ?? 'disabled',
+    queryKey: queryKeys.opsEmailDelivery.feed({
+      restaurantId,
       range,
       page,
       pageSize,
       statusKey,
-      params.simulateEmailDeliveryError ? 'forced-error' : '',
-      params.fixture?.trim() ?? '',
-      params.recipientEmail?.trim() ?? '',
-      params.messageId?.trim() ?? '',
-      params.bookingRef?.trim().toUpperCase() ?? '',
-      params.templateType?.trim() ?? '',
-      params.emailType?.trim() ?? '',
-    ] as const,
+      simulateEmailDeliveryError: params.simulateEmailDeliveryError,
+      fixture: params.fixture,
+      recipientEmail: params.recipientEmail,
+      messageId: params.messageId,
+      bookingRef: params.bookingRef,
+      templateType: params.templateType,
+      emailType: params.emailType,
+    }),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant ID is required');
@@ -111,7 +111,7 @@ export function useOpsEmailDeliveryFeed(
       response && response.ok === false && response.code === 'DELIVERY_LOG_UNAVAILABLE',
     );
     const attempts = response && response.ok ? response.attempts : null;
-    const summary = response && response.ok ? response.summary ?? null : null;
+    const summary = response && response.ok ? (response.summary ?? null) : null;
     const isSummaryLoading = Boolean(query.isLoading && !summary);
     const isSummaryUpdating = Boolean(query.isFetching && !query.isLoading && Boolean(summary));
     const apiError = response && response.ok === false && !unavailable ? response : null;

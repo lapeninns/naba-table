@@ -21,7 +21,7 @@ export function useOpsBooking(
     () =>
       bookingId
         ? queryKeys.opsBookings.detail(bookingId)
-        : (['ops', 'bookings', 'detail', 'disabled'] as const),
+        : queryKeys.opsBookings.detail('disabled'),
     [bookingId],
   );
   const isEnabled = Boolean(bookingId) && (options?.enabled ?? true);

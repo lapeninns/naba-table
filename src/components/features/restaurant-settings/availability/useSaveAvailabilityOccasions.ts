@@ -18,7 +18,7 @@ import type { AvailabilityOccasionSavePlan } from '../availabilitySchedulePayloa
 import type { OpsOccasion } from '@/services/ops/occasions';
 
 /** Prefix of the guest booking schedule (`scheduleQueryKey`), which embeds the occasion catalog. */
-const GUEST_SCHEDULE_QUERY_PREFIX = ['reservations', 'schedule'] as const;
+const GUEST_SCHEDULE_QUERY_PREFIX = queryKeys.reservations.schedulePrefix();
 
 /**
  * Writes booking-type changes one at a time. Occasions are a global catalog, so their list key

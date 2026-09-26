@@ -21,7 +21,7 @@ type CancelContext = {
   previousDetail?: OpsBookingListItem;
 };
 
-const opsBookingsListKey = ['ops', 'bookings', 'list'] as const;
+const opsBookingsListKey = queryKeys.opsBookings.listPrefix();
 
 const hasBookingItems = (
   value: OpsBookingsPage | undefined,
@@ -86,13 +86,15 @@ export function useOpsCancelBooking() {
         queryClient.setQueryData(context.summaryKey, context.previousSummary);
       }
       if (context?.previousDetail) {
-        queryClient.setQueryData(queryKeys.opsBookings.detail(variables.bookingId), context.previousDetail);
+        queryClient.setQueryData(
+          queryKeys.opsBookings.detail(variables.bookingId),
+          context.previousDetail,
+        );
       }
-
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ['ops', 'dashboard', variables.restaurantId, 'heatmap'],
+        queryKey: queryKeys.opsDashboard.heatmapPrefix(variables.restaurantId),
         exact: false,
       });
     },

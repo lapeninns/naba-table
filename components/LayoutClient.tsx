@@ -71,8 +71,8 @@ const ClientLayout = ({ children }: { children: ReactNode }) => {
       {/* Content inside app/page.js files  */}
       {children}
 
-      <Toaster richColors closeButton />
-
+      {/* The one global toast surface (mutation feedback in lib/query/client.ts renders here).
+          Auth routes above render none: sign-in and sign-up show their errors inline. */}
       <Toaster richColors closeButton />
 
       {/* Set Crisp customer chat support */}

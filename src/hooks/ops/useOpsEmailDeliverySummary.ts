@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react
 import { useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
+import { queryKeys } from '@/lib/query/keys';
 
 import type { HttpError } from '@/lib/http/errors';
 import type {
@@ -38,21 +39,20 @@ export function useOpsEmailDeliverySummary(
 
   const restaurantId = params.restaurantId;
   const range: OpsEmailDeliveryRange = params.range ?? '7d';
-  const refetchInterval = typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
+  const refetchInterval =
+    typeof params.refetchIntervalMs === 'number' ? params.refetchIntervalMs : false;
 
   const query = useQuery<OpsEmailDeliverySummaryResponse, HttpError>({
-    queryKey: [
-      'ops',
-      'email-delivery-summary',
-      restaurantId ?? 'disabled',
+    queryKey: queryKeys.opsEmailDelivery.summary({
+      restaurantId,
       range,
-      params.simulateEmailDeliveryError ? 'forced-error' : '',
-      params.recipientEmail?.trim() ?? '',
-      params.messageId?.trim() ?? '',
-      params.bookingRef?.trim().toUpperCase() ?? '',
-      params.templateType?.trim() ?? '',
-      params.emailType?.trim() ?? '',
-    ] as const,
+      simulateEmailDeliveryError: params.simulateEmailDeliveryError,
+      recipientEmail: params.recipientEmail,
+      messageId: params.messageId,
+      bookingRef: params.bookingRef,
+      templateType: params.templateType,
+      emailType: params.emailType,
+    }),
     queryFn: () => {
       if (!restaurantId) {
         throw new Error('Restaurant ID is required');

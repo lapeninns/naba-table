@@ -26,16 +26,24 @@ export type UpdateServicePeriodInput = {
   bookingOption: OccasionKey;
 };
 
-const DISABLED_KEY = ['owner', 'restaurants', 'disabled', 'service-periods'] as const;
+const DISABLED_KEY = queryKeys.ownerRestaurants.servicePeriods('disabled');
 
-export function useServicePeriods(restaurantId: string | null): UseQueryResult<ServicePeriod[], HttpError> {
-  const queryKey = restaurantId ? queryKeys.ownerRestaurants.servicePeriods(restaurantId) : DISABLED_KEY;
+export function useServicePeriods(
+  restaurantId: string | null,
+): UseQueryResult<ServicePeriod[], HttpError> {
+  const queryKey = restaurantId
+    ? queryKeys.ownerRestaurants.servicePeriods(restaurantId)
+    : DISABLED_KEY;
 
   return useQuery<ServicePeriod[], HttpError>({
     queryKey,
     queryFn: async () => {
       if (!restaurantId) {
-        throw new HttpError({ message: 'Restaurant id is required', status: 400, code: 'MISSING_RESTAURANT' });
+        throw new HttpError({
+          message: 'Restaurant id is required',
+          status: 400,
+          code: 'MISSING_RESTAURANT',
+        });
       }
 
       const { periods } = await fetchJson<{ restaurantId: string; periods: ServicePeriod[] }>(
@@ -53,7 +61,11 @@ export function useUpdateServicePeriods(restaurantId: string | null) {
   return useMutation<ServicePeriod[], HttpError, UpdateServicePeriodInput[]>({
     mutationFn: async (payload) => {
       if (!restaurantId) {
-        throw new HttpError({ message: 'Restaurant id is required', status: 400, code: 'MISSING_RESTAURANT' });
+        throw new HttpError({
+          message: 'Restaurant id is required',
+          status: 400,
+          code: 'MISSING_RESTAURANT',
+        });
       }
 
       const response = await fetchJson<{ restaurantId: string; periods: ServicePeriod[] }>(

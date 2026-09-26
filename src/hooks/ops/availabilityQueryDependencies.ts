@@ -9,7 +9,7 @@ export type AvailabilityResource = 'hours' | 'service-periods' | 'turn-bands';
  * the booking wizard and the ops edit-booking picker. Those keys carry the
  * restaurant slug, which the settings hooks do not have, so the prefix is used.
  */
-const RESERVATION_SCHEDULE_PREFIX = ['reservations', 'schedule'] as const;
+const RESERVATION_SCHEDULE_PREFIX = queryKeys.reservations.schedulePrefix();
 
 /**
  * Queries derived from an availability resource on the server. The resource's

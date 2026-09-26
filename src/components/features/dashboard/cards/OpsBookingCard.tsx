@@ -64,7 +64,7 @@ function prefetchDialogBundle(params: {
 }) {
   const { bookingId, bookingService, queryClient } = params;
   return queryClient.prefetchQuery({
-    queryKey: ['ops', 'bookings', 'dialog', bookingId] as const,
+    queryKey: queryKeys.opsBookings.dialog(bookingId),
     queryFn: async () => {
       const bundle = await bookingService.getDialogBundle(bookingId);
       queryClient.setQueryData(queryKeys.opsBookings.detail(bookingId), bundle.booking);

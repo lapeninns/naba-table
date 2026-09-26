@@ -1,4 +1,10 @@
-import { dehydrate, QueryClient, type Query } from '@tanstack/react-query';
+import {
+  dehydrate,
+  MutationObserver,
+  onlineManager,
+  QueryClient,
+  type Query,
+} from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { queryKeys } from '@/lib/query/keys';
@@ -8,6 +14,7 @@ import {
   configureQueryPersistence,
   isPiiQueryKey,
   isVolatileOpsIntegrationQueryKey,
+  shouldDehydratePersistedQuery,
   shouldPersistQuery,
 } from '@/lib/query/persist';
 
@@ -88,6 +95,10 @@ describe('query persistence filter', () => {
       ['reservation', 'booking-1'],
       // Owner restaurant details: contactEmail and contactPhone.
       queryKeys.ownerRestaurants.details('rest-1'),
+      // The signed-in user's profile: name, email and phone.
+      queryKeys.profile.self(),
+      ['profile'],
+      ['profile', 'preferences', 'user-1'],
     ].map((queryKey) => [queryKey] as const),
   )('excludes guest booking and restaurant list query %# even without meta', (queryKey) => {
     expect(isPiiQueryKey(queryKey)).toBe(true);
@@ -297,6 +308,28 @@ describe('persisted cache restore', () => {
     target.clear();
   });
 
+  it('discards a cache persisted with buster v2, which could hold profile PII and paused mutations', async () => {
+    const legacySource = new QueryClient();
+    legacySource.setQueryData(hoursKey, HOURS);
+    legacySource.setQueryData(queryKeys.profile.self(), {
+      email: 'v2-profile-sentinel@example.test',
+    });
+    window.localStorage.setItem(
+      storageKey,
+      JSON.stringify({ buster: 'v2', timestamp: Date.now(), clientState: dehydrate(legacySource) }),
+    );
+    legacySource.clear();
+
+    const target = new QueryClient();
+    const stop = await restoreInto(target);
+
+    expect(target.getQueryData(hoursKey)).toBeUndefined();
+    expect(target.getQueryData(queryKeys.profile.self())).toBeUndefined();
+    expect(window.localStorage.getItem(storageKey)).toBeNull();
+    stop();
+    target.clear();
+  });
+
   it('discards a cache persisted with buster v1, written before the PII deny-list existed', async () => {
     // A v1 cache as it could be written before the deny-list: unfiltered, including the
     // restaurant detail record with manager and contact phone numbers.
@@ -318,5 +351,92 @@ describe('persisted cache restore', () => {
     expect(window.localStorage.getItem(storageKey)).toBeNull();
     stop();
     target.clear();
+  });
+});
+
+describe('persisted cache contents', () => {
+  const storageKey = buildQueryStorageKey('user-contents');
+  let queryClient: QueryClient;
+  let unsubscribe: () => void;
+
+  type StoredClient = {
+    clientState: { queries: Array<{ queryKey: unknown[] }>; mutations: unknown[] };
+  };
+
+  function readStored(): StoredClient {
+    return JSON.parse(window.localStorage.getItem(storageKey) ?? '{}') as StoredClient;
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    window.localStorage.clear();
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    unsubscribe = configureQueryPersistence(queryClient, { storageKey });
+    await vi.advanceTimersByTimeAsync(0);
+  });
+
+  afterEach(() => {
+    unsubscribe();
+    queryClient.clear();
+    onlineManager.setOnline(true);
+    window.localStorage.clear();
+    vi.useRealTimers();
+  });
+
+  it('persists only successful queries, never errored or pending ones', async () => {
+    queryClient.setQueryData(['restaurants', 'ok'], { name: 'A' });
+    await queryClient
+      .fetchQuery({
+        queryKey: ['restaurants', 'failed'],
+        queryFn: () => Promise.reject(new Error('boom-sentinel')),
+      })
+      .catch(() => undefined);
+    void queryClient.prefetchQuery({
+      queryKey: ['restaurants', 'pending'],
+      queryFn: () => new Promise<never>(() => undefined),
+    });
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const stored = readStored();
+    expect(stored.clientState.queries.map((query) => query.queryKey)).toEqual([
+      ['restaurants', 'ok'],
+    ]);
+    expect(window.localStorage.getItem(storageKey)).not.toContain('boom-sentinel');
+  });
+
+  it('never persists mutations, including paused offline ones and their variables', async () => {
+    onlineManager.setOnline(false);
+    const observer = new MutationObserver(queryClient, {
+      mutationFn: async (variables: { guestEmail: string }) => variables,
+      networkMode: 'online',
+    });
+    void observer.mutate({ guestEmail: 'mutation-sentinel@example.test' }).catch(() => undefined);
+    queryClient.setQueryData(['restaurants', 'ok'], { name: 'A' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(queryClient.getMutationCache().getAll()[0]?.state.isPaused).toBe(true);
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const stored = readStored();
+    expect(stored.clientState.mutations).toEqual([]);
+    expect(window.localStorage.getItem(storageKey)).not.toContain('mutation-sentinel');
+  });
+
+  it('composes the status check with the key and meta filters', () => {
+    const successful = {
+      queryKey: queryKeys.opsRestaurants.hours('rest-1'),
+      meta: undefined,
+      state: { status: 'success' },
+    } as unknown as Query;
+    const errored = { ...successful, state: { status: 'error' } } as unknown as Query;
+    const piiSuccess = {
+      ...successful,
+      queryKey: queryKeys.profile.self(),
+    } as unknown as Query;
+
+    expect(shouldDehydratePersistedQuery(successful)).toBe(true);
+    expect(shouldDehydratePersistedQuery(errored)).toBe(false);
+    expect(shouldDehydratePersistedQuery(piiSuccess)).toBe(false);
   });
 });

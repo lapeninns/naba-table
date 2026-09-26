@@ -40,7 +40,7 @@ export function useOpsTableTimeline({
             service,
             includeSummary,
           })
-        : (['ops', 'tables', 'timeline', 'disabled'] as const),
+        : queryKeys.opsTables.timelineDisabled(),
     [date, includeSummary, restaurantId, service, zoneId],
   );
   const shouldEnable = Boolean(restaurantId) && enabled;

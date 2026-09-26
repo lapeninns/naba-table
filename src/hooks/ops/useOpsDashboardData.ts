@@ -74,7 +74,7 @@ export function useOpsDashboardData(
     () =>
       restaurantId
         ? queryKeys.opsDashboard.summary(restaurantId, targetDate)
-        : (['ops', 'dashboard', 'summary', 'disabled'] as const),
+        : queryKeys.opsDashboard.summaryDisabled(),
     [restaurantId, targetDate],
   );
   const isUuid = (val: string | null) =>
