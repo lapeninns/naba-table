@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsEmailDeliveryFeed } from '@/hooks/ops/useOpsEmailDeliveryFeed';
 import { useOpsEmailDeliverySummary } from '@/hooks/ops/useOpsEmailDeliverySummary';
 import { useOpsEmailQueueFeed } from '@/hooks/ops/useOpsEmailQueueFeed';
 import { track } from '@/lib/analytics';
-import { HttpError } from '@/lib/http/errors';
+import {
+  useCancelEmailQueueJob,
+  usePendingEmailDeliveryIds,
+  useRequeueEmailQueueJob,
+  useRetryEmailDelivery,
+} from '@src/hooks/ops/useOpsEmailDeliveryMutations';
 
 import {
   getDeliveryFeedErrorMessage,
@@ -40,7 +44,6 @@ export function useOpsEmailDeliveryDataState(params: {
   emailType: string | null;
   timezone: string;
 }) {
-  const { bookingService } = useOpsServices();
   const refreshIntervalMs = useMemo(
     () => getOpsEmailDeliveryRefreshIntervalMs(params.refresh),
     [params.refresh],
@@ -49,12 +52,17 @@ export function useOpsEmailDeliveryDataState(params: {
   const [queueStatus, setQueueStatus] = useState<OpsEmailQueueJobStatus | 'all'>('all');
   const [queuePage, setQueuePage] = useState(1);
   const [pendingRetryAttemptKey, setPendingRetryAttemptKey] = useState<string | null>(null);
-  const [retryingAttemptKey, setRetryingAttemptKey] = useState<string | null>(null);
-  const [queueActionJobId, setQueueActionJobId] = useState<string | null>(null);
+  const [pendingCancelJobId, setPendingCancelJobId] = useState<string | null>(null);
+
+  const retryMutation = useRetryEmailDelivery();
+  const cancelQueueJobMutation = useCancelEmailQueueJob();
+  const requeueQueueJobMutation = useRequeueEmailQueueJob();
+  const { retryingDeliveryLogIds, pendingQueueJobIds } = usePendingEmailDeliveryIds();
 
   useEffect(() => {
     setQueuePage(1);
     setQueueStatus('all');
+    setPendingCancelJobId(null);
   }, [params.restaurantId]);
 
   const feedQuery = useOpsEmailDeliveryFeed({
@@ -127,17 +135,34 @@ export function useOpsEmailDeliveryDataState(params: {
       ? getDeliveryFeedErrorMessage(analyticsQuery.error)
       : null;
 
+  /** Rows whose resend is in flight (each row shows its own pending state). */
+  const retryingAttemptKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const row of rows) {
+      const deliveryLogId = resolveRetryDeliveryLogId(row.attempt);
+      if (deliveryLogId && retryingDeliveryLogIds.has(deliveryLogId)) keys.add(row.attemptKey);
+    }
+    return keys;
+  }, [retryingDeliveryLogIds, rows]);
+  const pendingRetryDeliveryLogId = pendingRetryRow
+    ? resolveRetryDeliveryLogId(pendingRetryRow.attempt)
+    : null;
+  const isConfirmingRetry = Boolean(
+    pendingRetryDeliveryLogId && retryingDeliveryLogIds.has(pendingRetryDeliveryLogId),
+  );
+
   const handleRetryAttempt = useCallback((attemptKey: string) => {
     setPendingRetryAttemptKey(attemptKey);
   }, []);
 
   const handleRetryDialogOpenChange = useCallback(
     (open: boolean) => {
-      if (!open && !retryingAttemptKey) setPendingRetryAttemptKey(null);
+      if (!open && !isConfirmingRetry) setPendingRetryAttemptKey(null);
     },
-    [retryingAttemptKey],
+    [isConfirmingRetry],
   );
 
+  const { mutateAsync: retryEmail } = retryMutation;
   const handleConfirmRetry = useCallback(async () => {
     if (!pendingRetryRow) return;
     if (!params.restaurantId) {
@@ -157,33 +182,23 @@ export function useOpsEmailDeliveryDataState(params: {
       return;
     }
 
-    setRetryingAttemptKey(pendingRetryRow.attemptKey);
     track('email_delivery_retry_clicked', { provider: 'resend', source: 'ops' });
-
     try {
-      await bookingService.retryEmailDelivery({
+      // Sent/failed feedback comes from the mutation (meta.feedback).
+      await retryEmail({
         restaurantId: params.restaurantId,
         deliveryLogId,
+        bookingId: pendingRetryRow.attempt.bookingId ?? null,
+        recipientEmail: pendingRetryRow.recipientEmail,
       });
-      toast.success('Retry queued', {
-        description: `Resending ${pendingRetryRow.attempt.emailType ?? 'email'} to ${pendingRetryRow.recipientEmail}.`,
-      });
-      setPendingRetryAttemptKey(null);
-      await feedQuery.refetch();
-    } catch (error) {
-      const message =
-        error instanceof HttpError
-          ? error.message
-          : error instanceof Error
-            ? error.message
-            : 'Failed to retry email delivery';
-      setPendingRetryAttemptKey(null);
+    } catch {
       track('email_delivery_retry_failed', { provider: 'resend', source: 'ops' });
-      toast.error('Retry failed', { description: message });
     } finally {
-      setRetryingAttemptKey(null);
+      setPendingRetryAttemptKey((current) =>
+        current === pendingRetryRow.attemptKey ? null : current,
+      );
     }
-  }, [bookingService, feedQuery, params.restaurantId, pendingRetryRow]);
+  }, [params.restaurantId, pendingRetryRow, retryEmail]);
 
   const handleManualRefresh = useCallback(() => {
     if (params.activeTab === 'delivery-log') {
@@ -197,68 +212,66 @@ export function useOpsEmailDeliveryDataState(params: {
     void queueQuery.refetch();
   }, [analyticsQuery, feedQuery, params.activeTab, queueQuery]);
 
+  const pendingCancelJob = useMemo(
+    () =>
+      pendingCancelJobId
+        ? ((queueQuery.jobs ?? []).find((job) => job.id === pendingCancelJobId) ?? null)
+        : null,
+    [pendingCancelJobId, queueQuery.jobs],
+  );
+  const isConfirmingCancel = Boolean(
+    pendingCancelJobId && pendingQueueJobIds.has(pendingCancelJobId),
+  );
+
+  /** Opens the cancel confirmation; cancelling a scheduled guest email is not reversible. */
   const handleCancelQueueJob = useCallback(
-    async (jobId: string) => {
+    (jobId: string) => {
       if (!params.restaurantId) {
         toast.error('Cancel unavailable', {
           description: 'Select a restaurant before cancelling a queued email.',
         });
         return;
       }
-      setQueueActionJobId(jobId);
-      try {
-        await bookingService.cancelEmailQueueJob({
-          restaurantId: params.restaurantId,
-          jobId,
-        });
-        toast.success('Queue job cancelled');
-        await queueQuery.refetch();
-      } catch (error) {
-        toast.error('Cancel failed', {
-          description:
-            error instanceof HttpError
-              ? error.message
-              : error instanceof Error
-                ? error.message
-                : 'Failed to cancel queue job',
-        });
-      } finally {
-        setQueueActionJobId(null);
-      }
+      setPendingCancelJobId(jobId);
     },
-    [bookingService, params.restaurantId, queueQuery],
+    [params.restaurantId],
   );
 
+  const handleCancelDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open && !isConfirmingCancel) setPendingCancelJobId(null);
+    },
+    [isConfirmingCancel],
+  );
+
+  const { mutateAsync: cancelQueueJob } = cancelQueueJobMutation;
+  const handleConfirmCancelQueueJob = useCallback(async () => {
+    if (!pendingCancelJobId || !params.restaurantId) {
+      setPendingCancelJobId(null);
+      return;
+    }
+    const jobId = pendingCancelJobId;
+    try {
+      await cancelQueueJob({ restaurantId: params.restaurantId, jobId });
+    } catch {
+      // Feedback comes from the mutation (meta.feedback).
+    } finally {
+      setPendingCancelJobId((current) => (current === jobId ? null : current));
+    }
+  }, [cancelQueueJob, params.restaurantId, pendingCancelJobId]);
+
+  const { mutate: requeueQueueJob } = requeueQueueJobMutation;
   const handleRequeueQueueJob = useCallback(
-    async (jobId: string) => {
+    (jobId: string) => {
       if (!params.restaurantId) {
         toast.error('Requeue unavailable', {
           description: 'Select a restaurant before requeuing a failed email.',
         });
         return;
       }
-      setQueueActionJobId(jobId);
-      try {
-        await bookingService.requeueEmailQueueJob({
-          restaurantId: params.restaurantId,
-          jobId,
-        });
-        toast.success('Queue job requeued');
-        await queueQuery.refetch();
-      } catch (error) {
-        toast.error('Requeue failed', {
-          description:
-            error instanceof HttpError
-              ? error.message
-              : error instanceof Error
-                ? error.message
-                : 'Failed to requeue queue job',
-        });
-      } finally {
-        setQueueActionJobId(null);
-      }
+      requeueQueueJob({ restaurantId: params.restaurantId, jobId });
     },
-    [bookingService, params.restaurantId, queueQuery],
+    [params.restaurantId, requeueQueueJob],
   );
 
   const isRefreshing =
@@ -295,14 +308,20 @@ export function useOpsEmailDeliveryDataState(params: {
     analyticsSummary: analyticsQuery.summary ?? null,
     pendingRetryAttemptKey,
     pendingRetryRow,
-    retryingAttemptKey,
+    retryingAttemptKeys,
+    isConfirmingRetry,
     handleRetryAttempt,
     handleRetryDialogOpenChange,
     handleConfirmRetry,
     handleManualRefresh,
     handleCancelQueueJob,
+    pendingCancelJob,
+    isCancelDialogOpen: pendingCancelJobId !== null,
+    isConfirmingCancel,
+    handleCancelDialogOpenChange,
+    handleConfirmCancelQueueJob,
     handleRequeueQueueJob,
-    queueActionJobId,
+    pendingQueueJobIds,
     isRefreshing,
     queueStatus,
     setQueueStatus: (status: OpsEmailQueueJobStatus | 'all') => {

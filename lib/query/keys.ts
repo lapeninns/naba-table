@@ -248,6 +248,12 @@ export const queryKeys = {
     feedPrefix: (restaurantId: string) => ['ops', 'email-queue', restaurantId] as const,
   },
   // --- wave 2 (S8 comms) ---
+  /** Mutation keys (for useMutationState / isMutating), not query keys. */
+  opsEmailDeliveryMutations: {
+    retry: () => ['ops', 'email-delivery-mutation', 'retry'] as const,
+    cancelQueueJob: () => ['ops', 'email-delivery-mutation', 'queue-cancel'] as const,
+    requeueQueueJob: () => ['ops', 'email-delivery-mutation', 'queue-requeue'] as const,
+  },
   opsEmailTemplates: {
     /** Rendered preview of one draft; `draftHash` identifies the draft content. */
     preview: (restaurantId: string, templateKey: string, draftHash: string) =>

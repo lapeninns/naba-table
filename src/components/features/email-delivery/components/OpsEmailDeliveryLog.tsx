@@ -66,7 +66,10 @@ export type OpsEmailDeliveryLogProps = {
   rows: OpsEmailDeliveryTableRowViewModel[];
   timezone: string;
   restaurantId: string;
-  retryingAttemptKey: string | null;
+  /** Rows whose resend is in flight. */
+  retryingAttemptKeys: ReadonlySet<string>;
+  /** The confirmed resend in the dialog is being sent. */
+  isConfirmingRetry: boolean;
   pendingRetryRow: OpsEmailDeliveryTableRowViewModel | null;
   isRetryDialogOpen: boolean;
   onRetryAttempt: (attemptKey: string) => void;
@@ -93,7 +96,8 @@ export function OpsEmailDeliveryLog({
   rows,
   timezone,
   restaurantId,
-  retryingAttemptKey,
+  retryingAttemptKeys,
+  isConfirmingRetry,
   pendingRetryRow,
   isRetryDialogOpen,
   onRetryAttempt,
@@ -207,12 +211,12 @@ export function OpsEmailDeliveryLog({
                       type="button"
                       variant="outline"
                       size="sm"
-                      disabled={retryingAttemptKey === row.attemptKey}
+                      disabled={retryingAttemptKeys.has(row.attemptKey)}
                       aria-label={`Retry email for ${row.recipientEmail}`}
                       onClick={() => onRetryAttempt(row.attemptKey)}
                     >
                       <RotateCcw data-icon="inline-start" aria-hidden />
-                      Retry
+                      {retryingAttemptKeys.has(row.attemptKey) ? 'Sending…' : 'Retry'}
                     </Button>
                   </div>
                 ) : null}
@@ -284,6 +288,7 @@ export function OpsEmailDeliveryLog({
                               variant="outline"
                               size="sm"
                               className="h-7 px-2 text-xs"
+                              disabled={retryingAttemptKeys.has(row.attemptKey)}
                               aria-label={`Retry email for ${row.recipientEmail}`}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -291,7 +296,7 @@ export function OpsEmailDeliveryLog({
                               }}
                             >
                               <RotateCcw data-icon="inline-start" aria-hidden />
-                              Retry
+                              {retryingAttemptKeys.has(row.attemptKey) ? 'Sending…' : 'Retry'}
                             </Button>
                           ) : null}
                           <ChevronDown
@@ -374,8 +379,8 @@ export function OpsEmailDeliveryLog({
           <AlertDialogHeader>
             <AlertDialogTitle>Retry email delivery?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will resend the original email to the recipient. Use retry only for failed or
-              bounced emails.
+              This sends the original email to the recipient again, right now. Use retry only for
+              failed or bounced emails.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {pendingRetryRow ? (
@@ -399,15 +404,15 @@ export function OpsEmailDeliveryLog({
             </div>
           ) : null}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={Boolean(retryingAttemptKey)}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isConfirmingRetry}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(event) => {
                 event.preventDefault();
                 void onConfirmRetry();
               }}
-              disabled={!pendingRetryRow || Boolean(retryingAttemptKey)}
+              disabled={!pendingRetryRow || isConfirmingRetry}
             >
-              {retryingAttemptKey ? 'Retrying…' : 'Confirm Retry'}
+              {isConfirmingRetry ? 'Sending…' : 'Confirm Retry'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
