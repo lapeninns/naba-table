@@ -16,7 +16,6 @@ vi.mock('@/lib/env', () => ({
       bookingShortLinksInternalToken: 'secret-token',
     },
     security: {
-      sessionRecoveryAccessTokenTtlSeconds: 900,
     },
   },
 }));

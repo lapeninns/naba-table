@@ -24,7 +24,6 @@ vi.mock('@/lib/env', () => ({
     resend: { apiKey: null, from: 'Nab a Table <hello@nabatable.com>', useMock: true },
     security: {
       sessionRecoveryAccessTokenSecret: null,
-      sessionRecoveryAccessTokenTtlSeconds: 900,
     },
   },
 }));

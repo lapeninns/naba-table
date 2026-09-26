@@ -30,7 +30,6 @@ vi.mock('@/lib/env', () => ({
     },
     security: {
       sessionRecoveryAccessTokenSecret: null,
-      sessionRecoveryAccessTokenTtlSeconds: 900,
     },
   },
 }));

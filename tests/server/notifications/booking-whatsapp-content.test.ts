@@ -11,7 +11,6 @@ vi.mock('@/lib/env', () => ({
     app: { url: 'https://app.nabatable.com' },
     security: {
       sessionRecoveryAccessTokenSecret: 'test-secret',
-      sessionRecoveryAccessTokenTtlSeconds: 900,
     },
     twilio: {
       accountSid: 'AC123',
