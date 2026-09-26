@@ -91,6 +91,17 @@ function parseSeconds(value: unknown): number | undefined {
     : undefined;
 }
 
+/**
+ * For 5xx responses only the flat C1 body (a `code`, and `error` mirroring
+ * `message`) is trusted: legacy routes put raw Postgres or provider text in
+ * `error`/`message` on 5xx, and that must never become HttpError.message.
+ */
+function flatContractMessage(body: ErrorLikeBody | null | undefined): string | undefined {
+  const message = nonEmptyString(body?.message);
+  if (message === undefined || nonEmptyString(body?.code) === undefined) return undefined;
+  return nonEmptyString(body?.error) === message ? message : undefined;
+}
+
 /** Parses a Retry-After header (delta seconds or HTTP date) into whole seconds. */
 export function parseRetryAfter(
   value: string | null | undefined,
@@ -121,7 +132,11 @@ export function normalizeError({
   const nested = asRecord(body?.error);
 
   const serverMessage =
-    nonEmptyString(body?.message) ?? nonEmptyString(body?.error) ?? nonEmptyString(nested?.message);
+    status >= 500
+      ? flatContractMessage(body)
+      : (nonEmptyString(body?.message) ??
+        nonEmptyString(body?.error) ??
+        nonEmptyString(nested?.message));
 
   const message = serverMessage ?? nonEmptyString(statusText) ?? genericHttpErrorMessage(status);
 

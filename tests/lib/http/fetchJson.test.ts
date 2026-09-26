@@ -60,6 +60,24 @@ describe('fetchJson error contract', () => {
     expect(toUserMessage(error)).toBe('Something went wrong on our side. Try again.');
   });
 
+  it('does not promote a legacy 5xx { error } string (raw DB text) to HttpError.message', async () => {
+    const pgText = 'duplicate key value violates unique constraint "booking_tables_pkey"';
+    stubFetch(
+      new Response(JSON.stringify({ error: pgText, code: 'ASSIGNMENT_REPOSITORY_ERROR' }), {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const error = (await captureError(fetchJson('/api/ops/bookings/b1/tables'))) as HttpError;
+    expect(error).toBeInstanceOf(HttpError);
+    expect(error.status).toBe(503);
+    expect(error.code).toBe('ASSIGNMENT_REPOSITORY_ERROR');
+    expect(error.message).not.toContain('duplicate key');
+    expect(error.message).toBe('Service Unavailable');
+    expect(error.hasServerMessage).toBe(false);
+  });
+
   it('lets a network failure propagate as a recognisable TypeError', async () => {
     vi.stubGlobal(
       'fetch',

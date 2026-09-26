@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 const loggerErrorMock = vi.hoisted(() => vi.fn());
-vi.mock('@/lib/logger', () => ({ logger: { error: loggerErrorMock } }));
+vi.mock('@/lib/logger', async (importOriginal) => {
+  const actual = await importOriginal<typeof LoggerModule>();
+  return { ...actual, logger: { error: loggerErrorMock } };
+});
 
 import {
   apiError,
@@ -14,6 +17,8 @@ import {
   unauthenticated,
   validationError,
 } from '@/lib/api/errors';
+
+import type * as LoggerModule from '@/lib/logger';
 
 describe('lib/api/errors (C1 flat contract)', () => {
   beforeEach(() => {
@@ -65,7 +70,7 @@ describe('lib/api/errors (C1 flat contract)', () => {
     });
   });
 
-  it('validationError groups repeated paths and keys root issues as _root', async () => {
+  it('validationError groups repeated messages for the same path', async () => {
     const schema = z
       .object({ a: z.string().min(3, 'Too short.').regex(/^x/, 'Must start with x.') })
       .refine(() => false, { message: 'Whole form invalid.' });
@@ -137,17 +142,24 @@ describe('lib/api/errors (C1 flat contract)', () => {
       errorName: 'Error',
       errorKind: '23505',
     });
-    expect(JSON.stringify(meta)).not.toContain('duplicate key');
+    expect(meta.errorMessage).toContain('duplicate key value violates unique constraint');
+    expect(meta.errorMessage).toContain('[redacted-email]');
+    expect(typeof meta.errorStack).toBe('string');
     expect(JSON.stringify(meta)).not.toContain('jane@example.com');
   });
 
-  it('internalError handles non-Error throwables', async () => {
-    const response = internalError('boom secret', { route: 'GET /x' }, 'Could not load.');
+  it('internalError handles non-Error throwables and redacts their text in logs', async () => {
+    const response = internalError(
+      'boom for jane@example.com',
+      { route: 'GET /x' },
+      'Could not load.',
+    );
     const body = (await response.json()) as Record<string, unknown>;
     expect(body.message).toBe('Could not load.');
+    expect(JSON.stringify(body)).not.toContain('boom');
     const [, meta] = loggerErrorMock.mock.calls[0] as [string, Record<string, unknown>];
     expect(meta.errorName).toBe('string');
-    expect(JSON.stringify(meta)).not.toContain('boom secret');
+    expect(meta.errorMessage).toBe('boom for [redacted-email]');
   });
 });
 

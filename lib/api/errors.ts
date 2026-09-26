@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { logger } from '@/lib/logger';
+import { logger, sanitizeLogText } from '@/lib/logger';
 
 /**
  * C1 flat error body. `error` mirrors `message` so existing `{ error: string }`
@@ -101,21 +101,37 @@ export function rateLimited(
   });
 }
 
-function describeThrowable(err: unknown): { errorName: string; errorKind?: string } {
+type ThrowableLogMeta = {
+  errorName: string;
+  errorKind?: string;
+  errorMessage?: string;
+  errorStack?: string;
+};
+
+/**
+ * Server-side diagnostics for an unexpected failure. Message and stack go
+ * through the logger's text sanitizer (emails, phones, secrets, query strings)
+ * and are never sent to the client.
+ */
+function describeThrowable(err: unknown): ThrowableLogMeta {
   if (err instanceof Error) {
     const code = (err as { code?: unknown }).code;
-    return {
-      errorName: err.name,
-      ...(typeof code === 'string' || typeof code === 'number' ? { errorKind: String(code) } : {}),
-    };
+    const meta: ThrowableLogMeta = { errorName: err.name };
+    if (typeof code === 'string' || typeof code === 'number') meta.errorKind = String(code);
+    if (err.message) meta.errorMessage = sanitizeLogText(err.message);
+    if (err.stack) meta.errorStack = sanitizeLogText(err.stack);
+    return meta;
+  }
+  if (typeof err === 'string') {
+    return { errorName: 'string', errorMessage: sanitizeLogText(err) };
   }
   return { errorName: err === null ? 'null' : typeof err };
 }
 
 /**
- * Logs an unexpected failure (error name and code only, never its message) and
- * returns the generic 500. Keys containing "code" are redacted by lib/logger,
- * so the code is logged as `errorKind`.
+ * Logs an unexpected failure (name, code, sanitized message and stack) and
+ * returns the generic 500 without any of that text. Keys containing "code" are
+ * redacted by lib/logger, so the code is logged as `errorKind`.
  */
 export function internalError(
   err: unknown,

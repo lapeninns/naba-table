@@ -51,6 +51,39 @@ describe('normalizeError (C2)', () => {
     expect(error.code).toBe('TOP');
   });
 
+  it('never promotes legacy 5xx body text (string error, nested message, loose message)', () => {
+    const pg = 'relation "booking_tables" does not exist';
+    const cases = [
+      { error: pg },
+      { error: { code: 'DB', message: pg } },
+      { message: pg },
+      { message: pg, error: 'something else', code: 'X' },
+    ];
+    for (const body of cases) {
+      const error = normalizeError({ status: 503, statusText: 'Service Unavailable', body });
+      expect(error.message).toBe('Service Unavailable');
+      expect(error.hasServerMessage).toBe(false);
+    }
+    const nested = normalizeError({ status: 500, body: { error: { code: 'DB', message: pg } } });
+    expect(nested.message).toBe('Request failed with status 500');
+    expect(nested.code).toBe('DB');
+  });
+
+  it('accepts a 5xx message only in the flat C1 shape (code plus error mirroring message)', () => {
+    const error = normalizeError({
+      status: 500,
+      statusText: 'Internal Server Error',
+      body: {
+        error: 'Something went wrong on our side. Try again.',
+        message: 'Something went wrong on our side. Try again.',
+        code: 'INTERNAL_ERROR',
+      },
+    });
+    expect(error.message).toBe('Something went wrong on our side. Try again.');
+    expect(error.code).toBe('INTERNAL_ERROR');
+    expect(error.hasServerMessage).toBe(true);
+  });
+
   it('falls back to statusText, then the generic message, flagged as not from the server', () => {
     const withStatusText = normalizeError({ status: 500, statusText: 'Internal Server Error' });
     expect(withStatusText.message).toBe('Internal Server Error');
