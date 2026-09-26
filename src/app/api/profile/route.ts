@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { randomUUID, createHash } from 'node:crypto';
 import { ZodError } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  conflict,
+  fieldsFromIssues,
+  internalError,
+  unauthenticated,
+} from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { profileUpdateSchema, type ProfileUpdatePayload } from '@/lib/profile/schema';
 import { normalizeProfileRow, ensureProfileRow } from '@/lib/profile/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
@@ -12,8 +20,13 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/serve
 import type { Database } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
 
-function jsonError(status: number, code: string, message: string, details?: unknown) {
-  return NextResponse.json({ code, message, details }, { status });
+const INVALID_PROFILE_MESSAGE = 'Some details need attention. Check the highlighted fields.';
+const SAVE_FAILED_MESSAGE = 'We couldn’t save your profile. Try again.';
+
+function invalidProfile(error: ZodError) {
+  return apiError(400, 'INVALID_PROFILE', INVALID_PROFILE_MESSAGE, {
+    fields: fieldsFromIssues(error.issues),
+  });
 }
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -74,13 +87,15 @@ export async function GET(): Promise<NextResponse> {
     } = await supabase.auth.getUser();
 
     if (authError) {
-      console.error('[profile][get] failed to resolve auth', authError.message);
       const mapped = mapSupabaseAuthError(authError);
-      return jsonError(mapped.status, mapped.code, mapped.message);
+      if (mapped.status >= 500) {
+        logger.warn('api.profile.auth_unresolved', { route: 'profile.get' });
+      }
+      return apiError(mapped.status, mapped.code, mapped.message);
     }
 
     if (!user) {
-      return jsonError(401, 'UNAUTHENTICATED', 'You must be signed in to view your profile');
+      return unauthenticated('Sign in to view your profile.');
     }
 
     const row = await ensureProfileRow(supabase, user);
@@ -88,11 +103,14 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error('[profile][get] unexpected', error);
     captureServerException(error, {
       properties: { source: 'api', kind: 'profile' },
     });
-    return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t load your profile. Please try again.');
+    return internalError(
+      error,
+      { route: 'profile.get' },
+      'We couldn’t load your profile. Try again.',
+    );
   }
 }
 
@@ -112,20 +130,22 @@ async function putProfile(req: NextRequest): Promise<NextResponse> {
     } = await supabase.auth.getUser();
 
     if (authError) {
-      console.error('[profile][put] failed to resolve auth', authError.message);
       const mapped = mapSupabaseAuthError(authError);
-      return jsonError(mapped.status, mapped.code, mapped.message);
+      if (mapped.status >= 500) {
+        logger.warn('api.profile.auth_unresolved', { route: 'profile.put' });
+      }
+      return apiError(mapped.status, mapped.code, mapped.message);
     }
 
     if (!user) {
-      return jsonError(401, 'UNAUTHENTICATED', 'You must be signed in to update your profile');
+      return unauthenticated('Sign in to update your profile.');
     }
 
     let rawBody: unknown;
     try {
       rawBody = await req.json();
     } catch {
-      return jsonError(400, 'INVALID_JSON', 'Request body must be valid JSON');
+      return apiError(400, 'INVALID_JSON', 'The request body must be valid JSON.');
     }
 
     if (
@@ -135,14 +155,18 @@ async function putProfile(req: NextRequest): Promise<NextResponse> {
     ) {
       const attemptedEmail = (rawBody as Record<string, unknown>).email;
       if (attemptedEmail !== undefined && attemptedEmail !== user.email) {
-        return jsonError(400, 'EMAIL_IMMUTABLE', 'Email cannot be changed');
+        return apiError(
+          400,
+          'EMAIL_IMMUTABLE',
+          'Your email is managed through sign-in and can’t be changed here.',
+          { fields: { email: ['Email can’t be changed here.'] } },
+        );
       }
     }
 
     const result = profileUpdateSchema.safeParse(rawBody ?? {});
     if (!result.success) {
-      const flattened = result.error.flatten();
-      return jsonError(400, 'INVALID_PROFILE', 'Please review the highlighted fields', flattened);
+      return invalidProfile(result.error);
     }
 
     parsedBody = result.data;
@@ -186,38 +210,36 @@ async function putProfile(req: NextRequest): Promise<NextResponse> {
     });
 
     if (rpcError) {
-      console.error('[profile][put] atomic update failed', rpcError.message ?? rpcError.code);
-      return jsonError(
-        500,
-        'PROFILE_UPDATE_FAILED',
-        'Unable to save your profile. Please try again.',
+      return internalError(
+        Object.assign(new Error('apply_profile_update_idempotent failed'), {
+          code: rpcError.code ?? 'RPC_ERROR',
+        }),
+        { route: 'profile.put', stage: 'rpc' },
+        SAVE_FAILED_MESSAGE,
       );
     }
 
     const rpcResult = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     if (!rpcResult) {
-      console.error('[profile][put] atomic update returned no result');
-      return jsonError(
-        500,
-        'PROFILE_UPDATE_FAILED',
-        'Unable to save your profile. Please try again.',
+      return internalError(
+        new Error('apply_profile_update_idempotent returned no result'),
+        { route: 'profile.put', stage: 'rpc_result' },
+        SAVE_FAILED_MESSAGE,
       );
     }
 
     if (rpcResult.status === 'conflict') {
-      return jsonError(
-        409,
+      return conflict(
         'IDEMPOTENCY_KEY_CONFLICT',
-        'This update was already applied with different details. Refresh and try again with a new request.',
+        'Your details changed while an earlier save was still being processed. Save again.',
       );
     }
 
     if (!rpcResult.profile) {
-      console.error('[profile][put] atomic update returned no profile', rpcResult.status);
-      return jsonError(
-        500,
-        'PROFILE_UPDATE_FAILED',
-        'Unable to save your profile. Please try again.',
+      return internalError(
+        new Error('apply_profile_update_idempotent returned no profile'),
+        { route: 'profile.put', stage: 'rpc_profile', rpcStatus: rpcResult.status },
+        SAVE_FAILED_MESSAGE,
       );
     }
 
@@ -232,11 +254,18 @@ async function putProfile(req: NextRequest): Promise<NextResponse> {
     );
   } catch (error) {
     if (error instanceof ZodError) {
-      const flattened = error.flatten();
-      return jsonError(400, 'INVALID_PROFILE', 'Please review the highlighted fields', flattened);
+      return invalidProfile(error);
     }
 
-    console.error('[profile][put] unexpected', error, parsedBody ?? {});
-    return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t update your profile. Please try again.');
+    // Log which fields were being saved, never their values (name and phone are PII).
+    return internalError(
+      error,
+      {
+        route: 'profile.put',
+        fieldNames: parsedBody ? Object.keys(parsedBody).sort() : [],
+        hasIdempotencyKey: Boolean(idempotencyKey),
+      },
+      SAVE_FAILED_MESSAGE,
+    );
   }
 }
