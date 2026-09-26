@@ -1,7 +1,7 @@
+import { onlineManager } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper } from '@tests/utils/reactQuery';
 import { describe, expect, it, vi } from 'vitest';
-
 
 import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
@@ -199,5 +199,27 @@ describe('useOpsCancelBooking', () => {
         result.current.cancel({ bookingId: 'b9', restaurantId: RESTAURANT_ID }),
       ).resolves.toMatchObject({ status: 'done' });
     });
+  });
+
+  it('@contract fails fast with offline copy instead of pausing while the device is offline', async () => {
+    const { result, queryClient, notify } = setup();
+    onlineManager.setOnline(false);
+    try {
+      let outcome: unknown;
+      await act(async () => {
+        outcome = await result.current.cancel({ bookingId: 'b1', restaurantId: RESTAURANT_ID });
+      });
+
+      expect(outcome).toMatchObject({ status: 'failed' });
+      expect(bookingService.cancelBooking).not.toHaveBeenCalled();
+      expect(result.current.isPending('b1')).toBe(false);
+      // No optimistic flicker: the row was never marked cancelled.
+      expect(summaryRow(queryClient, 'b1')?.status).not.toBe('cancelled');
+      expect(notify.error).toHaveBeenCalledWith(
+        "You're offline. Reconnect to cancel this booking.",
+      );
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 });

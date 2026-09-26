@@ -1,6 +1,11 @@
 'use client';
 
-import { useMutationState, useQueryClient, type MutationOptions } from '@tanstack/react-query';
+import {
+  onlineManager,
+  useMutationState,
+  useQueryClient,
+  type MutationOptions,
+} from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
 import { useBookingService } from '@/contexts/ops-services';
@@ -42,7 +47,22 @@ const CANCEL_ERROR_COPY: Partial<Record<string, string>> = {
   BOOKING_STATE_CONFLICT: 'This booking was already updated by someone else — refreshed.',
   CUTOFF_PASSED: 'This booking can no longer be cancelled.',
   BOOKING_NOT_FOUND: 'This booking no longer exists.',
+  OFFLINE: "You're offline. Reconnect to cancel this booking.",
 };
+
+/**
+ * Refusal raised before any cache write when the browser reports it is offline. Retryable, so
+ * the confirm dialog stays open (not stuck) and the user can try again once reconnected.
+ */
+function offlineError(): HttpError {
+  return new HttpError({
+    message: CANCEL_ERROR_COPY.OFFLINE ?? 'You are offline.',
+    status: 0,
+    code: 'OFFLINE',
+    retryable: true,
+    hasServerMessage: false,
+  });
+}
 
 function currentStatusOf(error: unknown): OpsBookingStatus | null {
   if (!(error instanceof HttpError) || error.status !== 409) return null;
@@ -86,8 +106,12 @@ export function useOpsCancelBooking(options: { feedback?: boolean } = {}) {
         mutationKey: queryKeys.opsBookings.cancelMutation(),
         scope: { id: `booking:${variables.bookingId}` },
         meta,
+        // Never pause offline: a paused cancel stays 'pending' with no feedback and pins the
+        // confirm dialog open until the browser reconnects. It fails fast instead.
+        networkMode: 'always',
         mutationFn: ({ bookingId }) => bookingService.cancelBooking({ id: bookingId }),
         onMutate: async ({ bookingId, restaurantId }) => {
+          if (!onlineManager.isOnline()) throw offlineError();
           await cancelBookingQueries(queryClient, bookingId, restaurantId);
           const rollback = captureBookingRollback(queryClient, bookingId);
           patchBookingCaches(queryClient, bookingId, { status: 'cancelled' }, { restaurantId });
@@ -110,7 +134,9 @@ export function useOpsCancelBooking(options: { feedback?: boolean } = {}) {
           });
         },
         onError: (error, { bookingId, restaurantId }, context) => {
-          const rollback = context ? rollbackBookingWrite(queryClient, context.rollback) : 'restored';
+          const rollback = context
+            ? rollbackBookingWrite(queryClient, context.rollback)
+            : 'restored';
           if (rollback === 'deferred') return;
           if ((error instanceof HttpError && error.status === 409) || rollback === 'refresh') {
             void refreshBookingAfterConflict(queryClient, {
