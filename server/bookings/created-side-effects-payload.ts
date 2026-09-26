@@ -25,12 +25,14 @@ export function buildBookingCreatedSideEffectsPayload(params: {
   restaurantId: string;
   isOpsWalkIn: boolean;
   opsEmailProvidedHeader: boolean;
+  replay?: boolean;
 }): BookingCreatedSideEffectsPayload {
   return {
     booking: safeBookingPayload(params.booking),
     idempotencyKey: params.idempotencyKey,
     restaurantId: params.restaurantId,
     emailProvided: params.isOpsWalkIn ? params.opsEmailProvidedHeader : true,
+    ...(params.replay ? { replay: true } : {}),
   };
 }
 
@@ -41,6 +43,7 @@ export async function dispatchBookingCreatedSideEffects({
   idempotencyKey,
   isOpsWalkIn,
   opsEmailProvidedHeader,
+  replay = false,
   restaurantId,
 }: {
   booking: BookingRecord;
@@ -49,6 +52,8 @@ export async function dispatchBookingCreatedSideEffects({
   idempotencyKey: string | null;
   isOpsWalkIn: boolean;
   opsEmailProvidedHeader: boolean;
+  /** The create was an idempotent replay of an existing booking. */
+  replay?: boolean;
   restaurantId: string;
 }): Promise<void> {
   const sideEffectPayload = buildBookingCreatedSideEffectsPayload({
@@ -57,6 +62,7 @@ export async function dispatchBookingCreatedSideEffects({
     restaurantId,
     isOpsWalkIn,
     opsEmailProvidedHeader,
+    replay,
   });
 
   await retryWithBackoff(() => dispatcher(sideEffectPayload, { supabase: client }), {

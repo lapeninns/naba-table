@@ -8084,6 +8084,14 @@ export type Database = {
           table_id: string;
         }[];
       };
+      claim_booking_email_intent: {
+        Args: { p_dedupe_key: string; p_restaurant_id: string };
+        Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
+      };
+      claim_capacity_outbox_batch: {
+        Args: { p_limit?: number; p_lease_seconds?: number; p_max_attempts?: number };
+        Returns: Database['public']['Tables']['capacity_outbox']['Row'][];
+      };
       claim_due_email_dispatch_intents: {
         Args: { p_email_types?: string[] | null; p_max_count?: number | null };
         Returns: {
@@ -8262,6 +8270,18 @@ export type Database = {
       delete_table_inventory_guarded: {
         Args: { p_current_date: string; p_table_id: string };
         Returns: boolean;
+      };
+      ensure_booking_email_intent: {
+        Args: {
+          p_booking_id: string;
+          p_dedupe_key: string;
+          p_email_type: string;
+          p_max_attempts?: number;
+          p_restaurant_id: string;
+          p_scheduled_for?: string | null;
+          p_supersede_types?: string[] | null;
+        };
+        Returns: { created: boolean; intent_id: string; intent_status: string }[];
       };
       import_restaurant_menu_bundle: {
         Args: {
@@ -8472,6 +8492,31 @@ export type Database = {
         Returns: number;
       };
       require_restaurant_context: { Args: never; Returns: string };
+      modify_booking_with_table_swap: {
+        Args: {
+          p_booking_id: string;
+          p_expected_status: string | null;
+          p_history_metadata?: Json;
+          p_history_reason?: string;
+          p_hold_id: string;
+          p_idempotency_key: string;
+          p_patch: Json;
+          p_require_adjacency?: boolean;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['bookings']['Row'];
+      };
+      settle_booking_email_intent: {
+        Args: {
+          p_error_code?: string | null;
+          p_expected_attempts: number;
+          p_intent_id: string;
+          p_outcome: string;
+          p_restaurant_id: string;
+          p_retry_delay_seconds?: number;
+        };
+        Returns: string | null;
+      };
       set_hold_conflict_enforcement: {
         Args: { enabled: boolean };
         Returns: boolean;

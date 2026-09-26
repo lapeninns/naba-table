@@ -762,7 +762,12 @@ describe('public POST /api/bookings capacity handling', () => {
     expect(recoverBuilder.eq).toHaveBeenCalledWith('customer_id', 'cust-1');
     expect(recoverBuilder.eq).toHaveBeenCalledWith('idempotency_key', expect.any(String));
     expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
-    expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+    // A replay re-ensures the idempotent side effects (S2b), flagged as a replay.
+    expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+    expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+      expect.objectContaining({ replay: true }),
+      expect.anything(),
+    );
   });
 
   describe('Idempotency-Key replays', () => {
