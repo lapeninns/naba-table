@@ -6,17 +6,13 @@ import { toast } from 'sonner';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { useOpsAvailability, useOpsSaveAvailability } from '@/hooks/ops/useOpsSaveAvailability';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 
 import { emitProfileAnalytics } from '../../../../../components/ops/restaurants/details/shared';
-// Relative on purpose: vitest resolves `@/hooks/ops/*` through a per-file alias list
-// (vitest.config.ts), which does not include this new hook yet.
-import {
-  useOpsAvailability,
-  useOpsSaveAvailability,
-} from '../../../../hooks/ops/useOpsSaveAvailability';
 import { buildAvailabilityDraftOverrides } from '../availabilityScheduleManagerDomain';
 import { extractRequiredOccasionKeys } from '../availabilityScheduleManagerUtils';
+import { rebaseAvailabilityDraft } from './availabilityDraftRebase';
 import {
   AVAILABILITY_SAVE_GROUP_NAMES,
   buildAvailabilityPageDraft,
@@ -43,6 +39,7 @@ import {
   formatSettingsSectionList,
   getSettingsSaveReasonCode,
   pluralise,
+  SETTINGS_SAVE_CONFLICT_CODE,
   useSettingsSaveSequence,
   type SettingsSaveStep,
 } from '../shared/settingsSaveSequence';
@@ -118,6 +115,17 @@ function mergeCatalog(
   };
 }
 
+/**
+ * Newer saved settings were loaded underneath unsaved edits (another manager's save, a Google
+ * import, or the refetch after a refused stale save) and the draft was rebased onto them.
+ */
+export type AvailabilityRebaseNotice = {
+  /** Sections the newer saved settings changed. */
+  changed: AvailabilitySaveGroup[];
+  /** Sections where staff edited the same value; their edit is kept and replaces it on save. */
+  conflicts: AvailabilitySaveGroup[];
+};
+
 export type AvailabilityPageControllerOptions = {
   /**
    * Nabatable platform admin (session hint). Only they may change the global booking types;
@@ -175,9 +183,12 @@ export function useAvailabilityPageController(
   );
   const isDirty = dirtyGroups.length > 0;
 
+  const [rebaseNotice, setRebaseNotice] = useState<AvailabilityRebaseNotice | null>(null);
+  const saveFailureCode = saveSequence.failure?.reasonCode ?? null;
+  const clearSaveFailure = saveSequence.clearFailure;
+
   // Seed from the server, and re-seed when saved data changes while nothing is unsaved. The
-  // revision is taken in the same step from the same snapshot, then held while the draft is dirty,
-  // so a save made from older data is refused (STALE_WRITE) instead of overwriting newer settings.
+  // revision is taken in the same step from the same snapshot.
   useEffect(() => {
     if (!sources || saveSequence.isSaving || isDirty) {
       return;
@@ -187,6 +198,50 @@ export function useAvailabilityPageController(
     setDraft(next);
     setSavedRevision(sources.revision);
   }, [isDirty, saveSequence.isSaving, sources]);
+
+  // While the draft is dirty, a newer snapshot (another manager's save, a Google import, or the
+  // refetch after a refused stale save) is not ignored: the draft is rebased onto it and takes its
+  // revision, so staff keep their edits, are told what changed, and the next save is checked
+  // against the settings they are now looking at instead of being refused again.
+  useEffect(() => {
+    if (
+      !sources ||
+      saveSequence.isSaving ||
+      !isDirty ||
+      !saved ||
+      !draft ||
+      sources.revision === savedRevision
+    ) {
+      return;
+    }
+    // Booking types are not covered by the revision; the saved list (including booking-type steps
+    // that already saved) is kept.
+    const theirs: AvailabilityPageDraft = {
+      ...buildAvailabilityPageDraft(sources),
+      occasions: saved.occasions,
+    };
+    const rebased = rebaseAvailabilityDraft({ base: saved, mine: draft, theirs });
+    setSaved(theirs);
+    setDraft(rebased.draft);
+    setSavedRevision(sources.revision);
+    setRebaseNotice({
+      changed: getDirtyAvailabilityGroups(saved, theirs),
+      conflicts: rebased.conflicts,
+    });
+    if (saveFailureCode === SETTINGS_SAVE_CONFLICT_CODE) {
+      // The refused save now has the latest settings to be checked against; saving again works.
+      clearSaveFailure();
+    }
+  }, [
+    clearSaveFailure,
+    draft,
+    isDirty,
+    saveFailureCode,
+    saveSequence.isSaving,
+    saved,
+    savedRevision,
+    sources,
+  ]);
 
   const errors: AvailabilityErrors = useMemo(
     () => (draft ? validateAvailabilityDraft(draft, dirtyGroups) : {}),
@@ -223,13 +278,24 @@ export function useAvailabilityPageController(
     setTouched((current) => (current.has(key) ? current : new Set(current).add(key)));
   }, []);
 
+  const refetchAvailability = availabilityQuery.refetch;
+
+  /** Loads the latest saved settings; a dirty draft is rebased onto them (see the seed effect). */
+  const reloadLatest = useCallback(() => {
+    void refetchAvailability();
+  }, [refetchAvailability]);
+
   const discard = useCallback(() => {
     setDraft(saved);
     setTouched(new Set());
     setShowAllErrors(false);
+    setRebaseNotice(null);
     saveSequence.clearFailure();
-    toast.success('Changes discarded. Showing your saved settings.');
-  }, [saveSequence, saved]);
+    // The cached snapshot can be older than what is stored (for example after a refused stale
+    // save); the clean draft re-seeds from the refetched one.
+    void refetchAvailability();
+    toast.success('Changes discarded. Showing the latest saved settings.');
+  }, [refetchAvailability, saveSequence, saved]);
 
   const buildSteps = useCallback(
     (sent: AvailabilityPageDraft, base: AvailabilityPageDraft): SettingsSaveStep[] => {
@@ -342,6 +408,7 @@ export function useAvailabilityPageController(
     }
     const outcome = await saveSequence.run(steps);
     if (outcome?.ok) {
+      setRebaseNotice(null);
       setTouched(new Set());
       setShowAllErrors(false);
       toast.success(
@@ -444,6 +511,10 @@ export function useAvailabilityPageController(
     showAllErrors: () => setShowAllErrors(true),
     save,
     discard,
+    reloadLatest,
+    isReloadingLatest: availabilityQuery.isFetching,
+    rebaseNotice,
+    dismissRebaseNotice: () => setRebaseNotice(null),
     saveProgress: saveSequence.progress,
     saveFailure: saveSequence.failure,
     isSaving: saveSequence.isSaving,
