@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const requireAdminMembershipMock = vi.hoisted(() => vi.fn());
 const saveRestaurantAvailabilityMock = vi.hoisted(() => vi.fn());
-const getAvailabilityRevisionMock = vi.hoisted(() => vi.fn());
+const getAvailabilitySnapshotMock = vi.hoisted(() => vi.fn());
 const loggerErrorMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
@@ -25,7 +25,7 @@ vi.mock('@/server/restaurants/availabilityCommand', async (importOriginal) => {
   return {
     AvailabilityCommandError: actual.AvailabilityCommandError,
     saveRestaurantAvailability: saveRestaurantAvailabilityMock,
-    getAvailabilityRevision: getAvailabilityRevisionMock,
+    getAvailabilitySnapshot: getAvailabilitySnapshotMock,
   };
 });
 
@@ -260,8 +260,9 @@ describe('GET /api/ops/restaurants/[id]/availability', () => {
     requireAdminMembershipMock.mockResolvedValue({ role: 'manager' });
   });
 
-  it('returns the current revision to restaurant admins', async () => {
-    getAvailabilityRevisionMock.mockResolvedValue(REVISION);
+  it('returns the stored snapshot, rows and revision together, to restaurant admins', async () => {
+    const snapshot = { restaurantId: RESTAURANT_ID, revision: REVISION, servicePeriods: [] };
+    getAvailabilitySnapshotMock.mockResolvedValue(snapshot);
 
     const response = await GET(
       new NextRequest(
@@ -271,9 +272,8 @@ describe('GET /api/ops/restaurants/[id]/availability', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      data: { restaurantId: RESTAURANT_ID, revision: REVISION },
-    });
+    expect(await response.json()).toEqual({ data: snapshot });
+    expect(getAvailabilitySnapshotMock).toHaveBeenCalledWith(RESTAURANT_ID);
   });
 
   it('refuses non-admins', async () => {
@@ -289,6 +289,6 @@ describe('GET /api/ops/restaurants/[id]/availability', () => {
     );
 
     expect(response.status).toBe(403);
-    expect(getAvailabilityRevisionMock).not.toHaveBeenCalled();
+    expect(getAvailabilitySnapshotMock).not.toHaveBeenCalled();
   });
 });

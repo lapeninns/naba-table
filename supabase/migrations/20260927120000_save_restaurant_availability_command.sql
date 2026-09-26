@@ -13,12 +13,16 @@
 --   2. `restaurant_availability_revision(uuid)`: a content hash of the restaurant's hours,
 --      service periods, turn bands and booking-rule fields. Row ids and timestamps are excluded,
 --      so replaying an already-applied save produces the same revision.
---   3. `save_restaurant_availability(...)`: replaces any subset of hours (weekly + special dates),
+--   3. `restaurant_availability_snapshot(uuid)`: the stored hours, service periods, turn bands and
+--      booking-rule fields plus their revision, built in ONE statement so the rows and the revision
+--      always describe the same state (NULL when the restaurant does not exist). The Availability
+--      page loads from it, and the command returns it.
+--   4. `save_restaurant_availability(...)`: replaces any subset of hours (weekly + special dates),
 --      service periods, turn bands and the booking-rule fields in ONE transaction, reusing the
 --      three replace_* functions. It takes the command lock and then every per-resource lock in a
 --      fixed order, locks the restaurant row, checks the optional expected revision, validates
---      the resulting configuration (meal times inside open weekly hours) and returns the new
---      revision. Any failure rolls back every part.
+--      the resulting configuration (meal times inside open weekly hours) and returns the snapshot
+--      (as in 3) read inside the same transaction. Any failure rolls back every part.
 --
 -- Error contract (SQLSTATE, read by server/restaurants/availabilityCommand.ts):
 --   NT400  malformed command (no parts, or a part of the wrong JSON type)
@@ -30,7 +34,8 @@
 -- Grants: service_role only, like the replace_* functions.
 --
 -- Rollback (manual, forward-only repo): DROP FUNCTION public.save_restaurant_availability(uuid,
---   jsonb, jsonb, jsonb, jsonb, text); DROP FUNCTION public.restaurant_availability_revision(uuid);
+--   jsonb, jsonb, jsonb, jsonb, text); DROP FUNCTION public.restaurant_availability_snapshot(uuid);
+--   DROP FUNCTION public.restaurant_availability_revision(uuid);
 --   and re-apply the replace_restaurant_service_periods / replace_restaurant_turn_bands bodies from
 --   20260516082800_atomic_restaurant_schedule_replacements.sql (without the advisory lock). No data
 --   is changed by this migration, so rolling back needs no data repair.
@@ -293,6 +298,92 @@ $$;
 REVOKE ALL ON FUNCTION public.restaurant_availability_revision(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.restaurant_availability_revision(uuid) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.restaurant_availability_snapshot(p_restaurant_id uuid)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  -- One statement, so the rows and the revision come from the same database snapshot.
+  SELECT jsonb_build_object(
+    'revision', public.restaurant_availability_revision(r.id),
+    'restaurant', jsonb_build_object(
+      'timezone', r.timezone,
+      'reservation_interval_minutes', r.reservation_interval_minutes,
+      'reservation_default_duration_minutes', r.reservation_default_duration_minutes,
+      'reservation_last_seating_buffer_minutes', r.reservation_last_seating_buffer_minutes,
+      'reservation_lifecycle_grace_minutes', r.reservation_lifecycle_grace_minutes,
+      'booking_policy', r.booking_policy,
+      'updated_at', r.updated_at
+    ),
+    'operating_hours',
+    COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', h.id,
+            'day_of_week', h.day_of_week,
+            'effective_date', h.effective_date,
+            'opens_at', h.opens_at,
+            'closes_at', h.closes_at,
+            'is_closed', h.is_closed,
+            'notes', h.notes,
+            'reservation_interval_minutes', h.reservation_interval_minutes,
+            'reservation_slot_times', h.reservation_slot_times,
+            'updated_at', h.updated_at
+          )
+          ORDER BY h.effective_date NULLS FIRST, h.day_of_week NULLS FIRST, h.opens_at
+        )
+        FROM public.restaurant_operating_hours h
+        WHERE h.restaurant_id = r.id
+      ),
+      '[]'::jsonb
+    ),
+    'service_periods',
+    COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', p.id,
+            'name', p.name,
+            'day_of_week', p.day_of_week,
+            'start_time', p.start_time,
+            'end_time', p.end_time,
+            'booking_option', p.booking_option,
+            'updated_at', p.updated_at
+          )
+          ORDER BY p.day_of_week NULLS LAST, p.start_time
+        )
+        FROM public.restaurant_service_periods p
+        WHERE p.restaurant_id = r.id
+      ),
+      '[]'::jsonb
+    ),
+    'turn_bands',
+    COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'booking_option', b.booking_option,
+            'max_party_size', b.max_party_size,
+            'duration_minutes', b.duration_minutes
+          )
+          ORDER BY b.booking_option, b.max_party_size
+        )
+        FROM public.restaurant_turn_bands b
+        WHERE b.restaurant_id = r.id
+      ),
+      '[]'::jsonb
+    )
+  )
+  FROM public.restaurants r
+  WHERE r.id = p_restaurant_id;
+$$;
+
+REVOKE ALL ON FUNCTION public.restaurant_availability_snapshot(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.restaurant_availability_snapshot(uuid) TO service_role;
+
 CREATE OR REPLACE FUNCTION public.save_restaurant_availability(
   p_restaurant_id uuid,
   p_operating_hours jsonb DEFAULT NULL,
@@ -345,8 +436,10 @@ BEGIN
   );
 
   -- The booking-rule fields live on the restaurant row; the row lock serialises this command with
-  -- the restaurant profile PATCH.
-  PERFORM 1 FROM public.restaurants WHERE id = p_restaurant_id FOR UPDATE;
+  -- the restaurant profile PATCH (an UPDATE also takes FOR NO KEY UPDATE). NO KEY, not FOR UPDATE:
+  -- no key column changes, and FOR UPDATE would block every FK child insert (bookings, holds,
+  -- periods, bands take FOR KEY SHARE on the restaurant) for the whole command.
+  PERFORM 1 FROM public.restaurants WHERE id = p_restaurant_id FOR NO KEY UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'restaurant not found' USING ERRCODE = 'P0002';
   END IF;
@@ -430,7 +523,8 @@ BEGIN
     RAISE EXCEPTION 'STALE_WRITE' USING ERRCODE = 'NT409';
   END IF;
 
-  RETURN jsonb_build_object('revision', v_after);
+  -- The canonical stored state, read inside this transaction so it matches v_after exactly.
+  RETURN public.restaurant_availability_snapshot(p_restaurant_id);
 END;
 $$;
 

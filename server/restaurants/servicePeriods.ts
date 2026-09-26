@@ -144,7 +144,26 @@ export async function getServicePeriods(
     throw error;
   }
 
-  const sorted = (data ?? []).sort((a, b) => {
+  return mapServicePeriodRows(data ?? []);
+}
+
+/** A stored `restaurant_service_periods` row, as read by the settings and availability reads. */
+export type ServicePeriodDbRow = {
+  id: string;
+  name: string;
+  day_of_week: number | null;
+  start_time: string;
+  end_time: string;
+  booking_option: string;
+  updated_at: string | null;
+};
+
+/**
+ * Maps stored rows to the service periods the settings API returns, ordered by day then start
+ * time. Shared by `getServicePeriods` and the availability command.
+ */
+export function mapServicePeriodRows(rows: readonly ServicePeriodDbRow[]): ServicePeriod[] {
+  const sorted = [...rows].sort((a, b) => {
     const dayA = a.day_of_week ?? 99;
     const dayB = b.day_of_week ?? 99;
     if (dayA !== dayB) return dayA - dayB;

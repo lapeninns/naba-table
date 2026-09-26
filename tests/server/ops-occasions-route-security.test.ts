@@ -23,7 +23,7 @@ const withPlatformAdminAuthorizationMock = vi.hoisted(() => vi.fn());
 const fetchAllOccasionsMock = vi.hoisted(() => vi.fn());
 const createOccasionMock = vi.hoisted(() => vi.fn());
 const fetchOccasionByKeyMock = vi.hoisted(() => vi.fn());
-const countOccasionReferencesMock = vi.hoisted(() => vi.fn());
+const deleteOccasionMock = vi.hoisted(() => vi.fn());
 const clearOccasionCatalogCacheMock = vi.hoisted(() => vi.fn());
 const OccasionAlreadyExistsErrorMock = vi.hoisted(
   () =>
@@ -46,7 +46,7 @@ vi.mock('@/server/occasions/admin', () => ({
   fetchAllOccasions: fetchAllOccasionsMock,
   createOccasion: createOccasionMock,
   fetchOccasionByKey: fetchOccasionByKeyMock,
-  countOccasionReferences: countOccasionReferencesMock,
+  deleteOccasion: deleteOccasionMock,
   OccasionAlreadyExistsError: OccasionAlreadyExistsErrorMock,
   insertAudit: vi.fn(),
   toAdminOccasion: vi.fn((occasion) => occasion),
@@ -222,8 +222,11 @@ describe('ops occasions route security', () => {
     });
 
     it('refuses to delete a type still used by upcoming bookings or meal times with OCCASION_IN_USE', async () => {
-      fetchOccasionByKeyMock.mockResolvedValue({ key: 'brunch', is_builtin: false, deleted_at: null });
-      countOccasionReferencesMock.mockResolvedValue({ futureBookings: 0, servicePeriods: 2 });
+      deleteOccasionMock.mockResolvedValue({
+        status: 'in_use',
+        futureBookings: 0,
+        servicePeriods: 2,
+      });
 
       const response = await DELETE(
         new NextRequest('https://app.nabatable.com/api/ops/occasions/brunch', { method: 'DELETE' }),
@@ -236,6 +239,52 @@ describe('ops occasions route security', () => {
         code: 'OCCASION_IN_USE',
         details: { futureBookings: 0, servicePeriods: 2 },
       });
+      // One atomic call: no separate read or count before the write.
+      expect(deleteOccasionMock).toHaveBeenCalledWith('brunch', expect.any(String));
+      expect(fetchOccasionByKeyMock).not.toHaveBeenCalled();
+      expect(clearOccasionCatalogCacheMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [{ status: 'not_found' }, 404, 'OCCASION_NOT_FOUND'],
+      [{ status: 'builtin' }, 400, 'OCCASION_BUILTIN'],
+    ])('maps a refused delete %j to %i %s', async (result, status, code) => {
+      deleteOccasionMock.mockResolvedValue(result);
+
+      const response = await DELETE(
+        new NextRequest('https://app.nabatable.com/api/ops/occasions/brunch', { method: 'DELETE' }),
+        { params: Promise.resolve({ key: 'brunch' }) },
+      );
+
+      expect(response.status).toBe(status);
+      expect((await response.json()).code).toBe(code);
+      expect(clearOccasionCatalogCacheMock).not.toHaveBeenCalled();
+    });
+
+    it('deletes atomically and clears the catalog cache', async () => {
+      deleteOccasionMock.mockResolvedValue({ status: 'deleted' });
+
+      const response = await DELETE(
+        new NextRequest('https://app.nabatable.com/api/ops/occasions/brunch', { method: 'DELETE' }),
+        { params: Promise.resolve({ key: 'brunch' }) },
+      );
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ success: true });
+      expect(clearOccasionCatalogCacheMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('never echoes database text from a failed delete', async () => {
+      deleteOccasionMock.mockRejectedValue(new Error('SECRET_DB_DETAIL'));
+
+      const response = await DELETE(
+        new NextRequest('https://app.nabatable.com/api/ops/occasions/brunch', { method: 'DELETE' }),
+        { params: Promise.resolve({ key: 'brunch' }) },
+      );
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(text).not.toContain('SECRET_DB_DETAIL');
     });
   });
 });

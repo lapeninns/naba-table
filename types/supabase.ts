@@ -8263,6 +8263,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      delete_booking_occasion: {
+        Args: { p_actor_id: string | null; p_key: string };
+        Returns: Json;
+      };
       delete_table_inventory_guarded: {
         Args: { p_current_date: string; p_table_id: string };
         Returns: boolean;
@@ -8479,6 +8483,10 @@ export type Database = {
       restaurant_availability_revision: {
         Args: { p_restaurant_id: string };
         Returns: string;
+      };
+      restaurant_availability_snapshot: {
+        Args: { p_restaurant_id: string };
+        Returns: Json;
       };
       save_restaurant_availability: {
         Args: {

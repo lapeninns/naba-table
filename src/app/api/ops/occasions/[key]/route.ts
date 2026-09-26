@@ -4,7 +4,7 @@ import { apiError, conflict, internalError, notFound, validationError } from '@/
 import { captureServerException } from '@/lib/posthog/server';
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import {
-  countOccasionReferences,
+  deleteOccasion,
   fetchOccasionByKey,
   insertAudit,
   toAdminOccasion,
@@ -128,61 +128,33 @@ export async function DELETE(
     return authorization.response;
   }
 
-  const serviceClient = getServiceSupabaseClient();
-
   try {
-    const existing = await fetchOccasionByKey(key, serviceClient);
-    if (!existing || existing.deleted_at) {
-      return occasionNotFound();
-    }
-    if (existing.is_builtin) {
-      return apiError(
-        400,
-        'OCCASION_BUILTIN',
-        'Lunch and Dinner are built in and cannot be removed. Turn them off instead.',
-      );
-    }
-
-    const refs = await countOccasionReferences(key, serviceClient);
-    if (refs.futureBookings > 0 || refs.servicePeriods > 0) {
-      return conflict(
-        'OCCASION_IN_USE',
-        'This booking type is still used by upcoming bookings or meal times, so it cannot be removed. Turn it off instead.',
-        {
-          details: {
-            futureBookings: refs.futureBookings,
-            servicePeriods: refs.servicePeriods,
+    // One transaction: the reference check and the soft delete cannot be split by a concurrent
+    // meal-time or booking write (see delete_booking_occasion).
+    const result = await deleteOccasion(key, authorization.user.id);
+    switch (result.status) {
+      case 'not_found':
+        return occasionNotFound();
+      case 'builtin':
+        return apiError(
+          400,
+          'OCCASION_BUILTIN',
+          'Lunch and Dinner are built in and cannot be removed. Turn them off instead.',
+        );
+      case 'in_use':
+        return conflict(
+          'OCCASION_IN_USE',
+          'This booking type is still used by upcoming bookings or meal times, so it cannot be removed. Turn it off instead.',
+          {
+            details: {
+              futureBookings: result.futureBookings,
+              servicePeriods: result.servicePeriods,
+            },
           },
-        },
-      );
+        );
+      case 'deleted':
+        break;
     }
-
-    const { data, error } = await serviceClient
-      .from('booking_occasions')
-      .update({
-        deleted_at: new Date().toISOString(),
-        is_active: false,
-        updated_by: authorization.user.id,
-      })
-      .eq('key', key)
-      .is('deleted_at', null)
-      .select()
-      .maybeSingle();
-
-    if (error) {
-      throw error;
-    }
-    if (!data) {
-      return occasionNotFound();
-    }
-
-    await insertAudit({
-      occasion_key: key,
-      action: 'delete',
-      before_change: existing as unknown as Json,
-      after_change: data as unknown as Json,
-      changed_by: authorization.user.id,
-    });
 
     clearOccasionCatalogCache();
     return NextResponse.json({ success: true });

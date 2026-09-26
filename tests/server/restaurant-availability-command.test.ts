@@ -1,28 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const getOperatingHoursMock = vi.hoisted(() => vi.fn());
-const getServicePeriodsMock = vi.hoisted(() => vi.fn());
-const getRestaurantTurnBandsMock = vi.hoisted(() => vi.fn());
-
 vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: () => {
     throw new Error('tests pass an explicit client');
   },
-}));
-
-vi.mock('@/server/restaurants/operatingHours', async (importOriginal) => ({
-  ...(await importOriginal<typeof OperatingHoursModule>()),
-  getOperatingHours: getOperatingHoursMock,
-}));
-
-vi.mock('@/server/restaurants/servicePeriods', async (importOriginal) => ({
-  ...(await importOriginal<typeof ServicePeriodsModule>()),
-  getServicePeriods: getServicePeriodsMock,
-}));
-
-vi.mock('@/server/restaurants/turnBands', async (importOriginal) => ({
-  ...(await importOriginal<typeof TurnBandsModule>()),
-  getRestaurantTurnBands: getRestaurantTurnBandsMock,
 }));
 
 vi.mock('@/server/occasions/catalog', () => ({
@@ -32,12 +13,10 @@ vi.mock('@/server/occasions/catalog', () => ({
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import {
   AvailabilityCommandError,
+  getAvailabilitySnapshot,
   saveRestaurantAvailability,
 } from '@/server/restaurants/availabilityCommand';
 
-import type * as OperatingHoursModule from '@/server/restaurants/operatingHours';
-import type * as ServicePeriodsModule from '@/server/restaurants/servicePeriods';
-import type * as TurnBandsModule from '@/server/restaurants/turnBands';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -63,28 +42,64 @@ function fakeClient(rpcResult: RpcResult) {
         }),
       };
     }
-    if (table === 'restaurants') {
-      const chain = {
-        select: vi.fn(() => chain),
-        eq: vi.fn(() => chain),
-        maybeSingle: vi.fn().mockResolvedValue({
-          data: {
-            reservation_interval_minutes: 30,
-            reservation_default_duration_minutes: 105,
-            reservation_last_seating_buffer_minutes: 60,
-            reservation_lifecycle_grace_minutes: null,
-            booking_policy: null,
-            updated_at: '2026-09-27T10:00:00.000Z',
-          },
-          error: null,
-        }),
-      };
-      return chain;
-    }
     throw new Error(`unexpected table ${table}`);
   });
   const client = { rpc, from } as unknown as SupabaseClient<Database>;
   return { client, rpc, tablesRead };
+}
+
+/** What the RPCs return: the stored rows and their revision, read in one statement. */
+function dbSnapshot(revision = NEW_REVISION) {
+  return {
+    revision,
+    restaurant: {
+      timezone: 'Europe/London',
+      reservation_interval_minutes: 30,
+      reservation_default_duration_minutes: 105,
+      reservation_last_seating_buffer_minutes: 60,
+      reservation_lifecycle_grace_minutes: null,
+      booking_policy: 'Be on time',
+      updated_at: '2026-09-27T10:00:00.000+00:00',
+    },
+    operating_hours: [
+      {
+        id: 'h1',
+        day_of_week: 1,
+        effective_date: null,
+        opens_at: '12:00:00',
+        closes_at: '22:00:00',
+        is_closed: false,
+        notes: null,
+        reservation_interval_minutes: null,
+        reservation_slot_times: null,
+        updated_at: '2026-09-27T10:00:00.000+00:00',
+      },
+      {
+        id: 'o1',
+        day_of_week: null,
+        effective_date: '2026-12-25',
+        opens_at: null,
+        closes_at: null,
+        is_closed: true,
+        notes: 'Christmas',
+        reservation_interval_minutes: null,
+        reservation_slot_times: null,
+        updated_at: '2026-09-27T10:00:00.000+00:00',
+      },
+    ],
+    service_periods: [
+      {
+        id: 'p1',
+        name: 'Lunch',
+        day_of_week: 1,
+        start_time: '12:00:00',
+        end_time: '15:00:00',
+        booking_option: 'lunch',
+        updated_at: null,
+      },
+    ],
+    turn_bands: [{ booking_option: 'lunch', max_party_size: 4, duration_minutes: 75 }],
+  };
 }
 
 const weekly = Array.from({ length: 7 }, (_, dayOfWeek) => ({
@@ -97,31 +112,10 @@ const weekly = Array.from({ length: 7 }, (_, dayOfWeek) => ({
 describe('saveRestaurantAvailability', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getOperatingHoursMock.mockResolvedValue({
-      restaurantId: RESTAURANT_ID,
-      timezone: 'Europe/London',
-      updatedAt: null,
-      weekly: [],
-      overrides: [],
-    });
-    getServicePeriodsMock.mockResolvedValue([
-      {
-        id: 'p1',
-        name: 'Lunch',
-        dayOfWeek: 1,
-        startTime: '12:00',
-        endTime: '15:00',
-        bookingOption: 'lunch',
-        updatedAt: null,
-      },
-    ]);
-    getRestaurantTurnBandsMock.mockResolvedValue({
-      lunch: [{ maxPartySize: 4, durationMinutes: 75 }],
-    });
   });
 
-  it('sends every part to one RPC call and returns the canonical snapshot', async () => {
-    const { client, rpc } = fakeClient({ data: { revision: NEW_REVISION }, error: null });
+  it('sends every part to one RPC call and returns the snapshot it read in that transaction', async () => {
+    const { client, rpc, tablesRead } = fakeClient({ data: dbSnapshot(), error: null });
 
     const snapshot = await saveRestaurantAvailability(
       RESTAURANT_ID,
@@ -165,21 +159,45 @@ describe('saveRestaurantAvailability', () => {
       booking_policy: 'Be on time',
     });
 
+    // No follow-up reads: the response is the RPC's own snapshot (only the catalog was read).
+    expect(tablesRead).toEqual(['booking_occasions']);
     expect(snapshot.revision).toBe(NEW_REVISION);
+    expect(snapshot.hours.timezone).toBe('Europe/London');
+    expect(snapshot.hours.weekly.find((day) => day.dayOfWeek === 1)).toMatchObject({
+      opensAt: '12:00',
+      closesAt: '22:00',
+      isClosed: false,
+    });
+    expect(snapshot.hours.overrides).toEqual([
+      expect.objectContaining({ id: 'o1', effectiveDate: '2026-12-25', isClosed: true }),
+    ]);
+    expect(snapshot.servicePeriods).toEqual([
+      expect.objectContaining({ id: 'p1', startTime: '12:00', endTime: '15:00' }),
+    ]);
     expect(snapshot.turnBands.bands).toEqual({ lunch: [{ maxPartySize: 4, durationMinutes: 75 }] });
     expect(snapshot.turnBands.defaults).toHaveProperty('dinner');
     expect(snapshot.rules).toMatchObject({
       reservationIntervalMinutes: 30,
       reservationDefaultDurationMinutes: 105,
       reservationLifecycleGraceMinutes: DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+      bookingPolicy: 'Be on time',
     });
   });
 
+  it('treats a malformed RPC result as an unexpected failure, not a command error', async () => {
+    const { client } = fakeClient({ data: { revision: NEW_REVISION }, error: null });
+
+    const failure = saveRestaurantAvailability(
+      RESTAURANT_ID,
+      { rules: { reservationIntervalMinutes: 30 } },
+      client,
+    );
+
+    await expect(failure).rejects.not.toBeInstanceOf(AvailabilityCommandError);
+  });
+
   it('sends only the parts present; a rules-only save reads no booking types', async () => {
-    const { client, rpc, tablesRead } = fakeClient({
-      data: { revision: NEW_REVISION },
-      error: null,
-    });
+    const { client, rpc, tablesRead } = fakeClient({ data: dbSnapshot(), error: null });
 
     await saveRestaurantAvailability(
       RESTAURANT_ID,
@@ -302,5 +320,33 @@ describe('saveRestaurantAvailability', () => {
 
     await expect(failure).rejects.not.toBeInstanceOf(AvailabilityCommandError);
     await expect(failure).rejects.toMatchObject({ code: '57014' });
+  });
+});
+
+describe('getAvailabilitySnapshot', () => {
+  it('reads rows and revision with one RPC call', async () => {
+    const { client, rpc, tablesRead } = fakeClient({
+      data: dbSnapshot('a'.repeat(32)),
+      error: null,
+    });
+
+    const snapshot = await getAvailabilitySnapshot(RESTAURANT_ID, client);
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('restaurant_availability_snapshot', {
+      p_restaurant_id: RESTAURANT_ID,
+    });
+    expect(tablesRead).toEqual([]);
+    expect(snapshot.revision).toBe('a'.repeat(32));
+    expect(snapshot.turnBands.bands).toEqual({ lunch: [{ maxPartySize: 4, durationMinutes: 75 }] });
+  });
+
+  it('maps a missing restaurant to RESTAURANT_NOT_FOUND', async () => {
+    const { client } = fakeClient({ data: null, error: null });
+
+    await expect(getAvailabilitySnapshot(RESTAURANT_ID, client)).rejects.toMatchObject({
+      code: 'RESTAURANT_NOT_FOUND',
+      status: 404,
+    });
   });
 });

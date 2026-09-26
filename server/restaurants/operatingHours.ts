@@ -15,7 +15,8 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public'>;
-export type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
+export type OperatingHoursInsert =
+  Database['public']['Tables']['restaurant_operating_hours']['Insert'];
 type ReplacementRpcClient = DbClient & {
   rpc(
     fn: 'replace_restaurant_operating_hours',
@@ -309,29 +310,70 @@ export async function getOperatingHours(
     throw overrideError;
   }
 
-  const weekly: WeeklyOperatingHour[] = (weeklyRows ?? []).map((row) => ({
-    dayOfWeek: row.day_of_week ?? 0,
-    opensAt: canonicalizeFromDb(row.opens_at),
-    closesAt: canonicalizeFromDb(row.closes_at),
-    isClosed: row.is_closed ?? false,
-    notes: row.notes ?? null,
-    reservationIntervalMinutes: row.reservation_interval_minutes ?? null,
-    reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
-  }));
+  return mapOperatingHoursRows({
+    restaurantId,
+    timezone: restaurantRows.timezone,
+    weeklyRows: weeklyRows ?? [],
+    overrideRows: overrideRows ?? [],
+  });
+}
 
-  const overrides: OperatingHourOverride[] = (overrideRows ?? []).map((row) => ({
-    id: row.id,
-    effectiveDate: row.effective_date ?? '',
-    opensAt: canonicalizeFromDb(row.opens_at),
-    closesAt: canonicalizeFromDb(row.closes_at),
-    isClosed: row.is_closed ?? false,
-    notes: row.notes ?? null,
-    reservationIntervalMinutes: row.reservation_interval_minutes ?? null,
-    reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
-  }));
+/** A stored `restaurant_operating_hours` row, as read by the settings and availability reads. */
+export type OperatingHoursDbRow = {
+  id: string;
+  day_of_week?: number | null;
+  effective_date?: string | null;
+  opens_at: string | null;
+  closes_at: string | null;
+  is_closed: boolean | null;
+  notes: string | null;
+  reservation_interval_minutes: number | null;
+  reservation_slot_times: string[] | null;
+  updated_at: string | null;
+};
+
+/**
+ * Maps stored weekly and special-date rows to the snapshot the settings API returns. Shared by
+ * `getOperatingHours` and the availability command, which reads the rows in one statement.
+ */
+export function mapOperatingHoursRows({
+  restaurantId,
+  timezone,
+  weeklyRows,
+  overrideRows,
+}: {
+  restaurantId: string;
+  timezone: string;
+  weeklyRows: readonly OperatingHoursDbRow[];
+  overrideRows: readonly OperatingHoursDbRow[];
+}): OperatingHoursSnapshot {
+  const weekly: WeeklyOperatingHour[] = [...weeklyRows]
+    .sort((a, b) => (a.day_of_week ?? 0) - (b.day_of_week ?? 0))
+    .map((row) => ({
+      dayOfWeek: row.day_of_week ?? 0,
+      opensAt: canonicalizeFromDb(row.opens_at),
+      closesAt: canonicalizeFromDb(row.closes_at),
+      isClosed: row.is_closed ?? false,
+      notes: row.notes ?? null,
+      reservationIntervalMinutes: row.reservation_interval_minutes ?? null,
+      reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
+    }));
+
+  const overrides: OperatingHourOverride[] = [...overrideRows]
+    .sort((a, b) => (a.effective_date ?? '').localeCompare(b.effective_date ?? ''))
+    .map((row) => ({
+      id: row.id,
+      effectiveDate: row.effective_date ?? '',
+      opensAt: canonicalizeFromDb(row.opens_at),
+      closesAt: canonicalizeFromDb(row.closes_at),
+      isClosed: row.is_closed ?? false,
+      notes: row.notes ?? null,
+      reservationIntervalMinutes: row.reservation_interval_minutes ?? null,
+      reservationSlotTimes: normalizeSlotTimesFromDb(row.reservation_slot_times),
+    }));
 
   const updatedAt =
-    [...(weeklyRows ?? []), ...(overrideRows ?? [])]
+    [...weeklyRows, ...overrideRows]
       .map((row) => row.updated_at ?? null)
       .filter((value): value is string => Boolean(value))
       .sort()
@@ -339,7 +381,7 @@ export async function getOperatingHours(
 
   return {
     restaurantId,
-    timezone: restaurantRows.timezone,
+    timezone,
     updatedAt,
     weekly: buildDefaultWeeklySchedule(weekly),
     overrides,

@@ -1,7 +1,8 @@
 -- requires-fixtures: tests/db/fixtures/synthetic-fixtures.sql
 --
 -- save_restaurant_availability replaces hours, service periods, turn bands and the booking-rule
--- fields in one transaction; create_booking_occasion creates or revives a booking type atomically.
+-- fields in one transaction and returns the stored snapshot; create_booking_occasion and
+-- delete_booking_occasion create, revive and remove a booking type atomically.
 --
 -- Run through `DB_TARGET_ENV=staging pnpm db:sql-regression`, which executes the synthetic
 -- fixtures inside the same transaction and verifies the trailing ROLLBACK by comparing row
@@ -359,6 +360,88 @@ BEGIN
   WHERE occasion_key IN ('nb_regression_type', 'nb_regression_other') AND action = 'create';
   IF v_count <> 3 THEN
     RAISE EXCEPTION 'expected 3 create audit rows, found %', v_count USING ERRCODE = 'NB001';
+  END IF;
+
+  -- 12. The snapshot: the command returns the stored rows with the revision they hash to, read
+  -- in the same transaction; the standalone read agrees, and a missing restaurant yields NULL.
+  v_result := public.save_restaurant_availability(
+    v_restaurant_id, NULL, NULL, NULL, jsonb_build_object('booking_policy', 'Snapshot policy'), NULL
+  );
+  IF v_result ->> 'revision' <> public.restaurant_availability_revision(v_restaurant_id)
+    OR jsonb_array_length(v_result -> 'operating_hours') <> (
+      SELECT COUNT(*) FROM public.restaurant_operating_hours WHERE restaurant_id = v_restaurant_id
+    )
+    OR jsonb_array_length(v_result -> 'service_periods') <> (
+      SELECT COUNT(*) FROM public.restaurant_service_periods WHERE restaurant_id = v_restaurant_id
+    )
+    OR jsonb_array_length(v_result -> 'turn_bands') <> (
+      SELECT COUNT(*) FROM public.restaurant_turn_bands WHERE restaurant_id = v_restaurant_id
+    )
+    OR v_result #>> '{restaurant,booking_policy}' <> 'Snapshot policy'
+    OR (v_result #>> '{restaurant,timezone}') IS NULL THEN
+    RAISE EXCEPTION 'command result is not the stored snapshot: %', v_result USING ERRCODE = 'NB001';
+  END IF;
+  IF public.restaurant_availability_snapshot(v_restaurant_id) <> v_result THEN
+    RAISE EXCEPTION 'snapshot read differs from the command result' USING ERRCODE = 'NB001';
+  END IF;
+  IF public.restaurant_availability_snapshot('00000000-0000-4000-8000-00000000ffff') IS NOT NULL THEN
+    RAISE EXCEPTION 'snapshot of a missing restaurant was not NULL' USING ERRCODE = 'NB001';
+  END IF;
+
+  -- 13. delete_booking_occasion: built-in refused, in use refused with counts, then removed with
+  -- an audit row; a second removal is not_found; a meal time cannot use the removed type.
+  v_occasion := public.delete_booking_occasion('lunch', NULL);
+  IF v_occasion ->> 'status' <> 'builtin' THEN
+    RAISE EXCEPTION 'built-in type removal: %', v_occasion USING ERRCODE = 'NB001';
+  END IF;
+  PERFORM public.replace_restaurant_service_periods(
+    v_other_restaurant_id,
+    jsonb_build_array(
+      jsonb_build_object(
+        'id', gen_random_uuid(), 'name', 'Other', 'day_of_week', 2,
+        'start_time', '18:00', 'end_time', '20:00', 'booking_option', 'nb_regression_other'
+      )
+    )
+  );
+  v_occasion := public.delete_booking_occasion('nb_regression_other', NULL);
+  IF v_occasion ->> 'status' <> 'in_use' OR (v_occasion ->> 'service_periods')::integer <> 1 THEN
+    RAISE EXCEPTION 'in-use type removal: %', v_occasion USING ERRCODE = 'NB001';
+  END IF;
+  IF (SELECT deleted_at FROM public.booking_occasions WHERE key = 'nb_regression_other') IS NOT NULL THEN
+    RAISE EXCEPTION 'refused removal still soft-deleted the type' USING ERRCODE = 'NB001';
+  END IF;
+  PERFORM public.replace_restaurant_service_periods(v_other_restaurant_id, '[]'::jsonb);
+  v_occasion := public.delete_booking_occasion('nb_regression_other', NULL);
+  IF v_occasion ->> 'status' <> 'deleted' OR (v_occasion #>> '{after,deleted_at}') IS NULL THEN
+    RAISE EXCEPTION 'unused type was not removed: %', v_occasion USING ERRCODE = 'NB001';
+  END IF;
+  SELECT COUNT(*) INTO v_count
+  FROM public.booking_occasions_audit
+  WHERE occasion_key = 'nb_regression_other' AND action = 'delete';
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'expected 1 delete audit row, found %', v_count USING ERRCODE = 'NB001';
+  END IF;
+  IF public.delete_booking_occasion('nb_regression_other', NULL) ->> 'status' <> 'not_found' THEN
+    RAISE EXCEPTION 'second removal was not not_found' USING ERRCODE = 'NB001';
+  END IF;
+  BEGIN
+    PERFORM public.replace_restaurant_service_periods(
+      v_other_restaurant_id,
+      jsonb_build_array(
+        jsonb_build_object(
+          'id', gen_random_uuid(), 'name', 'Other', 'day_of_week', 2,
+          'start_time', '18:00', 'end_time', '20:00', 'booking_option', 'nb_regression_other'
+        )
+      )
+    );
+    RAISE EXCEPTION 'meal time with a removed type was accepted' USING ERRCODE = 'NB001';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
+  IF has_function_privilege('authenticated', 'public.delete_booking_occasion(text, uuid)', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.restaurant_availability_snapshot(uuid)', 'EXECUTE')
+    OR NOT has_function_privilege('service_role', 'public.delete_booking_occasion(text, uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'unexpected grants on the snapshot or delete functions' USING ERRCODE = 'NB001';
   END IF;
 
   RAISE NOTICE 'save-restaurant-availability regression PASSED';

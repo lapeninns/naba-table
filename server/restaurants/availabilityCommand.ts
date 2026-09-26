@@ -1,13 +1,15 @@
+import { z } from 'zod';
+
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import {
   buildOperatingHoursReplacementRows,
-  getOperatingHours,
+  mapOperatingHoursRows,
   type OperatingHoursSnapshot,
   type UpdateOperatingHoursPayload,
 } from '@/server/restaurants/operatingHours';
 import {
   buildServicePeriodReplacementRows,
-  getServicePeriods,
+  mapServicePeriodRows,
   type ServicePeriod,
   type UpdateServicePeriod,
 } from '@/server/restaurants/servicePeriods';
@@ -15,13 +17,10 @@ import {
   buildTurnBandsSnapshot,
   type TurnBandsSnapshot,
 } from '@/server/restaurants/turnBandDefaults';
-import {
-  getRestaurantTurnBands,
-  normalizeTurnBandsPayload,
-  type TurnBandsPayload,
-} from '@/server/restaurants/turnBands';
+import { normalizeTurnBandsPayload, type TurnBandsPayload } from '@/server/restaurants/turnBands';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import type { TurnBandsByOption } from '@/server/capacity/policy';
 import type { Database, Json } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -222,75 +221,130 @@ export function hasAvailabilityCommandParts(input: AvailabilityCommandInput): bo
   );
 }
 
-async function getAvailabilityRules(
+const nullableString = z.string().nullable().optional();
+
+/** What `restaurant_availability_snapshot` (and `save_restaurant_availability`) return. */
+const snapshotRowSchema = z.object({
+  revision: z.string().min(1),
+  restaurant: z.object({
+    timezone: z.string(),
+    reservation_interval_minutes: z.number(),
+    reservation_default_duration_minutes: z.number(),
+    reservation_last_seating_buffer_minutes: z.number(),
+    reservation_lifecycle_grace_minutes: z.number().nullable().optional(),
+    booking_policy: nullableString,
+    updated_at: nullableString,
+  }),
+  operating_hours: z.array(
+    z.object({
+      id: z.string(),
+      day_of_week: z.number().nullable(),
+      effective_date: nullableString,
+      opens_at: z.string().nullable(),
+      closes_at: z.string().nullable(),
+      is_closed: z.boolean().nullable(),
+      notes: z.string().nullable(),
+      reservation_interval_minutes: z.number().nullable(),
+      reservation_slot_times: z.array(z.string()).nullable(),
+      updated_at: z.string().nullable(),
+    }),
+  ),
+  service_periods: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      day_of_week: z.number().nullable(),
+      start_time: z.string(),
+      end_time: z.string(),
+      booking_option: z.string(),
+      updated_at: z.string().nullable(),
+    }),
+  ),
+  turn_bands: z.array(
+    z.object({
+      booking_option: z.string(),
+      max_party_size: z.number(),
+      duration_minutes: z.number(),
+    }),
+  ),
+});
+
+function groupTurnBands(rows: z.infer<typeof snapshotRowSchema>['turn_bands']): TurnBandsByOption {
+  const grouped: TurnBandsByOption = {};
+  for (const row of rows) {
+    const key = row.booking_option.trim().toLowerCase();
+    if (!key) continue;
+    (grouped[key] ??= []).push({
+      maxPartySize: row.max_party_size,
+      durationMinutes: row.duration_minutes,
+    });
+  }
+  Object.values(grouped).forEach((bands) => bands.sort((a, b) => a.maxPartySize - b.maxPartySize));
+  return grouped;
+}
+
+/**
+ * Maps the snapshot jsonb (rows and revision from ONE database read) to the API shape. The
+ * hours, periods and bands use the same mappers as the single-resource reads.
+ */
+export function mapAvailabilitySnapshot(
   restaurantId: string,
-  client: DbClient,
-): Promise<AvailabilityRules> {
-  const { data, error } = await client
-    .from('restaurants')
-    .select(
-      'reservation_interval_minutes, reservation_default_duration_minutes, reservation_last_seating_buffer_minutes, reservation_lifecycle_grace_minutes, booking_policy, updated_at',
-    )
-    .eq('id', restaurantId)
-    .maybeSingle();
-  if (error) {
-    throw error;
+  value: unknown,
+): AvailabilitySnapshot {
+  const parsed = snapshotRowSchema.safeParse(value);
+  if (!parsed.success) {
+    throw mapRpcError({ code: 'UNEXPECTED_RESULT' });
   }
-  if (!data) {
-    throw new AvailabilityCommandError('RESTAURANT_NOT_FOUND', 404, 'Restaurant not found.');
-  }
+  const row = parsed.data;
+  const servicePeriods = mapServicePeriodRows(row.service_periods);
   return {
-    reservationIntervalMinutes: data.reservation_interval_minutes,
-    reservationDefaultDurationMinutes: data.reservation_default_duration_minutes,
-    reservationLastSeatingBufferMinutes: data.reservation_last_seating_buffer_minutes,
-    reservationLifecycleGraceMinutes:
-      data.reservation_lifecycle_grace_minutes ?? DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
-    bookingPolicy: data.booking_policy ?? null,
-    updatedAt: data.updated_at ?? null,
+    restaurantId,
+    revision: row.revision,
+    hours: mapOperatingHoursRows({
+      restaurantId,
+      timezone: row.restaurant.timezone,
+      weeklyRows: row.operating_hours.filter((hour) => !hour.effective_date),
+      overrideRows: row.operating_hours.filter((hour) => Boolean(hour.effective_date)),
+    }),
+    servicePeriods,
+    turnBands: buildTurnBandsSnapshot(restaurantId, groupTurnBands(row.turn_bands), servicePeriods),
+    rules: {
+      reservationIntervalMinutes: row.restaurant.reservation_interval_minutes,
+      reservationDefaultDurationMinutes: row.restaurant.reservation_default_duration_minutes,
+      reservationLastSeatingBufferMinutes: row.restaurant.reservation_last_seating_buffer_minutes,
+      reservationLifecycleGraceMinutes:
+        row.restaurant.reservation_lifecycle_grace_minutes ??
+        DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES,
+      bookingPolicy: row.restaurant.booking_policy ?? null,
+      updatedAt: row.restaurant.updated_at ?? null,
+    },
   };
 }
 
-/** The current availability revision, for the command's optional precondition. */
-export async function getAvailabilityRevision(
+/**
+ * The stored availability and its revision, read in one statement
+ * (`restaurant_availability_snapshot`), so the revision always describes exactly these rows. The
+ * Availability page builds its draft from this and sends the revision back as the precondition.
+ */
+export async function getAvailabilitySnapshot(
   restaurantId: string,
   client: DbClient = getServiceSupabaseClient(),
-): Promise<string> {
-  const { data, error } = await client.rpc('restaurant_availability_revision', {
+): Promise<AvailabilitySnapshot> {
+  const { data, error } = await client.rpc('restaurant_availability_snapshot', {
     p_restaurant_id: restaurantId,
   });
   if (error) {
     throw mapRpcError(error);
   }
-  if (typeof data !== 'string' || data.length === 0) {
+  if (data === null || data === undefined) {
     throw new AvailabilityCommandError('RESTAURANT_NOT_FOUND', 404, 'Restaurant not found.');
   }
-  return data;
-}
-
-async function loadAvailabilitySnapshot(
-  restaurantId: string,
-  revision: string,
-  client: DbClient,
-): Promise<AvailabilitySnapshot> {
-  const [hours, servicePeriods, bands, rules] = await Promise.all([
-    getOperatingHours(restaurantId, client),
-    getServicePeriods(restaurantId, client),
-    getRestaurantTurnBands(restaurantId, client),
-    getAvailabilityRules(restaurantId, client),
-  ]);
-  return {
-    restaurantId,
-    revision,
-    hours,
-    servicePeriods,
-    turnBands: buildTurnBandsSnapshot(restaurantId, bands, servicePeriods),
-    rules,
-  };
+  return mapAvailabilitySnapshot(restaurantId, data);
 }
 
 /**
  * Saves the restaurant-owned part of the Availability page in one database transaction
- * (`save_restaurant_availability`) and returns the canonical stored state. The caller must
+ * (`save_restaurant_availability`) and returns the canonical stored state from that transaction. The caller must
  * already have authorised a restaurant admin for `restaurantId`; this uses the service client.
  */
 export async function saveRestaurantAvailability(
@@ -360,13 +414,7 @@ export async function saveRestaurantAvailability(
     throw mapRpcError(error);
   }
 
-  const revision =
-    data && typeof data === 'object' && !Array.isArray(data) && typeof data.revision === 'string'
-      ? data.revision
-      : null;
-  if (!revision) {
-    throw mapRpcError({ code: 'UNEXPECTED_RESULT' });
-  }
-
-  return loadAvailabilitySnapshot(restaurantId, revision, client);
+  // The RPC returns the stored state read inside its own transaction, so the response matches
+  // the committed save and its revision exactly (no follow-up reads that could fail or race).
+  return mapAvailabilitySnapshot(restaurantId, data);
 }

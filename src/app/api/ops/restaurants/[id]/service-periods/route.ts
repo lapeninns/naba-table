@@ -66,6 +66,16 @@ function handleFailure(error: unknown, method: string, restaurantId: string) {
     properties: { source: 'ops', kind: 'restaurant-service-periods' },
   });
 
+  // The replacement refuses a booking type that is unknown or was removed meanwhile (FK, 23503).
+  if (
+    method === 'PUT' &&
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === '23503'
+  ) {
+    return apiError(400, 'UNKNOWN_BOOKING_TYPE', 'A meal time uses an unknown booking type.');
+  }
+
   // Domain validation throws plain Errors before any write; their text is never echoed.
   if (method !== 'GET' && error instanceof Error && error.name === 'Error') {
     return apiError(400, 'SETTINGS_REQUEST_FAILED', 'Unable to process these settings.');

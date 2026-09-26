@@ -322,6 +322,29 @@ describe('ops restaurant schedule setting routes', () => {
     ]);
   });
 
+  it('maps a booking type removed during the save (FK 23503 from the replacement) to UNKNOWN_BOOKING_TYPE', async () => {
+    updateServicePeriodsMock.mockRejectedValueOnce(
+      Object.assign(new Error('service period uses a removed booking type'), { code: '23503' }),
+    );
+    const response = await putServicePeriods(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/service-periods`, [
+        {
+          name: 'Dinner',
+          dayOfWeek: 5,
+          startTime: '17:00',
+          endTime: '22:00',
+          bookingOption: 'dinner',
+        },
+      ]),
+      routeContext(),
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(400);
+    expect(JSON.parse(text).code).toBe('UNKNOWN_BOOKING_TYPE');
+    expect(text).not.toContain('removed booking type');
+  });
+
   it('rejects unknown service-period occasions before replacement @p1 @api @contract', async () => {
     const response = await putServicePeriods(
       jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/service-periods`, [

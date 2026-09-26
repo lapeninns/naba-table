@@ -51,7 +51,9 @@ export function toAdminOccasion(row: OccasionRow): AdminOccasion {
   };
 }
 
-export async function fetchAllOccasions(client = getServiceSupabaseClient()): Promise<AdminOccasion[]> {
+export async function fetchAllOccasions(
+  client = getServiceSupabaseClient(),
+): Promise<AdminOccasion[]> {
   const { data, error } = await client
     .from('booking_occasions')
     .select(ACTIVE_COLUMNS)
@@ -67,7 +69,10 @@ export async function fetchAllOccasions(client = getServiceSupabaseClient()): Pr
   return (data ?? []).map(toAdminOccasion);
 }
 
-export async function fetchOccasionByKey(key: string, client = getServiceSupabaseClient()): Promise<OccasionRow | null> {
+export async function fetchOccasionByKey(
+  key: string,
+  client = getServiceSupabaseClient(),
+): Promise<OccasionRow | null> {
   const { data, error } = await client
     .from('booking_occasions')
     .select(ACTIVE_COLUMNS)
@@ -79,7 +84,10 @@ export async function fetchOccasionByKey(key: string, client = getServiceSupabas
   return data as OccasionRow | null;
 }
 
-export async function insertAudit(entry: AuditInsert, client = getServiceSupabaseClient()): Promise<void> {
+export async function insertAudit(
+  entry: AuditInsert,
+  client = getServiceSupabaseClient(),
+): Promise<void> {
   const payload = {
     occasion_key: entry.occasion_key,
     action: entry.action,
@@ -98,33 +106,46 @@ export async function insertAudit(entry: AuditInsert, client = getServiceSupabas
   }
 }
 
-export async function countOccasionReferences(key: string, client: SupabaseClient<Database>): Promise<{
-  servicePeriods: number;
-  futureBookings: number;
-}> {
-  const today = new Date();
-  const todayKey = today.toISOString().slice(0, 10);
+export type DeleteOccasionResult =
+  | { status: 'deleted' }
+  | { status: 'not_found' }
+  | { status: 'builtin' }
+  | { status: 'in_use'; futureBookings: number; servicePeriods: number };
 
-  const [{ count: servicePeriods = 0, error: spError }, { count: futureBookings = 0, error: bookingsError }] =
-    await Promise.all([
-      client
-        .from('restaurant_service_periods')
-        .select('id', { head: true, count: 'exact' })
-        .eq('booking_option', key),
-      client
-        .from('bookings')
-        .select('id', { head: true, count: 'exact' })
-        .eq('booking_type', key)
-        .gte('booking_date', todayKey),
-    ]);
-
-  if (spError) throw spError;
-  if (bookingsError) throw bookingsError;
-
-  return {
-    servicePeriods: servicePeriods ?? 0,
-    futureBookings: futureBookings ?? 0,
-  };
+/**
+ * Soft-deletes a booking type in one transaction (`delete_booking_occasion`): the row lock, the
+ * reference counts, the soft delete and the audit row cannot interleave with a meal time or
+ * booking being written with this type. Refusals are results; nothing is written for them.
+ */
+export async function deleteOccasion(
+  key: string,
+  actorId: string,
+  client: SupabaseClient<Database> = getServiceSupabaseClient(),
+): Promise<DeleteOccasionResult> {
+  const { data, error } = await client.rpc('delete_booking_occasion', {
+    p_key: key,
+    p_actor_id: actorId,
+  });
+  if (error) {
+    throw error;
+  }
+  const result = data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  switch (result?.status) {
+    case 'deleted':
+      return { status: 'deleted' };
+    case 'not_found':
+      return { status: 'not_found' };
+    case 'builtin':
+      return { status: 'builtin' };
+    case 'in_use':
+      return {
+        status: 'in_use',
+        futureBookings: Number(result.future_bookings ?? 0),
+        servicePeriods: Number(result.service_periods ?? 0),
+      };
+    default:
+      throw new Error('delete_booking_occasion returned an unexpected result');
+  }
 }
 
 export type CreateOccasionInput = {

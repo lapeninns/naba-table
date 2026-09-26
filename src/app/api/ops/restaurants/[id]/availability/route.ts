@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { apiError, conflict, internalError, notFound, validationError } from '@/lib/api/errors';
 import {
   AvailabilityCommandError,
-  getAvailabilityRevision,
+  getAvailabilitySnapshot,
   saveRestaurantAvailability,
 } from '@/server/restaurants/availabilityCommand';
 import {
@@ -88,8 +88,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const revision = await getAvailabilityRevision(restaurantId);
-    return NextResponse.json({ data: { restaurantId, revision } });
+    // Rows and revision from one read: the page builds its draft from exactly the state the
+    // revision describes, so a save made from it is refused (STALE_WRITE) once anything changed.
+    const snapshot = await getAvailabilitySnapshot(restaurantId);
+    return NextResponse.json({ data: snapshot });
   } catch (error) {
     if (error instanceof AvailabilityCommandError) {
       return commandErrorResponse(error);
