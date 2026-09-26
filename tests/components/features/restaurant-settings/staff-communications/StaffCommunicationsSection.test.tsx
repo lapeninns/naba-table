@@ -234,6 +234,27 @@ describe('StaffCommunicationsSection', () => {
     });
   });
 
+  it('sends a fresh WhatsApp consent when WhatsApp is ticked again after the number changes', async () => {
+    const user = userEvent.setup();
+    await renderPage();
+
+    const phone = screen.getByRole('textbox', { name: /manager alert number/i });
+    await user.clear(phone);
+    await user.type(phone, '+447700900999');
+    const whatsapp = screen.getByRole('switch', { name: 'Try WhatsApp first' });
+    expect(whatsapp).not.toBeChecked();
+    // Back to the saved value (on), but for a new number: this is a new consent.
+    await user.click(whatsapp);
+    expect(whatsapp).toBeChecked();
+    await user.click(within(saveBar()).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(updateProfileMock).toHaveBeenCalledTimes(1));
+    expect(updateProfileMock).toHaveBeenCalledWith({
+      managerNotificationPhone: '+447700900999',
+      managerWhatsappEnabled: true,
+    });
+  });
+
   it('keeps the loaded form and unsaved edits when a background refresh fails', async () => {
     const user = userEvent.setup();
     const view = await renderPage();

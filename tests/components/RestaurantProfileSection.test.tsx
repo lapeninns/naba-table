@@ -256,16 +256,11 @@ describe('RestaurantProfileSection', () => {
 
     await waitFor(() => expect(toastMock.success).toHaveBeenCalledWith('Saved Public details.'));
     expect(updateProfileMock).toHaveBeenCalledTimes(1);
+    // Only the edited fields are sent: an unchanged name, slug or timezone is not resent.
     expect(updateProfileMock).toHaveBeenCalledWith({
-      name: 'Old Crown Girton',
       slug: 'the-old-crown',
       businessDescription: 'Family friendly pub',
-      timezone: 'Europe/London',
-      contactEmail: 'ops@oldcrowngirton.example',
       contactPhone: '+447700900000',
-      address: '1 High Street',
-      googleMapUrl: 'https://maps.google.com/demo-venue',
-      googleReviewUrl: 'https://g.page/demo-venue/review',
     });
     // Manager alert fields are never sent from Profile.
     const payload = updateProfileMock.mock.calls[0]?.[0] as Record<string, unknown>;

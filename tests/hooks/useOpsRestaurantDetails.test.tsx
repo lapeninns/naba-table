@@ -217,7 +217,7 @@ describe('useOpsUpdateRestaurantDetails', () => {
   it('@contract a name or slug change refreshes restaurant lists and notifies the page', async () => {
     restaurantService.updateProfile.mockResolvedValue(profile('saved'));
     const onIdentityChange = vi.fn();
-    const { result, invalidateSpy } = setup(() =>
+    const { result, queryClient, invalidateSpy } = setup(() =>
       useOpsUpdateRestaurantDetails(restaurantId, { onIdentityChange }),
     );
 
@@ -225,6 +225,8 @@ describe('useOpsUpdateRestaurantDetails', () => {
       await result.current.mutateAsync({ contactPhone: '+441223000000' });
     });
     expect(onIdentityChange).not.toHaveBeenCalled();
+    // No cached profile to compare against: a name or slug in the payload counts as a change.
+    queryClient.removeQueries({ queryKey: detailKey });
 
     await act(async () => {
       await result.current.mutateAsync({ name: 'The Bell', slug: 'the-bell' });
@@ -233,5 +235,65 @@ describe('useOpsUpdateRestaurantDetails', () => {
     expect(onIdentityChange).toHaveBeenCalledTimes(1);
     expect(onIdentityChange).toHaveBeenCalledWith(profile('saved'));
     expect(invalidatedKeys(invalidateSpy)).toContainEqual(queryKeys.opsRestaurants.list());
+  });
+
+  it('@contract a full public-details save that only changes the address invalidates nothing field-based', async () => {
+    const stored = {
+      name: 'The Bell',
+      slug: 'the-bell',
+      timezone: 'Europe/London',
+      address: '1 Old Street',
+      reservationIntervalMinutes: 15,
+      reservationDefaultDurationMinutes: 90,
+      reservationLastSeatingBufferMinutes: 15,
+      reservationLifecycleGraceMinutes: 15,
+    } as unknown as RestaurantProfile;
+    const saved = { ...stored, address: '1 High Street' } as RestaurantProfile;
+    restaurantService.updateProfile.mockResolvedValue(saved);
+    const onIdentityChange = vi.fn();
+    const { result, queryClient, invalidateSpy } = setup(() =>
+      useOpsUpdateRestaurantDetails(restaurantId, { onIdentityChange }),
+    );
+    queryClient.setQueryData(detailKey, stored);
+
+    await act(async () => {
+      // The keys are present but the stored values did not change.
+      await result.current.mutateAsync({
+        name: 'The Bell',
+        slug: 'the-bell',
+        timezone: 'Europe/London',
+        address: '1 High Street',
+      });
+    });
+
+    expect(invalidatedKeys(invalidateSpy)).toEqual([dualSyncQueryKeys.state(restaurantId)]);
+    expect(onIdentityChange).not.toHaveBeenCalled();
+  });
+
+  it('@contract compares against the cached profile: a real rename and timezone change still refresh', async () => {
+    const stored = {
+      name: 'The Bell',
+      slug: 'the-bell',
+      timezone: 'Europe/London',
+    } as unknown as RestaurantProfile;
+    const saved = { ...stored, name: 'The New Bell', timezone: 'Europe/Paris' } as RestaurantProfile;
+    restaurantService.updateProfile.mockResolvedValue(saved);
+    const onIdentityChange = vi.fn();
+    const { result, queryClient, invalidateSpy } = setup(() =>
+      useOpsUpdateRestaurantDetails(restaurantId, { onIdentityChange }),
+    );
+    queryClient.setQueryData(detailKey, stored);
+
+    await act(async () => {
+      await result.current.mutateAsync({ name: 'The New Bell', timezone: 'Europe/Paris' });
+    });
+
+    expect(invalidatedKeys(invalidateSpy)).toEqual([
+      dualSyncQueryKeys.state(restaurantId),
+      queryKeys.reservations.schedulePrefix(),
+      queryKeys.opsDashboard.summaryPrefix(restaurantId),
+      queryKeys.opsRestaurants.list(),
+    ]);
+    expect(onIdentityChange).toHaveBeenCalledWith(saved);
   });
 });
