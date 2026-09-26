@@ -8,11 +8,17 @@ export const metadata = {
 export default async function OpsFloorPlanDevPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ scenario?: string; fail?: string }>;
+  searchParams?: Promise<{ scenario?: string; fail?: string; surface?: string }>;
 }) {
   enforceDevOnly();
   const params = (await searchParams) ?? {};
   const scenario =
     params.scenario === 'empty' || params.scenario === 'error' ? params.scenario : 'live';
-  return <OpsFloorPlanDevHarness scenario={scenario} failNextAssign={params.fail === 'assign'} />;
+  return (
+    <OpsFloorPlanDevHarness
+      scenario={scenario}
+      failNextAssign={params.fail === 'assign'}
+      surface={params.surface === 'layout' ? 'layout' : 'service'}
+    />
+  );
 }

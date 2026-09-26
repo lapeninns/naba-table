@@ -4,21 +4,23 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
+  type QueryClient,
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { useRestaurantService } from '@/contexts/ops-services';
+import { useDebouncedValue } from '@/hooks/use-debounced-value';
+import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
-import type { HttpError } from '@/lib/http/errors';
 import type {
   RestaurantBookingEmailTemplateKey,
   RestaurantEmailTemplateVariant,
 } from '@/lib/restaurants/email-templates';
 import type {
-  PreviewEmailTemplateInput,
   RestaurantEmailTemplate,
   RestaurantEmailTemplatePreview,
   RestaurantEmailTemplatesSnapshot,
@@ -48,6 +50,44 @@ export function useOpsRestaurantEmailTemplates(
   });
 }
 
+/** The snapshot with one template swapped for the server's latest copy of it. */
+export function replaceTemplateInSnapshot(
+  snapshot: RestaurantEmailTemplatesSnapshot | undefined,
+  template: RestaurantEmailTemplate,
+): RestaurantEmailTemplatesSnapshot | undefined {
+  if (!snapshot) return snapshot;
+  return {
+    ...snapshot,
+    groups: snapshot.groups.map((group) =>
+      group.templates.some((candidate) => candidate.key === template.key)
+        ? {
+            ...group,
+            templates: group.templates.map((candidate) =>
+              candidate.key === template.key ? template : candidate,
+            ),
+          }
+        : group,
+    ),
+  };
+}
+
+/**
+ * Save and reset both return the template as the server now has it, so the cache is updated in
+ * place instead of refetching every template.
+ */
+async function writeTemplate(
+  queryClient: QueryClient,
+  restaurantId: string,
+  template: RestaurantEmailTemplate,
+) {
+  const queryKey = queryKeys.opsRestaurants.emailTemplates(restaurantId);
+  // A refetch started before the save would overwrite it with older copy.
+  await queryClient.cancelQueries({ queryKey, exact: true });
+  queryClient.setQueryData<RestaurantEmailTemplatesSnapshot>(queryKey, (snapshot) =>
+    replaceTemplateInSnapshot(snapshot, template),
+  );
+}
+
 export function useOpsUpdateRestaurantEmailTemplate(
   restaurantId?: string | null,
 ): UseMutationResult<
@@ -65,11 +105,8 @@ export function useOpsUpdateRestaurantEmailTemplate(
       }
       return restaurantService.updateEmailTemplate(restaurantId, templateKey, { variants });
     },
-    onSuccess: async () => {
-      if (!restaurantId) return;
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.opsRestaurants.emailTemplates(restaurantId),
-      });
+    onSuccess: async (template) => {
+      if (restaurantId) await writeTemplate(queryClient, restaurantId, template);
     },
   });
 }
@@ -91,31 +128,133 @@ export function useOpsResetRestaurantEmailTemplate(
       }
       return restaurantService.resetEmailTemplate(restaurantId, templateKey);
     },
-    onSuccess: async () => {
-      if (!restaurantId) return;
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.opsRestaurants.emailTemplates(restaurantId),
-      });
+    onSuccess: async (template) => {
+      if (restaurantId) await writeTemplate(queryClient, restaurantId, template);
     },
   });
 }
 
-export function useOpsPreviewRestaurantEmailTemplate(
-  restaurantId?: string | null,
-): UseMutationResult<
-  RestaurantEmailTemplatePreview,
-  HttpError | Error,
-  { templateKey: RestaurantBookingEmailTemplateKey; payload?: PreviewEmailTemplateInput }
-> {
-  const restaurantService = useRestaurantService();
+/** Typing pause before the draft is re-rendered. */
+export const PREVIEW_DEBOUNCE_MS = 400;
 
-  return useMutation({
-    mutationFn: async ({ templateKey, payload }) => {
-      if (!restaurantId) {
-        throw new Error('Restaurant id is required');
-      }
-      return restaurantService.previewEmailTemplate(restaurantId, templateKey, payload);
+/**
+ * Client-side budget for draft renders. The preview route allows 30 a minute per restaurant;
+ * staying under it leaves room for other tabs and staff, so slow typing never hits a 429.
+ */
+export const PREVIEW_RATE_LIMIT = { limit: 24, windowMs: 60_000 } as const;
+
+/** Render start times per restaurant, shared by every preview in this tab. */
+const previewRenderTimes = new Map<string, number[]>();
+
+function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    function onAbort() {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * Waits until the rolling window has room, then claims a slot. A newer draft aborts the wait,
+ * so only the latest draft is rendered once the window frees up.
+ */
+async function takePreviewSlot(restaurantId: string, signal: AbortSignal): Promise<void> {
+  const { limit, windowMs } = PREVIEW_RATE_LIMIT;
+  for (;;) {
+    const now = Date.now();
+    const times = (previewRenderTimes.get(restaurantId) ?? []).filter(
+      (startedAt) => now - startedAt < windowMs,
+    );
+    if (times.length < limit) {
+      previewRenderTimes.set(restaurantId, [...times, now]);
+      return;
+    }
+    previewRenderTimes.set(restaurantId, times);
+    await abortableDelay(times[0]! + windowMs - now, signal);
+  }
+}
+
+/** Short, stable fingerprint of a draft for the preview cache key. */
+function draftFingerprint(value: unknown): string {
+  const text = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash = Math.imul(hash ^ text.charCodeAt(index), 16777619);
+  }
+  return `${(hash >>> 0).toString(36)}-${text.length}`;
+}
+
+/**
+ * The server-rendered email for the variant being edited, including unsaved changes.
+ *
+ * A query, not a mutation: edits are debounced and kept under the route's rate limit, a
+ * superseded render is aborted, identical drafts are served from cache, and the last preview of
+ * the same email stays visible while the next one renders.
+ */
+export function useOpsEmailTemplatePreview({
+  restaurantId,
+  templateKey,
+  variantId,
+  variants,
+  debounceMs = PREVIEW_DEBOUNCE_MS,
+}: {
+  restaurantId: string | null | undefined;
+  templateKey: RestaurantBookingEmailTemplateKey | null;
+  variantId: string | null;
+  variants: ReadonlyArray<RestaurantEmailTemplateVariant>;
+  debounceMs?: number;
+}): UseQueryResult<RestaurantEmailTemplatePreview, HttpError | Error> {
+  const restaurantService = useRestaurantService();
+  // Memoised so only a real change to the draft restarts the debounce timer.
+  const latest = useMemo(
+    () => ({ templateKey, variantId, variants }),
+    [templateKey, variantId, variants],
+  );
+  const settled = useDebouncedValue(latest, debounceMs);
+  // Edits wait for typing to pause; opening another email or variant renders straight away.
+  const request =
+    settled.templateKey === templateKey && settled.variantId === variantId ? settled : latest;
+  const ready = Boolean(
+    restaurantId && request.templateKey && request.variantId && request.variants.length > 0,
+  );
+
+  return useQuery<RestaurantEmailTemplatePreview, HttpError | Error>({
+    queryKey: [
+      ...queryKeys.opsRestaurants.emailTemplates(restaurantId ?? 'none'),
+      'preview',
+      request.templateKey,
+      request.variantId,
+      draftFingerprint(request.variants),
+    ],
+    queryFn: async ({ signal }) => {
+      await takePreviewSlot(restaurantId!, signal);
+      return restaurantService.previewEmailTemplate(
+        restaurantId!,
+        request.templateKey!,
+        { preferredVariantId: request.variantId!, variants: [...request.variants] },
+        { signal },
+      );
     },
+    enabled: ready,
+    // Keep the last render of the same email on screen while the next one loads.
+    placeholderData: (previous) =>
+      previous?.templateKey === request.templateKey ? previous : undefined,
+    staleTime: 5 * 60_000,
+    gcTime: 60_000,
+    // Draft previews are 4xx-final (validation, rate limit); only retry server hiccups once.
+    retry: (failureCount, error) =>
+      failureCount < 1 && !(error instanceof HttpError && error.status < 500),
+    meta: { persist: false },
   });
 }
 

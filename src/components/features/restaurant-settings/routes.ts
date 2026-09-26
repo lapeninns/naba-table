@@ -14,6 +14,11 @@ export type RestaurantSettingsRoute = {
   aliases?: string[];
   title: string;
   description: string;
+  /**
+   * `workspace` routes fill the content area edge to edge and scroll their own panes (floor
+   * layout canvas, email template editor). Everything else is a padded, scrolling page.
+   */
+  layout?: 'page' | 'workspace';
 };
 
 export type RestaurantSettingsOverviewRoute = {
@@ -140,6 +145,21 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
     description:
       'Who we tell about bookings: the manager alert number, the daily booking summary and WhatsApp. Guests never see the alert number.',
   },
+  {
+    view: 'table-layout',
+    href: opsHref('/settings/restaurant/table-layout'),
+    title: 'Floor layout',
+    description:
+      'Where each table sits in its zone on the floor plan. Moving tables here never changes bookings.',
+    layout: 'workspace',
+  },
+  {
+    view: 'email-templates',
+    href: opsHref('/settings/restaurant/email-templates'),
+    title: 'Email templates',
+    description: 'Write, test and A/B test the emails guests receive about their booking.',
+    layout: 'workspace',
+  },
 ];
 
 export type RestaurantSettingsNavItem = Pick<
@@ -167,6 +187,8 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('tables'),
   getRoute('team'),
   getRoute('staff-communications'),
+  getRoute('table-layout'),
+  getRoute('email-templates'),
 ];
 
 export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<
@@ -247,4 +269,8 @@ export const RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS = {
   availability: 'restaurant-availability',
   team: 'team-invite-draft',
   'staff-communications': 'restaurant-staff-communications',
+  // Registered by the floor plan controller while layout drafts are unsaved.
+  'table-layout': 'floor-plan-layout',
+  // Registered by useOpsEmailTemplatesEditor while any email has unsaved copy.
+  'email-templates': 'restaurant-email-templates',
 } as const satisfies Partial<Record<RestaurantSettingsView, string>>;

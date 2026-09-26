@@ -1,10 +1,12 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createQueryWrapper, createTestQueryClient } from '@tests/utils/reactQuery';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { queryKeys } from '@/lib/query/keys';
 import {
-  useOpsPreviewRestaurantEmailTemplate,
+  PREVIEW_DEBOUNCE_MS,
+  PREVIEW_RATE_LIMIT,
+  useOpsEmailTemplatePreview,
   useOpsResetRestaurantEmailTemplate,
   useOpsRestaurantEmailTemplates,
   useOpsSendRestaurantEmailTemplateTest,
@@ -27,12 +29,16 @@ const restaurantId = 'rest-1';
 const templatesKey = queryKeys.opsRestaurants.emailTemplates(restaurantId);
 const snapshot = { groups: [{ title: 'Booking', templates: [] }] };
 
-function setup<T>(hook: () => T) {
+function setup<T, P = undefined>(hook: (props: P) => T) {
   const queryClient = createTestQueryClient();
   const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
   const wrapper = createQueryWrapper(queryClient);
   return { queryClient, invalidateSpy, ...renderHook(hook, { wrapper }) };
 }
+
+beforeEach(() => {
+  for (const mock of Object.values(restaurantService)) mock.mockReset();
+});
 
 describe('useOpsRestaurantEmailTemplates', () => {
   it('@contract stays disabled without a restaurant id', () => {
@@ -62,26 +68,53 @@ describe('useOpsRestaurantEmailTemplates', () => {
   });
 });
 
+function seededSnapshot() {
+  return {
+    restaurantId,
+    canEdit: true,
+    groups: [
+      {
+        key: 'confirmation',
+        title: 'Confirmation',
+        description: '',
+        templates: [
+          { key: 'confirmation', status: 'default', variants: [{ id: 'old' }] },
+          { key: 'cancelled', status: 'default', variants: [{ id: 'keep' }] },
+        ],
+      },
+    ],
+  };
+}
+
 describe('useOpsUpdateRestaurantEmailTemplate', () => {
-  it('@contract updates the template and invalidates the snapshot cache', async () => {
-    const template = { key: 'booking_confirmed', variants: [] };
+  it('@contract saves and writes the returned template into the cached snapshot', async () => {
+    const template = { key: 'confirmation', status: 'custom', variants: [{ id: 'new' }] };
     restaurantService.updateEmailTemplate.mockResolvedValue(template);
 
-    const { result, invalidateSpy } = setup(() =>
+    const { result, queryClient, invalidateSpy } = setup(() =>
       useOpsUpdateRestaurantEmailTemplate(restaurantId),
     );
+    queryClient.setQueryData(templatesKey, seededSnapshot());
 
     await result.current.mutateAsync({
-      templateKey: 'booking_confirmed' as never,
+      templateKey: 'confirmation',
       variants: [] as never,
     });
 
     expect(restaurantService.updateEmailTemplate).toHaveBeenCalledWith(
       restaurantId,
-      'booking_confirmed',
-      { variants: [] },
+      'confirmation',
+      {
+        variants: [],
+      },
     );
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: templatesKey });
+    const cached = queryClient.getQueryData<ReturnType<typeof seededSnapshot>>(templatesKey);
+    expect(cached?.groups[0]?.templates).toEqual([
+      template,
+      { key: 'cancelled', status: 'default', variants: [{ id: 'keep' }] },
+    ]);
+    // No round trip: the save response is the new server state.
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 
   it('@contract fails before the service call without a restaurant id', async () => {
@@ -89,7 +122,7 @@ describe('useOpsUpdateRestaurantEmailTemplate', () => {
 
     await expect(
       result.current.mutateAsync({
-        templateKey: 'booking_confirmed' as never,
+        templateKey: 'confirmation',
         variants: [] as never,
       }),
     ).rejects.toThrow('Restaurant id is required');
@@ -98,40 +131,146 @@ describe('useOpsUpdateRestaurantEmailTemplate', () => {
 });
 
 describe('useOpsResetRestaurantEmailTemplate', () => {
-  it('@contract resets the template and invalidates the snapshot cache', async () => {
-    restaurantService.resetEmailTemplate.mockResolvedValue({ key: 'booking_confirmed' });
+  it('@contract resets and writes the default template into the cached snapshot', async () => {
+    const template = { key: 'confirmation', status: 'default', variants: [{ id: 'default' }] };
+    restaurantService.resetEmailTemplate.mockResolvedValue(template);
 
-    const { result, invalidateSpy } = setup(() => useOpsResetRestaurantEmailTemplate(restaurantId));
+    const { result, queryClient } = setup(() => useOpsResetRestaurantEmailTemplate(restaurantId));
+    queryClient.setQueryData(templatesKey, seededSnapshot());
 
-    await result.current.mutateAsync({ templateKey: 'booking_confirmed' as never });
+    await result.current.mutateAsync({ templateKey: 'confirmation' });
 
-    expect(restaurantService.resetEmailTemplate).toHaveBeenCalledWith(
-      restaurantId,
-      'booking_confirmed',
-    );
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: templatesKey });
+    expect(restaurantService.resetEmailTemplate).toHaveBeenCalledWith(restaurantId, 'confirmation');
+    const cached = queryClient.getQueryData<ReturnType<typeof seededSnapshot>>(templatesKey);
+    expect(cached?.groups[0]?.templates[0]).toEqual(template);
   });
 });
 
-describe('useOpsPreviewRestaurantEmailTemplate', () => {
-  it('@contract previews the template with the optional payload', async () => {
-    const preview = { templateKey: 'booking_confirmed', html: '<p>Hi</p>' };
-    restaurantService.previewEmailTemplate.mockResolvedValue(preview);
+describe('useOpsEmailTemplatePreview', () => {
+  const variants = [{ id: 'v1', subject: 'Hello' }] as never;
 
-    const { result } = setup(() => useOpsPreviewRestaurantEmailTemplate(restaurantId));
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-    await expect(
-      result.current.mutateAsync({
-        templateKey: 'booking_confirmed' as never,
-        payload: { preferredVariantId: 'variant-1' } as never,
+  it('@contract renders straight away, then waits for typing to settle before re-rendering', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    restaurantService.previewEmailTemplate.mockImplementation(async (_id, _key, payload) => ({
+      templateKey: 'confirmation',
+      html: payload.variants[0].subject,
+    }));
+
+    const { result, rerender } = setup(({ subject }: { subject: string } = { subject: 'Hello' }) =>
+      useOpsEmailTemplatePreview({
+        restaurantId,
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants: [{ id: 'v1', subject }] as never,
       }),
-    ).resolves.toEqual(preview);
-
-    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledWith(
-      restaurantId,
-      'booking_confirmed',
-      { preferredVariantId: 'variant-1' },
     );
+    await waitFor(() => expect(result.current.data?.html).toBe('Hello'));
+
+    rerender({ subject: 'Hello t' });
+    rerender({ subject: 'Hello there' });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREVIEW_DEBOUNCE_MS);
+    });
+
+    await waitFor(() => expect(result.current.data?.html).toBe('Hello there'));
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(2);
+    expect(restaurantService.previewEmailTemplate).toHaveBeenLastCalledWith(
+      restaurantId,
+      'confirmation',
+      { preferredVariantId: 'v1', variants: [{ id: 'v1', subject: 'Hello there' }] },
+      { signal: expect.any(AbortSignal) },
+    );
+  });
+
+  it('@contract holds renders once the rate window is full, then sends the latest draft', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    restaurantService.previewEmailTemplate.mockImplementation(async (_id, _key, payload) => ({
+      templateKey: 'confirmation',
+      html: payload.variants[0].subject,
+    }));
+
+    const { result, rerender } = setup(({ subject }: { subject: string } = { subject: 's0' }) =>
+      useOpsEmailTemplatePreview({
+        restaurantId: 'rest-rate-limited',
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants: [{ id: 'v1', subject }] as never,
+        debounceMs: 0,
+      }),
+    );
+    for (let index = 1; index < PREVIEW_RATE_LIMIT.limit; index += 1) {
+      rerender({ subject: `s${index}` });
+      await waitFor(() =>
+        expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(index + 1),
+      );
+    }
+
+    rerender({ subject: 'over the limit' });
+    rerender({ subject: 'latest' });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(PREVIEW_RATE_LIMIT.limit);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(PREVIEW_RATE_LIMIT.windowMs);
+    });
+    await waitFor(() => expect(result.current.data?.html).toBe('latest'));
+    expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(
+      PREVIEW_RATE_LIMIT.limit + 1,
+    );
+  });
+
+  it('@contract keeps showing the last preview of the same email while the next one renders', async () => {
+    restaurantService.previewEmailTemplate
+      .mockResolvedValueOnce({ templateKey: 'confirmation', html: 'first' })
+      .mockReturnValueOnce(new Promise(() => {}));
+
+    const { result, rerender } = setup(({ id }: { id: string } = { id: 'v1' }) =>
+      useOpsEmailTemplatePreview({
+        restaurantId,
+        templateKey: 'confirmation',
+        variantId: id,
+        variants,
+        debounceMs: 0,
+      }),
+    );
+    await waitFor(() => expect(result.current.data?.html).toBe('first'));
+
+    rerender({ id: 'v2' });
+
+    await waitFor(() => expect(restaurantService.previewEmailTemplate).toHaveBeenCalledTimes(2));
+    expect(result.current.data?.html).toBe('first');
+    expect(result.current.isPlaceholderData).toBe(true);
+  });
+
+  it('@contract stays idle without a restaurant, email or variants', () => {
+    setup(() =>
+      useOpsEmailTemplatePreview({
+        restaurantId: null,
+        templateKey: 'confirmation',
+        variantId: 'v1',
+        variants,
+        debounceMs: 0,
+      }),
+    );
+    setup(() =>
+      useOpsEmailTemplatePreview({
+        restaurantId,
+        templateKey: 'confirmation',
+        variantId: null,
+        variants: [],
+        debounceMs: 0,
+      }),
+    );
+
+    expect(restaurantService.previewEmailTemplate).not.toHaveBeenCalled();
   });
 });
 
@@ -144,14 +283,14 @@ describe('useOpsSendRestaurantEmailTemplateTest', () => {
 
     await expect(
       result.current.mutateAsync({
-        templateKey: 'booking_confirmed' as never,
+        templateKey: 'confirmation',
         payload: { toEmail: 'ops@example.com' } as never,
       }),
     ).resolves.toEqual(response);
 
     expect(restaurantService.sendTestEmailTemplate).toHaveBeenCalledWith(
       restaurantId,
-      'booking_confirmed',
+      'confirmation',
       { toEmail: 'ops@example.com' },
     );
   });
@@ -161,7 +300,7 @@ describe('useOpsSendRestaurantEmailTemplateTest', () => {
 
     await expect(
       result.current.mutateAsync({
-        templateKey: 'booking_confirmed' as never,
+        templateKey: 'confirmation',
         payload: { toEmail: 'ops@example.com' } as never,
       }),
     ).rejects.toThrow('Restaurant id is required');

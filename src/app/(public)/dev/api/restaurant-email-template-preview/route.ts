@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { previewRestaurantEmailTemplateSchema } from '@/app/api/ops/restaurants/schema';
 import { renderRestaurantBookingEmailPreview } from '@/server/emails/bookings';
 
 import { enforceDevOnly } from '../../_shared/enforceDevOnly';
@@ -24,20 +25,6 @@ const previewVenueSchema = z.object({
   googleReviewUrl: z.string().nullable(),
 });
 
-const previewVariantSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  subject: z.string().min(1),
-  preheader: z.string().min(1),
-  headline: z.string().min(1),
-  intro: z.string().min(1),
-  cue: z.string().max(180).optional().default(''),
-  ask: z.string().max(180).optional().default(''),
-  ctaLabel: z.string().min(1),
-  isActive: z.boolean(),
-  order: z.number().int().min(0),
-});
-
 const previewRequestSchema = z.object({
   templateKey: z.enum([
     'request_received',
@@ -51,15 +38,14 @@ const previewRequestSchema = z.object({
     'reminder_24h',
     'reminder_short',
   ]),
-  preferredVariantId: z.string().min(1).optional(),
+  // Same draft rules as the production preview route, so the harness behaves like the app.
+  preferredVariantId: previewRestaurantEmailTemplateSchema.shape.preferredVariantId,
   recipientEmail: z.string().email().optional(),
-  variants: z.array(previewVariantSchema).max(5).optional(),
+  variants: previewRestaurantEmailTemplateSchema.shape.variants,
   venue: previewVenueSchema,
 });
 
-function toVenueDetails(
-  venue: z.infer<typeof previewVenueSchema>,
-): VenueDetails {
+function toVenueDetails(venue: z.infer<typeof previewVenueSchema>): VenueDetails {
   return {
     id: venue.id,
     slug: venue.slug ?? '',

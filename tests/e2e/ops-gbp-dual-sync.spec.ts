@@ -585,40 +585,36 @@ test.describe('ops GBP dual-sync shipped route', () => {
       /app\.localhost:\d+\/settings\/restaurant\/google-business-profile/,
     );
     await expect(page.getByRole('navigation', { name: 'Google workflow' })).toHaveCount(0);
-    await expect(
-      page.getByTestId('gbp-connection-card').getByText('Linked', { exact: true }).first(),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId('gbp-location-card').getByText('Location chosen', { exact: true }),
-    ).toBeVisible();
+    const overview = page.getByTestId('gbp-overview-card');
+    await expect(overview.getByRole('heading', { name: 'QA GBP Restaurant' })).toBeVisible();
+    await expect(overview.getByText('Linked', { exact: true })).toBeVisible();
+    // The raw values that gate a publish are one evidence line on the overview.
+    const evidence = overview.getByLabel('Evidence');
+    await expect(evidence).toContainText(/Generation\s*3/);
+    await expect(evidence).toContainText(/Consent epoch\s*4/);
     const reviewStep = page.locator('#gbp-sync-review');
-    await expect(reviewStep.getByRole('heading', { name: /Review differences/ })).toBeVisible();
+    await expect(reviewStep.getByRole('tab', { name: /Review differences/ })).toBeVisible();
     await expect(reviewStep.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
-    await expect(reviewStep.getByRole('heading', { name: 'Phone number' })).toBeVisible();
     await expect(
-      reviewStep.getByText('0 to send · 0 to use from Google · 0 ignored'),
+      reviewStep.getByRole('group', { name: 'What to do with Phone number' }),
     ).toBeVisible();
+    await expect(
+      page
+        .getByRole('region', { name: 'Publish decisions' })
+        .getByText('0 to send to Google · 0 to use from Google · 0 ignored'),
+    ).toBeVisible();
+
+    // Write controls, pending paths and provider outcomes live on the Operations tab.
     await expect(page.getByTestId('gbp-operator-controls')).toHaveCount(0);
-    await page.getByRole('button', { name: /write controls and evidence/i }).click();
-    await expect(page.getByTestId('gbp-operator-controls')).toBeVisible();
-    await expect(page.getByTestId('gbp-operator-controls')).toContainText(
-      /Connection generation\s*3/,
-    );
-    await expect(page.getByTestId('gbp-operator-controls')).toContainText(/Consent epoch\s*4/);
-    await expect(page.getByTestId('gbp-operator-controls').getByText('phoneNumbers')).toBeVisible();
+    await reviewStep.getByRole('tab', { name: /Operations/ }).click();
+    const operatorControls = page.getByTestId('gbp-operator-controls');
+    await expect(operatorControls).toBeVisible();
+    await expect(operatorControls.getByText('phoneNumbers')).toBeVisible();
+    await expect(operatorControls.getByText('attributes/wheelchair_accessible')).toBeVisible();
     await expect(
-      page.getByTestId('gbp-operator-controls').getByText('attributes/wheelchair_accessible'),
+      page.getByText(/get the latest from google, check the listing, then create a new preview/i),
     ).toBeVisible();
-    await expect(
-      page
-        .getByTestId('gbp-operator-controls')
-        .getByText(/refresh google, then create a new preview/i),
-    ).toBeVisible();
-    await expect(
-      page
-        .getByTestId('gbp-operator-controls')
-        .getByText(/verify the operational notification channel/i),
-    ).toBeVisible();
+    await expect(page.getByText(/verify the operational notification channel/i)).toBeVisible();
 
     await page.setViewportSize({ width: 375, height: 812 });
     const settingsHeader = page.locator('header').filter({
@@ -632,8 +628,8 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await expect(settingsHeader.getByText('QA App Host Restaurant')).toBeHidden();
     const mobileTitleBox = await mobileTitle.boundingBox();
     expect(mobileTitleBox?.width).toBeGreaterThan(96);
-    // The steps stack on phones and the page never scrolls sideways.
-    const reviewHeading = reviewStep.getByRole('heading', { name: /Review differences/ });
+    // The page never scrolls sideways on phones.
+    const reviewHeading = reviewStep.getByRole('tab', { name: /Review differences/ });
     await reviewHeading.scrollIntoViewIfNeeded();
     const reviewHeadingBox = await reviewHeading.boundingBox();
     expect(reviewHeadingBox?.x).toBeGreaterThanOrEqual(0);
@@ -642,7 +638,6 @@ test.describe('ops GBP dual-sync shipped route', () => {
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
 
-    const operatorControls = page.getByTestId('gbp-operator-controls');
     for (const width of captureWidths) {
       const height = width === 1280 ? 1000 : 1400;
       await page.setViewportSize({ width, height });
@@ -656,9 +651,10 @@ test.describe('ops GBP dual-sync shipped route', () => {
       });
     }
 
+    await reviewStep.getByRole('tab', { name: /Review differences/ }).click();
     await page.locator('#gbp-sync-review').getByRole('radio', { name: 'Send to Google' }).click();
     await page.setViewportSize({ width: 375, height: 812 });
-    const publishTrigger = page.getByRole('button', { name: 'Review and publish (1)' });
+    const publishTrigger = page.getByRole('button', { name: 'Review exact plan (1)' });
     await publishTrigger.click();
 
     const previewDialog = page.getByRole('dialog');
@@ -811,14 +807,13 @@ test.describe('ops GBP dual-sync shipped route', () => {
 
     await navigateToGbpSettings(page);
 
+    const setup = page.getByTestId('gbp-setup-card');
+    await expect(setup.getByText('Not connected', { exact: true })).toBeVisible();
+    await expect(setup.getByText('Available after sign-in.')).toBeVisible();
     await expect(
-      page.getByTestId('gbp-connection-card').getByText('Not connected', { exact: true }),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId('gbp-location-card').getByText('Locked until step 1 is done.'),
-    ).toBeVisible();
-    await expect(
-      page.locator('main').getByText('Google Business Profile credentials are not configured'),
+      setup.getByText('Google Business Profile credentials are missing in this environment', {
+        exact: false,
+      }),
     ).toBeVisible();
     await expect(
       page.locator('main').getByRole('button', { name: 'Connect Google', exact: true }),
@@ -847,11 +842,12 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page.getByTestId('gbp-connection-card').getByText('Not connected', { exact: true }),
+      page.getByTestId('gbp-setup-card').getByText('Not connected', { exact: true }),
     ).toBeVisible();
     await expect(
       page.locator('main').getByRole('button', { name: 'Connect Google', exact: true }),
     ).toBeEnabled();
+    await expect(page.getByRole('region', { name: 'Publish decisions' })).toHaveCount(0);
   });
 
   test('google business profile route shows the location picker before linking @p1 @browser @contract @external-mock @local-only', async ({
@@ -875,12 +871,9 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page
-        .getByTestId('gbp-connection-card')
-        .getByText('Choose a location', { exact: true })
-        .first(),
+      page.getByTestId('gbp-setup-card').getByText('Choose a listing', { exact: true }),
     ).toBeVisible();
-    await page.locator('main').getByRole('button', { name: 'Choose location' }).click();
+    await page.locator('main').getByRole('button', { name: 'Choose listing' }).click();
     const chooser = page.getByRole('dialog', { name: 'Choose a Business Profile location' });
     await expect(chooser.getByText('Available locations')).toBeVisible();
     await expect(
@@ -897,6 +890,10 @@ test.describe('ops GBP dual-sync shipped route', () => {
 
     await navigateToGbpSettings(page);
 
+    await page
+      .locator('#gbp-sync-review')
+      .getByRole('tab', { name: /Operations/ })
+      .click();
     await page.locator('main').getByTestId('gbp-disconnect-button').click();
     const dialog = page.getByTestId('gbp-disconnect-dialog');
 

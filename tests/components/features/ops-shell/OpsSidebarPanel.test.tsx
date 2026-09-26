@@ -88,15 +88,15 @@ describe('OpsSidebarPanel', () => {
     // variant (CSS-gated, both present in JSDOM).
     expect(screen.getAllByText('The White Horse').length).toBeGreaterThan(0);
     expect(screen.getByText('Service')).toBeInTheDocument();
-    expect(screen.getByText('Guest & Insights')).toBeInTheDocument();
+    expect(screen.getByText('Guests & Communications')).toBeInTheDocument();
 
     for (const item of [
       'Dashboard',
+      'New Booking',
+      'Floor plan',
       'Bookings',
-      'New Bookings',
       'Guests',
       'Communications Delivery',
-      'Email Templates',
       'Settings',
     ]) {
       expect(screen.getByRole('link', { name: item })).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('OpsSidebarPanel', () => {
     renderPanel('host');
     expect(screen.queryByRole('link', { name: 'Communications Delivery' })).not.toBeInTheDocument();
     // Non-gated items are unaffected.
-    expect(screen.getByRole('link', { name: 'Email Templates' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Guests' })).toBeInTheDocument();
   });
 
   it('@contract @a11y marks the nav item matching the current pathname as the current page', () => {

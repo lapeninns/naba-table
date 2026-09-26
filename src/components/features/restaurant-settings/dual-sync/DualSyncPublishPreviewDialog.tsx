@@ -56,7 +56,7 @@ export function DualSyncPublishPreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[86dvh] max-w-4xl overflow-y-auto">
-        <DialogHeader className="pr-12 sm:pr-0">
+        <DialogHeader className="pr-12 sm:pr-14">
           <DialogTitle>
             {purpose === 'import' ? 'Use values from Google?' : 'Review publish plan'}
           </DialogTitle>

@@ -380,78 +380,134 @@ const emailTemplateVariantSchema = z.object({
     .max(MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS - 1),
 });
 
-export const updateRestaurantEmailTemplateSchema = z.object({
-  variants: z
-    .array(emailTemplateVariantSchema)
+/** Draft copy for previews: the same fields and limits as a saved variant, but may be unfinished. */
+const emailTemplateDraftVariantSchema = z.object({
+  id: z.string().trim().min(1).max(120),
+  name: plainTextSchema(z.string().trim().max(80), 'Name'),
+  subject: plainTextSchema(z.string().trim().max(140), 'Subject'),
+  preheader: plainTextSchema(z.string().trim().max(180), 'Preheader'),
+  headline: plainTextSchema(z.string().trim().max(140), 'Headline'),
+  intro: plainTextSchema(z.string().trim().max(280), 'Message body'),
+  cue: plainTextSchema(emailTemplateSupportTextSchema, 'Cue')
+    .optional()
+    .transform((val) => val ?? ''),
+  ask: plainTextSchema(emailTemplateSupportTextSchema, 'Ask')
+    .optional()
+    .transform((val) => val ?? ''),
+  ctaLabel: plainTextSchema(z.string().trim().max(60), 'CTA label'),
+  isActive: z.boolean(),
+  order: emailTemplateVariantSchema.shape.order,
+});
+
+type EmailTemplateVariantShape = z.infer<typeof emailTemplateDraftVariantSchema>;
+
+type VariantListRules = {
+  /** Unknown `{{variables}}` would render blank for guests. */
+  knownVariablesOnly: boolean;
+  /** Saved templates need a live variant and no two live variants with the same copy. */
+  sendableRotation: boolean;
+};
+
+function addVariantListIssues(
+  variants: ReadonlyArray<EmailTemplateVariantShape>,
+  ctx: z.RefinementCtx,
+  rules: VariantListRules,
+) {
+  const ids = new Set<string>();
+  const orders = new Set<number>();
+  const activeSignatures = new Map<string, string>();
+  let activeCount = 0;
+
+  for (const [index, variant] of variants.entries()) {
+    if (ids.has(variant.id)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Variant id "${variant.id}" must be unique`,
+        path: [index, 'id'],
+      });
+    }
+    ids.add(variant.id);
+
+    if (orders.has(variant.order)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Variant order "${variant.order}" must be unique`,
+        path: [index, 'order'],
+      });
+    }
+    orders.add(variant.order);
+
+    if (rules.knownVariablesOnly) {
+      addUnknownTokenIssues(variant.subject, 'Subject', ctx, [index, 'subject']);
+      addUnknownTokenIssues(variant.preheader, 'Preheader', ctx, [index, 'preheader']);
+      addUnknownTokenIssues(variant.headline, 'Headline', ctx, [index, 'headline']);
+      addUnknownTokenIssues(variant.intro, 'Message body', ctx, [index, 'intro']);
+      addUnknownTokenIssues(variant.cue, 'Cue', ctx, [index, 'cue']);
+      addUnknownTokenIssues(variant.ask, 'Ask', ctx, [index, 'ask']);
+      addUnknownTokenIssues(variant.ctaLabel, 'CTA label', ctx, [index, 'ctaLabel']);
+    }
+
+    if (rules.sendableRotation && variant.isActive) {
+      activeCount += 1;
+      const signature = buildRestaurantEmailTemplateVariantSignature(variant);
+      const existingVariantName = activeSignatures.get(signature);
+      if (existingVariantName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Active variants "${existingVariantName}" and "${variant.name}" have identical delivery copy. Change the content or pause one variant.`,
+          path: [index],
+        });
+      } else {
+        activeSignatures.set(signature, variant.name);
+      }
+    }
+  }
+
+  if (rules.sendableRotation && activeCount === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'At least one active variant is required',
+    });
+  }
+}
+
+function variantListSchema(variant: z.ZodType<EmailTemplateVariantShape>, rules: VariantListRules) {
+  return z
+    .array(variant)
     .min(1, 'At least one variant is required')
     .max(
       MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
       `You can save up to ${MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS} variants`,
     )
-    .superRefine((variants, ctx) => {
-      const ids = new Set<string>();
-      const orders = new Set<number>();
-      const activeSignatures = new Map<string, string>();
-      let activeCount = 0;
+    .superRefine((variants, ctx) => addVariantListIssues(variants, ctx, rules));
+}
 
-      for (const [index, variant] of variants.entries()) {
-        if (ids.has(variant.id)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Variant id "${variant.id}" must be unique`,
-            path: [index, 'id'],
-          });
-        }
-        ids.add(variant.id);
-
-        if (orders.has(variant.order)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: `Variant order "${variant.order}" must be unique`,
-            path: [index, 'order'],
-          });
-        }
-        orders.add(variant.order);
-
-        addUnknownTokenIssues(variant.subject, 'Subject', ctx, [index, 'subject']);
-        addUnknownTokenIssues(variant.preheader, 'Preheader', ctx, [index, 'preheader']);
-        addUnknownTokenIssues(variant.headline, 'Headline', ctx, [index, 'headline']);
-        addUnknownTokenIssues(variant.intro, 'Message body', ctx, [index, 'intro']);
-        addUnknownTokenIssues(variant.cue, 'Cue', ctx, [index, 'cue']);
-        addUnknownTokenIssues(variant.ask, 'Ask', ctx, [index, 'ask']);
-        addUnknownTokenIssues(variant.ctaLabel, 'CTA label', ctx, [index, 'ctaLabel']);
-
-        if (variant.isActive) {
-          activeCount += 1;
-          const signature = buildRestaurantEmailTemplateVariantSignature(variant);
-          const existingVariantName = activeSignatures.get(signature);
-          if (existingVariantName) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: `Active variants "${existingVariantName}" and "${variant.name}" have identical delivery copy. Change the content or pause one variant.`,
-              path: [index],
-            });
-          } else {
-            activeSignatures.set(signature, variant.name);
-          }
-        }
-      }
-
-      if (activeCount === 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'At least one active variant is required',
-        });
-      }
-    }),
+export const updateRestaurantEmailTemplateSchema = z.object({
+  variants: variantListSchema(emailTemplateVariantSchema, {
+    knownVariablesOnly: true,
+    sendableRotation: true,
+  }),
 });
 
+/** Previews render the draft as it is being written, so unfinished copy is allowed. */
 export const previewRestaurantEmailTemplateSchema = z.object({
   preferredVariantId: z.string().trim().min(1).max(120).optional(),
-  variants: updateRestaurantEmailTemplateSchema.shape.variants.optional(),
+  variants: variantListSchema(emailTemplateDraftVariantSchema, {
+    knownVariablesOnly: false,
+    sendableRotation: false,
+  }).optional(),
 });
 
-export const sendRestaurantEmailTemplateTestSchema = previewRestaurantEmailTemplateSchema.extend({
+/**
+ * A test email needs finished copy, but can come from a paused variant or a draft whose rotation
+ * is not ready to save yet.
+ */
+export const sendRestaurantEmailTemplateTestSchema = z.object({
+  preferredVariantId: z.string().trim().min(1).max(120).optional(),
+  variants: variantListSchema(emailTemplateVariantSchema, {
+    knownVariablesOnly: true,
+    sendableRotation: false,
+  }).optional(),
   toEmail: z.string().trim().regex(EMAIL_REGEX, 'Invalid email format'),
 });
 

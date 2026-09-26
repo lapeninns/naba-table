@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildFloorLayoutSnapshot,
   buildFloorPlanSnapshot,
   toFloorTable,
 } from '@/components/features/floor-plan/model/floorPlanSnapshot';
@@ -232,6 +233,24 @@ describe('buildFloorPlanSnapshot', () => {
       x: 1,
       y: 2,
       rotation: 0,
+    });
+  });
+});
+
+describe('buildFloorLayoutSnapshot', () => {
+  it('builds the room from tables alone, with no service, bookings or holds', () => {
+    const snap = buildFloorLayoutSnapshot({ restaurantId: 'rest-1', date: '2026-09-26', tables });
+
+    expect(snap.tables.map((t) => t.id)).toEqual(tables.tables.map((t) => t.id));
+    expect(snap.zones.length).toBeGreaterThan(0);
+    expect(snap).toMatchObject({
+      restaurantId: 'rest-1',
+      date: '2026-09-26',
+      isClosed: false,
+      window: null,
+      services: [],
+      bookings: [],
+      holds: [],
     });
   });
 });

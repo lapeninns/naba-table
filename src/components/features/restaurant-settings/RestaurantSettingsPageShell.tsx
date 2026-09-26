@@ -2,9 +2,12 @@
 
 import { type ReactNode } from 'react';
 
+import { cn } from '@/lib/utils';
+
 import { GbpDriftStatusStrip } from './gbp-drift/GbpDriftStatusStrip';
 import { GbpDriftProvider } from './GbpDriftProvider';
 import { RestaurantSettingsFocusedShell } from './RestaurantSettingsFocusedShell';
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
 import { SETTINGS_ENTER_FADE_CLASS } from './shared/compactSettingsClasses';
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
@@ -57,15 +60,21 @@ export function RestaurantSettingsPageShell({
   const { headingContext, routeView } = useRestaurantSettingsContext();
   const hidePageIntro =
     title == null && description == null ? (headingContext?.hidePageIntro ?? false) : false;
+  const workspace = routeView
+    ? RESTAURANT_SETTINGS_ROUTE_MAP[routeView].layout === 'workspace'
+    : false;
   // The Google Business Profile workspace is the comparison itself; a strip there repeats it.
-  const showGbpStrip = routeView !== 'google-business-profile';
+  // Full-height workspaces have no room for it either, and don't edit Google-synced details.
+  const showGbpStrip = routeView !== 'google-business-profile' && !workspace;
 
   return (
     <GbpDriftProvider>
-      <RestaurantSettingsFocusedShell envBanner={envBanner} title={title}>
-        <RestaurantSettingsPageIntro title={title} description={description} />
+      <RestaurantSettingsFocusedShell envBanner={envBanner} title={title} workspace={workspace}>
+        {workspace ? null : <RestaurantSettingsPageIntro title={title} description={description} />}
         {showGbpStrip ? <GbpDriftStatusStrip compact={hidePageIntro} /> : null}
-        <div className={SETTINGS_ENTER_FADE_CLASS}>{children}</div>
+        <div className={cn(SETTINGS_ENTER_FADE_CLASS, workspace && 'flex min-h-0 flex-1 flex-col')}>
+          {children}
+        </div>
       </RestaurantSettingsFocusedShell>
     </GbpDriftProvider>
   );

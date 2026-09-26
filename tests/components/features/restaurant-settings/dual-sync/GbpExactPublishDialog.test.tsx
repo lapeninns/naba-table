@@ -87,7 +87,7 @@ describe('GbpExactPublishDialog', () => {
     expect(screen.getByText(/replaces the full google foodmenus resource/i)).toBeInTheDocument();
     const title = screen.getByRole('heading', { name: 'Confirm exact Google publish' });
     expect(title).toHaveAttribute('tabindex', '-1');
-    expect(title.parentElement).toHaveClass('pr-12', 'sm:pr-0');
+    expect(title.parentElement).toHaveClass('pr-12', 'sm:pr-14');
   });
 
   it('requires both external-write and destructive full-replacement acknowledgements', async () => {
