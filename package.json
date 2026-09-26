@@ -261,7 +261,7 @@
     "@vitest/coverage-v8": "4.1.0",
     "autoprefixer": "^10.4.22",
     "axe-core": "4.11.1",
-    "baseline-browser-mapping": "^2.9.19",
+    "baseline-browser-mapping": "^2.11.0",
     "chrome-devtools-mcp": "^0.11.0",
     "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.1",
