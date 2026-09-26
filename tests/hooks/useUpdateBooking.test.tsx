@@ -41,7 +41,7 @@ describe('useUpdateBooking', () => {
       pageInfo: { page: 1, pageSize: 10, total: 1, hasNext: false },
     };
 
-    queryClient.setQueryData(queryKeys.bookings.all, page);
+    queryClient.setQueryData(queryKeys.bookings.list(), page);
     queryClient.setQueryData(queryKeys.bookings.detail(booking.id), booking);
     vi.mocked(fetchJson).mockResolvedValue(updated as never);
 
@@ -64,6 +64,7 @@ describe('useUpdateBooking', () => {
         partySize: updated.partySize,
         notes: updated.notes,
       }),
+      authRedirect: true,
     });
 
     expect(queryClient.getQueryData(queryKeys.bookings.detail(booking.id))).toEqual(updated);

@@ -4,6 +4,11 @@ import { HttpError } from '@/lib/http/errors';
 import { fetchJson } from '@/lib/http/fetchJson';
 import { toUserMessage } from '@/lib/http/userMessage';
 
+const triggerSessionRedirectMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/http/sessionRedirect', () => ({
+  triggerSessionRedirect: triggerSessionRedirectMock,
+}));
+
 function stubFetch(response: Response) {
   const fetchMock = vi.fn(async () => response);
   vi.stubGlobal('fetch', fetchMock);
@@ -89,5 +94,34 @@ describe('fetchJson error contract', () => {
     expect(toUserMessage(error)).toBe(
       "Couldn't reach the server. Check your connection and try again.",
     );
+  });
+
+  it('redirects to sign-in on a 401 by default (ops and account calls)', async () => {
+    triggerSessionRedirectMock.mockClear();
+    stubFetch(
+      new Response(JSON.stringify({ code: 'UNAUTHENTICATED', message: 'Sign in again.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await captureError(fetchJson('/api/ops/bookings'));
+    await vi.waitFor(() => expect(triggerSessionRedirectMock).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not redirect when the call opts out, and still throws the coded 401', async () => {
+    triggerSessionRedirectMock.mockClear();
+    stubFetch(
+      new Response(JSON.stringify({ code: 'UNAUTHENTICATED', message: 'Link expired.' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    const error = await captureError(
+      fetchJson('/api/bookings/b-1', { method: 'DELETE', authRedirect: false }),
+    );
+    expect(error).toBeInstanceOf(HttpError);
+    expect((error as HttpError).code).toBe('UNAUTHENTICATED');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(triggerSessionRedirectMock).not.toHaveBeenCalled();
   });
 });
