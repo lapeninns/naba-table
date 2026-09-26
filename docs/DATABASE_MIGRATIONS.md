@@ -17,6 +17,172 @@
 
 ---
 
+## 2026-09-27: Mutation architecture (PR #181)
+
+**Status:** ⏳ Pending in staging and production. **Priority:** High.
+
+PR #181 moves multi-row writes (booking create, cancel, modify and table moves; availability,
+menu, profile, business-context and onboarding saves; email and outbox claims) into
+transactional database functions, and moves guest booking access to `bookings.auth_user_id`.
+It adds 20 migrations, `supabase/migrations/20260927*.sql`.
+
+**Hard ordering.** Apply all 20 migrations, in the order below, to **staging** and verify them,
+then to **production**, **before PR #181 is merged**. Under Option A a merge to `main` deploys
+production, and the new application code calls these functions. Use `pnpm db:plan-remote`
+before `pnpm db:migrate` for each environment, as described in "Promotion safety workflows"
+below. Until `20260927160000_booking_side_effect_claims.sql` is applied,
+`/api/cron/capacity-outbox` returns **503** `OUTBOX_CLAIM_FAILED`, because the drain claims
+rows through `claim_capacity_outbox_batch`.
+
+**Verification for every migration:** run `pnpm db:sql-regression` against staging. Each
+migration has a `tests/db/*.sql` regression file (named below), which runs inside
+`BEGIN`/`ROLLBACK` on synthetic fixtures. All 25 files passed on the local harness on
+2026-09-26. Also check that `supabase_migrations.schema_migrations` lists every version.
+
+The rollback notes below are copied from each file's header. The repository is forward-only:
+run a rollback as a new, reviewed migration, and redeploy the previous application build
+first wherever a note says so.
+
+1. `20260927100000_booking_create_idempotency.sql`: database-enforced idempotency for
+   `create_booking_with_capacity_check`. Existing duplicate keys are nulled (earliest row
+   keeps its key) and recorded in `booking_idempotency_key_dedupe_audit`. The migration adds
+   the unique partial index `bookings_restaurant_idempotency_key_unique`, an
+   `ON CONFLICT` insert, `IDEMPOTENCY_KEY_REUSED` and derived-key release. It locks
+   `bookings` (SHARE ROW EXCLUSIVE) while the index builds.
+   - Verify: `tests/db/booking-create-idempotency.sql`.
+   - Rollback: re-apply the body from `20260124_fix_booking_rpc_day_of_week.sql`, then
+     `DROP INDEX public.bookings_restaurant_idempotency_key_unique;`. To restore the old keys,
+     update them from the audit table (SQL in the file header). Drop the audit table after the
+     rollback window.
+2. `20260927110000_booking_cancel_guard_and_undo_no_show_restore.sql`: the cancel RPC refuses
+   non-cancellable statuses (`booking_not_cancellable`, P0004). Transitions record
+   `releasedTables`. It adds `undo_booking_no_show`, which restores released tables when they
+   are still free.
+   - Verify: `tests/db/booking-cancel-guard-and-undo-no-show.sql`.
+   - Rollback: re-apply both function bodies from
+     `20260808120000_release_terminal_booking_table_state.sql`, then
+     `DROP FUNCTION public.undo_booking_no_show(...)`. The stored `releasedTables` metadata is
+     inert.
+3. `20260927110100_atomic_booking_table_move.sql`: `move_booking_tables` releases and assigns
+   tables in one transaction, without a status round trip. It is idempotent through the
+   `booking_table_moves` ledger. Depends on 110000.
+   - Verify: `tests/db/atomic-booking-table-move.sql`.
+   - Rollback: `DROP FUNCTION public.move_booking_tables(uuid, uuid, uuid[], uuid[], text, uuid);`
+     and `DROP TABLE public.booking_table_moves;` (a ledger only).
+4. `20260927120000_save_restaurant_availability_command.sql`: `save_restaurant_availability`
+   saves hours, meal times, turn bands and booking rules in one transaction, with a revision
+   precondition (`NT409` stale write). It also adds `restaurant_availability_revision` and
+   `_snapshot`, and advisory locks on the `replace_*` functions.
+   - Verify: `tests/db/save-restaurant-availability.sql`.
+   - Rollback: drop the three new functions and re-apply the `replace_*` bodies from
+     `20260516082800`. No data is changed.
+5. `20260927120100_atomic_booking_occasion_create.sql`: `create_booking_occasion` creates or
+   revives a booking type in one statement, under a catalog lock.
+   - Verify: `tests/db/save-restaurant-availability.sql` (occasion cases).
+   - Rollback: `DROP FUNCTION public.create_booking_occasion(jsonb, uuid);` and restore the
+     previous route code. No data is changed.
+6. `20260927120200_atomic_booking_occasion_delete.sql`: `delete_booking_occasion` counts the
+   type's references and soft-deletes it in one transaction. `replace_restaurant_service_periods`
+   refuses soft-deleted types.
+   - Verify: `tests/db/save-restaurant-availability.sql` (occasion cases).
+   - Rollback: `DROP FUNCTION public.delete_booking_occasion(text, uuid);` and re-apply
+     `replace_restaurant_service_periods` from 120000. No data is changed.
+7. `20260927130000_atomic_table_inventory_update.sql`: `update_table_inventory_atomic` applies
+   the table patch and the maintenance allocation in one transaction, scoped by
+   `restaurant_id`.
+   - Verify: `tests/db/atomic-table-inventory-update.sql`.
+   - Rollback: `DROP FUNCTION IF EXISTS public.update_table_inventory_atomic(uuid, uuid, jsonb, timestamptz, timestamptz, uuid);`
+     and revert the route. No data is migrated.
+8. `20260927140000_menu_mutation_integrity.sql`: transactional menu RPCs (item create and
+   update, section and option create, reorder at each level). Adds
+   `restaurant_menu_items.create_idempotency_key` and a partial unique index.
+   - Verify: `tests/db/menu-mutation-integrity.sql`.
+   - Rollback: roll the app back first, then drop the nine `*_v1` functions, the index
+     `restaurant_menu_items_create_idempotency_key_idx` and the column (SQL in the file
+     header).
+9. `20260927150000_email_queue_finalize_and_retry_claims.sql`: `finalize_email_dispatch_intent_v1`
+   is fenced on the claim. Adds manual delivery-retry claim columns and the
+   `claim_email_delivery_retry_v1` and `complete_email_delivery_retry_v1` RPCs. Takes a brief
+   ACCESS EXCLUSIVE lock on `email_delivery_log`.
+   - Verify: `tests/db/email-queue-finalize-and-retry-claims.sql`.
+   - Rollback: redeploy the previous build, drop the three functions, then drop the retry
+     constraint and columns (SQL in the file header).
+10. `20260927160000_booking_side_effect_claims.sql`: `claim_capacity_outbox_batch` (a
+    `SKIP LOCKED` lease claim), `ensure_booking_email_intent`, `claim_booking_email_intent`
+    and `settle_booking_email_intent`. Required by `/api/cron/capacity-outbox` (see above).
+    - Verify: `tests/db/capacity-outbox-claim.sql`, `tests/db/booking-email-intent-ensure.sql`.
+    - Rollback: drop the four functions, then redeploy the previous `server/outbox.ts` and
+      `server/jobs/booking-side-effects.ts`.
+11. `20260927160100_modify_booking_with_table_swap.sql`: `modify_booking_with_table_swap`
+    moves a booking to its new window and its held tables in one transaction. Without it the
+    app refuses table-changing modifications with 409 `MODIFICATION_UNAVAILABLE`.
+    - Verify: `tests/db/booking-modification-table-swap.sql`.
+    - Rollback: `DROP FUNCTION IF EXISTS public.modify_booking_with_table_swap(uuid, uuid, jsonb, uuid, text, text, boolean, text, jsonb);`
+      and redeploy the previous `server/bookings/modification-flow.ts`.
+12. `20260927170000_business_context_atomic_save.sql`: `replace_restaurant_business_context_v2`
+    writes the business context and its change-log rows in one transaction, with a revision
+    precondition. Adds `restaurant_business_context_revisions` (service-role only).
+    - Verify: `tests/db/business-context-atomic-save.sql`.
+    - Rollback: drop `replace_restaurant_business_context_v2`,
+      `get_restaurant_business_context_revision_v1` and the revisions table. The app falls
+      back to the core RPC.
+13. `20260927180000_atomic_restaurant_profile_update.sql`: `update_restaurant_profile_v1`
+    writes the restaurant row and the business description in one transaction. The WhatsApp
+    consent changes only when its stored state changes.
+    - Verify: `tests/db/atomic-restaurant-profile-update.sql`.
+    - Rollback: `DROP FUNCTION IF EXISTS public.update_restaurant_profile_v1(uuid, jsonb, text, uuid, boolean, text);`
+      in either order with the app revert. No data is migrated.
+14. `20260927190000_onboarding_replace_layout.sql`: `onboarding_replace_layout` replaces the
+    zones and tables idempotently, and only while the restaurant has no bookings or holds
+    (`ONBOARDING_LAYOUT_LOCKED`). It refuses to apply without the required unique indexes.
+    - Verify: `tests/db/onboarding-replace-layout.sql`.
+    - Rollback: `DROP FUNCTION IF EXISTS public.onboarding_replace_layout(uuid, jsonb, jsonb);`
+      and revert `PUT /api/onboarding/restaurant/[id]/layout`.
+15. `20260927200000_guarded_pending_booking_modification.sql`:
+    `modify_pending_booking_and_clear_assignments` applies a no-table modification under a
+    status compare-and-set (P0004 when the status changed). Without it the app returns 409
+    `MODIFICATION_UNAVAILABLE`.
+    - Verify: `tests/db/pending-booking-modification-guard.sql`.
+    - Rollback: `DROP FUNCTION IF EXISTS public.modify_pending_booking_and_clear_assignments(uuid, uuid, jsonb, text);`
+      and redeploy the previous `server/bookings/modification-flow.ts`.
+16. `20260927200100_revoke_booking_owner_binding_on_email_change.sql`: a BEFORE UPDATE trigger
+    clears `bookings.auth_user_id` when the contact email changes, unless the same write sets
+    a new owner.
+    - Verify: `tests/db/booking-owner-binding-and-capacity-update-errors.sql`.
+    - Rollback: `DROP TRIGGER IF EXISTS revoke_owner_binding_on_email_change ON public.bookings;`
+      and `DROP FUNCTION IF EXISTS public.revoke_booking_owner_binding_on_email_change();`.
+17. `20260927200200_sanitize_update_booking_capacity_errors.sql`: renames
+    `update_booking_with_capacity_check` to `_unsanitized` and wraps it, so the result no
+    longer carries `sqlerrm`.
+    - Verify: `tests/db/booking-owner-binding-and-capacity-update-errors.sql`.
+    - Rollback: drop the wrapper and rename `update_booking_with_capacity_check_unsanitized`
+      back, in one transaction (SQL in the file header).
+18. `20260927210000_email_intent_claim_generation.sql`: adds
+    `email_dispatch_intents.claim_generation`, a monotonic fencing token that both claim
+    functions bump. Adds `finalize_email_dispatch_intent_v2` and revokes
+    `claim_due_email_dispatch_intents` from API roles. Takes a brief ACCESS EXCLUSIVE lock.
+    - Verify: `tests/db/email-intent-claim-generation.sql`.
+    - Rollback: redeploy the previous build, drop v2, re-apply both claim functions from their
+      previous migrations, then drop the column.
+19. `20260927230000_settle_booking_email_intent_claim_generation.sql`:
+    `settle_booking_email_intent_v2` is fenced on `claim_generation`. Requires 210000.
+    - Verify: `tests/db/booking-email-intent-settle-generation.sql`.
+    - Rollback: redeploy the previous build, then
+      `DROP FUNCTION IF EXISTS public.settle_booking_email_intent_v2(uuid, uuid, text, bigint, text, integer);`.
+20. `20260927250000_backfill_booking_owner_binding.sql` (**data backfill**): links each existing
+    unlinked booking to the single confirmed, non-anonymous auth user with the same normalized
+    email. This keeps signed-in guests' pre-release bookings in "My bookings", which on `main`
+    matched by email. Every link is recorded in `booking_owner_backfill_audit` (service-role
+    SELECT only, RLS on). Requires 200100.
+    - Pre-flight: run the read-only count query in the file header first, and record
+      `bookings_to_link`.
+    - Verify: `tests/db/booking-owner-backfill.sql`. After applying, the audit row count equals
+      the pre-flight count, and the header's mismatch queries return 0.
+    - Rollback: null exactly the audited links that still carry the audited user, then drop
+      `backfill_booking_owner_binding_v1(uuid)` and the audit table (SQL in the file header).
+
+---
+
 ## 2026-09-05: Durable operational incidents
 
 **Status:** Applied and verified in staging and production on 2026-09-05.
@@ -47,8 +213,28 @@ were rolled back, and a separate query confirmed zero remaining test rows.
 
 ## Pending Migrations (Apply to Production)
 
-| Date (UTC) | Description | Staging | Production | Priority |
-| ---------- | ----------- | ------- | ---------- | -------- |
+| Date (UTC) | Description                                                                           | Staging | Production | Priority |
+| ---------- | ------------------------------------------------------------------------------------- | ------- | ---------- | -------- |
+| 2026-09-27 | PR #181 `20260927100000`: Booking create idempotency (unique key index, dedupe audit) | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927110000`: Booking cancel guard and undo no-show restore               | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927110100`: Atomic booking table move                                   | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927120000`: Save restaurant availability command                        | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927120100`: Atomic booking occasion create                              | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927120200`: Atomic booking occasion delete                              | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927130000`: Atomic table inventory update                               | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927140000`: Menu mutation integrity                                     | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927150000`: Email queue finalize fencing and retry claims               | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927160000`: Booking side-effect claims (capacity outbox, email intents) | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927160100`: Modify booking with table swap                              | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927170000`: Business context atomic save                                | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927180000`: Atomic restaurant profile update                            | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927190000`: Onboarding replace layout                                   | ⏳      | ⏳         | Medium   |
+| 2026-09-27 | PR #181 `20260927200000`: Guarded pending booking modification                        | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927200100`: Revoke booking owner binding on email change                | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927200200`: Sanitize update_booking_with_capacity_check errors          | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927210000`: Email intent claim generation                               | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927230000`: Settle booking email intent on claim generation             | ⏳      | ⏳         | High     |
+| 2026-09-27 | PR #181 `20260927250000`: Backfill booking owner binding (data, audited)              | ⏳      | ⏳         | High     |
 
 | 2026-03-23 | Remove built-in lunch/dinner occasion time windows | ✅ | ✅ | High |
 | 2026-03-23 | Set Old Crown interval to 30 minutes | ✅ | ✅ | Medium |

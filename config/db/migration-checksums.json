@@ -863,6 +863,12 @@
       "recordedAt": "2026-09-26T14:37:18.718Z",
       "reviewed": true
     },
+    "20260927250000_backfill_booking_owner_binding.sql": {
+      "sha256": "28a345976cacf472d918c3a945474019acf2d6da23d1eae3eef61616d39c7d3e",
+      "bytes": 8729,
+      "recordedAt": "2026-09-26T15:30:42.930Z",
+      "reviewed": true
+    },
     "CONSOLIDATED_ALL_MIGRATIONS.sql": {
       "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
       "bytes": 31275,

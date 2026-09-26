@@ -61,6 +61,7 @@ describe('SQL regression files', () => {
       'tests/db/booking-owner-binding-and-capacity-update-errors.sql',
       'tests/db/email-intent-claim-generation.sql',
       'tests/db/booking-email-intent-settle-generation.sql',
+      'tests/db/booking-owner-backfill.sql',
       'supabase/tests/mobile_sms_attempt_finalization.sql',
       'supabase/tests/whatsapp_review_notification_ledger.sql',
     ]);
