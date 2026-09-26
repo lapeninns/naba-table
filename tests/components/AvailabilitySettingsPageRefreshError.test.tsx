@@ -17,20 +17,9 @@ const state = vi.hoisted(() => ({
     isLoading: false,
     refetch: vi.fn(),
   },
-  operatingHours: {
-    data: null as OperatingHoursSnapshot | null,
-    error: null as Error | null,
-    isLoading: false,
-    refetch: vi.fn(),
-  },
-  servicePeriods: {
-    data: null as ServicePeriodRow[] | null,
-    error: null as Error | null,
-    isLoading: false,
-    refetch: vi.fn(),
-  },
-  turnBands: {
-    data: null as TurnBandsSnapshot | null,
+  // Hours, meal times, table times and rules: one snapshot with its revision.
+  availability: {
+    data: null as AvailabilitySnapshot | null,
     error: null as Error | null,
     isLoading: false,
     refetch: vi.fn(),
@@ -59,23 +48,17 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({ useGlobalShortcuts: vi.fn() }));
 
+vi.mock('@/contexts/ops-session', () => ({
+  useOpsSession: () => ({ permissions: { isPlatformAdmin: false } }),
+}));
+
+vi.mock('@src/hooks/ops/useOpsSaveAvailability', () => ({
+  useOpsAvailability: () => state.availability,
+  useOpsSaveAvailability: () => ({ isPending: false, mutateAsync: async () => undefined }),
+}));
+
 vi.mock('@/hooks/ops/useOccasions', () => ({
   useOpsOccasions: () => state.occasions,
-}));
-
-vi.mock('@/hooks/ops/useOpsOperatingHours', () => ({
-  useOpsOperatingHours: () => state.operatingHours,
-  useOpsUpdateOperatingHours: () => state.mutation,
-}));
-
-vi.mock('@/hooks/ops/useOpsServicePeriods', () => ({
-  useOpsServicePeriods: () => state.servicePeriods,
-  useOpsUpdateServicePeriods: () => state.mutation,
-}));
-
-vi.mock('@/hooks/ops/useOpsTurnBands', () => ({
-  useOpsTurnBands: () => state.turnBands,
-  useOpsUpdateTurnBands: () => state.mutation,
 }));
 
 vi.mock('@/hooks/ops/useOpsRestaurantDetails', () => ({
@@ -92,13 +75,9 @@ vi.mock('@/hooks/ops/useOpsDualSync', () => ({
 import { AvailabilitySettingsPage } from '@/components/features/restaurant-settings/availability/AvailabilitySettingsPage';
 import { HttpError } from '@/lib/http/errors';
 
+import type { AvailabilitySnapshot } from '@/services/ops/availability';
 import type { OpsOccasion } from '@/services/ops/occasions';
-import type {
-  OperatingHoursSnapshot,
-  RestaurantProfile,
-  ServicePeriodRow,
-  TurnBandsSnapshot,
-} from '@/services/ops/restaurants';
+import type { RestaurantProfile } from '@/services/ops/restaurants';
 
 function buildOccasion(key: string, label: string, displayOrder: number): OpsOccasion {
   return {
@@ -144,7 +123,7 @@ function seedLoadedState() {
     buildOccasion('lunch', 'Lunch', 10),
     buildOccasion('dinner', 'Dinner', 20),
   ];
-  state.operatingHours.data = {
+  const hours = {
     updatedAt: '2026-04-30T12:00:00.000Z',
     weekly: Array.from({ length: 7 }, (_, dayOfWeek) => ({
       dayOfWeek,
@@ -157,7 +136,7 @@ function seedLoadedState() {
     })),
     overrides: [],
   };
-  state.servicePeriods.data = Array.from({ length: 7 }).flatMap((_, dayOfWeek) => [
+  const servicePeriods = Array.from({ length: 7 }).flatMap((_, dayOfWeek) => [
     {
       id: `lunch-${dayOfWeek}`,
       name: 'Lunch',
@@ -177,7 +156,21 @@ function seedLoadedState() {
       updatedAt: null,
     },
   ]);
-  state.turnBands.data = { restaurantId: 'rest-1', bands: {}, defaults: {} };
+  state.availability.data = {
+    restaurantId: 'rest-1',
+    revision: 'rev-1',
+    hours,
+    servicePeriods,
+    turnBands: { restaurantId: 'rest-1', bands: {}, defaults: {} },
+    rules: {
+      reservationIntervalMinutes: 15,
+      reservationDefaultDurationMinutes: 90,
+      reservationLastSeatingBufferMinutes: 15,
+      reservationLifecycleGraceMinutes: 15,
+      bookingPolicy: null,
+      updatedAt: null,
+    },
+  };
 }
 
 function renderPage() {
@@ -216,13 +209,7 @@ describe('AvailabilitySettingsPage load errors', () => {
       })),
     });
     Element.prototype.scrollIntoView = vi.fn();
-    for (const query of [
-      state.details,
-      state.occasions,
-      state.operatingHours,
-      state.servicePeriods,
-      state.turnBands,
-    ]) {
+    for (const query of [state.details, state.occasions, state.availability]) {
       query.data = null;
       query.error = null;
       query.refetch.mockReset();
@@ -242,7 +229,7 @@ describe('AvailabilitySettingsPage load errors', () => {
     ).toBeInTheDocument();
 
     // The onSettled refetch after another tab's save fails; TanStack keeps the last data.
-    state.servicePeriods.error = refreshFailure;
+    state.availability.error = refreshFailure;
     view.rerender();
 
     expect(await screen.findByText('Couldn’t refresh saved settings')).toBeInTheDocument();
@@ -255,13 +242,13 @@ describe('AvailabilitySettingsPage load errors', () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
-    expect(state.servicePeriods.refetch).toHaveBeenCalledTimes(1);
-    expect(state.operatingHours.refetch).not.toHaveBeenCalled();
+    expect(state.availability.refetch).toHaveBeenCalledTimes(1);
+    expect(state.occasions.refetch).not.toHaveBeenCalled();
   });
 
   it('still blocks with a retryable error when a query has never loaded', async () => {
-    state.servicePeriods.data = null;
-    state.servicePeriods.error = refreshFailure;
+    state.availability.data = null;
+    state.availability.error = refreshFailure;
     renderPage();
 
     expect(await screen.findByText('Availability settings couldn’t load')).toBeInTheDocument();

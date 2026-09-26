@@ -8243,6 +8243,10 @@ export type Database = {
           table_id: string;
         }[];
       };
+      create_booking_occasion: {
+        Args: { p_actor_id: string | null; p_occasion: Json };
+        Returns: Json;
+      };
       create_booking_with_capacity_check: {
         Args: {
           p_auth_user_id?: string;
@@ -8265,6 +8269,10 @@ export type Database = {
           p_source?: string;
           p_start_time: string;
         };
+        Returns: Json;
+      };
+      delete_booking_occasion: {
+        Args: { p_actor_id: string | null; p_key: string };
         Returns: Json;
       };
       delete_table_inventory_guarded: {
@@ -8536,6 +8544,25 @@ export type Database = {
           p_retry_delay_seconds?: number;
         };
         Returns: string | null;
+      };
+      restaurant_availability_revision: {
+        Args: { p_restaurant_id: string };
+        Returns: string;
+      };
+      restaurant_availability_snapshot: {
+        Args: { p_restaurant_id: string };
+        Returns: Json;
+      };
+      save_restaurant_availability: {
+        Args: {
+          p_expected_revision?: string | null;
+          p_operating_hours?: Json | null;
+          p_restaurant_id: string;
+          p_rules?: Json | null;
+          p_service_periods?: Json | null;
+          p_turn_bands?: Json | null;
+        };
+        Returns: Json;
       };
       set_hold_conflict_enforcement: {
         Args: { enabled: boolean };

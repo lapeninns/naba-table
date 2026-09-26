@@ -5,25 +5,18 @@ import { toast } from 'sonner';
 
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
-import { useOpsOperatingHours, useOpsUpdateOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
-import {
-  useOpsRestaurantDetails,
-  useOpsUpdateRestaurantDetails,
-} from '@/hooks/ops/useOpsRestaurantDetails';
-import { useOpsServicePeriods, useOpsUpdateServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
-import { useOpsTurnBands, useOpsUpdateTurnBands } from '@/hooks/ops/useOpsTurnBands';
+import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 
 import { emitProfileAnalytics } from '../../../../../components/ops/restaurants/details/shared';
+// Relative on purpose: vitest resolves `@/hooks/ops/*` through a per-file alias list
+// (vitest.config.ts), which does not include this new hook yet.
+import {
+  useOpsAvailability,
+  useOpsSaveAvailability,
+} from '../../../../hooks/ops/useOpsSaveAvailability';
 import { buildAvailabilityDraftOverrides } from '../availabilityScheduleManagerDomain';
-import {
-  buildOperatingHoursPayload,
-  extractRequiredOccasionKeys,
-} from '../availabilityScheduleManagerUtils';
-import {
-  buildAvailabilityServicePayload,
-  buildAvailabilityTurnBandsPayload,
-} from '../availabilitySchedulePayloadDomain';
+import { extractRequiredOccasionKeys } from '../availabilityScheduleManagerUtils';
 import {
   AVAILABILITY_SAVE_GROUP_NAMES,
   buildAvailabilityPageDraft,
@@ -40,10 +33,15 @@ import {
 import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
 import { useWorkspaceGbpDriftCheck } from '../gbpDriftBadges';
 import { RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
+import {
+  AVAILABILITY_CATALOG_REMOVAL_STEP_NAME,
+  AVAILABILITY_CATALOG_STEP_NAME,
+} from './availabilitySaveErrorCopy';
 import { planAvailabilitySave } from './availabilitySavePlan';
 import { useSaveAvailabilityOccasions } from './useSaveAvailabilityOccasions';
 import {
   formatSettingsSectionList,
+  getSettingsSaveReasonCode,
   pluralise,
   useSettingsSaveSequence,
   type SettingsSaveStep,
@@ -73,9 +71,10 @@ function mergeGroup(
 ): AvailabilityPageDraft {
   switch (group) {
     case 'types':
+      // The restaurant-owned part of Booking types and table times. Booking types themselves are
+      // merged by the catalog steps (`mergeCatalog`).
       return {
         ...target,
-        occasions: source.occasions,
         turnBands: source.turnBands,
         rules: {
           ...target.rules,
@@ -97,48 +96,78 @@ function mergeGroup(
   }
 }
 
-export function useAvailabilityPageController(restaurantId: string | null) {
-  const operatingHoursQuery = useOpsOperatingHours(restaurantId);
-  const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
+/**
+ * Booking types after a catalog step: after creates and updates, every draft type is saved and
+ * types waiting to be deleted are still there; after deletes, the saved list is the draft's.
+ */
+function mergeCatalog(
+  target: AvailabilityPageDraft,
+  source: AvailabilityPageDraft,
+  phase: 'upserts' | 'deletes',
+): AvailabilityPageDraft {
+  if (phase === 'deletes') {
+    return { ...target, occasions: source.occasions };
+  }
+  const draftKeys = new Set(source.occasions.map((occasion) => occasion.key));
+  return {
+    ...target,
+    occasions: [
+      ...source.occasions,
+      ...target.occasions.filter((occasion) => !draftKeys.has(occasion.key)),
+    ],
+  };
+}
+
+export type AvailabilityPageControllerOptions = {
+  /**
+   * Nabatable platform admin (session hint). Only they may change the global booking types;
+   * everyone else saves hours, meal times, table times and booking rules only.
+   */
+  canEditCatalog?: boolean;
+};
+
+export function useAvailabilityPageController(
+  restaurantId: string | null,
+  { canEditCatalog = false }: AvailabilityPageControllerOptions = {},
+) {
+  // Hours, meal times, table times and booking rules come from ONE snapshot with the revision of
+  // exactly those rows, never from the single-resource caches (which can be older or newer than a
+  // separately fetched revision). The profile supplies only the fields the snapshot has no copy of.
+  const availabilityQuery = useOpsAvailability(restaurantId);
   const occasionsQuery = useOpsOccasions();
-  const turnBandsQuery = useOpsTurnBands(restaurantId);
   const profileQuery = useOpsRestaurantDetails(restaurantId);
-  const updateOperatingHours = useOpsUpdateOperatingHours(restaurantId);
-  const updateServicePeriods = useOpsUpdateServicePeriods(restaurantId);
-  const updateTurnBands = useOpsUpdateTurnBands(restaurantId);
-  const updateRestaurantDetails = useOpsUpdateRestaurantDetails(restaurantId);
+  const saveAvailability = useOpsSaveAvailability(restaurantId);
   const saveOccasions = useSaveAvailabilityOccasions();
   const saveSequence = useSettingsSaveSequence();
 
   const [saved, setSaved] = useState<AvailabilityPageDraft | null>(null);
   const [draft, setDraft] = useState<AvailabilityPageDraft | null>(null);
+  /** Revision of the settings `saved` was built from; sent as the save precondition. */
+  const [savedRevision, setSavedRevision] = useState<string | null>(null);
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const [showAllErrors, setShowAllErrors] = useState(false);
 
+  const snapshot = availabilityQuery.data ?? null;
   const sources = useMemo(() => {
-    if (
-      !operatingHoursQuery.data ||
-      !servicePeriodsQuery.data ||
-      !occasionsQuery.data ||
-      !turnBandsQuery.data ||
-      !profileQuery.data
-    ) {
+    if (!snapshot || !occasionsQuery.data || !profileQuery.data) {
       return null;
     }
     return {
-      operatingHours: operatingHoursQuery.data,
-      servicePeriods: servicePeriodsQuery.data,
+      revision: snapshot.revision,
+      operatingHours: snapshot.hours,
+      servicePeriods: snapshot.servicePeriods,
       occasions: occasionsQuery.data,
-      turnBands: turnBandsQuery.data,
-      profile: profileQuery.data,
+      turnBands: snapshot.turnBands,
+      profile: {
+        ...profileQuery.data,
+        reservationIntervalMinutes: snapshot.rules.reservationIntervalMinutes,
+        reservationDefaultDurationMinutes: snapshot.rules.reservationDefaultDurationMinutes,
+        reservationLastSeatingBufferMinutes: snapshot.rules.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: snapshot.rules.reservationLifecycleGraceMinutes,
+        bookingPolicy: snapshot.rules.bookingPolicy,
+      },
     };
-  }, [
-    occasionsQuery.data,
-    operatingHoursQuery.data,
-    profileQuery.data,
-    servicePeriodsQuery.data,
-    turnBandsQuery.data,
-  ]);
+  }, [occasionsQuery.data, profileQuery.data, snapshot]);
 
   const dirtyGroups = useMemo(
     () => (saved && draft ? getDirtyAvailabilityGroups(saved, draft) : []),
@@ -146,7 +175,9 @@ export function useAvailabilityPageController(restaurantId: string | null) {
   );
   const isDirty = dirtyGroups.length > 0;
 
-  // Seed from the server, and re-seed when saved data changes while nothing is unsaved.
+  // Seed from the server, and re-seed when saved data changes while nothing is unsaved. The
+  // revision is taken in the same step from the same snapshot, then held while the draft is dirty,
+  // so a save made from older data is refused (STALE_WRITE) instead of overwriting newer settings.
   useEffect(() => {
     if (!sources || saveSequence.isSaving || isDirty) {
       return;
@@ -154,6 +185,7 @@ export function useAvailabilityPageController(restaurantId: string | null) {
     const next = buildAvailabilityPageDraft(sources);
     setSaved(next);
     setDraft(next);
+    setSavedRevision(sources.revision);
   }, [isDirty, saveSequence.isSaving, sources]);
 
   const errors: AvailabilityErrors = useMemo(
@@ -201,135 +233,95 @@ export function useAvailabilityPageController(restaurantId: string | null) {
 
   const buildSteps = useCallback(
     (sent: AvailabilityPageDraft, base: AvailabilityPageDraft): SettingsSaveStep[] => {
-      const occasionKeys = extractRequiredOccasionKeys(sent.occasions);
-      const commit = (group: AvailabilitySaveGroup) =>
-        setSaved((current) => (current ? mergeGroup(current, sent, group) : current));
+      const plan = planAvailabilitySave({
+        saved: base,
+        draft: sent,
+        canEditCatalog,
+        savedServicePeriods: snapshot?.servicePeriods ?? [],
+        expectedRevision: savedRevision,
+      });
+      const steps: SettingsSaveStep[] = [];
 
-      const runners: Record<AvailabilitySaveGroup, () => Promise<void>> = {
-        types: async () => {
-          // The default table time is edited here but stored on the restaurant record. It is written
-          // first: repeating it is harmless if a later part of this step fails and staff retry.
-          if (
-            sent.rules.reservationDefaultDurationMinutes !==
-            base.rules.reservationDefaultDurationMinutes
-          ) {
-            const changedFields = ['reservationDefaultDurationMinutes'];
+      if (plan.catalog.upserts) {
+        steps.push({
+          id: 'booking-types',
+          name: AVAILABILITY_CATALOG_STEP_NAME,
+          run: async () => {
+            await saveOccasions({
+              draftOccasions: sent.occasions,
+              originalOccasions: base.occasions,
+              phase: 'upserts',
+            });
+            setSaved((current) => (current ? mergeCatalog(current, sent, 'upserts') : current));
+          },
+        });
+      }
+
+      const command = plan.command;
+      if (command) {
+        const rulesFields = command.rules ? Object.keys(command.rules) : [];
+        steps.push({
+          id: 'availability',
+          name: formatSettingsSectionList(
+            plan.commandGroups.map((group) => AVAILABILITY_SAVE_GROUP_NAMES[group]),
+          ),
+          run: async () => {
             try {
-              const profile = await updateRestaurantDetails.mutateAsync({
-                reservationDefaultDurationMinutes: Number.parseInt(
-                  sent.rules.reservationDefaultDurationMinutes,
-                  10,
-                ),
-              });
-              emitProfileAnalytics('restaurant_profile_section_saved', {
-                restaurant_id: restaurantId,
-                section: 'booking_rules',
-                changed_field_count: changedFields.length,
-                changed_fields: changedFields,
-                saved_at: profile.updatedAt ?? null,
-              });
+              const result = await saveAvailability.mutateAsync(command);
+              setSavedRevision(result.revision);
+              if (rulesFields.length > 0) {
+                emitProfileAnalytics('restaurant_profile_section_saved', {
+                  restaurant_id: restaurantId,
+                  section: 'booking_rules',
+                  changed_field_count: rulesFields.length,
+                  changed_fields: rulesFields,
+                  saved_at: result.rules.updatedAt ?? null,
+                });
+              }
             } catch (error) {
-              emitProfileAnalytics('restaurant_profile_section_save_failed', {
-                restaurant_id: restaurantId,
-                section: 'booking_rules',
-                field_count: changedFields.length,
-                code: error instanceof Error ? error.name : 'unknown',
-              });
+              if (rulesFields.length > 0) {
+                emitProfileAnalytics('restaurant_profile_section_save_failed', {
+                  restaurant_id: restaurantId,
+                  section: 'booking_rules',
+                  field_count: rulesFields.length,
+                  code: getSettingsSaveReasonCode(error),
+                });
+              }
               throw error;
             }
-          }
-          await saveOccasions({
-            draftOccasions: sent.occasions,
-            originalOccasions: base.occasions,
-          });
-          if (JSON.stringify(sent.turnBands) !== JSON.stringify(base.turnBands)) {
-            await updateTurnBands.mutateAsync(
-              buildAvailabilityTurnBandsPayload({
-                occasionDrafts: sent.occasions,
-                servicePeriods: servicePeriodsQuery.data ?? [],
-                turnBandsDraft: sent.turnBands,
-              }),
+            setSaved((current) =>
+              current
+                ? plan.commandGroups.reduce((next, group) => mergeGroup(next, sent, group), current)
+                : current,
             );
-          }
-          commit('types');
-        },
-        hours: async () => {
-          await updateOperatingHours.mutateAsync(
-            buildOperatingHoursPayload(sent.weeklyRows, sent.overrideRows),
-          );
-          commit('hours');
-        },
-        meals: async () => {
-          await updateServicePeriods.mutateAsync(
-            buildAvailabilityServicePayload({
-              customRows: sent.customRows,
-              dayConfigs: sent.dayConfigs,
-              occasionKeys: {
-                lunch: occasionKeys.lunch ?? 'lunch',
-                dinner: occasionKeys.dinner ?? 'dinner',
-              },
-            }),
-          );
-          commit('meals');
-        },
-        rules: async () => {
-          // The default table time saves with Booking types and table times.
-          const changedFields = (Object.keys(sent.rules) as Array<keyof typeof sent.rules>).filter(
-            (field) =>
-              field !== 'reservationDefaultDurationMinutes' &&
-              sent.rules[field] !== base.rules[field],
-          );
-          try {
-            const trimmedPolicy = sent.rules.bookingPolicy.trim();
-            const profile = await updateRestaurantDetails.mutateAsync({
-              bookingPolicy: trimmedPolicy.length > 0 ? trimmedPolicy : null,
-              reservationIntervalMinutes: Number.parseInt(
-                sent.rules.reservationIntervalMinutes,
-                10,
-              ),
-              reservationLastSeatingBufferMinutes: Number.parseInt(
-                sent.rules.reservationLastSeatingBufferMinutes,
-                10,
-              ),
-              reservationLifecycleGraceMinutes: Number.parseInt(
-                sent.rules.reservationLifecycleGraceMinutes,
-                10,
-              ),
-            });
-            emitProfileAnalytics('restaurant_profile_section_saved', {
-              restaurant_id: restaurantId,
-              section: 'booking_rules',
-              changed_field_count: changedFields.length,
-              changed_fields: changedFields,
-              saved_at: profile.updatedAt ?? null,
-            });
-          } catch (error) {
-            emitProfileAnalytics('restaurant_profile_section_save_failed', {
-              restaurant_id: restaurantId,
-              section: 'booking_rules',
-              field_count: changedFields.length,
-              code: error instanceof Error ? error.name : 'unknown',
-            });
-            throw error;
-          }
-          commit('rules');
-        },
-      };
+          },
+        });
+      }
 
-      return planAvailabilitySave(base, sent).map((group) => ({
-        id: group,
-        name: AVAILABILITY_SAVE_GROUP_NAMES[group],
-        run: runners[group],
-      }));
+      if (plan.catalog.deletes) {
+        steps.push({
+          id: 'booking-types-removed',
+          name: AVAILABILITY_CATALOG_REMOVAL_STEP_NAME,
+          run: async () => {
+            await saveOccasions({
+              draftOccasions: sent.occasions,
+              originalOccasions: base.occasions,
+              phase: 'deletes',
+            });
+            setSaved((current) => (current ? mergeCatalog(current, sent, 'deletes') : current));
+          },
+        });
+      }
+
+      return steps;
     },
     [
+      canEditCatalog,
       restaurantId,
+      saveAvailability,
       saveOccasions,
-      servicePeriodsQuery.data,
-      updateOperatingHours,
-      updateRestaurantDetails,
-      updateServicePeriods,
-      updateTurnBands,
+      savedRevision,
+      snapshot?.servicePeriods,
     ],
   );
 
@@ -343,7 +335,12 @@ export function useAvailabilityPageController(restaurantId: string | null) {
       setShowAllErrors(true);
       return { ok: false as const, blockedBy: firstIssueKey };
     }
-    const outcome = await saveSequence.run(buildSteps(draft, saved));
+    const steps = buildSteps(draft, saved);
+    if (steps.length === 0) {
+      // Only changes this user may not save (booking types without platform access) remain.
+      return { ok: false as const, blockedBy: null };
+    }
+    const outcome = await saveSequence.run(steps);
     if (outcome?.ok) {
       setTouched(new Set());
       setShowAllErrors(false);
@@ -411,38 +408,26 @@ export function useAvailabilityPageController(restaurantId: string | null) {
     },
   ]);
 
-  const settingsQueries = [
-    operatingHoursQuery,
-    servicePeriodsQuery,
-    occasionsQuery,
-    turnBandsQuery,
-    profileQuery,
-  ];
+  const settingsQueries = [availabilityQuery, occasionsQuery, profileQuery];
   // Only a query that never loaded blocks the page; a failed background refresh keeps the
   // loaded page and its unsaved edits, and is reported as `refreshError` instead.
   const loadError = settingsQueries.find((query) => query.error && !query.data)?.error ?? null;
   const refreshError = settingsQueries.find((query) => query.error && query.data)?.error ?? null;
   const retryLoad = useCallback(() => {
-    for (const query of [
-      operatingHoursQuery,
-      servicePeriodsQuery,
-      occasionsQuery,
-      turnBandsQuery,
-      profileQuery,
-    ]) {
+    for (const query of [availabilityQuery, occasionsQuery, profileQuery]) {
       if (query.error) {
         void query.refetch();
       }
     }
-  }, [occasionsQuery, operatingHoursQuery, profileQuery, servicePeriodsQuery, turnBandsQuery]);
+  }, [availabilityQuery, occasionsQuery, profileQuery]);
 
   const lastSavedAt = useMemo(() => {
     const stamps = [
-      operatingHoursQuery.data?.updatedAt,
-      ...(servicePeriodsQuery.data ?? []).map((row) => row.updatedAt),
+      snapshot?.hours.updatedAt,
+      ...(snapshot?.servicePeriods ?? []).map((row) => row.updatedAt),
     ].filter((value): value is string => Boolean(value));
     return stamps.sort().at(-1) ?? null;
-  }, [operatingHoursQuery.data?.updatedAt, servicePeriodsQuery.data]);
+  }, [snapshot]);
 
   return {
     saved,
@@ -468,9 +453,10 @@ export function useAvailabilityPageController(restaurantId: string | null) {
     retryLoad,
     lastSavedAt,
     timezone: profileQuery.data?.timezone ?? 'Europe/London',
-    savedServicePeriods: servicePeriodsQuery.data ?? [],
-    turnBandDefaults: turnBandsQuery.data?.defaults,
+    savedServicePeriods: snapshot?.servicePeriods ?? [],
+    turnBandDefaults: snapshot?.turnBands.defaults,
     googleDrift: gbpDrift,
+    canEditCatalog,
   };
 }
 

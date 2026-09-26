@@ -72,7 +72,92 @@ const availabilityState = vi.hoisted(() => ({
     isPending: false,
     mutateAsync: vi.fn(),
   },
+  saveAvailability: {
+    isPending: false,
+    mutateAsync: vi.fn(),
+  },
+  /** Revision of the availability snapshot the page loads (rows and revision come together). */
+  revisionQuery: { data: 'rev-1' as string | undefined, error: null as Error | null },
+  /** When set, the snapshot query returns exactly this (independent of the per-part fixtures). */
+  snapshotQueryOverride: null as null | { data: unknown; error: null; isLoading: false },
+  isPlatformAdmin: false,
   gbpFields: [] as unknown[],
+}));
+
+vi.mock('@/contexts/ops-session', () => ({
+  useOpsSession: () => ({ permissions: { isPlatformAdmin: availabilityState.isPlatformAdmin } }),
+}));
+
+/**
+ * The page reads hours, meal times, table times and rules from ONE snapshot query. It is composed
+ * here from the per-part fixtures, memoised on their identities so a render sees stable data.
+ */
+const snapshotQueryCache = vi.hoisted(() => ({
+  inputs: [] as unknown[],
+  result: null as unknown,
+}));
+
+vi.mock('@src/hooks/ops/useOpsSaveAvailability', () => ({
+  useOpsAvailability: () => {
+    const state = availabilityState;
+    if (state.snapshotQueryOverride) {
+      return state.snapshotQueryOverride;
+    }
+    const inputs = [
+      state.operatingHoursQuery.data,
+      state.operatingHoursQuery.error,
+      state.servicePeriodsQuery.data,
+      state.servicePeriodsQuery.error,
+      state.turnBandsQuery.data,
+      state.turnBandsQuery.error,
+      state.detailsQuery.data,
+      state.revisionQuery.data,
+      state.revisionQuery.error,
+    ];
+    if (
+      snapshotQueryCache.result &&
+      inputs.length === snapshotQueryCache.inputs.length &&
+      inputs.every((value, index) => Object.is(value, snapshotQueryCache.inputs[index]))
+    ) {
+      return snapshotQueryCache.result;
+    }
+    const details = state.detailsQuery.data;
+    const ready =
+      state.operatingHoursQuery.data &&
+      state.servicePeriodsQuery.data &&
+      state.turnBandsQuery.data &&
+      state.revisionQuery.data;
+    const result = {
+      data: ready
+        ? {
+            restaurantId: 'rest-1',
+            revision: state.revisionQuery.data,
+            hours: state.operatingHoursQuery.data,
+            servicePeriods: state.servicePeriodsQuery.data,
+            turnBands: state.turnBandsQuery.data,
+            rules: {
+              reservationIntervalMinutes: details.reservationIntervalMinutes,
+              reservationDefaultDurationMinutes: details.reservationDefaultDurationMinutes,
+              reservationLastSeatingBufferMinutes: details.reservationLastSeatingBufferMinutes,
+              reservationLifecycleGraceMinutes: details.reservationLifecycleGraceMinutes,
+              bookingPolicy: details.bookingPolicy,
+              updatedAt: details.updatedAt,
+            },
+          }
+        : undefined,
+      error:
+        state.operatingHoursQuery.error ??
+        state.servicePeriodsQuery.error ??
+        state.turnBandsQuery.error ??
+        state.revisionQuery.error,
+      isLoading: false,
+      refetch: vi.fn(),
+    };
+    snapshotQueryCache.inputs = inputs;
+    snapshotQueryCache.result = result;
+    return result;
+  },
+  useOpsSaveAvailability: () => availabilityState.saveAvailability,
 }));
 
 vi.mock('@/contexts/ops-services', () => ({
@@ -163,6 +248,7 @@ import {
 } from '@/components/features/restaurant-settings/availabilityScheduleValidation';
 import { HttpError } from '@/lib/http/errors';
 
+import type { AvailabilityCommandPayload, AvailabilitySnapshot } from '@/services/ops/availability';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type {
   OperatingHoursSnapshot,
@@ -230,6 +316,48 @@ function buildServicePeriods(): ServicePeriodRow[] {
 
 function buildTurnBands(): TurnBandsSnapshot {
   return { restaurantId: 'rest-1', bands: {}, defaults: {} };
+}
+
+/** What the availability command answers: the canonical state after the save. */
+function buildSaveResult(payload: AvailabilityCommandPayload): AvailabilitySnapshot {
+  const details = availabilityState.detailsQuery.data;
+  return {
+    restaurantId: 'rest-1',
+    revision: 'rev-2',
+    hours: { ...buildOperatingHours(), ...(payload.hours ?? {}) },
+    servicePeriods: payload.servicePeriods ?? buildServicePeriods(),
+    turnBands: { ...buildTurnBands(), bands: payload.turnBands ?? {} },
+    rules: {
+      reservationIntervalMinutes: details.reservationIntervalMinutes,
+      reservationDefaultDurationMinutes: details.reservationDefaultDurationMinutes,
+      reservationLastSeatingBufferMinutes: details.reservationLastSeatingBufferMinutes,
+      reservationLifecycleGraceMinutes: details.reservationLifecycleGraceMinutes,
+      bookingPolicy: details.bookingPolicy,
+      ...payload.rules,
+      updatedAt: '2026-09-27T10:00:00.000Z',
+    },
+  };
+}
+
+/** Every write the page sent: occasion catalog calls and availability commands, in order. */
+function recordedWrites(): string[] {
+  const calls: Array<{ order: number; label: string }> = [];
+  const push = (mock: { mock: { invocationCallOrder: number[] } }, label: string) =>
+    mock.mock.invocationCallOrder.forEach((order) => calls.push({ order, label }));
+  push(availabilityState.occasionService.createOccasion, 'occasion:create');
+  push(availabilityState.occasionService.updateOccasion, 'occasion:update');
+  push(availabilityState.occasionService.deleteOccasion, 'occasion:delete');
+  push(availabilityState.saveAvailability.mutateAsync, 'availability:command');
+  push(availabilityState.updateOperatingHours.mutateAsync, 'legacy:hours');
+  push(availabilityState.updateServicePeriods.mutateAsync, 'legacy:service-periods');
+  push(availabilityState.updateTurnBands.mutateAsync, 'legacy:turn-bands');
+  push(availabilityState.updateDetails.mutateAsync, 'legacy:restaurant-patch');
+  return calls.sort((a, b) => a.order - b.order).map((call) => call.label);
+}
+
+function lastCommand(): AvailabilityCommandPayload {
+  const calls = availabilityState.saveAvailability.mutateAsync.mock.calls;
+  return calls[calls.length - 1]![0] as AvailabilityCommandPayload;
 }
 
 function setReadyAvailabilityState({
@@ -312,6 +440,13 @@ describe('AvailabilitySettingsPage', () => {
       ...availabilityState.detailsQuery.data,
       ...payload,
     }));
+    availabilityState.isPlatformAdmin = false;
+    availabilityState.revisionQuery = { data: 'rev-1', error: null };
+    availabilityState.snapshotQueryOverride = null;
+    availabilityState.saveAvailability.mutateAsync.mockReset();
+    availabilityState.saveAvailability.mutateAsync.mockImplementation(
+      async (payload: AvailabilityCommandPayload) => buildSaveResult(payload),
+    );
     setReadyAvailabilityState();
   });
 
@@ -346,25 +481,11 @@ describe('AvailabilitySettingsPage', () => {
     expect(screen.getByText('1 issue to fix before saving')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(availabilityState.updateOperatingHours.mutateAsync).not.toHaveBeenCalled();
-    expect(availabilityState.updateServicePeriods.mutateAsync).not.toHaveBeenCalled();
+    expect(recordedWrites()).toEqual([]);
   });
 
-  it('writes meal times before hours when a day closes earlier, sending weekly and special dates together', async () => {
+  it('saves narrowed hours and meal times in one command, with weekly and special dates together', async () => {
     const user = userEvent.setup();
-    const calls: string[] = [];
-    availabilityState.updateServicePeriods.mutateAsync.mockImplementation(
-      async (payload: unknown) => {
-        calls.push('meals');
-        return payload;
-      },
-    );
-    availabilityState.updateOperatingHours.mutateAsync.mockImplementation(
-      async (payload: unknown) => {
-        calls.push('hours');
-        return payload;
-      },
-    );
     renderPage();
     await openMonday(user);
 
@@ -377,46 +498,24 @@ describe('AvailabilitySettingsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    await waitFor(() => expect(calls).toEqual(['meals', 'hours']));
-    const hoursPayload = availabilityState.updateOperatingHours.mutateAsync.mock
-      .calls[0]![0] as OperatingHoursSnapshot;
-    expect(hoursPayload.weekly.find((row) => row.dayOfWeek === 1)?.closesAt).toBe('21:00');
-    expect(hoursPayload.overrides).toEqual([]);
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    const command = lastCommand();
+    expect(command.expectedRevision).toBe('rev-1');
+    expect(command.hours!.weekly.find((row) => row.dayOfWeek === 1)?.closesAt).toBe('21:00');
+    expect(command.hours!.overrides).toEqual([]);
+    expect(command.servicePeriods).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ dayOfWeek: 1, bookingOption: 'dinner', endTime: '21:00' }),
+      ]),
+    );
+    expect(command).not.toHaveProperty('rules');
+    expect(command).not.toHaveProperty('turnBands');
     expect(await screen.findByText('All changes saved')).toBeInTheDocument();
   });
 
-  it('writes hours before meal times when a day opens longer', async () => {
+  it('reports a failed save with the reason code and keeps the edits', async () => {
     const user = userEvent.setup();
-    const calls: string[] = [];
-    availabilityState.updateServicePeriods.mutateAsync.mockImplementation(
-      async (payload: unknown) => {
-        calls.push('meals');
-        return payload;
-      },
-    );
-    availabilityState.updateOperatingHours.mutateAsync.mockImplementation(
-      async (payload: unknown) => {
-        calls.push('hours');
-        return payload;
-      },
-    );
-    renderPage();
-    await openMonday(user);
-
-    const closes = screen.getByLabelText('Closes', { selector: '#availability-w1-closes' });
-    await user.clear(closes);
-    await user.type(closes, '23:00');
-    const dinnerEnd = screen.getAllByLabelText('Meal time ends')[1]!;
-    await user.clear(dinnerEnd);
-    await user.type(dinnerEnd, '22:30');
-
-    await user.click(screen.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => expect(calls).toEqual(['hours', 'meals']));
-  });
-
-  it('reports a partial failure with what saved, what did not and the reason code', async () => {
-    const user = userEvent.setup();
-    availabilityState.updateOperatingHours.mutateAsync.mockRejectedValue(
+    availabilityState.saveAvailability.mutateAsync.mockRejectedValue(
       new HttpError({ message: 'Internal Server Error', status: 500, code: 'HTTP_500' }),
     );
     renderPage();
@@ -430,19 +529,88 @@ describe('AvailabilitySettingsPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
+    // One transaction: hours and rules fail together, nothing is half-saved.
     expect(
       await screen.findByText(
-        'Opening hours and special dates not saved. Your edits are still here.',
+        'Opening hours and special dates and Booking rules not saved. Your edits are still here.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Not attempted: Booking rules\./)).toBeInTheDocument();
     expect(screen.getByText('HTTP_500', { selector: '.font-mono' })).toBeInTheDocument();
     expect(screen.getByText('Not all changes saved')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
-    expect(availabilityState.updateDetails.mutateAsync).not.toHaveBeenCalled();
+    expect(recordedWrites()).toEqual(['availability:command']);
   });
 
-  it('saves booking rules through the restaurant details endpoint', async () => {
+  it('@contract builds the draft and the precondition from the same snapshot, never from older caches', async () => {
+    const user = userEvent.setup();
+    // The single-resource caches say Monday closes 22:00 (e.g. restored from a warm cache); the
+    // snapshot, read together with its revision, says 23:00.
+    const hours = buildOperatingHours();
+    hours.weekly = hours.weekly.map((row) =>
+      row.dayOfWeek === 1 ? { ...row, closesAt: '23:00' } : row,
+    );
+    const snapshot = {
+      ...buildSaveResult({}),
+      revision: 'rev-7',
+      hours,
+    };
+    availabilityState.snapshotQueryOverride = { data: snapshot, error: null, isLoading: false };
+    renderPage();
+    await openMonday(user);
+
+    expect(screen.getByLabelText('Closes', { selector: '#availability-w1-closes' })).toHaveValue(
+      '23:00',
+    );
+    await user.click(screen.getByLabelText('Increase last seating before closing by 15 minutes'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    expect(lastCommand().expectedRevision).toBe('rev-7');
+  });
+
+  it('@contract keeps the loaded revision while dirty, so a newer save elsewhere makes this one stale', async () => {
+    const user = userEvent.setup();
+    const loaded = { ...buildSaveResult({}), revision: 'rev-7' };
+    availabilityState.snapshotQueryOverride = { data: loaded, error: null, isLoading: false };
+    const view = renderPage();
+
+    await user.click(
+      await screen.findByLabelText('Increase last seating before closing by 15 minutes'),
+    );
+    // Someone else saves; the snapshot refetch brings their rows and revision.
+    availabilityState.snapshotQueryOverride = {
+      data: { ...buildSaveResult({}), revision: 'rev-8' },
+      error: null,
+      isLoading: false,
+    };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AvailabilitySettingsPage restaurantId="rest-1" />
+      </QueryClientProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    expect(lastCommand().expectedRevision).toBe('rev-7');
+  });
+
+  it('explains a stale save instead of overwriting newer settings', async () => {
+    const user = userEvent.setup();
+    availabilityState.saveAvailability.mutateAsync.mockRejectedValue(
+      new HttpError({ message: 'Changed', status: 409, code: 'STALE_WRITE' }),
+    );
+    renderPage();
+
+    await user.click(
+      await screen.findByLabelText('Increase last seating before closing by 15 minutes'),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByText(/Someone else changed these settings\./)).toBeInTheDocument();
+    expect(screen.getByText('CONFLICT', { selector: '.font-mono' })).toBeInTheDocument();
+  });
+
+  it('saves booking rules through the availability command, not a restaurant PATCH', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -451,17 +619,16 @@ describe('AvailabilitySettingsPage', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    await waitFor(() =>
-      expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledWith({
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    expect(lastCommand()).toEqual({
+      expectedRevision: 'rev-1',
+      rules: {
         bookingPolicy: null,
         reservationIntervalMinutes: 15,
         reservationLastSeatingBufferMinutes: 30,
         reservationLifecycleGraceMinutes: 15,
-      }),
-    );
-    // The default table time saves with Booking types and table times, not with the rules.
-    expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(availabilityState.updateOperatingHours.mutateAsync).not.toHaveBeenCalled();
+      },
+    });
   });
 
   it('edits the default table time in one place, beside the booking types', async () => {
@@ -509,21 +676,17 @@ describe('AvailabilitySettingsPage', () => {
     await user.click(screen.getByLabelText('Increase default table time by 15 minutes'));
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    await waitFor(() =>
-      expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledWith({
-        reservationDefaultDurationMinutes: 105,
-      }),
-    );
-    expect(availabilityState.updateDetails.mutateAsync).toHaveBeenCalledTimes(1);
-    expect(availabilityState.updateTurnBands.mutateAsync).not.toHaveBeenCalled();
-    expect(availabilityState.occasionService.createOccasion).not.toHaveBeenCalled();
-    expect(availabilityState.occasionService.updateOccasion).not.toHaveBeenCalled();
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    expect(lastCommand()).toEqual({
+      expectedRevision: 'rev-1',
+      rules: { reservationDefaultDurationMinutes: 105 },
+    });
     await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument());
   });
 
   it('reports a failed default table time save without claiming the section saved', async () => {
     const user = userEvent.setup();
-    availabilityState.updateDetails.mutateAsync.mockRejectedValue(
+    availabilityState.saveAvailability.mutateAsync.mockRejectedValue(
       new HttpError({ message: 'Forbidden', status: 403, code: 'FORBIDDEN' }),
     );
     renderPage();
@@ -538,7 +701,7 @@ describe('AvailabilitySettingsPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('FORBIDDEN', { selector: '.font-mono' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Default table time' })).toHaveValue('105');
-    expect(availabilityState.updateTurnBands.mutateAsync).not.toHaveBeenCalled();
+    expect(recordedWrites()).toEqual(['availability:command']);
   });
 
   it('flags an out-of-range default table time in Booking types and table times', async () => {
@@ -575,8 +738,9 @@ describe('AvailabilitySettingsPage', () => {
     await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument());
   });
 
-  it('adds Lunch and Dinner to the draft and creates them on save', async () => {
+  it('adds Lunch and Dinner to the draft and creates them on save (platform admins)', async () => {
     const user = userEvent.setup();
+    availabilityState.isPlatformAdmin = true;
     setReadyAvailabilityState({ occasions: [] });
     renderPage();
 
@@ -589,6 +753,91 @@ describe('AvailabilitySettingsPage', () => {
     expect(
       availabilityState.occasionService.createOccasion.mock.calls.map(([input]) => input.key),
     ).toEqual(['lunch', 'dinner']);
+    // Only the catalog changed, so no restaurant command is sent.
+    expect(recordedWrites()).toEqual(['occasion:create', 'occasion:create']);
+  });
+
+  it('@security lets staff who are not platform admins ask Nabatable instead of creating types', async () => {
+    setReadyAvailabilityState({ occasions: [] });
+    renderPage();
+
+    expect(
+      await screen.findByText(/Booking types are managed by Nabatable: contact Nabatable/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Create Lunch and Dinner' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('@security saves hours and table times for a restaurant admin with no booking-type request', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByTestId('booking-types-managed-note')).toHaveTextContent(
+      'Booking types are managed by Nabatable.',
+    );
+    expect(screen.queryByRole('button', { name: 'Add booking type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /available to book/ })).not.toBeInTheDocument();
+
+    await openMonday(user);
+    const closes = screen.getByLabelText('Closes', { selector: '#availability-w1-closes' });
+    await user.clear(closes);
+    await user.type(closes, '23:00');
+
+    await user.click(screen.getByRole('button', { name: 'Edit table times for Lunch' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Table times for Lunch' });
+    await user.click(within(dialog).getByRole('button', { name: /Add band/ }));
+    await user.click(within(dialog).getByRole('button', { name: 'Update table times' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(screen.getByText('All changes saved')).toBeInTheDocument());
+    // Exactly one request: the restaurant command. No occasion reads or writes at all.
+    expect(recordedWrites()).toEqual(['availability:command']);
+    expect(availabilityState.occasionService.listOccasions).not.toHaveBeenCalled();
+    const command = lastCommand();
+    expect(command.hours).toBeDefined();
+    expect(command.turnBands).toHaveProperty('lunch');
+  });
+
+  it('writes booking types first, then one command, for platform admins', async () => {
+    const user = userEvent.setup();
+    availabilityState.isPlatformAdmin = true;
+    availabilityState.occasionService.updateOccasion.mockImplementation(async (key, input) =>
+      buildOccasion({ key, ...input }),
+    );
+    renderPage();
+
+    await user.click(await screen.findByRole('switch', { name: 'Dinner available to book' }));
+    await user.click(screen.getByLabelText('Increase last seating before closing by 15 minutes'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(recordedWrites()).toEqual(['occasion:update', 'availability:command']),
+    );
+    expect(availabilityState.occasionService.updateOccasion).toHaveBeenCalledWith(
+      'dinner',
+      expect.objectContaining({ isActive: false }),
+    );
+    expect(lastCommand()).not.toHaveProperty('turnBands');
+  });
+
+  it('explains an occasion conflict accurately instead of blaming another editor', async () => {
+    const user = userEvent.setup();
+    availabilityState.isPlatformAdmin = true;
+    availabilityState.occasionService.updateOccasion.mockRejectedValue(
+      new HttpError({ message: 'x', status: 403, code: 'PLATFORM_ADMIN_REQUIRED' }),
+    );
+    renderPage();
+
+    await user.click(await screen.findByRole('switch', { name: 'Dinner available to book' }));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    const alert = await screen.findByTestId('availability-save-failure');
+    expect(alert).toHaveTextContent('Booking types not saved');
+    expect(alert).toHaveTextContent('Only Nabatable can add, change or remove them.');
+    expect(screen.queryByText(/Someone else changed these settings/)).not.toBeInTheDocument();
+    expect(recordedWrites()).toEqual(['occasion:update']);
   });
 
   it('explains when a former route opens Availability on a section', async () => {

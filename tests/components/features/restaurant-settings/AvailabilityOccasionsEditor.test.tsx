@@ -24,7 +24,11 @@ function makeOccasion(over: Partial<OpsOccasion> = {}): OpsOccasion {
   } as OpsOccasion;
 }
 
-function renderEditor(occasions: OpsOccasion[] = [makeOccasion()]) {
+function renderEditor(
+  occasions: OpsOccasion[] = [makeOccasion()],
+  // Most cases exercise the platform-admin editor; the prop is passed explicitly, as callers must.
+  { canEditCatalog = true }: { canEditCatalog?: boolean } = {},
+) {
   const onChange = vi.fn();
   const onTurnBandsChange = vi.fn();
   render(
@@ -35,6 +39,7 @@ function renderEditor(occasions: OpsOccasion[] = [makeOccasion()]) {
       turnBands={{}}
       onChange={onChange}
       onTurnBandsChange={onTurnBandsChange}
+      canEditCatalog={canEditCatalog}
     />,
   );
   return { onChange, onTurnBandsChange };
@@ -109,11 +114,73 @@ describe('AvailabilityOccasionsEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'Remove Birthday' }));
     const confirm = await screen.findByRole('alertdialog', { name: 'Remove Birthday?' });
-    expect(confirm).toHaveTextContent('Existing bookings keep their type.');
+    // The copy matches the server rule: global removal, refused while upcoming bookings or meal
+    // times use the type.
+    expect(confirm).toHaveTextContent('removed for every restaurant');
+    expect(confirm).toHaveTextContent(
+      'It can only be removed while no upcoming booking or meal time uses it',
+    );
+    expect(confirm).toHaveTextContent('Past bookings keep their type.');
     expect(onChange).not.toHaveBeenCalled();
 
     await user.click(within(confirm).getByRole('button', { name: 'Remove booking type' }));
     expect(onChange).toHaveBeenCalledWith([]);
+  });
+});
+
+describe('AvailabilityOccasionsEditor for restaurant staff (not platform admins)', () => {
+  it('@security is read-only when canEditCatalog is omitted (fails closed)', () => {
+    render(
+      <AvailabilityOccasionsEditor
+        occasions={[makeOccasion()]}
+        savedOccasions={[makeOccasion()]}
+        savedTurnBands={{}}
+        turnBands={{}}
+        onChange={vi.fn()}
+        onTurnBandsChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('booking-types-managed-note')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add booking type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
+  it('@security shows booking types read-only with the managed-by-Nabatable note', () => {
+    renderEditor(
+      [makeOccasion(), makeOccasion({ key: 'lunch', label: 'Lunch', isBuiltin: true })],
+      {
+        canEditCatalog: false,
+      },
+    );
+
+    expect(screen.getByTestId('booking-types-managed-note')).toHaveTextContent(
+      'Booking types are managed by Nabatable.',
+    );
+    expect(screen.queryByRole('button', { name: 'Add booking type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Remove Birthday' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Birthday' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Edit table times for Birthday' }),
+    ).toBeInTheDocument();
+  });
+
+  it('@contract edits only table times: the booking type itself is never changed', async () => {
+    const user = userEvent.setup();
+    const { onChange, onTurnBandsChange } = renderEditor([makeOccasion()], {
+      canEditCatalog: false,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Edit table times for Birthday' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Table times for Birthday' });
+    expect(within(dialog).queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('switch')).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole('button', { name: 'Update table times' }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onTurnBandsChange).toHaveBeenCalledWith('birthday', []);
   });
 });
 

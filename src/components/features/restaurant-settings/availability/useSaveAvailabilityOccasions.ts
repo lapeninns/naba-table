@@ -21,8 +21,24 @@ import type { OpsOccasion } from '@/services/ops/occasions';
 const GUEST_SCHEDULE_QUERY_PREFIX = queryKeys.reservations.schedulePrefix();
 
 /**
- * Writes booking-type changes one at a time. Occasions are a global catalog, so their list key
- * carries no restaurant id.
+ * Which booking-type writes to run. The Availability page creates and updates types before its
+ * restaurant save command and deletes them after it (see `planAvailabilitySave`).
+ */
+export type AvailabilityOccasionSavePhase = 'upserts' | 'deletes' | 'all';
+
+function selectPhase(
+  plan: AvailabilityOccasionSavePlan,
+  phase: AvailabilityOccasionSavePhase,
+): AvailabilityOccasionSavePlan {
+  if (phase === 'upserts') return { ...plan, deleteKeys: [] };
+  if (phase === 'deletes')
+    return { createInputs: [], updateInputs: [], deleteKeys: plan.deleteKeys };
+  return plan;
+}
+
+/**
+ * Writes booking-type changes one at a time. Occasions are a global catalog, editable by
+ * Nabatable platform admins only, so their list key carries no restaurant id.
  */
 export function useSaveAvailabilityOccasions() {
   const queryClient = useQueryClient();
@@ -32,11 +48,16 @@ export function useSaveAvailabilityOccasions() {
     async ({
       draftOccasions,
       originalOccasions,
+      phase = 'all',
     }: {
       readonly draftOccasions: ReadonlyArray<OpsOccasion>;
       readonly originalOccasions: ReadonlyArray<OpsOccasion>;
+      readonly phase?: AvailabilityOccasionSavePhase;
     }): Promise<AvailabilityOccasionSavePlan> => {
-      const basePlan = buildAvailabilityOccasionSavePlan({ draftOccasions, originalOccasions });
+      const basePlan = selectPhase(
+        buildAvailabilityOccasionSavePlan({ draftOccasions, originalOccasions }),
+        phase,
+      );
       if (isAvailabilityOccasionSavePlanEmpty(basePlan)) {
         return basePlan;
       }

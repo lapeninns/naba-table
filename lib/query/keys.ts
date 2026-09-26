@@ -115,6 +115,13 @@ export const queryKeys = {
       ['ops', 'restaurants', restaurantId, 'turn-bands'] as const,
     emailTemplates: (restaurantId: string) =>
       ['ops', 'restaurants', restaurantId, 'email-templates'] as const,
+    // --- wave 2 (S4 availability) ---
+    /**
+     * Availability snapshot: hours, meal times, table times and booking rules with the revision
+     * of exactly those rows (one read; the save precondition).
+     */
+    availability: (restaurantId: string) =>
+      ['ops', 'restaurants', restaurantId, 'availability'] as const,
   },
   opsTables: {
     list: (restaurantId: string, params: Record<string, unknown> = {}) =>
