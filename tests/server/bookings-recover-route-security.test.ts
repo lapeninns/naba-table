@@ -67,11 +67,11 @@ vi.mock('@/server/supabase', () => {
 });
 
 import { validateBookingAccessToken } from '@/server/security/booking-access-token';
-import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { GET } from '@/src/app/(public)/bookings/recover/route';
 
 import {
   accessCookie,
+  mintLegacySessionRecoveryToken,
   mintTestAccessToken,
   TEST_ACCESS_SECRET,
 } from './helpers/guestBookingAccess';
@@ -191,7 +191,7 @@ describe('GET /bookings/recover', () => {
     [
       'an sr2 link',
       () =>
-        createSessionRecoveryAccessToken({
+        mintLegacySessionRecoveryToken({
           restaurantId: R1,
           email: 'guest@example.com',
           secret: TEST_ACCESS_SECRET,

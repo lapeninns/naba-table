@@ -122,8 +122,9 @@ export function useCreateReservation(): CreateReservationMutation {
         bookingType: draft.bookingType,
         notes: draft.notes ?? undefined,
         name: draft.name,
-        email: draft.email ?? undefined,
-        phone: draft.phone ?? undefined,
+        // Edit mode never sends contact details: they are immutable for guests (they bind
+        // the booking's access links), and a token-access read returns them masked.
+        ...(bookingId ? {} : { email: draft.email ?? undefined, phone: draft.phone ?? undefined }),
         marketingOptIn: draft.marketingOptIn,
         whatsappOptIn: draft.whatsappOptIn,
       };

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { buildFutureBookingDate } from './helpers/future-booking';
+import { createBookingAccessToken } from '../../server/security/booking-access-token';
 
 const appBaseUrl = 'http://localhost:5180';
 const restaurantSlug = 'the-fox';
@@ -14,6 +15,7 @@ const bookingEndTime = '20:30';
 const bookingStartIso = futureBooking.startIsoUtc;
 const bookingEndIso = futureBooking.endIsoUtc;
 const restaurantTimezone = 'Europe/London';
+const accessSecret = 'test-session-recovery-secret';
 
 type BookingState = {
   notes: string | null;
@@ -63,6 +65,32 @@ const buildBookingDto = (state: BookingState) => ({
   reservationIntervalMinutes: 15,
 });
 
+/**
+ * Booking-scoped access cookie (bk1) for the fixture booking, signed with the QA
+ * SESSION_RECOVERY_ACCESS_TOKEN_SECRET. Over plain http (local QA) the app reads the
+ * non-__Host development cookie name. The server-side page gate also reads the booking
+ * row, so the QA database must hold this booking.
+ */
+function bookingAccessCookie(booking: {
+  id: string;
+  restaurant_id: string;
+  customer_email: string;
+  customer_phone: string;
+  start_at?: string | null;
+  end_at?: string | null;
+  booking_date?: string | null;
+}) {
+  const access = createBookingAccessToken({
+    booking,
+    secret: accessSecret,
+    source: 'redeem',
+  });
+  if (!access) {
+    throw new Error('fixture booking cannot hold an access token');
+  }
+  return { name: `nt_bk.${booking.id}`, value: access.token, url: appBaseUrl };
+}
+
 test.describe('guest booking management', () => {
   test.use({ baseURL: appBaseUrl });
 
@@ -73,13 +101,7 @@ test.describe('guest booking management', () => {
       status: 'confirmed',
     };
 
-    await context.addCookies([
-      {
-        name: 'sr_access',
-        value: 'test-session',
-        url: appBaseUrl,
-      },
-    ]);
+    await context.addCookies([bookingAccessCookie(buildBookingApiPayload(bookingState))]);
 
     await page.route('**/api/restaurants/**', async (route) => {
       const url = new URL(route.request().url());

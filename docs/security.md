@@ -134,6 +134,13 @@ Source of truth: `server/bookings/guest-booking-access.ts` and `server/security/
 - **Cookie.** `/bookings/recover` exchanges a link for a fresh `__Host-nt_bk.<bookingId>` cookie
   (HttpOnly, Secure, SameSite=Lax, at most 14 days, at most 10 booking cookies) and redirects with
   no token in the URL. The API refuses tokens in the query string.
+- **Creator cookie.** `POST /api/bookings` sets the same cookie (at most 24 hours) only for the
+  request that inserted the booking, or a replay of the client's own UUID `Idempotency-Key`
+  within 15 minutes of creation (same 201 body). A booking matched any other way (derived key,
+  slot signature, stale or foreign key) gets a neutral `409 BOOKING_NOT_COMPLETED` with no
+  booking data and no cookie; it consumes the lost-link contact throttle and, under the limit,
+  emails a manage link to the address stored on that booking. Such a request changes nothing on
+  the matched booking: WhatsApp consent is only written for an eligible (creator) request.
 - **Endpoints.** `GET/PUT/DELETE /api/bookings/[id]`, its history route and the confirmation PDF
   resolve access through `resolveGuestBookingAccess`: the booking cookie (bound to booking,
   restaurant and current contact; only a cookie that decrypts for the booking is rate limited per

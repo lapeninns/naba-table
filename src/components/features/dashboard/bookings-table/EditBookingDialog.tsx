@@ -39,6 +39,12 @@ import {
 } from '@/lib/bookings/partySize';
 import { cn } from '@/lib/utils';
 
+import {
+  GUEST_ACCESS_LINK_ERROR_COPY,
+  GuestNewLinkCta,
+  isGuestAccessLinkErrorCode,
+} from './GuestNewLinkCta';
+
 import type { BookingDTO } from '@/hooks/useBookings';
 import type { HttpError } from '@/lib/http/errors';
 
@@ -271,6 +277,8 @@ type UseEditBookingDialogState = {
 type UseEditBookingDialogParams = EditBookingDialogProps & {
   mutation: EditBookingMutation;
   includeRestaurantId?: boolean;
+  /** Guest dialogs offer a new emailed link when the booking link expired or was revoked. */
+  guestAccessRecovery?: boolean;
 };
 
 function useEditBookingDialogState({
@@ -281,7 +289,18 @@ function useEditBookingDialogState({
   restaurantTimezone: restaurantTimezoneOverride,
   mutation,
   includeRestaurantId = false,
+  guestAccessRecovery = false,
 }: UseEditBookingDialogParams): UseEditBookingDialogState {
+  const copyForCode = useCallback(
+    (code: string | undefined): string | undefined => {
+      if (!code) return undefined;
+      // Guest dialogs prefer the link-recovery copy (e.g. UNAUTHENTICATED after the booking
+      // cookie expired); ops copy is unchanged.
+      if (guestAccessRecovery) return GUEST_ACCESS_LINK_ERROR_COPY[code] ?? errorCopy[code];
+      return errorCopy[code];
+    },
+    [guestAccessRecovery],
+  );
   const defaultValues = useMemo(() => toDefaultValues(booking), [booking]);
   const resolver = formResolver;
   const form = useForm<FormValues>({
@@ -423,18 +442,18 @@ function useEditBookingDialogState({
       } catch (error) {
         const err = error as HttpError;
         const code = err?.code;
-        const preset = code ? errorCopy[code] : null;
+        const preset = copyForCode(code);
         const message = preset ?? err?.message ?? 'Something went wrong. Please try again.';
 
         setFormError({ message, code });
       }
     },
-    [booking, derivedEndIso, includeRestaurantId, mutation, onOpenChange],
+    [booking, copyForCode, derivedEndIso, includeRestaurantId, mutation, onOpenChange],
   );
 
   const mutationError = mutation.error as HttpError | null;
   const fallbackMessage = mutationError?.code
-    ? (errorCopy[mutationError.code] ?? mutationError.message)
+    ? (copyForCode(mutationError.code) ?? mutationError.message)
     : mutationError?.message;
   const activeError =
     formError ?? (fallbackMessage ? { message: fallbackMessage, code: mutationError?.code } : null);
@@ -518,6 +537,7 @@ function EditBookingDialogBase({
   restaurantTimezone: restaurantTimezoneOverride,
   mutation,
   includeRestaurantId = false,
+  guestAccessRecovery = false,
 }: UseEditBookingDialogParams) {
   const {
     form,
@@ -547,8 +567,10 @@ function EditBookingDialogBase({
     restaurantTimezone: restaurantTimezoneOverride,
     mutation,
     includeRestaurantId,
+    guestAccessRecovery,
   });
 
+  const showNewLinkCta = guestAccessRecovery && isGuestAccessLinkErrorCode(activeError?.code);
   const showReassignmentNotice = isDirty;
   const isSaving = mutation.isPending;
   const notesLength = notesValue?.length ?? 0;
@@ -680,6 +702,11 @@ function EditBookingDialogBase({
                 <Alert variant="destructive" role="alert">
                   <AlertTitle>{alertTitle}</AlertTitle>
                   <AlertDescription>{activeError.message}</AlertDescription>
+                  {showNewLinkCta ? (
+                    <div className="mt-3">
+                      <GuestNewLinkCta restaurantSlug={effectiveRestaurantSlug} />
+                    </div>
+                  ) : null}
                 </Alert>
               ) : null}
             </div>
@@ -715,7 +742,14 @@ function EditBookingDialogBase({
 
 function EditBookingDialogGuest(props: EditBookingDialogProps) {
   const mutation = useGuestEditBookingMutation();
-  return <EditBookingDialogBase {...props} mutation={mutation} includeRestaurantId={false} />;
+  return (
+    <EditBookingDialogBase
+      {...props}
+      mutation={mutation}
+      includeRestaurantId={false}
+      guestAccessRecovery
+    />
+  );
 }
 
 function EditBookingDialogOps(props: EditBookingDialogProps) {

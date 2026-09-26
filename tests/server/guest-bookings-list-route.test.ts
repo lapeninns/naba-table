@@ -38,7 +38,6 @@ vi.mock('@/server/bookings', () => ({
 }));
 
 vi.mock('@/server/bookings/confirmation-token', () => ({
-  attachTokenToBooking: vi.fn(),
   computeTokenExpiry: vi.fn(() => '2026-05-16T12:00:00.000Z'),
   generateConfirmationToken: vi.fn(() => 'token'),
 }));
@@ -79,8 +78,8 @@ vi.mock('@/server/restaurants/schedule', () => ({
   getRestaurantSchedule: vi.fn(),
 }));
 
-vi.mock('@/server/security/guest-lookup', () => ({
-  computeGuestLookupHash: vi.fn(() => 'lookup-hash'),
+vi.mock('@/server/queue/email', () => ({
+  enqueueEmailJob: vi.fn(),
 }));
 
 vi.mock('@/server/security/rate-limit', () => ({
@@ -90,11 +89,6 @@ vi.mock('@/server/security/rate-limit', () => ({
 vi.mock('@/server/security/request', () => ({
   anonymizeIp: vi.fn(() => '127.0.0.0/24'),
   extractClientIp: vi.fn(() => '127.0.0.1'),
-}));
-
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  createSessionRecoveryAccessToken: vi.fn(),
-  validateSessionRecoveryAccessToken: vi.fn(),
 }));
 
 vi.mock('@/server/supabase', () => ({

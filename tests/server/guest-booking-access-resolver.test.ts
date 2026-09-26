@@ -160,7 +160,6 @@ vi.mock('@/server/supabase', () => {
 });
 
 import { isVerifiedBookingOwner } from '@/server/bookings/guest-booking-access';
-import { createSessionRecoveryAccessToken } from '@/server/security/session-recovery-access-token';
 import { GET as historyGET } from '@/src/app/api/bookings/[id]/history/route';
 import { DELETE, GET, PUT } from '@/src/app/api/bookings/[id]/route';
 import { GET as pdfGET } from '@/src/app/api/reservations/[id]/confirmation/route';
@@ -168,6 +167,7 @@ import { GET as pdfGET } from '@/src/app/api/reservations/[id]/confirmation/rout
 import {
   accessCookie,
   guestRequestHeaders,
+  mintLegacySessionRecoveryToken,
   mintTestAccessToken,
   TEST_ACCESS_SECRET,
 } from './helpers/guestBookingAccess';
@@ -398,7 +398,7 @@ describe.each(endpoints)('$name', (endpoint) => {
   });
 
   it('§10 contact only: no cookie and no session is 401, and legacy bearers are ignored', async () => {
-    const sr2 = createSessionRecoveryAccessToken({
+    const sr2 = mintLegacySessionRecoveryToken({
       restaurantId: R1,
       email: 'alex@example.com',
       phone: '+447700900123',

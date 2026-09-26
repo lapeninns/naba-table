@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { DateTime } from 'luxon';
 
+import { createBookingAccessToken } from '../../server/security/booking-access-token';
+
 const appBaseUrl = 'http://localhost:5180';
 const restaurantSlug = 'the-fox';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const bookingId = '33333333-3333-4333-8333-333333333333';
 const bookingReference = 'NB5678';
 const restaurantTimezone = 'Europe/London';
+const accessSecret = 'test-session-recovery-secret';
 
 type BookingState = {
   bookingDate: string;
@@ -85,6 +88,32 @@ function buildSchedulePayload(date: string) {
   };
 }
 
+/**
+ * Booking-scoped access cookie (bk1) for the fixture booking, signed with the QA
+ * SESSION_RECOVERY_ACCESS_TOKEN_SECRET. Over plain http (local QA) the app reads the
+ * non-__Host development cookie name. The server-side page gate also reads the booking
+ * row, so the QA database must hold this booking.
+ */
+function bookingAccessCookie(booking: {
+  id: string;
+  restaurant_id: string;
+  customer_email: string;
+  customer_phone: string;
+  start_at?: string | null;
+  end_at?: string | null;
+  booking_date?: string | null;
+}) {
+  const access = createBookingAccessToken({
+    booking,
+    secret: accessSecret,
+    source: 'redeem',
+  });
+  if (!access) {
+    throw new Error('fixture booking cannot hold an access token');
+  }
+  return { name: `nt_bk.${booking.id}`, value: access.token, url: appBaseUrl };
+}
+
 test.describe('guest booking instant sync', () => {
   test.use({ baseURL: appBaseUrl });
 
@@ -105,13 +134,7 @@ test.describe('guest booking instant sync', () => {
       notes: 'Window please',
     };
 
-    await context.addCookies([
-      {
-        name: 'sr_access',
-        value: 'test-session',
-        url: appBaseUrl,
-      },
-    ]);
+    await context.addCookies([bookingAccessCookie(buildBookingApiPayload(state))]);
 
     await page.route('**/api/restaurants/**', async (route) => {
       const url = new URL(route.request().url());

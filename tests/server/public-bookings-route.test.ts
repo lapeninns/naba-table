@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const envMock = vi.hoisted(() => ({
-  security: {},
+  security: {} as { sessionRecoveryAccessTokenSecret?: string },
 }));
+const enqueueEmailJobMock = vi.hoisted(() => vi.fn());
 const policyState = vi.hoisted(() => ({
   bookingPastTimeBlocking: false,
   bookingValidationUnified: false,
@@ -129,6 +130,10 @@ vi.mock('@/server/jobs/booking-side-effects', () => ({
   safeBookingPayload: vi.fn((booking) => booking),
 }));
 
+vi.mock('@/server/queue/email', () => ({
+  enqueueEmailJob: enqueueEmailJobMock,
+}));
+
 vi.mock('@/server/observability', () => ({
   recordObservabilityEvent: recordObservabilityEventMock,
 }));
@@ -140,14 +145,6 @@ vi.mock('@/server/security/rate-limit', () => ({
 vi.mock('@/server/security/request', () => ({
   anonymizeIp: vi.fn(() => '127.0.0.0/24'),
   extractClientIp: extractClientIpMock,
-}));
-
-vi.mock('@/server/security/guest-lookup', () => ({
-  computeGuestLookupHash: vi.fn(() => 'lookup-hash'),
-}));
-
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  validateSessionRecoveryAccessToken: vi.fn(),
 }));
 
 vi.mock('@/server/booking', () => ({
@@ -163,36 +160,6 @@ vi.mock('@/server/booking/http', () => ({
 vi.mock('@/server/bookings/confirmation-token', () => ({
   generateConfirmationToken: vi.fn(() => 'confirm-token'),
   computeTokenExpiry: vi.fn(() => new Date('2026-04-14T12:00:00.000Z').toISOString()),
-  getStoredBookingConfirmationTokenState: vi.fn((booking) => ({
-    confirmationToken: booking.confirmation_token ?? null,
-    confirmationTokenExpiresAt:
-      typeof booking.confirmation_token_expires_at === 'string'
-        ? booking.confirmation_token_expires_at
-        : null,
-  })),
-  buildBookingConfirmationTokenAttachment: vi.fn(
-    ({
-      bookingId,
-      confirmationToken,
-      confirmationTokenExpiresAt,
-    }: {
-      bookingId: string;
-      confirmationToken: string | null;
-      confirmationTokenExpiresAt: string | null;
-    }) =>
-      confirmationToken && confirmationTokenExpiresAt
-        ? null
-        : {
-            bookingId,
-            confirmationToken: confirmationToken ?? 'confirm-token',
-            confirmationTokenExpiresAt:
-              confirmationTokenExpiresAt ?? new Date('2026-04-14T12:00:00.000Z').toISOString(),
-          },
-  ),
-  attachTokenToBooking: vi.fn(async () => undefined),
-  resolveBookingCreateConfirmationToken: vi.fn(async ({ booking }) => {
-    return booking.confirmation_token ?? 'confirm-token';
-  }),
 }));
 
 vi.mock('@reserve/shared/validation', () => ({
@@ -311,34 +278,16 @@ describe('public POST /api/bookings capacity handling', () => {
     createBookingValidationServiceMock.mockReset();
     mapValidationFailureMock.mockReset();
     assertBookingNotInPastMock.mockReset();
+    enqueueEmailJobMock.mockReset();
+    enqueueEmailJobMock.mockResolvedValue(undefined);
+    envMock.security = {};
   });
 
-  it('returns contact-query access diagnostics for public guest lookup', async () => {
-    consumeRateLimitMock.mockResolvedValueOnce({
-      ok: true,
-      limit: 20,
-      remaining: 19,
-      resetAt: Date.now() + 60_000,
-      source: 'memory',
-    });
-    fetchBookingsForContactMock.mockResolvedValueOnce([
-      {
-        id: 'booking-1',
-        restaurant_id: '11111111-1111-4111-8111-111111111111',
-        booking_date: '2026-07-01',
-        start_time: '19:00',
-        end_time: '20:30',
-        reference: 'NB123456',
-        party_size: 4,
-        booking_type: 'dinner',
-        seating_preference: 'any',
-        status: 'confirmed',
-        customer_name: 'Alex Guest',
-        customer_email: 'alex@example.com',
-        customer_phone: '+447700900123',
-      },
-    ]);
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
+  it('refuses the removed contact-query lookup with 410 and runs no query', async () => {
     const response = await GET(
       new NextRequest(
         'https://www.nabatable.com/api/bookings?email=alex@example.com&phone=%2B447700900123&restaurantId=11111111-1111-4111-8111-111111111111',
@@ -346,40 +295,14 @@ describe('public POST /api/bookings capacity handling', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      bookings: [
-        expect.objectContaining({
-          id: '',
-          restaurant_id: '',
-          start_time: '',
-          reference: null,
-          customer_name: 'A***',
-          customer_email: 'a***@e***.com',
-          customer_phone: '***0123',
-        }),
-      ],
-      access: {
-        mode: 'contact_query',
-        token: {
-          provided: false,
-          valid: false,
-          reason: null,
-          restaurantId: null,
-        },
-        restaurantId: '11111111-1111-4111-8111-111111111111',
-        restaurantSource: 'query',
-        lookupStrategy: 'legacy',
-        policyEnabled: false,
-        rateSource: 'memory',
-      },
-    });
-    expect(fetchBookingsForContactMock).toHaveBeenCalledWith(
-      { kind: 'tenant-client' },
-      '11111111-1111-4111-8111-111111111111',
-      'alex@example.com',
-      '+447700900123',
-    );
+    expect(response.status).toBe(410);
+    expect(body).toMatchObject({ code: 'CONTACT_LOOKUP_REMOVED' });
+    expect(body.error).toBe(body.message);
+    expect(JSON.stringify(body)).not.toContain('alex@example.com');
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(fetchBookingsForContactMock).not.toHaveBeenCalled();
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(consumeRateLimitMock).not.toHaveBeenCalled();
   });
 
   it('returns booking-create rate limit response and records observability', async () => {
@@ -752,12 +675,23 @@ describe('public POST /api/bookings capacity handling', () => {
     recoverBuilder.maybeSingle.mockResolvedValueOnce({ data: recoveredBooking, error: null });
     fromMock.mockReturnValueOnce(recoverBuilder);
 
+    envMock.security = { sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret' };
+    // The matched booking is still upcoming, so the lost-link email is worth sending.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-07-01T10:05:00.000Z'));
     const response = await POST(buildRequest());
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.duplicate).toBe(true);
-    expect(body.booking.id).toBe('booking-1');
+    // A booking matched by the derived key is not the requester's to hold: no DTO, no cookie.
+    expect(response.status).toBe(409);
+    expect(body).toMatchObject({ code: 'BOOKING_NOT_COMPLETED', retryable: false });
+    expect(body.booking).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain('NB123456');
+    expect(response.headers.getSetCookie().some((c) => c.includes('nt_bk.'))).toBe(false);
+    expect(enqueueEmailJobMock).toHaveBeenCalledWith(
+      { bookingId: 'booking-1', restaurantId: recoveredBooking.restaurant_id, type: 'manage_link' },
+      { jobId: expect.stringMatching(/^manage_link:booking-1:\d+$/) },
+    );
     expect(recoverBuilder.eq).toHaveBeenCalledWith('restaurant_id', recoveredBooking.restaurant_id);
     expect(recoverBuilder.eq).toHaveBeenCalledWith('customer_id', 'cust-1');
     expect(recoverBuilder.eq).toHaveBeenCalledWith('idempotency_key', expect.any(String));
@@ -773,7 +707,7 @@ describe('public POST /api/bookings capacity handling', () => {
   describe('Idempotency-Key replays', () => {
     const IDEMPOTENCY_KEY = '0f8fad5b-d9cb-469f-a165-70867728950e';
     const storedBooking = {
-      id: 'booking-keyed',
+      id: '7d3c1a52-9e0b-4f6e-8a41-2b5c9d0e7f13',
       restaurant_id: '11111111-1111-4111-8111-111111111111',
       customer_id: 'cust-1',
       booking_date: '2026-07-01',
@@ -800,6 +734,21 @@ describe('public POST /api/bookings capacity handling', () => {
       updated_at: '2026-07-01T10:00:00.000Z',
     };
 
+    // Replays land inside the 15-minute creator window of storedBooking.created_at.
+    const REPLAY_NOW = new Date('2026-07-01T10:05:00.000Z');
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(REPLAY_NOW);
+      envMock.security = { sessionRecoveryAccessTokenSecret: 'test-session-recovery-secret' };
+    });
+
+    function creatorCookies(response: Response): string[] {
+      return response.headers
+        .getSetCookie()
+        .filter((cookie) => cookie.startsWith(`__Host-nt_bk.${storedBooking.id}=`));
+    }
+
     function keyedRequest(overrides: Record<string, unknown> = {}) {
       const request = buildRequest(overrides);
       request.headers.set('Idempotency-Key', IDEMPOTENCY_KEY);
@@ -813,7 +762,7 @@ describe('public POST /api/bookings capacity handling', () => {
       });
     }
 
-    it('replays the same key with the same body and status as the original, writing nothing', async () => {
+    it('replays the same key with the same body and status as the original, writing no booking', async () => {
       availableSlot();
       createBookingWithCapacityCheckMock.mockResolvedValueOnce({
         success: true,
@@ -831,6 +780,7 @@ describe('public POST /api/bookings capacity handling', () => {
         }),
       );
       expect(updateBookingRecordMock).not.toHaveBeenCalled();
+      expect(creatorCookies(original)).toHaveLength(1);
 
       upsertCustomerMock.mockClear();
       enqueueBookingCreatedSideEffectsMock.mockClear();
@@ -844,9 +794,35 @@ describe('public POST /api/bookings capacity handling', () => {
       await expect(replay.json()).resolves.toEqual(originalBody);
       expect(keyBuilder.eq).toHaveBeenCalledWith('idempotency_key', IDEMPOTENCY_KEY);
       expect(keyBuilder.eq).not.toHaveBeenCalledWith('customer_id', expect.anything());
+      // No booking or customer write on the replay...
       expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
       expect(upsertCustomerMock).not.toHaveBeenCalled();
-      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+      expect(insertBookingRecordMock).not.toHaveBeenCalled();
+      expect(updateBookingRecordMock).not.toHaveBeenCalled();
+      // ...but the idempotent side effects are re-ensured (S2b), flagged as a replay.
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ replay: true }),
+        expect.anything(),
+      );
+      // The creator keeps (or regains) the booking cookie.
+      expect(creatorCookies(replay)).toHaveLength(1);
+    });
+
+    it('refuses the same key replayed after the 15-minute window: 409, no cookie, no DTO', async () => {
+      vi.setSystemTime(new Date('2026-07-01T10:16:00.000Z'));
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({ data: storedBooking, error: null });
+      fromMock.mockReturnValueOnce(keyBuilder);
+
+      const replay = await POST(keyedRequest());
+      const body = await replay.json();
+
+      expect(replay.status).toBe(409);
+      expect(body).toMatchObject({ code: 'BOOKING_NOT_COMPLETED' });
+      expect(body.booking).toBeUndefined();
+      expect(creatorCookies(replay)).toHaveLength(0);
+      expect(createBookingWithCapacityCheckMock).not.toHaveBeenCalled();
     });
 
     it('answers a lost race (RPC duplicate for our key) exactly like the original insert', async () => {
@@ -863,7 +839,33 @@ describe('public POST /api/bookings capacity handling', () => {
       expect(response.status).toBe(201);
       expect(body.duplicate).toBe(false);
       expect(body.booking.reference).toBe('NB654321');
-      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+      expect(creatorCookies(response)).toHaveLength(1);
+      // The winner's insert already dispatched; ours only re-ensures, flagged as a replay.
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ replay: true }),
+        expect.anything(),
+      );
+    });
+
+    it('refuses a derived (non-uuid) key sent as the header, even inside the window', async () => {
+      const derivedKey = 'a'.repeat(32);
+      const keyBuilder = createQueryBuilder();
+      keyBuilder.maybeSingle.mockResolvedValueOnce({
+        data: { ...storedBooking, idempotency_key: derivedKey, client_request_id: null },
+        error: null,
+      });
+      fromMock.mockReturnValueOnce(keyBuilder);
+      const request = buildRequest();
+      request.headers.set('Idempotency-Key', derivedKey);
+
+      const response = await POST(request);
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({ code: 'BOOKING_NOT_COMPLETED' });
+      expect(body.booking).toBeUndefined();
+      expect(creatorCookies(response)).toHaveLength(0);
     });
 
     it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
@@ -912,7 +914,9 @@ describe('public POST /api/bookings capacity handling', () => {
       await POST(keyedRequest());
 
       expect(recordObservabilityEventMock).toHaveBeenCalled();
-      expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(IDEMPOTENCY_KEY);
+      expect(JSON.stringify(recordObservabilityEventMock.mock.calls)).not.toContain(
+        IDEMPOTENCY_KEY,
+      );
     });
   });
 
@@ -955,7 +959,11 @@ describe('public POST /api/bookings capacity handling', () => {
         const builder = {
           select: vi.fn(() => builder),
           eq: vi.fn((column: string, value: unknown) => {
-            filters.push((row) => String(row[column] ?? '').slice(0, String(value).length) === String(value) && row[column] !== null);
+            filters.push(
+              (row) =>
+                String(row[column] ?? '').slice(0, String(value).length) === String(value) &&
+                row[column] !== null,
+            );
             return builder;
           }),
           not: vi.fn((column: string, operator: string, value: string) => {
@@ -1038,7 +1046,9 @@ describe('public POST /api/bookings capacity handling', () => {
     ])('inserts a NEW booking (201) after a cancel, with %s', async (_label, rebookParty) => {
       const rows: Row[] = [];
       const table = bookingsTable(rows);
-      fromMock.mockImplementation((name: string) => (name === 'bookings' ? table() : createQueryBuilder()));
+      fromMock.mockImplementation((name: string) =>
+        name === 'bookings' ? table() : createQueryBuilder(),
+      );
       createBookingWithCapacityCheckMock.mockImplementation(rpcOver(rows));
 
       const first = await POST(buildRequest());
@@ -1064,10 +1074,12 @@ describe('public POST /api/bookings capacity handling', () => {
       expect(rows.filter((row) => row.status !== 'cancelled')).toHaveLength(1);
     });
 
-    it('still recovers the live booking for a key-less double submit (no second insert)', async () => {
+    it('still matches the live booking for a key-less double submit (no second insert)', async () => {
       const rows: Row[] = [];
       const table = bookingsTable(rows);
-      fromMock.mockImplementation((name: string) => (name === 'bookings' ? table() : createQueryBuilder()));
+      fromMock.mockImplementation((name: string) =>
+        name === 'bookings' ? table() : createQueryBuilder(),
+      );
       createBookingWithCapacityCheckMock.mockImplementation(rpcOver(rows));
 
       const first = await POST(buildRequest());
@@ -1075,9 +1087,12 @@ describe('public POST /api/bookings capacity handling', () => {
       const second = await POST(buildRequest());
       const secondBody = await second.json();
 
-      expect(second.status).toBe(200);
-      expect(secondBody.duplicate).toBe(true);
-      expect(secondBody.booking.id).toBe(firstBody.booking.id);
+      // The derived-key match is not proof of being the creator: neutral 409, no DTO.
+      expect(first.status).toBe(201);
+      expect(firstBody.booking.id).toEqual(expect.any(String));
+      expect(second.status).toBe(409);
+      expect(secondBody).toMatchObject({ code: 'BOOKING_NOT_COMPLETED' });
+      expect(secondBody.booking).toBeUndefined();
       expect(createBookingWithCapacityCheckMock).toHaveBeenCalledTimes(1);
       expect(rows).toHaveLength(1);
     });

@@ -15,6 +15,8 @@ import {
 import { stringifyError } from '@/server/bookings/error-formatting';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import type { BookingCreateCookieRequest } from '@/server/bookings/create-response';
+
 export type BookingsPostServiceClientFactory = typeof getServiceSupabaseClient;
 export type BookingsPostEntryGateRunner = typeof runBookingCreateEntryGate;
 export type BookingsPostPrecommitRunner = typeof runBookingCreatePrecommitContext;
@@ -33,12 +35,14 @@ export function buildBookingCreateInvalidJsonResponse(): NextResponse {
 }
 
 export async function buildBookingsPostHttpResponse({
+  accessSecret,
   autoAssignEnabled,
   bookingPastTimeBlocking,
   bookingPastTimeGraceMinutes,
   bookingValidationUnified,
   clientIp,
   completionRunner = completeBookingCreate,
+  cookieRequest,
   entryGateRunner = runBookingCreateEntryGate,
   failureResponseBuilder = buildBookingCreateFailureResponse,
   headers,
@@ -47,16 +51,18 @@ export async function buildBookingsPostHttpResponse({
   payload,
   persistenceRunner = runBookingCreatePersistence,
   precommitRunner = runBookingCreatePrecommitContext,
-  recoverySecret,
-  recoveryTtlSeconds,
   serviceClientFor = getServiceSupabaseClient,
 }: {
+  /** bk1 key for the creator cookie (`SESSION_RECOVERY_ACCESS_TOKEN_SECRET`). */
+  accessSecret: string | null | undefined;
   autoAssignEnabled: boolean;
   bookingPastTimeBlocking?: boolean;
   bookingPastTimeGraceMinutes?: number;
   bookingValidationUnified: boolean;
   clientIp: string;
   completionRunner?: BookingsPostCompletionRunner;
+  /** The incoming request: existing booking cookies and protocol for the creator cookie. */
+  cookieRequest: BookingCreateCookieRequest;
   entryGateRunner?: BookingsPostEntryGateRunner;
   failureResponseBuilder?: BookingsPostFailureResponseBuilder;
   headers: Pick<Headers, 'get'>;
@@ -65,8 +71,6 @@ export async function buildBookingsPostHttpResponse({
   payload: unknown;
   persistenceRunner?: BookingsPostPersistenceRunner;
   precommitRunner?: BookingsPostPrecommitRunner;
-  recoverySecret?: string | null;
-  recoveryTtlSeconds?: number | null;
   serviceClientFor?: BookingsPostServiceClientFactory;
 }): Promise<NextResponse> {
   const parsed = parseBookingCreateRequestPayload(payload);
@@ -143,8 +147,10 @@ export async function buildBookingsPostHttpResponse({
     }
 
     return await completionRunner({
+      accessSecret,
       autoAssignEnabled,
       client,
+      cookieRequest,
       inlineAutoAssignTimeoutMs: inlineAutoAssignTimeoutMs ?? 4000,
       onInlineAutoAssignError: (error) => {
         logger.warn('[bookings][POST][inline-auto-assign] unexpected error', {
@@ -160,18 +166,7 @@ export async function buildBookingsPostHttpResponse({
       onAutoAssignError: (autoError) => {
         logger.error('[bookings][POST][auto-assign]', stringifyError(autoError));
       },
-      onTokenError: (tokenError) => {
-        logger.error('[bookings][POST][confirmation-token]', stringifyError(tokenError));
-      },
-      onRecoveryCookieError: (recoveryTokenError) => {
-        logger.error(
-          '[bookings][POST][session-recovery-token]',
-          stringifyError(recoveryTokenError),
-        );
-      },
       persistence,
-      recoverySecret,
-      recoveryTtlSeconds,
       request,
       requestContext: entryGate.requestContext,
       restaurantId,

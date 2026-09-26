@@ -6,6 +6,7 @@ import { isCreatorKeyReplayEligible } from '@/server/bookings/idempotency';
 
 import type { BookingCreatePersistenceResult } from '@/server/bookings/create-persistence';
 import type { BookingCreateRequestContext } from '@/server/bookings/create-request-context';
+import type { BookingCreateCookieRequest } from '@/server/bookings/create-response';
 import type { BookingCreateRequest } from '@/server/bookings/request-validation';
 import type { NextResponse } from 'next/server';
 
@@ -20,9 +21,11 @@ export type BookingCreateHttpResponseBuilder = typeof buildBookingCreateHttpResp
 export type BookingWhatsAppConsentPersister = typeof persistBookingWhatsAppConsent;
 
 export async function completeBookingCreate({
+  accessSecret,
   autoAssignEnabled,
   client,
   consentPersister = persistBookingWhatsAppConsent,
+  cookieRequest,
   finalizer = finalizeBookingCreateCommit,
   inlineAutoAssignTimeoutMs,
   loyaltyPointsAwarded = 0,
@@ -30,21 +33,20 @@ export async function completeBookingCreate({
   onAutoAssignError,
   onConsentPersistError,
   onInlineAutoAssignError,
-  onRecoveryCookieError,
   onSideEffectsError,
-  onTokenError,
   persistence,
-  recoverySecret,
-  recoveryTtlSeconds,
   request,
   requestContext,
   responseBuilder = buildBookingCreateHttpResponse,
   restaurantId,
   useUnifiedValidation,
 }: {
+  /** bk1 key for the creator cookie; `null` issues no capability. */
+  accessSecret: string | null | undefined;
   autoAssignEnabled: boolean;
   client: BookingCreateCompletionClient;
   consentPersister?: BookingWhatsAppConsentPersister;
+  cookieRequest: BookingCreateCookieRequest;
   finalizer?: BookingCreateFinalizer;
   inlineAutoAssignTimeoutMs?: number;
   loyaltyPointsAwarded?: number;
@@ -52,12 +54,8 @@ export async function completeBookingCreate({
   onAutoAssignError?: (error: unknown) => void;
   onConsentPersistError?: (error: unknown) => void;
   onInlineAutoAssignError?: (error: unknown) => void;
-  onRecoveryCookieError?: (error: unknown) => void;
   onSideEffectsError?: (error: unknown) => void;
-  onTokenError?: (error: unknown) => void;
   persistence: BookingCreateCreatedPersistenceResult;
-  recoverySecret?: string | null;
-  recoveryTtlSeconds?: number | null;
   request: BookingCreateRequest;
   requestContext: Pick<
     BookingCreateRequestContext,
@@ -67,7 +65,19 @@ export async function completeBookingCreate({
   restaurantId: string;
   useUnifiedValidation: boolean;
 }): Promise<NextResponse> {
-  const shouldPersistConsent = request.whatsappOptIn && !persistence.booking.whatsapp_opt_in;
+  // Guest-auth §4.2: an insert always acts for the creator; any other origin only when it
+  // replays the client's own uuid key within the replay window. Decided up front so a
+  // caller who only knows the contact details and slot cannot change the matched booking.
+  const creatorCapabilityEligible =
+    persistence.createOrigin === 'inserted' ||
+    isCreatorKeyReplayEligible({
+      booking: persistence.booking,
+      headerIdempotencyKey: requestContext.headerIdempotencyKey,
+      now: now(),
+    });
+
+  const shouldPersistConsent =
+    request.whatsappOptIn && creatorCapabilityEligible && !persistence.booking.whatsapp_opt_in;
   // The booking row is already committed here; a consent write failure must not
   // fail the request, or the guest gets an error for a booking that exists.
   let bookingWithConsent = persistence.booking;
@@ -119,27 +129,17 @@ export async function completeBookingCreate({
     });
   }
 
-  // Guest-auth §4.2: an insert always acts for the creator; any other origin only when it
-  // replays the client's own uuid key within the replay window.
-  const creatorCapabilityEligible =
-    persistence.createOrigin === 'inserted' ||
-    isCreatorKeyReplayEligible({
-      booking: finalBooking,
-      headerIdempotencyKey: requestContext.headerIdempotencyKey,
-      now: now(),
-    });
-
+  // Not eligible: 409 BOOKING_NOT_COMPLETED with no DTO, plus the throttled lost-link email.
   return await responseBuilder({
+    accessSecret,
     booking: finalBooking,
+    contactEmail: request.email,
+    cookieRequest,
     createOrigin: persistence.createOrigin,
     creatorCapabilityEligible,
     loyaltyPointsAwarded,
-    onRecoveryCookieError,
-    onTokenError,
-    recoverySecret,
-    recoveryTtlSeconds,
+    now: () => new Date(now()),
     restaurantId,
-    reusedExisting: persistence.reusedExisting,
     useUnifiedValidation,
   });
 }

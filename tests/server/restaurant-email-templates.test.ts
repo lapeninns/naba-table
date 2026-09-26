@@ -300,7 +300,10 @@ describe('restaurant email template server behavior', () => {
       preferredVariantId: 'review-draft',
     });
 
-    expect(preview.ctaUrl).toContain('/bookings/recover');
+    // A preview booking has no real id, so the safe fallback is the lost-link page, never a
+    // capability link (guest-auth §4.3).
+    expect(preview.ctaUrl).toMatch(/\/bookings\/find$/);
+    expect(preview.ctaUrl).not.toContain('access_token');
     expect(preview.ctaUrl).not.toMatch(/^(javascript|data):/i);
     expect(preview.html).not.toContain('href="javascript:alert(1)"');
   });

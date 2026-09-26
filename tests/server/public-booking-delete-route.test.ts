@@ -319,4 +319,36 @@ describe('public DELETE /api/bookings/[id]', () => {
       },
     );
   });
+
+  it('answers 409 BOOKING_NOT_CANCELLABLE when the DB guard refuses (checked in meanwhile)', async () => {
+    serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking({ auth_user_id: null })));
+    // Mirrors server/bookings.ts BookingNotCancellableError (S3a), including its code.
+    const refused = Object.assign(new Error('booking_not_cancellable: SECRET_DB_DETAIL'), {
+      name: 'BookingNotCancellableError',
+      code: 'BOOKING_NOT_CANCELLABLE',
+      currentStatus: 'checked_in',
+    });
+    softCancelBookingMock.mockRejectedValueOnce(refused);
+
+    const response = await DELETE(
+      new NextRequest(
+        'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
+        { method: 'DELETE', headers: guestTokenHeaders(makeBooking()) },
+      ),
+      { params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }) },
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body).toEqual({
+      error: 'This booking can no longer be cancelled.',
+      code: 'BOOKING_NOT_CANCELLABLE',
+      message: 'This booking can no longer be cancelled.',
+      retryable: false,
+      details: { currentStatus: 'checked_in' },
+    });
+    expect(JSON.stringify(body)).not.toContain('SECRET_DB_DETAIL');
+    expect(logAuditEventMock).not.toHaveBeenCalled();
+    expect(enqueueBookingCancelledSideEffectsMock).not.toHaveBeenCalled();
+  });
 });

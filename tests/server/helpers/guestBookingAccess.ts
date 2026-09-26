@@ -1,3 +1,4 @@
+import { sealAeadToken } from '@/server/security/aead-token';
 import {
   createBookingAccessToken,
   type BookingAccessBooking,
@@ -54,5 +55,36 @@ export function guestTokenHeaders(
   return guestRequestHeaders({
     cookies: [accessCookie(booking.id, mintTestAccessToken(booking, { now: options.now }))],
     csrf: options.csrf,
+  });
+}
+
+/**
+ * A genuine retired `sr2` session-recovery token (contact-scoped, pre-bk1), sealed exactly
+ * as the deleted `server/security/session-recovery-access-token.ts` did: AES-256-GCM, key
+ * `sha256("session-recovery-access-token:" + secret)`, AAD `sr2`. Tests use it to prove the
+ * retired format grants nothing anywhere.
+ */
+export function mintLegacySessionRecoveryToken(params: {
+  restaurantId: string;
+  email?: string | null;
+  phone?: string | null;
+  secret?: string;
+  now?: Date;
+  ttlSeconds?: number;
+}): string {
+  const issuedAt = Math.floor((params.now?.getTime() ?? Date.now()) / 1000);
+  return sealAeadToken({
+    prefix: 'sr2',
+    keyLabel: 'session-recovery-access-token',
+    secret: params.secret ?? TEST_ACCESS_SECRET,
+    plaintext: JSON.stringify({
+      v: 1,
+      purpose: 'session_recovery',
+      restaurantId: params.restaurantId,
+      email: params.email?.trim().toLowerCase() || null,
+      phone: params.phone ?? null,
+      iat: issuedAt,
+      exp: issuedAt + (params.ttlSeconds ?? 900),
+    }),
   });
 }

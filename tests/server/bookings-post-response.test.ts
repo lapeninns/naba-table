@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -47,8 +47,8 @@ function baseArgs(overrides: Partial<Parameters<typeof buildBookingsPostHttpResp
     headers: new Headers(),
     inlineAutoAssignTimeoutMs: 3000,
     payload: validPayload,
-    recoverySecret: 'recovery-secret',
-    recoveryTtlSeconds: 900,
+    accessSecret: 'test-session-recovery-secret',
+    cookieRequest: new NextRequest('https://www.nabatable.com/api/bookings', { method: 'POST' }),
     serviceClientFor: vi.fn(() => ({ from: vi.fn() }) as never),
     ...overrides,
   };
@@ -173,8 +173,10 @@ describe('bookings POST response orchestration', () => {
     );
     expect(completionRunner).toHaveBeenCalledWith(
       expect.objectContaining({
+        accessSecret: 'test-session-recovery-secret',
         autoAssignEnabled: true,
         client,
+        cookieRequest: expect.any(NextRequest),
         inlineAutoAssignTimeoutMs: 3000,
         persistence,
         requestContext,
