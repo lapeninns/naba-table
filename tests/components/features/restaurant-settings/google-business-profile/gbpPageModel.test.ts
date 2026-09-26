@@ -264,5 +264,9 @@ describe('fields never compared with Google', () => {
     expect(summarizeGbpSection([unchecked, field({ state: 'in_sync' })]).label).toBe(
       '1 not compared yet',
     );
+    expect(
+      summarizeGbpSection([unchecked, field({ state: 'core_dirty' }), field({ state: 'in_sync' })])
+        .label,
+    ).toBe('1 of 3 differ, 1 not compared yet');
   });
 });

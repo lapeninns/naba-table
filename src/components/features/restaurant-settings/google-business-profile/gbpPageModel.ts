@@ -209,9 +209,11 @@ export function summarizeGbpSection(fields: ReadonlyArray<DualSyncFieldSummary>)
 } {
   const differing = fields.filter(isGbpFieldDifferent).length;
   const unchecked = fields.filter((field) => field.state === null).length;
-  let label = 'All match';
-  if (differing) label = `${differing} of ${fields.length} differ`;
-  else if (unchecked) label = `${unchecked} not compared yet`;
+  const parts = [
+    differing ? `${differing} of ${fields.length} differ` : null,
+    unchecked ? `${unchecked} not compared yet` : null,
+  ].filter(Boolean);
+  const label = parts.length ? parts.join(', ') : 'All match';
   return { differing, total: fields.length, label };
 }
 

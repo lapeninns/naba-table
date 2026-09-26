@@ -136,7 +136,8 @@ export function GbpOverviewCard({
       </div>
       <p className="mt-2 text-sm text-muted-foreground">
         {writes ? `${writes.sentence}. ` : null}Signed in as {accountLabel}.
-        {data.status === 'sync_error' && data.lastError ? (
+        {/* A reconnect alert explains the problem; the generic sync error would contradict it. */}
+        {data.status === 'sync_error' && data.lastError && !reconnectReason ? (
           <span className="block break-words">Last error: {data.lastError}</span>
         ) : null}
       </p>
