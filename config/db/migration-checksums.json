@@ -833,6 +833,36 @@
       "recordedAt": "2026-09-26T13:09:59.306Z",
       "reviewed": true
     },
+    "20260927200000_guarded_pending_booking_modification.sql": {
+      "sha256": "ed146da7e80132d917ae7eef0fada3751fec06fd845fe4569196734ffae063f9",
+      "bytes": 4673,
+      "recordedAt": "2026-09-26T14:37:18.718Z",
+      "reviewed": true
+    },
+    "20260927200100_revoke_booking_owner_binding_on_email_change.sql": {
+      "sha256": "fd8a43cb1d7aabb9a8bd8aea44925035b38643a8d5f08554db2a7a38d7f70ef9",
+      "bytes": 2182,
+      "recordedAt": "2026-09-26T14:37:18.718Z",
+      "reviewed": true
+    },
+    "20260927200200_sanitize_update_booking_capacity_errors.sql": {
+      "sha256": "be99e8303d183fad970b16f454ca87ac0f7d98ddc2c3151ec1988ebf7892a060",
+      "bytes": 4829,
+      "recordedAt": "2026-09-26T14:37:18.718Z",
+      "reviewed": true
+    },
+    "20260927210000_email_intent_claim_generation.sql": {
+      "sha256": "8e92b4864ccfc176fb7fb6c4d98c9304302d2ac86bd1caef32946fd85b8574cd",
+      "bytes": 8908,
+      "recordedAt": "2026-09-26T14:37:18.718Z",
+      "reviewed": true
+    },
+    "20260927230000_settle_booking_email_intent_claim_generation.sql": {
+      "sha256": "de6914fb82d99abfd9d135a86ec2cb9a0f7f924d95a7784b31ae570f7eb647e5",
+      "bytes": 4335,
+      "recordedAt": "2026-09-26T14:37:18.718Z",
+      "reviewed": true
+    },
     "CONSOLIDATED_ALL_MIGRATIONS.sql": {
       "sha256": "e03881f4532db4b4a4f5949219ccde4e41aeba1fa6c32fc21923773878dff37a",
       "bytes": 31275,

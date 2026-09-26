@@ -8644,6 +8644,15 @@ export type Database = {
         Returns: number;
       };
       require_restaurant_context: { Args: never; Returns: string };
+      modify_pending_booking_and_clear_assignments: {
+        Args: {
+          p_booking_id: string;
+          p_expected_status: string;
+          p_patch: Json;
+          p_restaurant_id: string;
+        };
+        Returns: Database['public']['Tables']['bookings']['Row'];
+      };
       modify_booking_with_table_swap: {
         Args: {
           p_booking_id: string;
@@ -8662,6 +8671,43 @@ export type Database = {
         Args: {
           p_error_code?: string | null;
           p_expected_attempts: number;
+          p_intent_id: string;
+          p_outcome: string;
+          p_restaurant_id: string;
+          p_retry_delay_seconds?: number;
+        };
+        Returns: string | null;
+      };
+      get_restaurant_business_context_revision_v1: {
+        Args: { p_restaurant_id: string };
+        Returns: number;
+      };
+      replace_restaurant_business_context_v2: {
+        Args: {
+          p_attributes?: Json | null;
+          p_business_details?: Json | null;
+          p_categories?: Json | null;
+          p_change_log_rows?: Json | null;
+          p_expected_revision?: number | null;
+          p_links?: Json | null;
+          p_restaurant_id: string;
+          p_service_areas?: Json | null;
+          p_service_items?: Json | null;
+        };
+        Returns: Json;
+      };
+      replace_restaurant_service_periods: {
+        Args: { p_restaurant_id: string; p_rows: Json };
+        Returns: undefined;
+      };
+      replace_restaurant_turn_bands: {
+        Args: { p_restaurant_id: string; p_rows: Json };
+        Returns: undefined;
+      };
+      settle_booking_email_intent_v2: {
+        Args: {
+          p_claim_generation: number;
+          p_error_code?: string | null;
           p_intent_id: string;
           p_outcome: string;
           p_restaurant_id: string;
