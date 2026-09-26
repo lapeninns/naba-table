@@ -784,8 +784,7 @@ async function processBookingCreatedSideEffects(
 
   let queued = false;
   try {
-    const shouldSendEmail =
-      (payload.emailProvided ?? true) && isValidEmail(booking.customer_email);
+    const shouldSendEmail = (payload.emailProvided ?? true) && isValidEmail(booking.customer_email);
     const shouldSendSms = hasValidSmsRecipient(booking.customer_phone);
     const allowConfirmationEmail = !SUPPRESS_EMAILS && shouldSendEmail;
 
@@ -1062,7 +1061,9 @@ async function processBookingCancelledSideEffects(
     try {
       await cancelEmailIntents({
         bookingId: cancelled.id,
-        types: ['reminder_24h', 'reminder_short', 'review_request'],
+        // 'updated' and 'request_received' are modification emails still queued for
+        // the cron drain; they must not reach a guest after a cancellation.
+        types: ['reminder_24h', 'reminder_short', 'review_request', 'updated', 'request_received'],
       });
     } catch (error) {
       console.warn('[jobs][booking.cancelled] failed to cancel pending email intents', {

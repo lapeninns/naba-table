@@ -11,8 +11,9 @@
 -- bound to the booking (create_table_hold_atomic), which excludes the booking's own
 -- current assignments from its conflict checks, so the old tables stay assigned while
 -- the new ones are held. This function then, under the booking row lock:
---   1. checks the booking still has the status the caller read (P0004 otherwise) and
---      is modifiable (pending, pending_allocation or confirmed);
+--   1. checks the booking exists for this restaurant and still has the status the
+--      caller read, and is modifiable (pending, pending_allocation or confirmed);
+--      P0004 otherwise (non-retryable). P0002 is raised only for a missing hold;
 --   2. checks the hold is live, belongs to this restaurant and is bound to this booking;
 --   3. applies the patch through update_booking_and_clear_assignments (status keys
 --      are ignored; the booking ends 'confirmed');
@@ -23,6 +24,10 @@
 -- date/time/party size, status and tables. When no table fits, the app never calls
 -- this function and fails the modification with a 409 instead.
 --
+-- Rollout order: apply 20260927160000 and 20260927160100 to staging, then
+-- production (pnpm db:plan-remote first), BEFORE the app change that calls them is
+-- merged: under Option A a merge deploys the web app. Without 20260927160100 the app
+-- refuses table-changing modifications with a 409 MODIFICATION_UNAVAILABLE.
 -- Rollback: DROP FUNCTION IF EXISTS public.modify_booking_with_table_swap(uuid, uuid, jsonb, uuid, text, text, boolean, text, jsonb);
 -- and redeploy the previous server/bookings/modification-flow.ts. No schema or data changes.
 BEGIN;
@@ -62,8 +67,11 @@ BEGIN
     AND booking.restaurant_id = p_restaurant_id
   FOR UPDATE;
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Booking not found for restaurant-scoped modification'
-      USING ERRCODE = 'P0002';
+    -- P0004, not P0002: P0002 is reserved for a vanished hold, which the app treats
+    -- as retryable. A missing (or other-tenant) booking can never succeed on retry.
+    RAISE EXCEPTION 'booking_not_found'
+      USING ERRCODE = 'P0004',
+            DETAIL = 'Booking not found for restaurant-scoped modification';
   END IF;
 
   IF v_booking.status::text NOT IN ('pending', 'pending_allocation', 'confirmed')

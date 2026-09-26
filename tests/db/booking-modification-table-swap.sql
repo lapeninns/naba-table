@@ -73,6 +73,21 @@ BEGIN
     RAISE EXCEPTION 'Cross-tenant swap succeeded' USING ERRCODE = 'NB001';
   EXCEPTION
     WHEN SQLSTATE 'NB001' THEN RAISE;
+    -- Booking-not-found is non-retryable (P0004); P0002 means only a vanished hold.
+    WHEN SQLSTATE 'P0004' THEN NULL;
+  END;
+  BEGIN
+    PERFORM public.modify_booking_with_table_swap(gen_random_uuid(), v_restaurant_id, v_patch, h, 'confirmed', 'nb-swap-5');
+    RAISE EXCEPTION 'Swap of a missing booking succeeded' USING ERRCODE = 'NB001';
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
+    WHEN SQLSTATE 'P0004' THEN NULL;
+  END;
+  BEGIN
+    PERFORM public.modify_booking_with_table_swap(b, v_restaurant_id, v_patch, gen_random_uuid(), 'confirmed', 'nb-swap-6');
+    RAISE EXCEPTION 'Swap with a missing hold succeeded' USING ERRCODE = 'NB001';
+  EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
     WHEN no_data_found THEN NULL;
   END;
   IF (SELECT start_at FROM public.bookings WHERE id = b) <> old_start

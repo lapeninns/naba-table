@@ -282,6 +282,8 @@ describe('beginBookingModificationFlow', () => {
       restaurantId: 'rest-1',
       type: 'updated',
       dedupeKey: 'email__updated__booking-1__hold-1',
+      // A newer modification withdraws an older one's unsent email.
+      supersedeTypes: ['updated', 'request_received'],
     });
     expect(sendBookingModificationConfirmedEmailMock).not.toHaveBeenCalled();
     expect(releaseTableHoldMock).not.toHaveBeenCalled();
@@ -320,7 +322,7 @@ describe('beginBookingModificationFlow', () => {
     ).rejects.toMatchObject({ code: 'MODIFICATION_TABLES_UNCONFIRMED', retryable: true });
 
     const broken = makeClient({
-      swap: () => ({ data: null, error: { code: '42883', message: 'function does not exist' } }),
+      swap: () => ({ data: null, error: { code: 'XX000', message: 'internal error' } }),
     });
     const error = await beginBookingModificationFlow({
       client: broken.client,
@@ -331,6 +333,81 @@ describe('beginBookingModificationFlow', () => {
     }).catch((caught: unknown) => caught);
     expect(error).not.toBeInstanceOf(BookingModificationConflictError);
     expect(releaseTableHoldMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['PGRST202', '42883'])(
+    'answers a non-retryable 409 (not a 500) when the swap RPC is not deployed yet (%s)',
+    async (code) => {
+      const missing = makeClient({
+        swap: () => ({ data: null, error: { code, message: 'function not found' } }),
+      });
+      await expect(
+        beginBookingModificationFlow({
+          client: missing.client,
+          bookingId: 'booking-1',
+          existingBooking: makeBooking() as never,
+          payload: PATCH,
+          source: 'guest',
+        }),
+      ).rejects.toMatchObject({ code: 'MODIFICATION_UNAVAILABLE', status: 409, retryable: false });
+      expect(releaseTableHoldMock).toHaveBeenCalledWith({
+        holdId: 'hold-1',
+        client: missing.client,
+      });
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        '[booking.modification] table swap RPC unavailable',
+        expect.objectContaining({ bookingId: 'booking-1', sqlState: code }),
+      );
+    },
+  );
+
+  it('keys the pending-path email on the committed change, so a retry of the same commit does not add a second email', async () => {
+    quoteTablesForBookingMock.mockResolvedValue({
+      hold: null,
+      reason: 'NO_CAPACITY',
+      alternates: [],
+    });
+    const committed = makeBooking({
+      status: 'pending',
+      ...PATCH,
+      updated_at: '2026-06-30T10:00:00.000Z',
+    });
+    updateBookingAndClearAssignmentsAtomicallyMock.mockResolvedValue(committed);
+    const { client } = makeClient();
+    const run = () =>
+      beginBookingModificationFlow({
+        client,
+        bookingId: 'booking-1',
+        existingBooking: makeBooking({ status: 'pending' }) as never,
+        payload: PATCH,
+        source: 'guest',
+      });
+
+    await run();
+    await run();
+    const keys = ensureBookingEmailIntentMock.mock.calls.map(
+      (call) => (call[1] as { dedupeKey: string }).dedupeKey,
+    );
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBe(keys[1]);
+    expect(ensureBookingEmailIntentMock).toHaveBeenLastCalledWith(
+      client,
+      expect.objectContaining({
+        type: 'request_received',
+        supersedeTypes: ['updated', 'request_received'],
+      }),
+    );
+
+    // A different committed change gets its own key (and supersedes the old email).
+    updateBookingAndClearAssignmentsAtomicallyMock.mockResolvedValue({
+      ...committed,
+      party_size: 6,
+      updated_at: '2026-06-30T10:05:00.000Z',
+    });
+    await run();
+    const third = (ensureBookingEmailIntentMock.mock.calls[2]![1] as { dedupeKey: string })
+      .dedupeKey;
+    expect(third).not.toBe(keys[0]);
   });
 
   it('updates a pending booking that has no table yet and queues follow-up work durably', async () => {

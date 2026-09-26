@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { after } from 'next/server';
 
 import { conflict, type ApiErrorBody } from '@/lib/api/errors';
@@ -58,6 +58,7 @@ const PLANNER_TRIGGER = 'inline_modification';
 export type BookingModificationConflictCode =
   | 'MODIFICATION_NO_TABLES'
   | 'MODIFICATION_TABLES_UNCONFIRMED'
+  | 'MODIFICATION_UNAVAILABLE'
   | 'BOOKING_STATE_CONFLICT';
 
 const CONFLICT_COPY: Record<BookingModificationConflictCode, string> = {
@@ -65,9 +66,17 @@ const CONFLICT_COPY: Record<BookingModificationConflictCode, string> = {
     'There is no table available for that change. The booking has not been changed.',
   MODIFICATION_TABLES_UNCONFIRMED:
     'We could not confirm a table for that change. The booking has not been changed. Please try again.',
+  MODIFICATION_UNAVAILABLE:
+    'This change cannot be made online right now. The booking has not been changed. Please contact the restaurant.',
   BOOKING_STATE_CONFLICT:
     'This booking changed while it was being edited. The booking has not been changed. Refresh and try again.',
 };
+
+/** Codes the client should not retry automatically. */
+const NON_RETRYABLE_CODES: ReadonlySet<BookingModificationConflictCode> = new Set([
+  'MODIFICATION_NO_TABLES',
+  'MODIFICATION_UNAVAILABLE',
+]);
 
 /**
  * The modification was refused and the booking is exactly as it was: same date,
@@ -100,7 +109,7 @@ export class BookingModificationConflictError extends BookingValidationError {
     });
     this.name = 'BookingModificationConflictError';
     this.code = code;
-    this.retryable = code !== 'MODIFICATION_NO_TABLES';
+    this.retryable = !NON_RETRYABLE_CODES.has(code);
     this.reason = options.reason ?? null;
   }
 }
@@ -213,7 +222,7 @@ type SwapRpcClient = {
 /** SQLSTATEs that mean "the held tables could not be confirmed right now". */
 const RETRYABLE_SWAP_CODES = new Set([
   'P0001', // hold not bound / expired / assignment conflict raised by the assignment RPCs
-  'P0002', // hold (or booking) disappeared, e.g. swept after expiry
+  'P0002', // hold disappeared, e.g. swept after expiry (booking-not-found is P0004)
   'P0003', // policy or adjacency drift, idempotency mismatch
   '23514', // inactive / out-of-service table, zone rules
   '23P01', // overlapping hold or allocation
@@ -221,6 +230,13 @@ const RETRYABLE_SWAP_CODES = new Set([
   '40P01', // deadlock
   '55P03', // lock not available
 ]);
+
+/**
+ * The swap RPC is missing from the database: the app was released before
+ * 20260927160100_modify_booking_with_table_swap.sql was applied (PostgREST
+ * PGRST202, Postgres 42883). Refuse with a 409 instead of a 500; nothing changed.
+ */
+const MISSING_SWAP_RPC_CODES = new Set(['PGRST202', '42883']);
 
 function sqlStateOf(error: unknown): string | null {
   if (error && typeof error === 'object' && 'code' in error) {
@@ -246,6 +262,29 @@ async function releaseHoldQuietly(client: DbClient, holdId: string, bookingId: s
 // ---------------------------------------------------------------------------
 // Durable follow-up work
 // ---------------------------------------------------------------------------
+
+const MODIFICATION_EMAIL_TYPES = [
+  'updated',
+  'request_received',
+] as const satisfies readonly EmailJobType[];
+
+/**
+ * Stable id of one committed change: the same committed row always gives the same
+ * digest (so a client retry that lands on the same commit re-ensures the same
+ * intent), and any new commit changes updated_at and therefore the digest.
+ */
+function committedChangeDigest(booking: BookingRecord): string {
+  const parts = [
+    booking.booking_date,
+    booking.start_time,
+    booking.end_time,
+    booking.start_at,
+    booking.end_at,
+    booking.party_size,
+    booking.updated_at,
+  ].map((value) => (value === null || value === undefined ? '' : String(value)));
+  return createHash('sha256').update(parts.join('|')).digest('hex').slice(0, 24);
+}
 
 async function queueModificationEmail(params: {
   client: DbClient;
@@ -276,13 +315,18 @@ async function queueModificationEmail(params: {
     return;
   }
 
-  // One email per committed modification: the key carries the hold (swap) or
-  // attempt id, and the intent is insert-if-absent, so retries never resend.
+  // One email per committed modification: the key carries the hold (swap) or a
+  // digest of the committed row (pending path), and the intent is insert-if-absent,
+  // so a retry of the same commit never resends. Superseding withdraws any older
+  // modification email that the cron drain has not sent yet, so the guest gets one
+  // email about the latest state. processBookingCancelledSideEffects cancels these
+  // types too, so nothing about a modification is sent after a cancellation.
   const ensured = await ensureBookingEmailIntent(params.client, {
     bookingId: booking.id,
     restaurantId: booking.restaurant_id,
     type: params.type,
     dedupeKey: bookingEmailIntentKey(params.type, booking.id, params.discriminator),
+    supersedeTypes: MODIFICATION_EMAIL_TYPES,
   });
   if (!ensured.ok) {
     logger.error('[booking.modification] email could not be queued', {
@@ -421,6 +465,16 @@ export async function beginBookingModificationFlow(
       if (sqlState === 'P0004') {
         throw new BookingModificationConflictError('BOOKING_STATE_CONFLICT');
       }
+      if (sqlState && MISSING_SWAP_RPC_CODES.has(sqlState)) {
+        logger.error('[booking.modification] table swap RPC unavailable', {
+          bookingId,
+          restaurantId,
+          sqlState,
+        });
+        throw new BookingModificationConflictError('MODIFICATION_UNAVAILABLE', {
+          reason: sqlState,
+        });
+      }
       if (sqlState && RETRYABLE_SWAP_CODES.has(sqlState)) {
         throw new BookingModificationConflictError('MODIFICATION_TABLES_UNCONFIRMED', {
           reason: sqlState,
@@ -480,7 +534,7 @@ export async function beginBookingModificationFlow(
     client,
     booking: updated,
     type: 'request_received',
-    discriminator: attemptId,
+    discriminator: committedChangeDigest(updated),
   });
   scheduleAutoAssignAfterResponse(bookingId);
   return updated;
