@@ -265,27 +265,16 @@ export async function updateRestaurantDetails(
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<RestaurantDetails> {
   const payload = buildRestaurantDetailsUpdatePayload(input);
-  const hasBusinessDescriptionInput = hasInput(input, 'businessDescription');
+  if (hasInput(input, 'businessDescription')) {
+    // Written in the same transaction as the restaurant row (update_restaurant_profile_v1).
+    payload.businessDescription = sanitizeString(input.businessDescription);
+  }
 
   if (Object.keys(payload).length === 0) {
-    if (hasBusinessDescriptionInput) {
-      await upsertRestaurantBusinessDescription(
-        restaurantId,
-        sanitizeString(input.businessDescription),
-        client,
-      );
-    }
     return getRestaurantDetails(restaurantId, client);
   }
 
   const updated = await updateRestaurant(restaurantId, payload, client);
-  const businessDescription = hasBusinessDescriptionInput
-    ? await upsertRestaurantBusinessDescription(
-        restaurantId,
-        sanitizeString(input.businessDescription),
-        client,
-      )
-    : await getRestaurantBusinessDescription(restaurantId, client);
 
   return {
     restaurantId: updated.id,
@@ -296,7 +285,7 @@ export async function updateRestaurantDetails(
     contactEmail: updated.contactEmail,
     contactPhone: updated.contactPhone,
     address: updated.address,
-    businessDescription,
+    businessDescription: updated.businessDescription,
     managerDailySummaryEnabled: updated.managerDailySummaryEnabled,
     managerWhatsappEnabled: updated.managerWhatsappEnabled,
     managerName: updated.managerName,

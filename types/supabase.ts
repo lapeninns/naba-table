@@ -8564,6 +8564,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      update_restaurant_profile_v1: {
+        Args: {
+          p_actor_id?: string | null;
+          p_business_description?: string | null;
+          p_patch?: Json;
+          p_restaurant_id: string;
+          p_set_business_description?: boolean;
+          p_whatsapp_intent?: string | null;
+        };
+        Returns: Json;
+      };
       user_restaurants: { Args: never; Returns: string[] };
       user_restaurants_admin: { Args: never; Returns: string[] };
       validate_booking_capacity_after_assignment: {

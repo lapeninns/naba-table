@@ -1,25 +1,34 @@
 import { NextResponse } from 'next/server';
 
-import { logger } from '@/lib/logger';
+import {
+  apiError,
+  forbidden,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { RESTAURANT_ROLE_OWNER } from '@/lib/owner/auth/roles';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
-import {
-  getRestaurantBusinessDescription,
-  upsertRestaurantBusinessDescription,
-} from '@/server/restaurants/details';
+import { getRestaurantBusinessDescription } from '@/server/restaurants/details';
 import {
   ensureLogoColumnOnRow,
   isLogoUrlColumnMissing,
   logLogoColumnFallback,
 } from '@/server/restaurants/logo-url-compat';
 import { restaurantSelectColumns } from '@/server/restaurants/select-fields';
+import { isRestaurantUpdateError } from '@/server/restaurants/update-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
-import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
+import {
+  invalidateUserMembershipsCache,
+  requireAdminMembership,
+  requireMembershipForRestaurant,
+} from '@/server/team/access';
 
 import {
   updateRestaurantSchema,
@@ -52,6 +61,32 @@ function getMembershipGuardErrorCode(error: unknown): MembershipGuardErrorCode |
   return null;
 }
 
+const ROUTE = 'ops.restaurants.profile';
+const SAVE_FAILED_MESSAGE = 'Something went wrong saving these settings.';
+
+function authFailure(authError: unknown) {
+  const mapped = mapSupabaseAuthError(authError);
+  return apiError(mapped.status, mapped.code, mapped.message);
+}
+
+function membershipFailure(
+  error: unknown,
+  ctx: { route: string; restaurantId: string; roleDeniedMessage: string },
+) {
+  const membershipErrorCode = getMembershipGuardErrorCode(error);
+  if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
+    return forbidden();
+  }
+  if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
+    return forbidden('FORBIDDEN', ctx.roleDeniedMessage);
+  }
+  return internalError(error, {
+    route: ctx.route,
+    restaurantId: ctx.restaurantId,
+    stage: 'membership',
+  });
+}
+
 export async function GET(req: NextRequest, context: RouteContext) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -60,16 +95,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/restaurants/[id]][GET] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return authFailure(authError);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const { id: restaurantId } = await context.params;
@@ -78,16 +108,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
     const membership = await requireAdminMembership({ userId: user.id, restaurantId });
     membershipRole = (membership.role as RestaurantDTO['role']) ?? 'viewer';
   } catch (error) {
-    const membershipErrorCode = getMembershipGuardErrorCode(error);
-    if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    console.error('[ops/restaurants/[id]][GET] membership guard failed', error);
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return membershipFailure(error, {
+      route: ROUTE,
+      restaurantId,
+      roleDeniedMessage: "You don't have permission to do that.",
+    });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -113,7 +138,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     if (!data) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return notFound('RESTAURANT_NOT_FOUND', 'Restaurant not found.');
     }
 
     const restaurantRow = ensureLogoColumnOnRow(data);
@@ -160,8 +185,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops/restaurants/[id]][GET] query failed', error);
-    return NextResponse.json({ error: 'Unable to fetch restaurant' }, { status: 500 });
+    return internalError(error, { route: ROUTE, restaurantId, method: 'GET' });
   }
 }
 
@@ -177,16 +201,11 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/restaurants/[id]][PATCH] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return authFailure(authError);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const { id: restaurantId } = await context.params;
@@ -195,34 +214,23 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
     const membership = await requireAdminMembership({ userId: user.id, restaurantId });
     membershipRole = (membership.role as RestaurantDTO['role']) ?? 'viewer';
   } catch (error) {
-    const membershipErrorCode = getMembershipGuardErrorCode(error);
-    if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
-      return NextResponse.json(
-        { error: 'Forbidden: Owner or manager role required' },
-        { status: 403 },
-      );
-    }
-
-    console.error('[ops/restaurants/[id]][PATCH] membership guard failed', error);
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return membershipFailure(error, {
+      route: ROUTE,
+      restaurantId,
+      roleDeniedMessage: 'Only an owner or manager can change these settings.',
+    });
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body could not be read.');
   }
 
   const parsed = updateRestaurantSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   const input = parsed.data;
@@ -255,17 +263,16 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
         emailSendReminder24h: input.emailSendReminder24h,
         emailSendReminderShort: input.emailSendReminderShort,
         emailSendReviewRequest: input.emailSendReviewRequest,
+        // Written in the same transaction as the restaurant row.
+        businessDescription: input.businessDescription,
       },
       serviceSupabase,
     );
-    const businessDescription =
-      input.businessDescription !== undefined
-        ? await upsertRestaurantBusinessDescription(
-            restaurantId,
-            input.businessDescription,
-            serviceSupabase,
-          )
-        : await getRestaurantBusinessDescription(restaurantId, serviceSupabase);
+
+    if (input.name !== undefined || input.slug !== undefined) {
+      // The ops shell reads restaurant names and slugs from the cached memberships.
+      invalidateUserMembershipsCache(user.id);
+    }
 
     const response: RestaurantResponse = {
       restaurant: {
@@ -278,7 +285,7 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
         contactEmail: restaurant.contactEmail,
         contactPhone: restaurant.contactPhone,
         address: restaurant.address,
-        businessDescription,
+        businessDescription: restaurant.businessDescription,
         managerDailySummaryEnabled: restaurant.managerDailySummaryEnabled,
         managerWhatsappEnabled: restaurant.managerWhatsappEnabled,
         managerName: restaurant.managerName,
@@ -302,11 +309,9 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(response);
   } catch (error) {
-    logger.error('ops.restaurants.profile.patch failed', {
-      route: 'ops.restaurants.profile',
-      restaurantId,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-    });
+    if (isRestaurantUpdateError(error)) {
+      return apiError(error.status, error.code, error.message, { fields: error.fields });
+    }
     captureRestaurantServerEvent('restaurant_profile_section_save_failed', {
       restaurantId,
       distinctId: user.id,
@@ -317,9 +322,10 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
       groups: { restaurant: restaurantId },
       properties: { section: 'restaurant', source: 'ops', path: '/api/ops/restaurants/[id]' },
     });
-    return NextResponse.json(
-      { error: 'Something went wrong saving these settings.', code: 'INTERNAL_ERROR' },
-      { status: 500 },
+    return internalError(
+      error,
+      { route: ROUTE, restaurantId, method: 'PATCH' },
+      SAVE_FAILED_MESSAGE,
     );
   }
 }
@@ -336,16 +342,11 @@ async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/restaurants/[id]][DELETE] failed to resolve auth', authError.message);
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return authFailure(authError);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   const { id: restaurantId } = await context.params;
@@ -356,16 +357,11 @@ async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
       allowedRoles: [RESTAURANT_ROLE_OWNER],
     });
   } catch (error) {
-    const membershipErrorCode = getMembershipGuardErrorCode(error);
-    if (membershipErrorCode === 'MEMBERSHIP_NOT_FOUND') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-    if (membershipErrorCode === 'MEMBERSHIP_ROLE_DENIED') {
-      return NextResponse.json({ error: 'Forbidden: Owner role required' }, { status: 403 });
-    }
-
-    console.error('[ops/restaurants/[id]][DELETE] membership guard failed', error);
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return membershipFailure(error, {
+      route: ROUTE,
+      restaurantId,
+      roleDeniedMessage: 'Only an owner can delete a restaurant.',
+    });
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -379,19 +375,15 @@ async function deleteRestaurantRoute(req: NextRequest, context: RouteContext) {
 
     return NextResponse.json(response);
   } catch (error) {
-    logger.error('ops.restaurants.profile.delete failed', {
-      route: 'ops.restaurants.profile',
-      restaurantId,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-    });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: restaurantId },
       properties: { source: 'ops', path: '/api/ops/restaurants/[id]' },
     });
-    return NextResponse.json(
-      { error: 'Unable to delete restaurant.', code: 'INTERNAL_ERROR' },
-      { status: 500 },
+    return internalError(
+      error,
+      { route: ROUTE, restaurantId, method: 'DELETE' },
+      'Unable to delete restaurant.',
     );
   }
 }

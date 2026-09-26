@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import {
@@ -8,12 +15,14 @@ import {
   verifyUserPasswordConfirmation,
 } from '@/server/auth/password-confirmation';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { isGoogleBusinessProfileError } from '@/server/google-business-profile/errors';
 import { syncRestaurantProfileWithGoogleBusinessProfile } from '@/server/google-business-profile/service';
 import {
   getRestaurantDetails,
   updateRestaurantDetails,
   type UpdateRestaurantDetailsInput,
 } from '@/server/restaurants/details';
+import { isRestaurantUpdateError } from '@/server/restaurants/update-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
@@ -111,14 +120,11 @@ async function ensureAuthorized(
 
   if (authError) {
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated();
   }
 
   try {
@@ -127,9 +133,8 @@ async function ensureAuthorized(
       restaurantId,
       client: supabase,
     });
-  } catch (error) {
-    console.error('[ops][restaurants][details] admin permission required', error);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  } catch {
+    return forbidden();
   }
 
   return {
@@ -137,31 +142,31 @@ async function ensureAuthorized(
   };
 }
 
-function handleUnexpectedError(error: unknown, context: string) {
-  console.error(context, error);
+const ROUTE = 'ops.restaurants.details';
 
-  if (!(error instanceof PasswordConfirmationError)) {
-    captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-details' } });
-  }
-
+function handleUnexpectedError(error: unknown, restaurantId: string, method: string) {
   if (error instanceof PasswordConfirmationError) {
-    return NextResponse.json(
-      { message: error.message, code: error.code },
-      { status: error.status },
-    );
+    return apiError(error.status, error.code, error.message);
   }
 
-  if (error instanceof Error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (isRestaurantUpdateError(error)) {
+    return apiError(error.status, error.code, error.message, { fields: error.fields });
   }
 
-  return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
+  captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-details' } });
+
+  if (isGoogleBusinessProfileError(error)) {
+    // GBP service errors carry app-authored copy and a stable code.
+    return apiError(error.status, error.code, error.message);
+  }
+
+  return internalError(error, { route: ROUTE, restaurantId, method });
 }
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'MISSING_RESTAURANT', 'Restaurant id is required.');
   }
 
   try {
@@ -173,14 +178,14 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     const details = await getRestaurantDetails(restaurantId);
     return NextResponse.json(details);
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][details][GET]');
+    return handleUnexpectedError(error, restaurantId, 'GET');
   }
 }
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'MISSING_RESTAURANT', 'Restaurant id is required.');
   }
 
   return withCsrfProtectedMutation(req, () => putRestaurantDetails(req, restaurantId));
@@ -217,12 +222,9 @@ async function putRestaurantDetails(req: NextRequest, restaurantId: string) {
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
+      return validationError(error);
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body could not be read.');
   }
 
   try {
@@ -234,14 +236,14 @@ async function putRestaurantDetails(req: NextRequest, restaurantId: string) {
     const details = await updateRestaurantDetails(restaurantId, payload);
     return NextResponse.json(details);
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][details][PUT]');
+    return handleUnexpectedError(error, restaurantId, 'PUT');
   }
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const restaurantId = await resolveRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return apiError(400, 'MISSING_RESTAURANT', 'Restaurant id is required.');
   }
 
   return withCsrfProtectedMutation(req, () => postRestaurantDetails(req, restaurantId));
@@ -253,21 +255,16 @@ async function postRestaurantDetails(req: NextRequest, restaurantId: string) {
     payload = syncSchema.parse(await req.json());
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
+      return validationError(error);
     }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body could not be read.');
   }
 
   if (payload.direction === 'push_to_gbp') {
-    return NextResponse.json(
-      {
-        error: 'Legacy Google Business Profile writes are retired.',
-        code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
-      },
-      { status: 410 },
+    return apiError(
+      410,
+      'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+      'Legacy Google Business Profile writes are retired.',
     );
   }
 
@@ -289,6 +286,6 @@ async function postRestaurantDetails(req: NextRequest, restaurantId: string) {
     });
     return NextResponse.json(details);
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][details][POST]');
+    return handleUnexpectedError(error, restaurantId, 'POST');
   }
 }

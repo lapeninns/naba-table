@@ -67,3 +67,41 @@ describe('updateRestaurantDetails', () => {
     );
   });
 });
+
+describe('updateRestaurantDetails business description', () => {
+  beforeEach(() => {
+    updateRestaurantMock.mockReset();
+    updateRestaurantMock.mockResolvedValue({ ...updatedRestaurant, businessDescription: 'Cosy' });
+  });
+
+  it('writes the description with the restaurant row in one update, not a second upsert', async () => {
+    const client = makeClient();
+
+    const details = await updateRestaurantDetails(
+      'restaurant-1',
+      { name: 'New Name', businessDescription: '  Cosy ' },
+      client as never,
+    );
+
+    expect(updateRestaurantMock).toHaveBeenCalledWith(
+      'restaurant-1',
+      { name: 'New Name', businessDescription: 'Cosy' },
+      client,
+    );
+    expect(client.from).not.toHaveBeenCalled();
+    expect(details.businessDescription).toBe('Cosy');
+  });
+
+  it('saves a description-only change through the same atomic update', async () => {
+    const client = makeClient();
+
+    await updateRestaurantDetails('restaurant-1', { businessDescription: null }, client as never);
+
+    expect(updateRestaurantMock).toHaveBeenCalledWith(
+      'restaurant-1',
+      { businessDescription: null },
+      client,
+    );
+    expect(client.from).not.toHaveBeenCalledWith('restaurant_business_details');
+  });
+});
