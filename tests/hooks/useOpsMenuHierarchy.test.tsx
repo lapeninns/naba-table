@@ -401,3 +401,196 @@ describe('useOpsReorderMenuChildren', () => {
     expect(mutation?.options.scope).toEqual({ id: `menu-order:${restaurantId}` });
   });
 });
+
+describe('useOpsReorderMenuChildren with overlapping reorders in one scope', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  type Deferred = { resolve: (value: unknown) => void; reject: (error: unknown) => void };
+
+  /** Each reorder call waits for the test to settle it, in call order. */
+  function controlledSaves() {
+    const saves: Deferred[] = [];
+    menuHierarchyService.reorderChildren.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          saves.push({ resolve, reject });
+        }),
+    );
+    return saves;
+  }
+
+  function setupTwoLists() {
+    return setup(() => ({
+      sections: useOpsReorderMenuChildren(restaurantId),
+      items: useOpsReorderMenuChildren(restaurantId),
+    }));
+  }
+
+  const sectionsTarget = { level: 'sections', menuId: 'menu-1' } as const;
+  const itemsTarget = { level: 'items', menuId: 'menu-1', sectionId: 'section-1' } as const;
+  /** Items of section-1, wherever a section reorder has moved it. */
+  const itemOrder = (queryClient: ReturnType<typeof createTestQueryClient>) => {
+    const sections = cached(queryClient).menus[0]!.sections as Array<{
+      id: string;
+      items: Array<Record<string, unknown>>;
+    }>;
+    const section = sections.find((candidate) => candidate.id === 'section-1')!;
+    return section.items.map((item) => [item.id, item.displayOrder]);
+  };
+
+  it('@contract a failed section reorder rolls back only the sections, keeping a queued item reorder', async () => {
+    const saves = controlledSaves();
+    const { result, queryClient } = setupTwoLists();
+    seedHierarchy(queryClient);
+
+    const a = result.current.sections
+      .mutateAsync({ target: sectionsTarget, orderedIds: ['section-2', 'section-1'] })
+      .catch(() => undefined);
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const b = result.current.items.mutateAsync({
+      target: itemsTarget,
+      orderedIds: ['item-2', 'item-1'],
+    });
+    await waitFor(() =>
+      expect(itemOrder(queryClient)).toEqual([
+        ['item-2', 0],
+        ['item-1', 1],
+      ]),
+    );
+
+    saves[0]!.reject(new Error('stale'));
+    await a;
+
+    expect(sectionsOf(queryClient)).toEqual([
+      ['section-1', 0],
+      ['section-2', 1],
+    ]);
+    // B is still pending: its optimistic item order must survive A's rollback.
+    expect(itemOrder(queryClient)).toEqual([
+      ['item-2', 0],
+      ['item-1', 1],
+    ]);
+
+    await waitFor(() => expect(saves).toHaveLength(2));
+    saves[1]!.resolve([
+      { id: 'item-2', displayOrder: 0 },
+      { id: 'item-1', displayOrder: 1 },
+    ]);
+    await b;
+  });
+
+  it('@contract when both fail, the later rollback does not bring back the earlier rejected order', async () => {
+    const saves = controlledSaves();
+    const { result, queryClient } = setupTwoLists();
+    seedHierarchy(queryClient);
+
+    const a = result.current.sections
+      .mutateAsync({ target: sectionsTarget, orderedIds: ['section-2', 'section-1'] })
+      .catch(() => undefined);
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const b = result.current.items
+      .mutateAsync({ target: itemsTarget, orderedIds: ['item-2', 'item-1'] })
+      .catch(() => undefined);
+    await waitFor(() =>
+      expect(itemOrder(queryClient)).toEqual([
+        ['item-2', 0],
+        ['item-1', 1],
+      ]),
+    );
+
+    saves[0]!.reject(new Error('stale'));
+    await a;
+    await waitFor(() => expect(saves).toHaveLength(2));
+    saves[1]!.reject(new Error('stale'));
+    await b;
+
+    expect(sectionsOf(queryClient)).toEqual([
+      ['section-1', 0],
+      ['section-2', 1],
+    ]);
+    expect(itemOrder(queryClient)).toEqual([
+      ['item-1', 0],
+      ['item-2', 1],
+    ]);
+  });
+
+  it('@contract refetches the hierarchy only once the reorder scope drains', async () => {
+    const saves = controlledSaves();
+    const { result, queryClient, invalidateSpy } = setupTwoLists();
+    seedHierarchy(queryClient);
+    const listInvalidations = () =>
+      invalidateSpy.mock.calls.filter(
+        ([filters]) => JSON.stringify(filters?.queryKey) === JSON.stringify(listKey),
+      ).length;
+
+    const a = result.current.sections.mutateAsync({
+      target: sectionsTarget,
+      orderedIds: ['section-2', 'section-1'],
+    });
+    await waitFor(() => expect(saves).toHaveLength(1));
+    const b = result.current.items.mutateAsync({
+      target: itemsTarget,
+      orderedIds: ['item-2', 'item-1'],
+    });
+    await waitFor(() =>
+      expect(itemOrder(queryClient)).toEqual([
+        ['item-2', 0],
+        ['item-1', 1],
+      ]),
+    );
+
+    saves[0]!.resolve([
+      { id: 'section-2', displayOrder: 0 },
+      { id: 'section-1', displayOrder: 1 },
+    ]);
+    await a;
+    // A refetch now would return a hierarchy without B's order and overwrite it.
+    expect(listInvalidations()).toBe(0);
+    expect(itemOrder(queryClient)).toEqual([
+      ['item-2', 0],
+      ['item-1', 1],
+    ]);
+
+    await waitFor(() => expect(saves).toHaveLength(2));
+    saves[1]!.resolve([
+      { id: 'item-2', displayOrder: 0 },
+      { id: 'item-1', displayOrder: 1 },
+    ]);
+    await b;
+    await waitFor(() => expect(listInvalidations()).toBe(1));
+  });
+
+  it('@contract a menu edit does not refetch over a reorder that is still saving', async () => {
+    const saves = controlledSaves();
+    menuHierarchyService.updateMenu.mockResolvedValue({ id: 'menu-1', displayOrder: 0 });
+    const { result, queryClient, invalidateSpy } = setup(() => ({
+      reorder: useOpsReorderMenuChildren(restaurantId),
+      update: useOpsUpdateRestaurantMenu(restaurantId),
+    }));
+    seedHierarchy(queryClient);
+
+    const a = result.current.reorder.mutateAsync({
+      target: itemsTarget,
+      orderedIds: ['item-2', 'item-1'],
+    });
+    await waitFor(() => expect(saves).toHaveLength(1));
+    invalidateSpy.mockClear();
+
+    await result.current.update.mutateAsync({ menuId: 'menu-1', payload: { name: 'Dinner' } });
+
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: listKey });
+    expect(itemOrder(queryClient)).toEqual([
+      ['item-2', 0],
+      ['item-1', 1],
+    ]);
+
+    saves[0]!.resolve([
+      { id: 'item-2', displayOrder: 0 },
+      { id: 'item-1', displayOrder: 1 },
+    ]);
+    await a;
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: listKey }));
+  });
+});

@@ -16,14 +16,17 @@ import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
 
 import {
   applyChildOrder,
+  readChildOrder,
   removeItem,
   removeMenu,
   removeOption,
   removeSection,
+  restoreChildOrder,
   upsertItem,
   upsertMenu,
   upsertOption,
   upsertSection,
+  type ChildOrderSnapshot,
   type MenuHierarchyData,
 } from './menuHierarchyCache';
 
@@ -51,6 +54,14 @@ function hierarchyListKey(restaurantId?: string | null) {
   return queryKeys.opsMenuHierarchy.list(restaurantId ?? 'none');
 }
 
+/**
+ * Shared by every reorder hook instance of a restaurant (the sections list and each items table
+ * mount their own), so a refetch can wait until all of their writes have settled.
+ */
+function reorderMutationKey(restaurantId?: string | null) {
+  return ['ops', 'menu-hierarchy', 'reorder', restaurantId ?? 'none'] as const;
+}
+
 function requireRestaurantId(restaurantId?: string | null): string {
   if (!restaurantId) throw new Error('Restaurant id is required');
   return restaurantId;
@@ -58,7 +69,9 @@ function requireRestaurantId(restaurantId?: string | null): string {
 
 /**
  * Writes the canonical server response into the cached hierarchy, then refreshes it in the
- * background (not awaited, so dialogs close as soon as the save succeeds).
+ * background (not awaited, so dialogs close as soon as the save succeeds). While a reorder is
+ * still saving the refresh is skipped: the refetched list would not have that order yet and would
+ * overwrite it. The last reorder to settle refreshes instead.
  *
  * Dual-sync state is deliberately not invalidated: its food-menu drift compares the stored
  * `nabatable_projection` snapshot, which only a dual-sync refresh or publish rebuilds, so a
@@ -77,10 +90,18 @@ function useHierarchyCache(restaurantId?: string | null) {
     [listKey, queryClient],
   );
 
-  const refreshInBackground = useCallback(() => {
-    if (!restaurantId) return;
-    void queryClient.invalidateQueries({ queryKey: listKey });
-  }, [listKey, queryClient, restaurantId]);
+  /** `ownReorders`: reorders counted by the caller itself (1 from a reorder's own onSettled). */
+  const refreshInBackground = useCallback(
+    (ownReorders = 0) => {
+      if (!restaurantId) return;
+      const pendingReorders = queryClient.isMutating({
+        mutationKey: reorderMutationKey(restaurantId),
+      });
+      if (pendingReorders > ownReorders) return;
+      void queryClient.invalidateQueries({ queryKey: listKey });
+    },
+    [listKey, queryClient, restaurantId],
+  );
 
   return { queryClient, listKey, update, refreshInBackground };
 }
@@ -392,7 +413,8 @@ export type ReorderMenuChildrenVariables = {
   orderedIds: readonly string[];
 };
 
-type ReorderContext = { previous?: MenuHierarchyData };
+/** The reordered parent's children before this reorder, for a rollback of that parent only. */
+type ReorderContext = { previousOrder?: ChildOrderSnapshot };
 
 export const MENU_REORDER_ERROR_COPY = {
   MENU_ORDER_STALE: 'The menu changed since you loaded it. The latest order is shown.',
@@ -401,6 +423,10 @@ export const MENU_REORDER_ERROR_COPY = {
 /**
  * One reorder command for sections, items and options. The new order shows immediately
  * (optimistic) and rolls back if the save fails; writes are serialised per restaurant.
+ *
+ * A queued reorder applies its optimistic order at once (TanStack runs `onMutate` before the
+ * scope queue), so reorders of different lists can overlap. A failure therefore restores only
+ * its own parent's children, and the hierarchy is refetched once the whole scope has drained.
  */
 export function useOpsReorderMenuChildren(
   restaurantId?: string | null,
@@ -415,6 +441,7 @@ export function useOpsReorderMenuChildren(
 
   return useMutation<MenuChildOrder[], MutationError, ReorderMenuChildrenVariables, ReorderContext>(
     {
+      mutationKey: reorderMutationKey(restaurantId),
       scope: { id: `menu-order:${restaurantId ?? 'none'}` },
       meta: {
         feedback: {
@@ -428,13 +455,15 @@ export function useOpsReorderMenuChildren(
         menuHierarchyService.reorderChildren(requireRestaurantId(restaurantId), target, orderedIds),
       onMutate: async ({ target, orderedIds }) => {
         await cache.queryClient.cancelQueries({ queryKey: cache.listKey });
-        const previous = cache.queryClient.getQueryData<MenuHierarchyData>(cache.listKey);
+        const current = cache.queryClient.getQueryData<MenuHierarchyData>(cache.listKey);
+        const previousOrder = current ? readChildOrder(current, target) : undefined;
         cache.update((data) => applyChildOrder(data, target, orderedIds));
-        return { previous };
+        return { previousOrder };
       },
-      onError: (_error, _variables, context) => {
-        if (context?.previous) {
-          cache.queryClient.setQueryData(cache.listKey, context.previous);
+      onError: (_error, { target }, context) => {
+        const previousOrder = context?.previousOrder;
+        if (previousOrder) {
+          cache.update((data) => restoreChildOrder(data, target, previousOrder));
         }
       },
       onSuccess: (order, { target }) => {
@@ -447,7 +476,8 @@ export function useOpsReorderMenuChildren(
         );
       },
       onSettled: () => {
-        cache.refreshInBackground();
+        // This mutation still counts as pending here; refetch only when it is the last one.
+        cache.refreshInBackground(1);
       },
     },
   );
