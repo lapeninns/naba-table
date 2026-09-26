@@ -83,7 +83,11 @@ describe('GET /api/config/service-policy', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to load service policy' });
+    expect(body).toEqual({
+      error: 'Failed to load service policy',
+      code: 'INTERNAL_ERROR',
+      message: 'Failed to load service policy',
+    });
     expect(JSON.stringify(body)).not.toContain('permission denied');
   });
 
@@ -94,7 +98,11 @@ describe('GET /api/config/service-policy', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'An unexpected error occurred' });
+    expect(body).toEqual({
+      error: 'An unexpected error occurred',
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
+    });
     expect(JSON.stringify(body)).not.toContain('cookie store unavailable');
   });
 });

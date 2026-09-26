@@ -14,6 +14,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { internalError } from '@/lib/api/errors';
 import { loadDualSyncOperationalMetrics } from '@/server/dual-sync/observability';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
@@ -48,13 +49,18 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     });
     return gbpNoStoreJson(metrics, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load dual-sync metrics';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-metrics' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_METRICS_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/metrics', restaurantId },
+        'Failed to load dual-sync metrics.',
+      ),
+    );
   }
 }
 

@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { internalError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { autoCompletePastBookings } from '@/server/jobs/auto-complete-bookings';
 import { drainReviewSchedulingJobs } from '@/server/reviews/scheduling-retry';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
+
+const ROUTE = '/api/cron/auto-complete-bookings';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -44,15 +47,14 @@ export async function GET(request: Request) {
         { status: success ? 200 : 500 },
       );
     } catch (error) {
-      console.error('[cron][auto-complete] failed to run', {
-        jobName: auth.jobName,
-        runId: auth.runId,
-        error,
-      });
       captureServerException(error, {
         properties: { jobName: auth.jobName, runId: auth.runId, source: 'cron' },
       });
-      return NextResponse.json({ error: 'Auto-complete cron failed.' }, { status: 500 });
+      return internalError(
+        error,
+        { route: ROUTE, jobName: auth.jobName, runId: auth.runId },
+        'Auto-complete cron failed.',
+      );
     }
   });
 }

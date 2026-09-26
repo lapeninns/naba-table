@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getStrategicConfigSnapshot } from '@/server/capacity/strategic-config';
 import { clearStrategicCaches } from '@/server/capacity/strategic-maintenance';
@@ -9,6 +11,8 @@ import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership, requireMembershipForRestaurant } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/settings/strategic-config';
 
 const getQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -60,7 +64,10 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/settings][strategic-config][GET] auth lookup failed', error.message);
+    logger.error('[ops/settings][strategic-config][GET] auth lookup failed', {
+      route: ROUTE,
+      error: error.message,
+    });
     const mapped = mapSupabaseAuthError(error);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -75,7 +82,10 @@ export async function GET(request: NextRequest) {
   try {
     await requireMembershipForRestaurant({ userId: user.id, restaurantId });
   } catch (membershipError) {
-    console.error('[ops/settings][strategic-config][GET] membership check failed', membershipError);
+    logger.error('[ops/settings][strategic-config][GET] membership check failed', {
+      route: ROUTE,
+      error: membershipError,
+    });
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -92,11 +102,10 @@ export async function GET(request: NextRequest) {
       }),
     );
   } catch (settingsError) {
-    console.error('[ops/settings][strategic-config][GET] failed to load config', settingsError);
     captureServerException(settingsError, {
       properties: { source: 'ops', kind: 'ops-strategic-config' },
     });
-    return NextResponse.json({ error: 'Unable to load strategic settings' }, { status: 500 });
+    return internalError(settingsError, { route: ROUTE }, 'Unable to load strategic settings');
   }
 }
 
@@ -115,7 +124,10 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/settings][strategic-config][POST] auth lookup failed', error.message);
+    logger.error('[ops/settings][strategic-config][POST] auth lookup failed', {
+      route: ROUTE,
+      error: error.message,
+    });
     const mapped = mapSupabaseAuthError(error);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -130,10 +142,10 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
   } catch (membershipError) {
-    console.error(
-      '[ops/settings][strategic-config][POST] membership check failed',
-      membershipError,
-    );
+    logger.error('[ops/settings][strategic-config][POST] membership check failed', {
+      route: ROUTE,
+      error: membershipError,
+    });
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

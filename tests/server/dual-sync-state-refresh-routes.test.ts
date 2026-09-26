@@ -299,7 +299,7 @@ describe('dual-sync state and refresh routes', () => {
     expect(refreshFromGoogleMock).not.toHaveBeenCalled();
   });
 
-  it('returns frontend-readable state load errors', async () => {
+  it('returns fixed, frontend-readable copy for state load errors without echoing the cause', async () => {
     listFieldStatesMock.mockRejectedValue(new Error('state table unavailable'));
 
     const response = await stateGET(
@@ -308,14 +308,17 @@ describe('dual-sync state and refresh routes', () => {
     );
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toMatchObject({
-      message: 'state table unavailable',
-      error: 'state table unavailable',
-      code: 'DUAL_SYNC_STATE_ERROR',
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    const body = await response.json();
+    expect(body).toMatchObject({
+      message: 'Failed to load dual-sync state.',
+      error: 'Failed to load dual-sync state.',
+      code: 'INTERNAL_ERROR',
     });
+    expect(JSON.stringify(body)).not.toContain('state table unavailable');
   });
 
-  it('returns frontend-readable refresh errors', async () => {
+  it('returns fixed, frontend-readable copy for refresh errors without echoing the cause', async () => {
     refreshFromGoogleMock.mockRejectedValue(new Error('provider unavailable'));
 
     const response = await refreshPOST(
@@ -326,11 +329,14 @@ describe('dual-sync state and refresh routes', () => {
     );
 
     expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toMatchObject({
-      message: 'provider unavailable',
-      error: 'provider unavailable',
-      code: 'DUAL_SYNC_REFRESH_ERROR',
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    const body = await response.json();
+    expect(body).toMatchObject({
+      message: 'Refresh failed.',
+      error: 'Refresh failed.',
+      code: 'INTERNAL_ERROR',
     });
+    expect(JSON.stringify(body)).not.toContain('provider unavailable');
   });
 
   it('returns 409 when refresh overlaps another write-affecting sync job', async () => {

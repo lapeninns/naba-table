@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { captureServerException } from '@/lib/posthog/server';
 import {
@@ -24,6 +25,8 @@ import {
 } from '@/types/smsDelivery';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/sms-delivery';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -148,7 +151,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.error('[ops/sms-delivery] unexpected error', {
+    logger.error('[ops/sms-delivery] unexpected error', {
+      route: ROUTE,
       error: error instanceof Error ? error.message : String(error),
     });
     captureServerException(error, { properties: { source: 'ops', kind: 'sms-delivery' } });

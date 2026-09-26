@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
 import { firstString, safeDate } from '@/lib/api/query-params';
+import { captureServerException } from '@/lib/posthog/server';
 import { getTodayBookingsSummary } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -12,6 +13,8 @@ import {
 } from '@/src/app/api/ops/dashboard/_shared';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/dashboard/summary';
 
 const summaryQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -67,7 +70,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(summary);
   } catch (summaryError) {
-    console.error('[ops/dashboard][summary] failed to load summary', summaryError);
     captureServerException(summaryError, {
       groups: { restaurant: query.restaurantId },
       properties: {
@@ -76,6 +78,6 @@ export async function GET(request: NextRequest) {
         kind: 'ops-dashboard-summary',
       },
     });
-    return NextResponse.json({ error: 'Unable to load summary' }, { status: 500 });
+    return internalError(summaryError, { route: ROUTE }, 'Unable to load summary');
   }
 }

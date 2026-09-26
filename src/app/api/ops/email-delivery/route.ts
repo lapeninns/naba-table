@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   GuardError,
@@ -26,6 +27,8 @@ import {
 } from '@/types/emailDelivery';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/email-delivery';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -191,7 +194,8 @@ export async function GET(request: NextRequest) {
           emailType: parsedQuery.data.emailType,
         });
       } catch (error) {
-        console.error('[ops/email-delivery] failed to compute summary', {
+        logger.error('[ops/email-delivery] failed to compute summary', {
+          route: ROUTE,
           restaurantId,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -247,7 +251,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    console.error('[ops/email-delivery] unexpected error', {
+    logger.error('[ops/email-delivery] unexpected error', {
+      route: ROUTE,
       error: error instanceof Error ? error.message : String(error),
     });
     captureServerException(error, { properties: { source: 'ops', kind: 'email-delivery' } });

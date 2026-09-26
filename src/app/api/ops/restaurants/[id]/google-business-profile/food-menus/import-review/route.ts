@@ -9,6 +9,7 @@ import {
   FoodMenusImportReviewRequestSchema,
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
+import { internalError } from '@/lib/api/errors';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { listPendingFoodMenusImportReviews } from '@/server/google-business-profile/food-menus-storage';
@@ -51,9 +52,16 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review-list' },
     });
-    const message =
-      error instanceof Error ? error.message : 'Unable to list Google FoodMenus import reviews.';
-    return gbpNoStoreJson({ error: message }, { status: 500 });
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        {
+          route: '/api/ops/restaurants/[id]/google-business-profile/food-menus/import-review',
+          restaurantId,
+        },
+        'Unable to list Google FoodMenus import reviews.',
+      ),
+    );
   }
 }
 
@@ -108,9 +116,16 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review' },
     });
-    const message =
-      error instanceof Error ? error.message : 'Unable to prepare Google FoodMenus import review.';
-    return gbpNoStoreJson({ error: message }, { status: 500 });
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        {
+          route: '/api/ops/restaurants/[id]/google-business-profile/food-menus/import-review',
+          restaurantId,
+        },
+        'Unable to prepare Google FoodMenus import review.',
+      ),
+    );
   }
 }
 

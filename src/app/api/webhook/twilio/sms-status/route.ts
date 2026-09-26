@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import {
   mapTwilioMessageStatusToDeliveryStatus,
@@ -10,6 +11,8 @@ import { processSmsStatusCallback } from '@/server/notifications/sms-status';
 import { findLatestSmsDeliveryByMessageSid, recordSmsDeliveryLog } from '@/server/sms/delivery-log';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/webhook/twilio/sms-status';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -90,7 +93,9 @@ function readSignedLinkageContext(req: NextRequest): SmsLinkageContext | null {
 export async function POST(req: NextRequest) {
   const authToken = env.twilio.authToken;
   if (!authToken) {
-    console.error('[webhook][twilio][sms-status] TWILIO_AUTH_TOKEN missing; refusing webhook');
+    logger.error('[webhook][twilio][sms-status] TWILIO_AUTH_TOKEN missing; refusing webhook', {
+      route: ROUTE,
+    });
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
   }
 
@@ -129,7 +134,8 @@ export async function POST(req: NextRequest) {
   );
 
   if (!isValid) {
-    console.warn('[webhook][twilio][sms-status] signature validation failed', {
+    logger.warn('[webhook][twilio][sms-status] signature validation failed', {
+      route: ROUTE,
       requestUrl: req.url,
       validationUrls,
     });

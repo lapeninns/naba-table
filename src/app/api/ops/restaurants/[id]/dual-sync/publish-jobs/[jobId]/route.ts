@@ -19,6 +19,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { internalError } from '@/lib/api/errors';
 import { getPublishJobDetailForRestaurant } from '@/server/dual-sync/publish/operations';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
@@ -64,13 +65,18 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     }
     return gbpNoStoreJson({ restaurantId, ...detail }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load publish job detail';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-publish-job' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_PUBLISH_JOB_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/publish-jobs/[jobId]', restaurantId },
+        'Failed to load publish job detail.',
+      ),
+    );
   }
 }
 

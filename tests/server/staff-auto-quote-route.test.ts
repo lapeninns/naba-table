@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const quoteTablesMock = vi.hoisted(() => vi.fn());
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
@@ -35,14 +35,24 @@ function csrfHeaders(): Headers {
   });
 }
 
-function buildRouteClient() {
-  const bookingMaybeSingle = vi
-    .fn()
-    .mockResolvedValue({ data: { id: BOOKING_ID, restaurant_id: RESTAURANT_ID }, error: null });
+function buildRouteClient({
+  bookingError = null,
+  membershipError = null,
+}: {
+  bookingError?: { message: string; code?: string } | null;
+  membershipError?: { message: string; code?: string } | null;
+} = {}) {
+  const bookingMaybeSingle = vi.fn().mockResolvedValue({
+    data: bookingError ? null : { id: BOOKING_ID, restaurant_id: RESTAURANT_ID },
+    error: bookingError,
+  });
   const bookingEq = vi.fn().mockReturnValue({ maybeSingle: bookingMaybeSingle });
   const bookingSelect = vi.fn().mockReturnValue({ eq: bookingEq });
 
-  const membershipMaybeSingle = vi.fn().mockResolvedValue({ data: { role: 'host' }, error: null });
+  const membershipMaybeSingle = vi.fn().mockResolvedValue({
+    data: membershipError ? null : { role: 'host' },
+    error: membershipError,
+  });
   const membershipEqUser = vi.fn().mockReturnValue({ maybeSingle: membershipMaybeSingle });
   const membershipEqRestaurant = vi.fn().mockReturnValue({ eq: membershipEqUser });
   const membershipSelect = vi.fn().mockReturnValue({ eq: membershipEqRestaurant });
@@ -98,5 +108,54 @@ describe('staff auto-quote route security', () => {
     expect(requireApiRateLimitMock.mock.calls[0]?.[0]).not.toHaveProperty('parts');
     expect(getTenantServiceSupabaseClientMock).not.toHaveBeenCalled();
     expect(quoteTablesMock).not.toHaveBeenCalled();
+  });
+
+  describe('raw error sweep (C1)', () => {
+    const SECRET = 'SECRET_DB_DETAIL owner@example.com';
+    let consoleError: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleError.mockRestore();
+    });
+
+    function quoteRequest() {
+      return new NextRequest('https://app.nabatable.com/api/staff/auto/quote', {
+        method: 'POST',
+        headers: csrfHeaders(),
+        body: JSON.stringify({ bookingId: BOOKING_ID }),
+      });
+    }
+
+    async function expectFixed500(response: Response) {
+      expect(response.status).toBe(500);
+      const text = await response.text();
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(text).not.toContain('owner@example.com');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('owner@example.com');
+      expect(JSON.parse(text)).toMatchObject({
+        code: 'INTERNAL_ERROR',
+        error: 'Unable to quote tables',
+      });
+    }
+
+    it.each([
+      ['booking lookup', { bookingError: { message: SECRET, code: '42501' } }],
+      ['membership lookup', { membershipError: { message: SECRET, code: '42501' } }],
+    ])('returns a fixed 500 when the %s fails', async (_label, options) => {
+      getRouteHandlerSupabaseClientMock.mockResolvedValue(buildRouteClient(options));
+
+      await expectFixed500(await POST(quoteRequest()));
+      expect(quoteTablesMock).not.toHaveBeenCalled();
+    });
+
+    it('returns a fixed 500 when quoteTables throws unexpectedly', async () => {
+      quoteTablesMock.mockRejectedValue(new Error(SECRET));
+
+      await expectFixed500(await POST(quoteRequest()));
+    });
   });
 });

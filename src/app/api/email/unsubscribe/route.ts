@@ -2,7 +2,9 @@
 import { NextResponse } from 'next/server';
 
 import config from '@/config';
+import { internalError } from '@/lib/api/errors';
 import { env } from '@/lib/env';
+import { sanitizeLogText } from '@/lib/logger';
 import { addEmailToSuppressionList } from '@/server/emails/email-suppression-list';
 import { validateUnsubscribeToken } from '@/server/emails/unsubscribe-token';
 import { recordObservabilityEvent } from '@/server/observability';
@@ -54,7 +56,9 @@ function htmlPage(title: string, bodyHtml: string, status: number): NextResponse
   });
 }
 
-function resolveValidatedEmail(req: NextRequest): { email: string } | { error: 'not_configured' | 'invalid' } {
+function resolveValidatedEmail(
+  req: NextRequest,
+): { email: string } | { error: 'not_configured' | 'invalid' } {
   const secret = env.security.sessionRecoveryAccessTokenSecret;
   if (!secret) {
     return { error: 'not_configured' };
@@ -132,9 +136,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       source: 'email.unsubscribe',
       eventType: 'email_suppression.failed',
       severity: 'error',
-      context: { error: error instanceof Error ? error.message : 'unknown' },
+      context: { error: error instanceof Error ? sanitizeLogText(error.message) : 'unknown' },
     });
-    return NextResponse.json({ error: 'Failed to process unsubscribe' }, { status: 500 });
+    return internalError(
+      error,
+      { route: '/api/email/unsubscribe' },
+      'Failed to process unsubscribe',
+    );
   }
 
   // Browsers (the GET confirm form) get an HTML page; programmatic one-click callers

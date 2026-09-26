@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { firstString, safeBool } from '@/lib/api/query-params';
 import { HttpError } from '@/lib/http/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureRestaurantServerEvent, captureServerException } from '@/lib/posthog/server';
 import { checkSlotAvailability, findAlternativeSlots } from '@/server/capacity';
 import { recordObservabilityEvent } from '@/server/observability';
@@ -23,6 +24,8 @@ import { extractClientIp, anonymizeIp } from '@/server/security/request';
 import { getDefaultRestaurantId, MissingRestaurantContextError } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/availability';
 
 // =====================================================
 // Request Validation
@@ -266,14 +269,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    console.error('[availability][GET] Unexpected error', { error });
+    logger.error('[availability][GET] Unexpected error', { route: ROUTE, error });
 
     void recordObservabilityEvent({
       source: 'api.availability',
       eventType: 'availability.check.failure',
       severity: 'error',
       context: {
-        error: error instanceof Error ? error.message : String(error),
+        error: sanitizeLogText(error instanceof Error ? error.message : String(error)),
       },
     });
 

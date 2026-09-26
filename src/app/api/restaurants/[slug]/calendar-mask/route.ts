@@ -2,10 +2,13 @@ import { DateTime } from 'luxon';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
+import { internalError } from '@/lib/api/errors';
 import { addUtcDays, daysBetweenInclusive, safeDate } from '@/lib/api/query-params';
 import { getRestaurantBySlug } from '@/server/restaurants';
 import { getRestaurantCalendarMask } from '@/server/restaurants/calendarMask';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
+
+const ROUTE = '/api/restaurants/[slug]/calendar-mask';
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -116,7 +119,6 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       },
     });
   } catch (error) {
-    console.error('[restaurants][calendar-mask] failed to load mask', { slug, error });
-    return NextResponse.json({ error: 'Unable to load calendar mask' }, { status: 500 });
+    return internalError(error, { route: ROUTE, slug }, 'Unable to load calendar mask');
   }
 }

@@ -3,12 +3,15 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { env } from '@/lib/env';
+import { logger } from '@/lib/logger';
 import { isMissingSessionAuthError } from '@/lib/supabase/auth-errors';
 import { buildSupabaseCookieOptions, resolveCookieDomain } from '@/lib/supabase/cookies';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 
 import type { Database } from '@/types/supabase';
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/auth/signout';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,10 +44,10 @@ function expireAuthCookie(cookieStore: Awaited<ReturnType<typeof cookies>>, name
   try {
     cookieStore.delete(name);
   } catch (error) {
-    console.warn(
-      '[auth/signout] Cookie delete warning:',
-      error instanceof Error ? error.message : String(error),
-    );
+    logger.warn('[auth/signout] Cookie delete warning:', {
+      route: ROUTE,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -67,10 +70,10 @@ async function postSignOut() {
             cookieStore.set({ name, value, ...buildCookieConfig(options) });
           });
         } catch (error) {
-          console.warn(
-            '[auth/signout] Cookie write warning:',
-            error instanceof Error ? error.message : String(error),
-          );
+          logger.warn('[auth/signout] Cookie write warning:', {
+            route: ROUTE,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       },
     },
@@ -81,22 +84,20 @@ async function postSignOut() {
   try {
     const { error: historyError } = await (
       supabase as unknown as {
-        rpc: (
-          name: 'end_my_account_session',
-        ) => Promise<{ error: { message?: string } | null }>;
+        rpc: (name: 'end_my_account_session') => Promise<{ error: { message?: string } | null }>;
       }
     ).rpc('end_my_account_session');
     if (historyError) {
-      console.warn(
-        '[auth/signout] Session history update warning:',
-        historyError.message ?? 'unknown error',
-      );
+      logger.warn('[auth/signout] Session history update warning:', {
+        route: ROUTE,
+        error: historyError.message ?? 'unknown error',
+      });
     }
   } catch (error) {
-    console.warn(
-      '[auth/signout] Session history update warning:',
-      error instanceof Error ? error.message : String(error),
-    );
+    logger.warn('[auth/signout] Session history update warning:', {
+      route: ROUTE,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   // Sign out - this will trigger cookie deletion via setAll
@@ -104,7 +105,7 @@ async function postSignOut() {
 
   if (error) {
     if (!isMissingSessionAuthError(error)) {
-      console.error('[auth/signout] Sign-out warning:', error.message);
+      logger.error('[auth/signout] Sign-out warning:', { route: ROUTE, error: error.message });
     }
   }
 

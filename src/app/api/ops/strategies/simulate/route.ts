@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import { logger } from '@/lib/logger';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { requireAdminMembership } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/strategies/simulate';
 
 const payloadSchema = z.object({
   restaurantId: z.string().uuid(),
@@ -34,7 +37,10 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/strategies/simulate][POST] auth lookup failed', error.message);
+    logger.error('[ops/strategies/simulate][POST] auth lookup failed', {
+      route: ROUTE,
+      error: error.message,
+    });
     const mapped = mapSupabaseAuthError(error);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -57,7 +63,10 @@ export async function POST(request: NextRequest) {
   try {
     await requireAdminMembership({ userId: user.id, restaurantId });
   } catch (accessError) {
-    console.error('[ops/strategies/simulate][POST] membership check failed', accessError);
+    logger.error('[ops/strategies/simulate][POST] membership check failed', {
+      route: ROUTE,
+      error: accessError,
+    });
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

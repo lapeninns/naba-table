@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { sendMonthlyVenueReports } from '@/server/jobs/monthly-venue-report';
 import { isFirstWednesdayOfMonth } from '@/server/reports/monthly-venue-report';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
+
+const ROUTE = '/api/cron/monthly-venue-report';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -27,10 +30,10 @@ export async function GET(request: Request) {
     try {
       // Guard: only run on the first Wednesday of the month, unless forced
       if (!force && !isFirstWednesdayOfMonth()) {
-        console.info(
-          '[cron][monthly-venue-report] skipped: not the first Wednesday of the month',
-          { runId: auth.runId },
-        );
+        logger.info('[cron][monthly-venue-report] skipped: not the first Wednesday of the month', {
+          route: ROUTE,
+          runId: auth.runId,
+        });
         return NextResponse.json({
           success: true,
           skipped: true,
@@ -50,7 +53,8 @@ export async function GET(request: Request) {
         ...summary,
       });
     } catch (error) {
-      console.error('[cron][monthly-venue-report] failed', {
+      logger.error('[cron][monthly-venue-report] failed', {
+        route: ROUTE,
         jobName: auth.jobName,
         runId: auth.runId,
         error,
@@ -62,10 +66,7 @@ export async function GET(request: Request) {
           source: 'cron',
         },
       });
-      return NextResponse.json(
-        { error: 'Monthly venue report cron failed.' },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: 'Monthly venue report cron failed.' }, { status: 500 });
     }
   });
 }

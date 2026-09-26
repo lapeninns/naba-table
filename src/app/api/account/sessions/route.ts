@@ -5,6 +5,8 @@ import {
   accountDeviceRenameSchema,
   accountSessionHeartbeatSchema,
 } from '@/lib/account/session-schema';
+import { internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { QA_OPS_AUTH_COOKIE_NAME, getQaOpsAuthFixture } from '@/server/auth/qa-ops-session';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -12,6 +14,8 @@ import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
 import type { AccountSessionsResponse } from '@/lib/account/session-schema';
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/account/sessions';
 
 export const dynamic = 'force-dynamic';
 
@@ -250,8 +254,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
 
     if (error) {
-      console.error('[account/sessions][get] failed to list sessions', {
-        code: error.code ?? null,
+      logger.error('[account/sessions][get] failed to list sessions', {
+        route: ROUTE,
+        errorKind: error.code ?? null,
         message: error.message,
       });
       return jsonError(500, 'SESSION_LIST_FAILED', 'We couldn’t load your sessions. Try again.');
@@ -265,8 +270,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (error) {
-    console.error('[account/sessions][get] unexpected error', error);
-    return jsonError(500, 'UNEXPECTED_ERROR', 'We couldn’t load your sessions. Try again.');
+    return internalError(
+      error,
+      { route: ROUTE, method: 'GET' },
+      'We couldn’t load your sessions. Try again.',
+    );
   }
 }
 
@@ -307,8 +315,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
 
       if (error) {
-        console.error('[account/sessions][post] failed to record activity', {
-          code: error.code ?? null,
+        logger.error('[account/sessions][post] failed to record activity', {
+          route: ROUTE,
+          errorKind: error.code ?? null,
           message: error.message,
         });
         return jsonError(500, 'SESSION_ACTIVITY_FAILED', 'Unable to record session activity');
@@ -316,8 +325,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       return NextResponse.json({ status: 'ok' });
     } catch (error) {
-      console.error('[account/sessions][post] unexpected error', error);
-      return jsonError(500, 'UNEXPECTED_ERROR', 'Unable to record session activity');
+      return internalError(
+        error,
+        { route: ROUTE, method: 'POST' },
+        'Unable to record session activity',
+      );
     }
   });
 }
@@ -363,8 +375,11 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
 
       return NextResponse.json({ status: 'ok' });
     } catch (error) {
-      console.error('[account/sessions][patch] unexpected error', error);
-      return jsonError(500, 'UNEXPECTED_ERROR', 'Unable to rename this device');
+      return internalError(
+        error,
+        { route: ROUTE, method: 'PATCH' },
+        'Unable to rename this device',
+      );
     }
   });
 }
@@ -381,7 +396,8 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
       const { error } = await auth.supabase.auth.signOut({ scope: 'others' });
       if (error) {
-        console.error('[account/sessions][delete] failed to log out other sessions', {
+        logger.error('[account/sessions][delete] failed to log out other sessions', {
+          route: ROUTE,
           message: error.message,
         });
         return jsonError(
@@ -393,10 +409,9 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
 
       return NextResponse.json({ status: 'ok' });
     } catch (error) {
-      console.error('[account/sessions][delete] unexpected error', error);
-      return jsonError(
-        500,
-        'UNEXPECTED_ERROR',
+      return internalError(
+        error,
+        { route: ROUTE, method: 'DELETE' },
         'We couldn’t log out your other sessions. Try again.',
       );
     }

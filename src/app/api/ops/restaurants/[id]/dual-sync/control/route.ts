@@ -14,6 +14,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { internalError } from '@/lib/api/errors';
 import {
   getDualSyncRestaurantControl,
   setDualSyncRestaurantPaused,
@@ -46,13 +47,18 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
     });
     return gbpNoStoreJson({ restaurantId, control }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load dual-sync control';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-control-read' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_CONTROL_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/control', restaurantId },
+        'Failed to load dual-sync control.',
+      ),
+    );
   }
 }
 
@@ -87,13 +93,18 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     });
     return gbpNoStoreJson({ restaurantId, control }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to update dual-sync control';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-control-update' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_CONTROL_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/control', restaurantId },
+        'Failed to update dual-sync control.',
+      ),
+    );
   }
 }
 

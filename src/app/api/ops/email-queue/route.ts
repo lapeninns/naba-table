@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import {
   GuardError,
   listUserRestaurantMemberships,
@@ -19,6 +20,8 @@ import {
 } from '@/types/emailQueue';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/email-queue';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -287,7 +290,8 @@ export async function GET(request: NextRequest) {
       return jsonError(mapped.status, { code: mapped.code, error: mapped.error });
     }
 
-    console.error('[ops/email-queue] unexpected error', {
+    logger.error('[ops/email-queue] unexpected error', {
+      route: ROUTE,
       error: error instanceof Error ? error.message : String(error),
     });
     captureServerException(error, {

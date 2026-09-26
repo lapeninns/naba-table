@@ -1,11 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { listBookingHistory } from '@/server/ops/booking-lifecycle/history';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
 
 import type { Tables } from '@/types/supabase';
+
+const ROUTE = '/api/ops/bookings/[id]/history';
 
 type RouteParams = {
   params: Promise<{ id: string | string[] }>;
@@ -35,7 +39,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops][booking-history] failed to resolve auth', authError.message);
+    logger.error('[ops][booking-history] failed to resolve auth', {
+      route: ROUTE,
+      error: authError.message,
+    });
     return NextResponse.json({ error: 'Unable to verify session' }, { status: 401 });
   }
 
@@ -53,12 +60,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           typeof restaurantId === 'string' && restaurantId.length > 0,
       );
   } catch (membershipError) {
-    console.error('[ops][booking-history] failed to load memberships', membershipError);
     captureServerException(membershipError, {
       distinctId: user.id,
       properties: { bookingId: id, source: 'ops', kind: 'ops-booking-history' },
     });
-    return NextResponse.json({ error: 'Unable to verify access' }, { status: 500 });
+    return internalError(membershipError, { route: ROUTE }, 'Unable to verify access');
   }
 
   if (authorizedRestaurantIds.length === 0) {
@@ -74,7 +80,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     .maybeSingle();
 
   if (bookingError) {
-    console.error('[ops][booking-history] failed to load booking', bookingError.message);
+    logger.error('[ops][booking-history] failed to load booking', {
+      route: ROUTE,
+      error: bookingError.message,
+    });
     return NextResponse.json({ error: 'Unable to load booking' }, { status: 500 });
   }
 
@@ -91,7 +100,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[ops][booking-history] failed to fetch history', error);
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: bookingRow.restaurant_id },
@@ -102,6 +110,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         kind: 'ops-booking-history',
       },
     });
-    return NextResponse.json({ error: 'Unable to load booking history' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to load booking history');
   }
 }

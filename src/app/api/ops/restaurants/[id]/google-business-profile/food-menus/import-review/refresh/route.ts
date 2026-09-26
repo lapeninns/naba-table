@@ -9,6 +9,7 @@ import {
   FoodMenusImportReviewRefreshRequestSchema,
   invalidPayloadResponse,
 } from '@/app/api/ops/restaurants/[id]/google-business-profile/food-menus/_shared';
+import { internalError } from '@/lib/api/errors';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
 import { refreshFoodMenusImportReviewFromGoogle } from '@/server/google-business-profile/food-menus-sync';
@@ -91,9 +92,17 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'gbp-food-menus-import-review-refresh' },
     });
-    const message =
-      error instanceof Error ? error.message : 'Unable to refresh Google FoodMenus import review.';
-    return gbpNoStoreJson({ error: message }, { status: 500 });
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        {
+          route:
+            '/api/ops/restaurants/[id]/google-business-profile/food-menus/import-review/refresh',
+          restaurantId,
+        },
+        'Unable to refresh Google FoodMenus import review.',
+      ),
+    );
   }
 }
 

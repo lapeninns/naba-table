@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
 import { firstString, safeDate } from '@/lib/api/query-params';
 import { generateCSV } from '@/lib/export/csv';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { formatTimeRange } from '@/lib/utils/datetime';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getTodayBookingsSummary } from '@/server/ops/bookings';
@@ -12,6 +14,8 @@ import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/serve
 import { requireMembershipForRestaurant } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/bookings/export';
 
 const exportQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -68,7 +72,10 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error('[ops/bookings/export][GET] failed to resolve auth', error.message);
+    logger.error('[ops/bookings/export][GET] failed to resolve auth', {
+      route: ROUTE,
+      error: error.message,
+    });
     const mapped = mapSupabaseAuthError(error);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -87,7 +94,10 @@ export async function GET(request: NextRequest) {
       restaurantId: query.restaurantId,
     });
   } catch (membershipError) {
-    console.error('[ops/bookings/export][GET] membership validation failed', membershipError);
+    logger.error('[ops/bookings/export][GET] membership validation failed', {
+      route: ROUTE,
+      error: membershipError,
+    });
     captureServerException(membershipError, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-bookings-export' },
@@ -158,12 +168,11 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (summaryError) {
-    console.error('[ops/bookings/export][GET] failed to build export', summaryError);
     captureServerException(summaryError, {
       distinctId: user.id,
       groups: query.restaurantId ? { restaurant: query.restaurantId } : undefined,
       properties: { restaurantId: query.restaurantId, source: 'ops', kind: 'ops-bookings-export' },
     });
-    return NextResponse.json({ error: 'Unable to export bookings' }, { status: 500 });
+    return internalError(summaryError, { route: ROUTE }, 'Unable to export bookings');
   }
 }

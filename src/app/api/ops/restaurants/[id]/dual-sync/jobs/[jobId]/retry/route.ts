@@ -11,6 +11,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { internalError } from '@/lib/api/errors';
 import { retryDualSyncJob } from '@/server/dual-sync/queue';
 import { gbpNoStoreJson, gbpNoStoreResponse } from '@/server/dual-sync/retention/privacy';
 import { captureSafeGbpException } from '@/server/dual-sync/retention/telemetry';
@@ -56,13 +57,18 @@ export async function POST(_req: NextRequest, { params }: RouteContext) {
     }
     return gbpNoStoreJson({ restaurantId, job }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to retry dual-sync job';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-job-retry' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_JOB_RETRY_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/jobs/[jobId]/retry', restaurantId },
+        'Failed to retry dual-sync job.',
+      ),
+    );
   }
 }
 
