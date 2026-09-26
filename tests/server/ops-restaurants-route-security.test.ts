@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const withPlatformAdminAuthorizationMock = vi.hoisted(() => vi.fn());
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
@@ -31,6 +31,11 @@ vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: getServiceSupabaseClientMock,
 }));
 
+import {
+  RestaurantAccessExistsError,
+  RestaurantCreateValidationError,
+  RestaurantSlugUnavailableError,
+} from '@/server/restaurants/create-errors';
 import { POST } from '@/src/app/api/ops/restaurants/route';
 
 const PLATFORM_USER_ID = '22222222-2222-4222-8222-222222222222';
@@ -154,5 +159,70 @@ describe('POST /api/ops/restaurants security', () => {
       PLATFORM_USER_ID,
       { tag: 'service-client' },
     );
+  });
+
+  describe('creation errors (C1)', () => {
+    const SECRET = 'SECRET_DB_DETAIL owner@example.com';
+    let consoleError: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      withPlatformAdminAuthorizationMock.mockResolvedValue(authorized());
+      consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleError.mockRestore();
+    });
+
+    it('returns a fixed 500 without echoing an unexpected creation failure', async () => {
+      createRestaurantMock.mockRejectedValue(new Error(`Failed to create restaurant: ${SECRET}`));
+
+      const response = await POST(request());
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(JSON.parse(text)).toEqual({
+        error: 'Unable to create restaurant',
+        code: 'INTERNAL_ERROR',
+        message: 'Unable to create restaurant',
+      });
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain('owner@example.com');
+    });
+
+    it('maps an exhausted slug to 409 SLUG_TAKEN', async () => {
+      createRestaurantMock.mockRejectedValue(new RestaurantSlugUnavailableError());
+
+      const response = await POST(request());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'SLUG_TAKEN',
+        fields: { slug: [expect.any(String)] },
+      });
+    });
+
+    it('maps existing restaurant access to 409 RESTAURANT_ACCESS_EXISTS', async () => {
+      createRestaurantMock.mockRejectedValue(new RestaurantAccessExistsError());
+
+      const response = await POST(request());
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({ code: 'RESTAURANT_ACCESS_EXISTS' });
+    });
+
+    it('maps a creation rule failure to 400 VALIDATION_FAILED with its safe message', async () => {
+      createRestaurantMock.mockRejectedValue(
+        new RestaurantCreateValidationError('Choose a valid timezone.'),
+      );
+
+      const response = await POST(request());
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'VALIDATION_FAILED',
+        error: 'Choose a valid timezone.',
+      });
+    });
   });
 });

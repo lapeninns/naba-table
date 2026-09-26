@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
+
+const ROUTE = '/api/config/service-policy';
 
 export async function GET() {
   try {
@@ -15,8 +18,11 @@ export async function GET() {
       .maybeSingle();
 
     if (error) {
-      console.error('[config/service-policy][GET] Database error', { error });
-      return NextResponse.json({ error: 'Failed to load service policy' }, { status: 500 });
+      return internalError(
+        error,
+        { route: ROUTE, errorKind: error.code },
+        'Failed to load service policy',
+      );
     }
 
     if (!data) {
@@ -38,10 +44,9 @@ export async function GET() {
       },
     });
   } catch (error) {
-    console.error('[config/service-policy][GET] Unexpected error', { error });
     captureServerException(error, {
       properties: { source: 'api', kind: 'config-service-policy' },
     });
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'An unexpected error occurred');
   }
 }

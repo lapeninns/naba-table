@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { getTodayBookingChanges } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -11,6 +12,8 @@ import {
 } from '@/src/app/api/ops/dashboard/_shared';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/dashboard/changes';
 
 const changesQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -73,7 +76,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(changesData);
   } catch (changesError) {
-    console.error('[ops/dashboard][changes] failed to load booking changes', changesError);
     captureServerException(changesError, {
       groups: { restaurant: query.restaurantId },
       properties: {
@@ -82,6 +84,6 @@ export async function GET(request: NextRequest) {
         kind: 'ops-dashboard-changes',
       },
     });
-    return NextResponse.json({ error: 'Unable to load booking changes' }, { status: 500 });
+    return internalError(changesError, { route: ROUTE }, 'Unable to load booking changes');
   }
 }

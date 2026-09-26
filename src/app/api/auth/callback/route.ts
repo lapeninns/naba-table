@@ -7,11 +7,14 @@ import {
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
+import { logger } from '@/lib/logger';
 import { getTrustedAppOrigin, getTrustedSiteOrigin } from '@/lib/site-url';
 import { normalizeEmail } from '@/server/customers';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/auth/callback';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,7 +120,10 @@ async function linkAuthUserToCustomers(authUserId: string, email: string): Promi
       .is('auth_user_id', null);
 
     if (findError) {
-      console.error('[auth/callback] Failed to find customers for linking:', findError.message);
+      logger.error('[auth/callback] Failed to find customers for linking:', {
+        route: ROUTE,
+        error: findError.message,
+      });
       return;
     }
 
@@ -132,12 +138,14 @@ async function linkAuthUserToCustomers(authUserId: string, email: string): Promi
       .in('id', customerIds);
 
     if (updateError) {
-      console.error('[auth/callback] Failed to link customers to auth user:', updateError.message);
+      logger.error('[auth/callback] Failed to link customers to auth user:', {
+        route: ROUTE,
+        error: updateError.message,
+      });
       return;
     }
-
   } catch (error) {
-    console.error('[auth/callback] Error linking auth user to customers:', error);
+    logger.error('[auth/callback] Error linking auth user to customers:', { route: ROUTE, error });
   }
 }
 
@@ -155,7 +163,8 @@ export async function GET(req: NextRequest) {
     const sanitized = sanitizeRedirect(redirectedFrom, rootDomain, hostname);
     if (!sanitized) {
       if (redirectedFrom) {
-        console.warn('[auth/callback] rejected redirect param', {
+        logger.warn('[auth/callback] rejected redirect param', {
+          route: ROUTE,
           redirectedFrom: describeRedirectTarget(redirectedFrom),
         });
       }
@@ -177,11 +186,9 @@ export async function GET(req: NextRequest) {
   };
 
   if (!hasAuthParams) {
-    console.warn(
+    logger.warn(
       '[auth/callback] No code or token_hash parameter in request - possible direct access or malformed link',
-      {
-        redirectedFrom: describeRedirectTarget(redirectedFrom),
-      },
+      { route: ROUTE, redirectedFrom: describeRedirectTarget(redirectedFrom) },
     );
     return buildLoginRedirect(
       'missing_auth_parameters',
@@ -205,10 +212,11 @@ export async function GET(req: NextRequest) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
 
       if (error) {
-        console.error('[auth/callback] Session exchange failed:', {
+        logger.error('[auth/callback] Session exchange failed:', {
+          route: ROUTE,
           message: error.message,
           status: error.status,
-          code: error.code,
+          errorKind: error.code,
           name: error.name,
         });
 
@@ -229,8 +237,9 @@ export async function GET(req: NextRequest) {
           userMessage =
             'Authentication failed. Please use the same browser where you requested the magic link.';
           errorType = 'pkce_mismatch';
-          console.error(
+          logger.error(
             '[auth/callback] PKCE code verifier mismatch - user may have opened link in different browser',
+            { route: ROUTE },
           );
         }
 
@@ -249,10 +258,11 @@ export async function GET(req: NextRequest) {
       });
 
       if (error) {
-        console.error('[auth/callback] token_hash verification failed:', {
+        logger.error('[auth/callback] token_hash verification failed:', {
+          route: ROUTE,
           message: error.message,
           status: error.status,
-          code: error.code,
+          errorKind: error.code,
           name: error.name,
         });
 

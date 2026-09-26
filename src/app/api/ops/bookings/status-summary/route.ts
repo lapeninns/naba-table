@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
 import { daysBetweenInclusive, firstString, safeDate, stringArray } from '@/lib/api/query-params';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getBookingStatusSummary } from '@/server/ops/booking-lifecycle/summary';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -10,6 +12,8 @@ import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 import { fetchUserMemberships } from '@/server/team/access';
 
 import type { BookingStatus } from '@/server/ops/booking-lifecycle/stateMachine';
+
+const ROUTE = '/api/ops/bookings/status-summary';
 
 const bookingStatusSchema = z.enum([
   'pending',
@@ -77,7 +81,10 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops][booking-status-summary] auth lookup failed', authError.message);
+    logger.error('[ops][booking-status-summary] auth lookup failed', {
+      route: ROUTE,
+      error: authError.message,
+    });
     const mapped = mapSupabaseAuthError(authError);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -98,12 +105,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   } catch (error) {
-    console.error('[ops][booking-status-summary] membership lookup failed', error);
     captureServerException(error, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-booking-status-summary' },
     });
-    return NextResponse.json({ error: 'Unable to verify permissions' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to verify permissions');
   }
 
   const rateLimit = await requireApiRateLimit({
@@ -158,7 +164,10 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    console.error('[ops][booking-status-summary] failed to compute summary', error);
+    logger.error('[ops][booking-status-summary] failed to compute summary', {
+      route: ROUTE,
+      error,
+    });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: params.restaurantId },

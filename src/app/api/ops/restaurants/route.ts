@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 
+import { apiError, conflict, internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { withPlatformAdminAuthorization } from '@/server/auth/guards';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { createRestaurant, listRestaurantsForOps } from '@/server/restaurants';
+import {
+  RestaurantAccessExistsError,
+  RestaurantCreateValidationError,
+  RestaurantSlugUnavailableError,
+} from '@/server/restaurants/create-errors';
 import { upsertRestaurantBusinessDescription } from '@/server/restaurants/details';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -26,7 +33,7 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/restaurants][GET] failed to resolve auth', authError.message);
+    logger.warn('ops.restaurants.auth_failed', { route: '/api/ops/restaurants', error: authError });
     const mapped = mapSupabaseAuthError(authError);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -111,12 +118,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops/restaurants][GET] query failed', error);
     captureServerException(error, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-restaurants' },
     });
-    return NextResponse.json({ error: 'Unable to fetch restaurants' }, { status: 500 });
+    return internalError(
+      error,
+      { route: '/api/ops/restaurants', method: 'GET' },
+      'Unable to fetch restaurants',
+    );
   }
 }
 
@@ -227,12 +237,25 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    console.error('[ops/restaurants][POST] creation failed', error);
+    if (error instanceof RestaurantSlugUnavailableError) {
+      return conflict('SLUG_TAKEN', 'That web address is taken. Try a different slug.', {
+        fields: { slug: ['That web address is taken. Try a different slug.'] },
+      });
+    }
+    if (error instanceof RestaurantAccessExistsError) {
+      return conflict('RESTAURANT_ACCESS_EXISTS', 'This account already has restaurant access.');
+    }
+    if (error instanceof RestaurantCreateValidationError) {
+      return apiError(400, 'VALIDATION_FAILED', error.message);
+    }
     captureServerException(error, {
       distinctId: authorization.user.id,
       properties: { source: 'ops', kind: 'ops-restaurants' },
     });
-    const message = error instanceof Error ? error.message : 'Unable to create restaurant';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalError(
+      error,
+      { route: '/api/ops/restaurants', method: 'POST' },
+      'Unable to create restaurant',
+    );
   }
 }

@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
 import { mapAssignTablesErrorToHttp } from '@/app/api/staff/_utils/assign-tables-error';
+import { apiError, internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { confirmHold } from '@/server/capacity/engine';
 import { AssignTablesRpcError, HoldNotFoundError } from '@/server/capacity/holds';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -16,6 +18,34 @@ const confirmPayloadSchema = z.object({
   idempotencyKey: z.string().min(1),
   requireAdjacency: z.boolean().optional(),
 });
+
+const ROUTE = '/api/staff/auto/confirm';
+
+/**
+ * AssignTablesRpcError messages, details and hints can carry repository or
+ * Postgres text, so only the status and code from the shared mapper reach the
+ * client, with fixed copy per status class.
+ */
+function assignTablesErrorResponse(error: AssignTablesRpcError, ctx: Record<string, unknown>) {
+  const { status, payload } = mapAssignTablesErrorToHttp(error);
+  if (status >= 500) {
+    logger.error('staff.auto_confirm.assign_failed', {
+      route: ROUTE,
+      ...ctx,
+      status,
+      errorKind: payload.code,
+      error,
+    });
+    return apiError(status, payload.code, 'Unable to confirm hold. Try again.', {
+      retryable: status === 503,
+    });
+  }
+  const message =
+    status === 422
+      ? 'This hold can no longer be confirmed. Re-quote the booking and try again.'
+      : 'This hold conflicts with another assignment. Re-quote the booking and try again.';
+  return apiError(status, payload.code, message);
+}
 
 export async function POST(req: NextRequest) {
   return withCsrfProtectedMutation(req, () => postStaffAutoConfirm(req));
@@ -52,7 +82,11 @@ async function postStaffAutoConfirm(req: NextRequest) {
     .maybeSingle();
 
   if (holdLookup.error) {
-    return NextResponse.json({ error: holdLookup.error.message }, { status: 500 });
+    return internalError(
+      holdLookup.error,
+      { route: ROUTE, stage: 'hold_lookup', errorKind: holdLookup.error.code },
+      'Unable to confirm hold',
+    );
   }
 
   const holdRow = holdLookup.data;
@@ -68,7 +102,11 @@ async function postStaffAutoConfirm(req: NextRequest) {
     .maybeSingle();
 
   if (membership.error) {
-    return NextResponse.json({ error: membership.error.message }, { status: 500 });
+    return internalError(
+      membership.error,
+      { route: ROUTE, stage: 'membership_lookup', errorKind: membership.error.code },
+      'Unable to confirm hold',
+    );
   }
 
   if (!membership.data) {
@@ -83,12 +121,11 @@ async function postStaffAutoConfirm(req: NextRequest) {
     .maybeSingle();
 
   if (bookingLookup.error) {
-    console.error('[staff/auto/confirm] booking tenant check failed', {
-      error: bookingLookup.error.message,
-      holdId,
-      bookingId,
-    });
-    return NextResponse.json({ error: 'Unable to confirm hold' }, { status: 500 });
+    return internalError(
+      bookingLookup.error,
+      { route: ROUTE, stage: 'booking_lookup', holdId, bookingId },
+      'Unable to confirm hold',
+    );
   }
 
   if (!bookingLookup.data) {
@@ -118,11 +155,13 @@ async function postStaffAutoConfirm(req: NextRequest) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
       }
 
-      const { status, payload } = mapAssignTablesErrorToHttp(error);
-      return NextResponse.json(payload, { status });
+      return assignTablesErrorResponse(error, {
+        holdId,
+        bookingId,
+        restaurantId: holdRow.restaurant_id,
+      });
     }
 
-    console.error('[staff/auto/confirm] unexpected error', { error, holdId, bookingId });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: holdRow.restaurant_id },
@@ -133,7 +172,10 @@ async function postStaffAutoConfirm(req: NextRequest) {
         kind: 'staff-auto-confirm',
       },
     });
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalError(
+      error,
+      { route: ROUTE, holdId, bookingId, restaurantId: holdRow.restaurant_id },
+      'Unable to confirm hold',
+    );
   }
 }

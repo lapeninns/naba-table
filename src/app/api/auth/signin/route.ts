@@ -9,6 +9,7 @@ import {
   sanitizeRedirect,
   toAbsoluteRedirectTarget,
 } from '@/lib/auth/redirects';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { isMagicLinkDeliveryError, sendAuthMagicLink } from '@/server/auth/magic-link-email';
 import { recordMagicLinkSigninAudit } from '@/server/auth/signin-audit';
@@ -22,6 +23,8 @@ import { verifyTurnstileToken } from '@/server/security/turnstile';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/auth/signin';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,7 +105,8 @@ async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupSta
     .maybeSingle();
 
   if (profileError && profileError.code !== 'PGRST116') {
-    console.error('[Auth/signin] Failed to lookup profile for magic link', {
+    logger.error('[Auth/signin] Failed to lookup profile for magic link', {
+      route: ROUTE,
       error: profileError.message,
     });
     return 'error';
@@ -120,7 +124,8 @@ async function lookupMagicLinkProfile(email: string): Promise<MagicLinkLookupSta
     .maybeSingle();
 
   if (userProfileError && userProfileError.code !== 'PGRST116') {
-    console.error('[Auth/signin] Failed to lookup user profile for magic link', {
+    logger.error('[Auth/signin] Failed to lookup user profile for magic link', {
+      route: ROUTE,
       error: userProfileError.message,
     });
     return 'error';
@@ -140,7 +145,8 @@ export async function POST(req: NextRequest) {
     const hostname = resolveTrustedAuthHostname(parsedHostname, rootDomain);
 
     if (hostname !== parsedHostname) {
-      console.warn('[Auth/signin] Rejected untrusted request hostname for auth callback', {
+      logger.warn('[Auth/signin] Rejected untrusted request hostname for auth callback', {
+        route: ROUTE,
         parsedHostname,
         rootDomain,
         fallbackHostname: hostname,
@@ -349,7 +355,8 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       const sendErrorReason = error instanceof Error ? error.message : String(error);
 
-      console.error('[Auth/signin] Magic link delivery failed', {
+      logger.error('[Auth/signin] Magic link delivery failed', {
+        route: ROUTE,
         status: isMagicLinkDeliveryError(error) ? error.status : undefined,
         error: sendErrorReason,
       });
@@ -394,7 +401,7 @@ export async function POST(req: NextRequest) {
     );
     return setRateHeaders(response, primaryRateResult);
   } catch (err) {
-    console.error('[Auth/signin] Unhandled error:', err);
+    logger.error('[Auth/signin] Unhandled error:', { route: ROUTE, error: err });
     captureServerException(err, {
       properties: { source: 'auth', path: '/api/auth/signin' },
     });

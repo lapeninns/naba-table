@@ -41,7 +41,13 @@ const HUB_PAYLOAD = {
   ],
   kpis: { occupancyPercentage: 50, turnRateMinutes: 120, bookingsCount: 1, alertsCount: 0 },
   feed: [
-    { id: 'feed:sync', time: '12:00:00', title: 'Live sync', detail: 'Timeline updated', priority: 'log' },
+    {
+      id: 'feed:sync',
+      time: '12:00:00',
+      title: 'Live sync',
+      detail: 'Timeline updated',
+      priority: 'log',
+    },
   ],
 };
 
@@ -162,7 +168,11 @@ describe('GET /api/ops/operations-hub', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Unable to load operations hub' });
+    expect(body).toEqual({
+      error: 'Unable to load operations hub',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to load operations hub',
+    });
     expect(JSON.stringify(body)).not.toContain('timeline query exploded');
   });
 });

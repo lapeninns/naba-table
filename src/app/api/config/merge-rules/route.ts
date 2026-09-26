@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { withOpsMutation } from '@/server/auth/guards';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/config/merge-rules';
 
 export async function GET(request: NextRequest) {
   const authorization = await withOpsMutation(request);
@@ -23,8 +26,11 @@ export async function GET(request: NextRequest) {
       .order('from_b', { ascending: true });
 
     if (error) {
-      console.error('[config/merge-rules][GET] Database error', { error });
-      return NextResponse.json({ error: 'Failed to load merge rules' }, { status: 500 });
+      return internalError(
+        error,
+        { route: ROUTE, errorKind: error.code },
+        'Failed to load merge rules',
+      );
     }
 
     return NextResponse.json({
@@ -39,10 +45,9 @@ export async function GET(request: NextRequest) {
       })),
     });
   } catch (error) {
-    console.error('[config/merge-rules][GET] Unexpected error', { error });
     captureServerException(error, {
       properties: { source: 'api', kind: 'config-merge-rules' },
     });
-    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'An unexpected error occurred');
   }
 }

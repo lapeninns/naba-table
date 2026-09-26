@@ -22,6 +22,7 @@ import {
   dualSyncErrorResponse,
   dualSyncPausedResponse,
 } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { internalError } from '@/lib/api/errors';
 import {
   assertDualSyncRestaurantNotPaused,
   isDualSyncRestaurantPausedError,
@@ -93,13 +94,18 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
         error.activeLock ? { activeLock: error.activeLock } : undefined,
       );
     }
-    const message = error instanceof Error ? error.message : 'Auto-export failed';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-auto-export' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_AUTO_EXPORT_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/auto-export', restaurantId },
+        'Auto-export failed.',
+      ),
+    );
   }
 }
 

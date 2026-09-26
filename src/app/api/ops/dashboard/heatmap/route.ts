@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
 import { daysBetweenInclusive, firstString, safeDate } from '@/lib/api/query-params';
+import { captureServerException } from '@/lib/posthog/server';
 import { getBookingsHeatmap } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -12,6 +13,8 @@ import {
 } from '@/src/app/api/ops/dashboard/_shared';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/dashboard/heatmap';
 
 const heatmapQuerySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -75,7 +78,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(heatmap);
   } catch (heatmapError) {
-    console.error('[ops/dashboard][heatmap] failed to load heatmap', heatmapError);
     captureServerException(heatmapError, {
       groups: { restaurant: query.restaurantId },
       properties: {
@@ -84,6 +86,6 @@ export async function GET(request: NextRequest) {
         kind: 'ops-dashboard-heatmap',
       },
     });
-    return NextResponse.json({ error: 'Unable to load heatmap' }, { status: 500 });
+    return internalError(heatmapError, { route: ROUTE }, 'Unable to load heatmap');
   }
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getCustomersWithHistory } from '@/server/ops/customers';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
@@ -15,6 +17,8 @@ import {
 
 import type { NextRequest } from 'next/server';
 
+const ROUTE = '/api/ops/customers';
+
 export async function GET(req: NextRequest) {
   const supabase = await getRouteHandlerSupabaseClient();
   const {
@@ -23,7 +27,10 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/customers][GET] failed to resolve auth', authError.message);
+    logger.error('[ops/customers][GET] failed to resolve auth', {
+      route: ROUTE,
+      error: authError.message,
+    });
     const mapped = mapSupabaseAuthError(authError);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -61,12 +68,11 @@ export async function GET(req: NextRequest) {
   try {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (error) {
-    console.error('[ops/customers][GET] membership lookup failed', error);
     captureServerException(error, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-customers' },
     });
-    return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to verify memberships');
   }
 
   if (memberships.length === 0) {
@@ -166,12 +172,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('[ops/customers][GET] query failed', error);
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: targetRestaurantId },
       properties: { restaurantId: targetRestaurantId, source: 'ops', kind: 'ops-customers' },
     });
-    return NextResponse.json({ error: 'Unable to fetch guests' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to fetch guests');
   }
 }

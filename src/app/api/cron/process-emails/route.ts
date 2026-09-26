@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { recordObservabilityEvent } from '@/server/observability';
 import { reconcileDeliveryAnomalies } from '@/server/observability/delivery-reconciler';
@@ -13,6 +14,8 @@ import { drainMobileReviewIntents } from '@/server/queue/mobile-review-intents';
 import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 import { flushPosthogLogsAfterResponse } from '@/src/instrumentation';
+
+const ROUTE = '/api/cron/process-emails';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -154,7 +157,8 @@ export async function GET(request: Request) {
       try {
         reconcileReport = await reconcileDeliveryAnomalies();
       } catch (reconcileError) {
-        console.warn('[cron][process-emails] delivery reconciliation failed', {
+        logger.warn('[cron][process-emails] delivery reconciliation failed', {
+          route: ROUTE,
           jobName: auth.jobName,
           runId: auth.runId,
           error: reconcileError instanceof Error ? reconcileError.message : String(reconcileError),
@@ -188,7 +192,8 @@ export async function GET(request: Request) {
 
       return NextResponse.json({ ...result, channels, reconciliation: reconcileReport });
     } catch (error) {
-      console.error('[cron][process-emails] Error:', {
+      logger.error('[cron][process-emails] Error:', {
+        route: ROUTE,
         jobName: auth.jobName,
         runId: auth.runId,
         error,
@@ -261,7 +266,8 @@ export async function POST(request: Request) {
         results: result.results,
       });
     } catch (error) {
-      console.error('[cron][process-emails] POST error:', {
+      logger.error('[cron][process-emails] POST error:', {
+        route: ROUTE,
         jobName: auth.jobName,
         runId: auth.runId,
         error,

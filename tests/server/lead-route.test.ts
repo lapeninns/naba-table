@@ -48,7 +48,10 @@ describe('POST /api/lead', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const insert = vi.fn().mockResolvedValue({
       data: null,
-      error: { code: '42501', message: 'new row violates row-level security policy' },
+      error: {
+        code: '42501',
+        message: 'new row violates row-level security policy SECRET_DB_DETAIL guest@example.com',
+      },
     });
     const from = vi.fn(() => ({ insert }));
     getRouteHandlerSupabaseClientMock.mockResolvedValue({ from });
@@ -57,11 +60,18 @@ describe('POST /api/lead', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Unable to store lead' });
-    expect(consoleError).toHaveBeenCalledWith(
-      '[lead] Unable to store lead',
-      expect.objectContaining({ code: '42501' }),
-    );
+    expect(body).toEqual({
+      error: 'Unable to store lead',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to store lead',
+    });
+    expect(JSON.stringify(body)).not.toContain('SECRET_DB_DETAIL');
+    // Logged through lib/logger: the Postgres code survives as errorKind; the
+    // raw message and the guest email never reach the log line.
+    const logged = consoleError.mock.calls.flat().map(String).join('\n');
+    expect(logged).toContain('api.internal_error');
+    expect(logged).toContain('"errorKind":"42501"');
+    expect(logged).not.toContain('guest@example.com');
   });
 
   it('returns the rate-limit response before touching Supabase', async () => {

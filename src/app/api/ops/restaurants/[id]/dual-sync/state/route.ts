@@ -24,6 +24,7 @@ import {
   resolveRestaurantId,
 } from '@/app/api/ops/restaurants/[id]/_shared';
 import { dualSyncErrorResponse } from '@/app/api/ops/restaurants/[id]/dual-sync/_shared';
+import { internalError } from '@/lib/api/errors';
 import { getDualSyncRestaurantControl } from '@/server/dual-sync/controls';
 import { hashCanonicalJson } from '@/server/dual-sync/hashing';
 import { listOpenOutboundCandidates } from '@/server/dual-sync/outbound/candidates';
@@ -228,13 +229,18 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
       { status: 200 },
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Failed to load dual-sync state';
     captureSafeGbpException(error, {
       distinctId: access.userId,
       groups: { restaurant: restaurantId },
       properties: { restaurantId, source: 'ops', kind: 'dual-sync-state' },
     });
-    return dualSyncErrorResponse(message, 500, 'DUAL_SYNC_STATE_ERROR');
+    return gbpNoStoreResponse(
+      internalError(
+        error,
+        { route: '/api/ops/restaurants/[id]/dual-sync/state', restaurantId },
+        'Failed to load dual-sync state.',
+      ),
+    );
   }
 }
 

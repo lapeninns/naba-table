@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { quoteTables } from '@/server/capacity/engine';
 import { HoldConflictError } from '@/server/capacity/holds';
 import { ServiceNotFoundError } from '@/server/capacity/policy';
@@ -56,7 +57,15 @@ async function postStaffAutoQuote(req: NextRequest) {
     .maybeSingle();
 
   if (bookingLookup.error) {
-    return NextResponse.json({ error: bookingLookup.error.message }, { status: 500 });
+    return internalError(
+      bookingLookup.error,
+      {
+        route: '/api/staff/auto/quote',
+        stage: 'booking_lookup',
+        errorKind: bookingLookup.error.code,
+      },
+      'Unable to quote tables',
+    );
   }
 
   const bookingRow = bookingLookup.data;
@@ -72,7 +81,15 @@ async function postStaffAutoQuote(req: NextRequest) {
     .maybeSingle();
 
   if (membership.error) {
-    return NextResponse.json({ error: membership.error.message }, { status: 500 });
+    return internalError(
+      membership.error,
+      {
+        route: '/api/staff/auto/quote',
+        stage: 'membership_lookup',
+        errorKind: membership.error.code,
+      },
+      'Unable to quote tables',
+    );
   }
 
   if (!membership.data) {
@@ -168,7 +185,6 @@ async function postStaffAutoQuote(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 422 });
     }
 
-    console.error('[staff/auto/quote] unexpected error', { error, bookingId });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: bookingRow.restaurant_id },
@@ -179,7 +195,10 @@ async function postStaffAutoQuote(req: NextRequest) {
         kind: 'staff-auto-quote',
       },
     });
-    const message = error instanceof Error ? error.message : 'Unexpected error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalError(
+      error,
+      { route: '/api/staff/auto/quote', bookingId, restaurantId: bookingRow.restaurant_id },
+      'Unable to quote tables',
+    );
   }
 }

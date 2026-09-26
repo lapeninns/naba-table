@@ -3,12 +3,15 @@ import { z } from 'zod';
 
 import { addUtcDays, safeDate } from '@/lib/api/query-params';
 import { MAX_ONLINE_PARTY_SIZE, MIN_ONLINE_PARTY_SIZE } from '@/lib/bookings/partySize';
-import { getGuestBookingSchedule } from '@/server/restaurants/guestBookingSchedule';
+import { logger } from '@/lib/logger';
 import { getRestaurantBySlug } from '@/server/restaurants/getRestaurantBySlug';
+import { getGuestBookingSchedule } from '@/server/restaurants/guestBookingSchedule';
 import { getRestaurantSchedule } from '@/server/restaurants/schedule';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/restaurants/[slug]/schedule';
 
 const querySchema = z.object({
   date: z
@@ -107,7 +110,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       },
     });
   } catch (error) {
-    console.error('[restaurants][schedule] failed to load schedule', {
+    logger.error('[restaurants][schedule] failed to load schedule', {
+      route: ROUTE,
       slug,
       error: error instanceof Error ? error.message : String(error),
     });

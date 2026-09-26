@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { internalError } from '@/lib/api/errors';
 import { firstString } from '@/lib/api/query-params';
 import { generateCSV } from '@/lib/export/csv';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getAllCustomersWithHistory, type CustomerGuestRecord } from '@/server/ops/customers';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -12,6 +14,8 @@ import { fetchUserMemberships } from '@/server/team/access';
 import { parseOpsCustomersQuery } from '../schema';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/customers/export';
 
 const CUSTOMER_EXPORT_MAX_ROWS = 5000;
 
@@ -72,7 +76,10 @@ export async function GET(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError) {
-    console.error('[ops/customers/export][GET] failed to resolve auth', authError.message);
+    logger.error('[ops/customers/export][GET] failed to resolve auth', {
+      route: ROUTE,
+      error: authError.message,
+    });
     const mapped = mapSupabaseAuthError(authError);
     return NextResponse.json(
       { error: mapped.message, code: mapped.code },
@@ -108,12 +115,11 @@ export async function GET(req: NextRequest) {
   try {
     memberships = await fetchUserMemberships(user.id, supabase);
   } catch (error) {
-    console.error('[ops/customers/export][GET] membership lookup failed', error);
     captureServerException(error, {
       distinctId: user.id,
       properties: { source: 'ops', kind: 'ops-customers-export' },
     });
-    return NextResponse.json({ error: 'Unable to verify memberships' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to verify memberships');
   }
 
   const membershipIds = memberships
@@ -161,13 +167,12 @@ export async function GET(req: NextRequest) {
       maxRows: CUSTOMER_EXPORT_MAX_ROWS,
     });
   } catch (error) {
-    console.error('[ops/customers/export][GET] query failed', error);
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: targetRestaurantId },
       properties: { restaurantId: targetRestaurantId, source: 'ops', kind: 'ops-customers-export' },
     });
-    return NextResponse.json({ error: 'Unable to export guests' }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to export guests');
   }
 
   const csv = generateCSV(customers, CUSTOMER_EXPORT_COLUMNS);

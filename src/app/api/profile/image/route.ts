@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/profile/image';
 
 const BUCKET_ID = 'profile-avatars';
 const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
@@ -47,7 +50,10 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
     } = await supabase.auth.getUser();
 
     if (authError) {
-      console.error('[profile][avatar][post] auth resolution failed', authError.message);
+      logger.error('[profile][avatar][post] auth resolution failed', {
+        route: ROUTE,
+        error: authError.message,
+      });
       return jsonError(500, 'AUTH_RESOLUTION_FAILED', 'Unable to verify your session');
     }
 
@@ -75,7 +81,10 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
         file = candidate;
       }
     } catch (cause) {
-      console.error('[profile][avatar][post] failed to parse form data', cause);
+      logger.error('[profile][avatar][post] failed to parse form data', {
+        route: ROUTE,
+        error: cause,
+      });
       return jsonError(400, 'INVALID_FORM_DATA', 'Failed to read the uploaded file');
     }
 
@@ -110,7 +119,10 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
     });
 
     if (uploadError) {
-      console.error('[profile][avatar][post] upload failed', uploadError.message);
+      logger.error('[profile][avatar][post] upload failed', {
+        route: ROUTE,
+        error: uploadError.message,
+      });
       return jsonError(500, 'UPLOAD_FAILED', 'We couldn’t store your image. Please try again.');
     }
 
@@ -129,7 +141,7 @@ async function postProfileImage(req: NextRequest): Promise<NextResponse> {
       cacheKey,
     });
   } catch (error) {
-    console.error('[profile][avatar][post] unexpected', error);
+    logger.error('[profile][avatar][post] unexpected', { route: ROUTE, error });
     captureServerException(error, {
       properties: { source: 'api', kind: 'profile-image' },
     });

@@ -1,6 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from 'next/server';
 
-import { env } from "@/lib/env";
+import { internalError } from '@/lib/api/errors';
+import { env } from '@/lib/env';
+import { logger } from '@/lib/logger';
+
+const ROUTE = '/api/events';
 
 type AnalyticsUser = {
   anonId: unknown;
@@ -23,11 +27,11 @@ type IncomingEvent = {
 type ParsedBody = { events?: IncomingEvent[] } | IncomingEvent | null;
 
 function isString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
+  return typeof value === 'string' && value.length > 0;
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function coerceToEvents(body: ParsedBody): IncomingEvent[] | null {
@@ -72,18 +76,16 @@ export async function POST(req: NextRequest) {
     const events = coerceToEvents(parsed);
 
     if (!events || events.length === 0 || !events.every(isValidEvent)) {
-      return NextResponse.json({ error: "Invalid analytics payload" }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid analytics payload' }, { status: 400 });
     }
 
-    if (env.node.env !== "production") {
-       
-      console.debug("[events]", events);
+    if (env.node.env !== 'production') {
+      logger.debug('[events]', { route: ROUTE, count: events.length });
     }
 
     return NextResponse.json({ ok: true, count: events.length }, { status: 202 });
   } catch (error) {
-    console.error("[events] failed", error);
-    return NextResponse.json({ error: "Unable to record event" }, { status: 500 });
+    return internalError(error, { route: ROUTE }, 'Unable to record event');
   }
 }
 

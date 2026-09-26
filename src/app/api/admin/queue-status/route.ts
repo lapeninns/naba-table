@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { captureServerException } from '@/lib/posthog/server';
 
-import { isEmailQueueEnabled } from '@/server/runtime-policy';
+import { internalError } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { getEmailQueueStatus } from '@/server/queue/email';
+import { isEmailQueueEnabled } from '@/server/runtime-policy';
 import { requireCronAuthAndRun } from '@/server/security/cron-auth';
 
 export const dynamic = 'force-dynamic';
@@ -42,17 +43,9 @@ async function getQueueStatus(request: Request) {
     const snapshot = await getEmailQueueStatus(includeJobs);
     return NextResponse.json(snapshot);
   } catch (error) {
-    console.error('[admin][queue-status] error:', error);
     captureServerException(error, {
       properties: { source: 'ops', kind: 'admin-queue-status' },
     });
-    return NextResponse.json(
-      {
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error instanceof Error ? error.stack : undefined,
-      },
-      { status: 500 },
-    );
+    return internalError(error, { route: '/api/admin/queue-status' });
   }
 }

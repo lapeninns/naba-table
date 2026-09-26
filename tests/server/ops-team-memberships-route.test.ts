@@ -120,7 +120,11 @@ describe('GET /api/ops/team/memberships', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Unable to load memberships' });
+    expect(body).toEqual({
+      error: 'Unable to load memberships',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to load memberships',
+    });
     expect(JSON.stringify(body)).not.toContain('memberships table unavailable');
   });
 });

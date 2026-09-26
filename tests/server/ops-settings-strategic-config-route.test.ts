@@ -78,9 +78,7 @@ describe('GET /api/ops/settings/strategic-config', () => {
   });
 
   it('maps supabase auth lookup failures to 401 @p2 @api @security', async () => {
-    getRouteHandlerSupabaseClientMock.mockResolvedValue(
-      mockSupabase(null, { status: 401 }),
-    );
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(mockSupabase(null, { status: 401 }));
 
     const response = await GET(getRequest(`?restaurantId=${RESTAURANT_ID}`));
 
@@ -146,6 +144,8 @@ describe('GET /api/ops/settings/strategic-config', () => {
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
       error: 'Unable to load strategic settings',
+      code: 'INTERNAL_ERROR',
+      message: 'Unable to load strategic settings',
     });
   });
 });
