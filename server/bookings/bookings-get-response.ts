@@ -1,4 +1,3 @@
-
 import { apiError } from '@/lib/api/errors';
 import { stringifyError } from '@/server/bookings/error-formatting';
 import { buildAuthenticatedMyBookingsHttpResponse } from '@/server/bookings/my-bookings-auth-response';

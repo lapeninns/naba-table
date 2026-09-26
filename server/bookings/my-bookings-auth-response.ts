@@ -1,4 +1,3 @@
-
 import { unauthenticated } from '@/lib/api/errors';
 import { SESSION_EMAIL_MATCH_ENABLED } from '@/server/bookings/guest-booking-access';
 import {
