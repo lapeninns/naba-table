@@ -28,7 +28,7 @@ vi.mock('@/server/team/access', () => ({
 
 vi.mock('@/server/restaurants', () => ({
   deleteRestaurant: vi.fn(),
-  updateRestaurant: updateRestaurantMock,
+  updateRestaurantProfile: updateRestaurantMock,
 }));
 
 vi.mock('@/server/restaurants/details', () => ({
@@ -90,13 +90,17 @@ function signedIn(user: { id: string } | null = { id: 'user-1' }) {
   });
 }
 
+function previousOf(restaurant: { name: string; slug: string; logoUrl: string | null }) {
+  return { name: restaurant.name, slug: restaurant.slug, logoUrl: restaurant.logoUrl };
+}
+
 describe('PATCH /api/ops/restaurants/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signedIn();
     getServiceSupabaseClientMock.mockReturnValue({ service: true });
     requireAdminMembershipMock.mockResolvedValue({ role: 'owner' });
-    updateRestaurantMock.mockResolvedValue(updated);
+    updateRestaurantMock.mockResolvedValue({ restaurant: updated, previous: previousOf(updated) });
   });
 
   it('returns 409 SLUG_TAKEN with a slug field when the link is used elsewhere', async () => {
@@ -167,12 +171,34 @@ describe('PATCH /api/ops/restaurants/[id]', () => {
     expect(body.restaurant).toMatchObject({ businessDescription: 'Cosy pub', role: 'owner' });
   });
 
-  it('drops the cached memberships when the name or slug changes', async () => {
+  it('drops the cached memberships only when the stored name or slug actually changed', async () => {
+    updateRestaurantMock.mockResolvedValueOnce({
+      restaurant: updated,
+      previous: { ...previousOf(updated), name: 'The Old Bell' },
+    });
     await PATCH(patchRequest({ name: 'The Bell' }), context());
     expect(invalidateUserMembershipsCacheMock).toHaveBeenCalledWith('user-1');
 
     invalidateUserMembershipsCacheMock.mockClear();
+    updateRestaurantMock.mockResolvedValueOnce({
+      restaurant: updated,
+      previous: { ...previousOf(updated), slug: 'the-old-bell' },
+    });
+    await PATCH(patchRequest({ slug: 'the-bell' }), context());
+    expect(invalidateUserMembershipsCacheMock).toHaveBeenCalledWith('user-1');
+
+    invalidateUserMembershipsCacheMock.mockClear();
     await PATCH(patchRequest({ managerName: 'Alex' }), context());
+    expect(invalidateUserMembershipsCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps the membership cache when a full public-details save resends an unchanged name and slug', async () => {
+    const response = await PATCH(
+      patchRequest({ name: 'The Bell', slug: 'the-bell', address: '1 High Street' }),
+      context(),
+    );
+
+    expect(response.status).toBe(200);
     expect(invalidateUserMembershipsCacheMock).not.toHaveBeenCalled();
   });
 

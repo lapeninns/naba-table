@@ -24,9 +24,9 @@ vi.mock('@/server/team/access', () => ({
 }));
 
 vi.mock('@/server/restaurants/update', () => ({
-  updateRestaurant: vi.fn(async (id: string, input: { logoUrl: string | null }) => ({
-    id,
-    logoUrl: input.logoUrl,
+  updateRestaurantProfile: vi.fn(async (id: string, input: { logoUrl: string | null }) => ({
+    restaurant: { id, logoUrl: input.logoUrl },
+    previous: { name: 'The Bell', slug: 'the-bell', logoUrl: null },
   })),
 }));
 

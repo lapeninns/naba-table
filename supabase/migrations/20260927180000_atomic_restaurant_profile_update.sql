@@ -15,8 +15,10 @@
 --   p_actor_id                the authenticated user stamped on a new consent.
 --   p_set_business_description / p_business_description
 --                             upsert the ('nabatable','nabatable') business details row.
---   Returns jsonb {restaurant: <restaurants row>, business_description: text|null}.
---   Raises P0002 RESTAURANT_NOT_FOUND, 22023 MANAGER_PHONE_REQUIRED / CONSENT_ACTOR_REQUIRED,
+--   Returns jsonb {restaurant: <restaurants row>, business_description: text|null,
+--                  previous: {name, slug, logo_url} as read under the row lock}.
+--   Raises P0002 RESTAURANT_NOT_FOUND, 22023 MANAGER_PHONE_REQUIRED (WhatsApp or an explicit
+--   daily summary request with no manager phone) / CONSENT_ACTOR_REQUIRED,
 --   and lets 23505 (restaurants_slug_key) and 23514 (check constraints) propagate so the app
 --   can map them to SLUG_TAKEN / VALIDATION_FAILED.
 --
@@ -88,8 +90,12 @@ BEGIN
   -- Keys present in the patch override the stored row; absent keys keep their stored value.
   v_next := jsonb_populate_record(v_current, v_patch);
 
-  -- A manager phone that is cleared cannot receive the daily summary.
   IF v_next.manager_notification_phone IS NULL THEN
+    -- Asking for the daily summary without any manager phone is refused, not silently dropped.
+    IF (v_patch ->> 'manager_daily_summary_enabled') = 'true' THEN
+      RAISE EXCEPTION 'MANAGER_PHONE_REQUIRED' USING ERRCODE = '22023';
+    END IF;
+    -- A manager phone that is cleared cannot keep receiving the daily summary.
     v_next.manager_daily_summary_enabled := false;
   END IF;
 
@@ -208,7 +214,14 @@ BEGIN
 
   RETURN jsonb_build_object(
     'restaurant', to_jsonb(v_row),
-    'business_description', v_description
+    'business_description', v_description,
+    -- Values read under the row lock, so callers can react only to real changes (membership
+    -- cache on name/slug) and delete exactly the logo object this update replaced.
+    'previous', jsonb_build_object(
+      'name', v_current.name,
+      'slug', v_current.slug,
+      'logo_url', v_current.logo_url
+    )
   );
 END;
 $$;

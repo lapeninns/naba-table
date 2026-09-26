@@ -13,7 +13,7 @@ import { captureRestaurantServerEvent, captureServerException } from '@/lib/post
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
-import { deleteRestaurant, updateRestaurant } from '@/server/restaurants';
+import { deleteRestaurant, updateRestaurantProfile } from '@/server/restaurants';
 import { getRestaurantBusinessDescription } from '@/server/restaurants/details';
 import {
   ensureLogoColumnOnRow,
@@ -238,7 +238,7 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
   const serviceSupabase = getServiceSupabaseClient();
 
   try {
-    const restaurant = await updateRestaurant(
+    const { restaurant, previous } = await updateRestaurantProfile(
       restaurantId,
       {
         name: input.name,
@@ -270,8 +270,10 @@ async function patchRestaurant(req: NextRequest, context: RouteContext) {
       serviceSupabase,
     );
 
-    if (input.name !== undefined || input.slug !== undefined) {
-      // The ops shell reads restaurant names and slugs from the cached memberships.
+    if (previous.name !== restaurant.name || previous.slug !== restaurant.slug) {
+      // The ops shell reads restaurant names and slugs from the cached memberships. Compared
+      // against the values read under the update's row lock, so a save that resends an
+      // unchanged name or slug keeps the cache.
       invalidateUserMembershipsCache(user.id);
     }
 

@@ -9,7 +9,7 @@ import {
   logoStoragePathFromUrl,
   removeLogoObject,
 } from '@/server/restaurants/logo-storage';
-import { updateRestaurant } from '@/server/restaurants/update';
+import { updateRestaurantProfile } from '@/server/restaurants/update';
 import { isRestaurantUpdateError } from '@/server/restaurants/update-errors';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
@@ -113,22 +113,6 @@ async function ensureBucketExists(service: ServiceClient): Promise<void> {
   }
 }
 
-async function readCurrentLogoUrl(
-  service: ServiceClient,
-  restaurantId: string,
-): Promise<string | null> {
-  const { data, error } = await service
-    .from('restaurants')
-    .select('logo_url')
-    .eq('id', restaurantId)
-    .maybeSingle<{ logo_url: string | null }>();
-  if (error) {
-    // Only used to clean up the previous object afterwards; never blocks the change.
-    return null;
-  }
-  return data?.logo_url ?? null;
-}
-
 function saveFailureResponse(error: unknown, ctx: { restaurantId: string; method: string }) {
   if (isRestaurantUpdateError(error)) {
     return apiError(error.status, error.code, error.message, { fields: error.fields });
@@ -197,10 +181,8 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
   let path: string;
   let version: string;
   let publicUrl: string;
-  let previousUrl: string | null;
   try {
     await ensureBucketExists(service);
-    previousUrl = await readCurrentLogoUrl(service, restaurantId);
     ({ path, version } = buildVersionedLogoPath(restaurantId, file.type));
 
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -239,16 +221,18 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
     );
   }
 
-  let restaurant: Awaited<ReturnType<typeof updateRestaurant>>;
+  let saved: Awaited<ReturnType<typeof updateRestaurantProfile>>;
   try {
-    restaurant = await updateRestaurant(restaurantId, { logoUrl: publicUrl }, service);
+    saved = await updateRestaurantProfile(restaurantId, { logoUrl: publicUrl }, service);
   } catch (error) {
     // The saved logo still points at the previous object, so only the new upload is dropped.
     await removeLogoObject(service, path, { restaurantId, reason: 'save_failed' });
     return saveFailureResponse(error, { restaurantId, method: 'POST' });
   }
 
-  const previousPath = logoStoragePathFromUrl(previousUrl, restaurantId);
+  // The replaced logo is read under the update's row lock, so concurrent uploads each delete
+  // exactly the object their own save replaced and none is orphaned.
+  const previousPath = logoStoragePathFromUrl(saved.previous.logoUrl, restaurantId);
   if (previousPath && previousPath !== path) {
     await removeLogoObject(service, previousPath, { restaurantId, reason: 'replaced' });
   }
@@ -257,7 +241,7 @@ async function postRestaurantLogo(req: NextRequest, context: RouteContext) {
     path,
     url: publicUrl,
     cacheKey: version,
-    restaurant: toRestaurantDto(restaurant, role),
+    restaurant: toRestaurantDto(saved.restaurant, role),
   };
   return NextResponse.json(response);
 }
@@ -274,21 +258,19 @@ async function deleteRestaurantLogo(context: RouteContext) {
   const { restaurantId, role } = authorized;
   const service = getServiceSupabaseClient();
 
-  const previousUrl = await readCurrentLogoUrl(service, restaurantId);
-
-  let restaurant: Awaited<ReturnType<typeof updateRestaurant>>;
+  let saved: Awaited<ReturnType<typeof updateRestaurantProfile>>;
   try {
-    restaurant = await updateRestaurant(restaurantId, { logoUrl: null }, service);
+    saved = await updateRestaurantProfile(restaurantId, { logoUrl: null }, service);
   } catch (error) {
     return saveFailureResponse(error, { restaurantId, method: 'DELETE' });
   }
 
-  const previousPath = logoStoragePathFromUrl(previousUrl, restaurantId);
+  const previousPath = logoStoragePathFromUrl(saved.previous.logoUrl, restaurantId);
   if (previousPath) {
     await removeLogoObject(service, previousPath, { restaurantId, reason: 'removed' });
   }
 
-  const response: RestaurantResponse = { restaurant: toRestaurantDto(restaurant, role) };
+  const response: RestaurantResponse = { restaurant: toRestaurantDto(saved.restaurant, role) };
   return NextResponse.json(response);
 }
 

@@ -98,6 +98,20 @@ BEGIN
     RAISE EXCEPTION 'phone change kept the consent' USING ERRCODE = 'NB001';
   END IF;
 
+  -- 4b. A phone change sent with an explicit re-consent stamps the new number and actor.
+  PERFORM public.update_restaurant_profile_v1(
+    v_restaurant_id,
+    jsonb_build_object('manager_notification_phone', v_phone),
+    'enable',
+    v_second_actor_id
+  );
+  SELECT * INTO v_row FROM public.restaurants WHERE id = v_restaurant_id;
+  IF NOT v_row.manager_whatsapp_enabled
+     OR v_row.manager_whatsapp_consent_actor_id IS DISTINCT FROM v_second_actor_id
+     OR v_row.manager_whatsapp_consent_phone IS DISTINCT FROM v_phone THEN
+    RAISE EXCEPTION 'phone change with re-consent was not stamped' USING ERRCODE = 'NB001';
+  END IF;
+
   -- 5. Enabling without a phone is refused (after clearing the phone, the summary turns off too).
   PERFORM public.update_restaurant_profile_v1(
     v_restaurant_id,
@@ -109,6 +123,22 @@ BEGIN
   IF v_row.manager_daily_summary_enabled THEN
     RAISE EXCEPTION 'daily summary stayed on without a phone' USING ERRCODE = 'NB001';
   END IF;
+  -- Explicitly asking for the daily summary with no phone is refused, not silently dropped.
+  BEGIN
+    PERFORM public.update_restaurant_profile_v1(
+      v_restaurant_id, jsonb_build_object('manager_daily_summary_enabled', true), NULL, v_actor_id
+    );
+    RAISE EXCEPTION 'daily summary without a phone was accepted' USING ERRCODE = 'NB001';
+  EXCEPTION WHEN invalid_parameter_value THEN
+    GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
+    IF v_message <> 'MANAGER_PHONE_REQUIRED' THEN
+      RAISE EXCEPTION 'unexpected refusal: %', v_message USING ERRCODE = 'NB001';
+    END IF;
+  END;
+  -- Explicitly turning it off without a phone is fine.
+  PERFORM public.update_restaurant_profile_v1(
+    v_restaurant_id, jsonb_build_object('manager_daily_summary_enabled', false), NULL, v_actor_id
+  );
   BEGIN
     PERFORM public.update_restaurant_profile_v1(v_restaurant_id, '{}'::jsonb, 'enable', v_actor_id);
     RAISE EXCEPTION 'enable without a phone was accepted' USING ERRCODE = 'NB001';
@@ -153,7 +183,9 @@ BEGIN
     '  A cosy synthetic pub.  '
   );
   IF (v_result ->> 'business_description') IS DISTINCT FROM 'A cosy synthetic pub.'
-     OR (v_result -> 'restaurant' ->> 'name') IS DISTINCT FROM 'Synthetic renamed A' THEN
+     OR (v_result -> 'restaurant' ->> 'name') IS DISTINCT FROM 'Synthetic renamed A'
+     OR (v_result -> 'previous' ->> 'name') IS NOT DISTINCT FROM 'Synthetic renamed A'
+     OR (v_result -> 'previous' ->> 'slug') IS DISTINCT FROM (v_result -> 'restaurant' ->> 'slug') THEN
     RAISE EXCEPTION 'combined write returned %', v_result USING ERRCODE = 'NB001';
   END IF;
   SELECT last_manual_override_at INTO v_override_before
@@ -194,6 +226,18 @@ BEGIN
        WHERE restaurant_id = v_restaurant_id AND description = 'Must not persist either'
      ) THEN
     RAISE EXCEPTION 'failed update left a partial write' USING ERRCODE = 'NB001';
+  END IF;
+
+  -- 7b. previous.logo_url is the value the update replaced (read under the row lock).
+  PERFORM public.update_restaurant_profile_v1(
+    v_restaurant_id, jsonb_build_object('logo_url', 'https://example.test/logo-a.png')
+  );
+  v_result := public.update_restaurant_profile_v1(
+    v_restaurant_id, jsonb_build_object('logo_url', 'https://example.test/logo-b.png')
+  );
+  IF (v_result -> 'previous' ->> 'logo_url') IS DISTINCT FROM 'https://example.test/logo-a.png'
+     OR (v_result -> 'restaurant' ->> 'logo_url') IS DISTINCT FROM 'https://example.test/logo-b.png' THEN
+    RAISE EXCEPTION 'previous logo_url not returned: %', v_result USING ERRCODE = 'NB001';
   END IF;
 
   -- 8. Unknown and derived keys are refused; missing restaurants raise P0002.

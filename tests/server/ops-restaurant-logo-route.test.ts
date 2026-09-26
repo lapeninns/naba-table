@@ -34,7 +34,7 @@ vi.mock('@/server/team/access', () => ({
 }));
 
 vi.mock('@/server/restaurants/update', () => ({
-  updateRestaurant: updateRestaurantMock,
+  updateRestaurantProfile: updateRestaurantMock,
 }));
 
 import { DELETE, POST } from '@/src/app/api/ops/restaurants/[id]/logo/route';
@@ -77,6 +77,14 @@ function updatedRestaurant(logoUrl: string | null) {
   };
 }
 
+/** The RPC result: the saved row plus the logo it replaced, read under the row lock. */
+function profileResult(logoUrl: string | null, previousLogoUrl: string | null = PREVIOUS_URL) {
+  return {
+    restaurant: updatedRestaurant(logoUrl),
+    previous: { name: 'The Bell', slug: 'the-bell', logoUrl: previousLogoUrl },
+  };
+}
+
 function uploadRequest(contentType = 'image/png') {
   const file = new File(['<image-bytes>'], 'logo.png', { type: contentType });
   Object.defineProperty(file, 'arrayBuffer', {
@@ -102,12 +110,7 @@ function deleteRequest() {
 
 const context = () => ({ params: Promise.resolve({ id: RESTAURANT_ID }) });
 
-function makeService(
-  options: {
-    previousLogoUrl?: string | null;
-    removeError?: { message: string } | null;
-  } = {},
-) {
+function makeService(options: { removeError?: { message: string } | null } = {}) {
   const calls: string[] = [];
   const upload = vi.fn(async (path: string) => {
     calls.push(`upload:${path}`);
@@ -120,25 +123,15 @@ function makeService(
   const getPublicUrl = vi.fn((path: string) => ({
     data: { publicUrl: `${STORAGE_BASE}/${path}` },
   }));
-  const restaurantsQuery = {
-    select: vi.fn(() => restaurantsQuery),
-    eq: vi.fn(() => restaurantsQuery),
-    maybeSingle: vi.fn(async () => {
-      calls.push('read-logo');
-      return {
-        data: {
-          logo_url: options.previousLogoUrl === undefined ? PREVIOUS_URL : options.previousLogoUrl,
-        },
-        error: null,
-      };
-    }),
-  };
   return {
     calls,
     upload,
     remove,
     client: {
-      from: vi.fn(() => restaurantsQuery),
+      // The route must not read logo_url separately: the RPC returns the replaced value.
+      from: vi.fn(() => {
+        throw new Error('unexpected table read');
+      }),
       storage: {
         getBucket: vi
           .fn()
@@ -167,7 +160,7 @@ describe('restaurant logo route', () => {
     getServiceSupabaseClientMock.mockReturnValue(service.client);
     updateRestaurantMock.mockImplementation(async (_id: string, input: { logoUrl: string }) => {
       service.calls.push('save-logo-url');
-      return updatedRestaurant(input.logoUrl);
+      return profileResult(input.logoUrl);
     });
 
     const response = await POST(uploadRequest(), context());
@@ -187,9 +180,8 @@ describe('restaurant logo route', () => {
       { logoUrl: body.url },
       service.client,
     );
-    // Order: read previous, upload new, save the URL, only then delete the old object.
+    // Order: upload new, save the URL, only then delete the object the save replaced.
     expect(service.calls).toEqual([
-      'read-logo',
       `upload:${body.path}`,
       'save-logo-url',
       `remove:${RESTAURANT_ID}/logo`,
@@ -216,7 +208,7 @@ describe('restaurant logo route', () => {
     const service = makeService({ removeError: { message: 'storage down' } });
     getServiceSupabaseClientMock.mockReturnValue(service.client);
     updateRestaurantMock.mockImplementation(async (_id: string, input: { logoUrl: string }) =>
-      updatedRestaurant(input.logoUrl),
+      profileResult(input.logoUrl),
     );
 
     const response = await POST(uploadRequest(), context());
@@ -229,16 +221,45 @@ describe('restaurant logo route', () => {
   });
 
   it('never deletes an object outside this restaurant folder', async () => {
-    const service = makeService({
-      previousLogoUrl: `${STORAGE_BASE}/33333333-3333-4333-8333-333333333333/logo`,
-    });
+    const service = makeService();
     getServiceSupabaseClientMock.mockReturnValue(service.client);
     updateRestaurantMock.mockImplementation(async (_id: string, input: { logoUrl: string }) =>
-      updatedRestaurant(input.logoUrl),
+      profileResult(
+        input.logoUrl,
+        `${STORAGE_BASE}/33333333-3333-4333-8333-333333333333/logo`,
+      ),
     );
 
     await POST(uploadRequest(), context());
 
+    expect(service.remove).not.toHaveBeenCalled();
+  });
+
+  it('deletes the object the save replaced, so concurrent uploads never orphan one', async () => {
+    const service = makeService();
+    getServiceSupabaseClientMock.mockReturnValue(service.client);
+    // Upload B was saved first: this request's row lock sees B as the replaced logo, not the
+    // value the route could have read before uploading.
+    const replacedByConcurrentUpload = `${STORAGE_BASE}/${RESTAURANT_ID}/logo-concurrent-b.png`;
+    updateRestaurantMock.mockImplementation(async (_id: string, input: { logoUrl: string }) =>
+      profileResult(input.logoUrl, replacedByConcurrentUpload),
+    );
+
+    const response = await POST(uploadRequest(), context());
+
+    expect(response.status).toBe(200);
+    expect(service.remove).toHaveBeenCalledTimes(1);
+    expect(service.remove).toHaveBeenCalledWith([`${RESTAURANT_ID}/logo-concurrent-b.png`]);
+  });
+
+  it('DELETE with no stored logo deletes nothing', async () => {
+    const service = makeService();
+    getServiceSupabaseClientMock.mockReturnValue(service.client);
+    updateRestaurantMock.mockResolvedValue(profileResult(null, null));
+
+    const response = await DELETE(deleteRequest(), context());
+
+    expect(response.status).toBe(200);
     expect(service.remove).not.toHaveBeenCalled();
   });
 
@@ -257,7 +278,7 @@ describe('restaurant logo route', () => {
     getServiceSupabaseClientMock.mockReturnValue(service.client);
     updateRestaurantMock.mockImplementation(async () => {
       service.calls.push('clear-logo-url');
-      return updatedRestaurant(null);
+      return profileResult(null);
     });
 
     const response = await DELETE(deleteRequest(), context());
@@ -269,7 +290,7 @@ describe('restaurant logo route', () => {
       { logoUrl: null },
       service.client,
     );
-    expect(service.calls).toEqual(['read-logo', 'clear-logo-url', `remove:${RESTAURANT_ID}/logo`]);
+    expect(service.calls).toEqual(['clear-logo-url', `remove:${RESTAURANT_ID}/logo`]);
   });
 
   it('DELETE requires an admin membership', async () => {

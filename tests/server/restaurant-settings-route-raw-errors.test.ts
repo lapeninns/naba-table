@@ -77,7 +77,7 @@ vi.mock('@/server/team/access', () => ({
 
 vi.mock('@/server/restaurants', () => ({
   deleteRestaurant: deleteRestaurantMock,
-  updateRestaurant: updateRestaurantMock,
+  updateRestaurantProfile: updateRestaurantMock,
 }));
 
 vi.mock('@/server/restaurants/details', () => ({

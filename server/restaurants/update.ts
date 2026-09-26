@@ -275,18 +275,44 @@ function mapRpcError(error: RpcError): Error {
 type ProfileRpcResult = {
   restaurant: RestaurantRow;
   business_description: string | null;
+  previous: { name: string; slug: string; logo_url: string | null };
 };
 
 function isProfileRpcResult(value: unknown): value is ProfileRpcResult {
   if (!value || typeof value !== 'object') return false;
-  const candidate = value as { restaurant?: unknown; business_description?: unknown };
+  const candidate = value as {
+    restaurant?: unknown;
+    business_description?: unknown;
+    previous?: unknown;
+  };
   const restaurant = candidate.restaurant as { id?: unknown } | null | undefined;
+  const previous = candidate.previous as
+    | { name?: unknown; slug?: unknown; logo_url?: unknown }
+    | null
+    | undefined;
   return (
     Boolean(restaurant) &&
     typeof restaurant?.id === 'string' &&
-    (candidate.business_description === null || typeof candidate.business_description === 'string')
+    (candidate.business_description === null ||
+      typeof candidate.business_description === 'string') &&
+    Boolean(previous) &&
+    typeof previous?.name === 'string' &&
+    typeof previous?.slug === 'string' &&
+    (previous?.logo_url === null || typeof previous?.logo_url === 'string')
   );
 }
+
+/** Values the update replaced, read under the same row lock as the write. */
+export type RestaurantPreviousValues = {
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+};
+
+export type RestaurantProfileUpdateResult = {
+  restaurant: UpdatedRestaurant;
+  previous: RestaurantPreviousValues;
+};
 
 async function assertSlugAvailable(
   client: DbClient,
@@ -321,6 +347,19 @@ export async function updateRestaurant(
   input: UpdateRestaurantInput,
   client: DbClient = getServiceSupabaseClient(),
 ): Promise<UpdatedRestaurant> {
+  const { restaurant } = await updateRestaurantProfile(restaurantId, input, client);
+  return restaurant;
+}
+
+/**
+ * `updateRestaurant`, plus the name, slug and logo the update replaced. Callers use these to act
+ * only on real changes (membership cache refresh) and to delete exactly the replaced logo object.
+ */
+export async function updateRestaurantProfile(
+  restaurantId: string,
+  input: UpdateRestaurantInput,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<RestaurantProfileUpdateResult> {
   if (Object.keys(input).length === 0) {
     throw new Error('No fields to update');
   }
@@ -353,7 +392,7 @@ export async function updateRestaurant(
 
   const row = data.restaurant;
 
-  return {
+  const restaurant: UpdatedRestaurant = {
     id: row.id,
     name: row.name,
     slug: row.slug,
@@ -382,5 +421,14 @@ export async function updateRestaurant(
     businessDescription: data.business_description,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+
+  return {
+    restaurant,
+    previous: {
+      name: data.previous.name,
+      slug: data.previous.slug,
+      logoUrl: data.previous.logo_url,
+    },
   };
 }

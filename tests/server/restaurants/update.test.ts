@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { updateRestaurant } from '@/server/restaurants/update';
+import { updateRestaurant, updateRestaurantProfile } from '@/server/restaurants/update';
 import { RestaurantUpdateError } from '@/server/restaurants/update-errors';
 
 const RESTAURANT_ID = 'restaurant-1';
@@ -51,7 +51,11 @@ function makeClient(options: { slugTaken?: boolean; rpcResult?: RpcResult } = {}
   const rpc = vi.fn(
     async (): Promise<RpcResult> =>
       options.rpcResult ?? {
-        data: { restaurant: storedRow, business_description: 'Cosy pub' },
+        data: {
+          restaurant: storedRow,
+          business_description: 'Cosy pub',
+          previous: { name: 'The Old Bell', slug: 'the-bell', logo_url: 'https://cdn.test/old.png' },
+        },
         error: null,
       },
   );
@@ -129,6 +133,49 @@ describe('updateRestaurant (atomic RPC)', () => {
         p_business_description: 'Cosy pub',
       }),
     );
+  });
+
+  it('returns the pre-update name, slug and logo read under the row lock', async () => {
+    const client = makeClient();
+
+    const { restaurant, previous } = await updateRestaurantProfile(
+      RESTAURANT_ID,
+      { name: 'The Bell' },
+      client as never,
+    );
+
+    expect(restaurant.name).toBe('The Bell');
+    expect(previous).toEqual({
+      name: 'The Old Bell',
+      slug: 'the-bell',
+      logoUrl: 'https://cdn.test/old.png',
+    });
+  });
+
+  it('treats an RPC result without previous values as an unexpected shape', async () => {
+    const client = makeClient({
+      rpcResult: { data: { restaurant: storedRow, business_description: null }, error: null },
+    });
+
+    await expect(updateRestaurant(RESTAURANT_ID, { name: 'X' }, client as never)).rejects.toThrow(
+      'unexpected shape',
+    );
+  });
+
+  it('maps an explicit daily summary request without a manager phone to a phone field error', async () => {
+    const client = makeClient({
+      rpcResult: { data: null, error: { code: '22023', message: 'MANAGER_PHONE_REQUIRED' } },
+    });
+
+    const error = await captureError(
+      updateRestaurant(RESTAURANT_ID, { managerDailySummaryEnabled: true }, client as never),
+    );
+
+    expect(error).toBeInstanceOf(RestaurantUpdateError);
+    expect(error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { managerNotificationPhone: [expect.any(String)] },
+    });
   });
 
   it('returns SLUG_TAKEN with a slug field when another restaurant has the slug', async () => {
