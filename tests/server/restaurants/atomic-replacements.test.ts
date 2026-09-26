@@ -57,12 +57,40 @@ describe('restaurant replacement helpers', () => {
       'updateRestaurantBusinessContext',
     );
 
-    expect(body).toContain('replaceCoreBusinessContext');
-    expect(read('server/restaurants/businessContext.ts')).toContain(
-      'replace_restaurant_business_context_core',
-    );
+    const source = read('server/restaurants/businessContext.ts');
+    // The save goes through the transactional v2 RPC (families + change log + revision in one
+    // transaction); the family tables are never cleared and refilled from the app.
+    expect(body).toContain('replaceBusinessContextAtomically');
     expect(body).not.toContain('.delete()');
     expect(body).not.toContain('.insert(');
+
+    const atomicStart = source.indexOf('async function replaceBusinessContextAtomically');
+    expect(atomicStart).toBeGreaterThan(-1);
+    const atomicEnd = source.indexOf('\nasync function ', atomicStart + 1);
+    const atomicBody = source.slice(atomicStart, atomicEnd === -1 ? undefined : atomicEnd);
+    expect(atomicBody).toContain('replace_restaurant_business_context_v2');
+    // The pre-v2 fallback still replaces the families by RPC, never by delete-then-insert.
+    expect(atomicBody).toContain('replace_restaurant_business_context_core');
+    expect(atomicBody).not.toContain('.delete()');
+    expect(atomicBody).not.toContain('.from(');
+  });
+
+  it('defines a service-role-only transactional v2 save for business context', () => {
+    const migration = read('supabase/migrations/20260927170000_business_context_atomic_save.sql');
+
+    expect(migration).toContain(
+      'CREATE OR REPLACE FUNCTION public.replace_restaurant_business_context_v2',
+    );
+    expect(migration).toContain('SECURITY DEFINER');
+    expect(migration).toContain('SET search_path = public');
+    expect(migration).toContain('PERFORM public.replace_restaurant_business_context_core(');
+    expect(migration).toContain('INSERT INTO public.restaurant_profile_change_log');
+    expect(migration).toMatch(
+      /REVOKE ALL ON FUNCTION public\.replace_restaurant_business_context_v2\([^)]*\) FROM authenticated/,
+    );
+    expect(migration).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.replace_restaurant_business_context_v2\([^)]*\) TO service_role/,
+    );
   });
 
   it('defines service-role-only replacement RPCs for all schedule tables', () => {
