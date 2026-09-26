@@ -48,6 +48,8 @@ vi.mock('@/components/features/restaurant-settings/RestaurantSettingsChromeHeade
 
 import { RestaurantSettingsFocusedShell } from '@/components/features/restaurant-settings/RestaurantSettingsFocusedShell';
 import {
+  AVAILABILITY_SAVE_CONFLICT_MESSAGE,
+  DISCOVERY_SAVE_CONFLICT_MESSAGE,
   SettingsSaveBar,
   type SettingsSaveBarProps,
 } from '@/components/features/restaurant-settings/shared/SettingsSaveBar';
@@ -229,6 +231,37 @@ describe('SettingsSaveBar', () => {
     expect(region).toHaveTextContent('Saved: Profile.');
     expect(region).toHaveTextContent('Reason code CONFLICT');
     expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
+  });
+
+  it.each([
+    ['Discovery', DISCOVERY_SAVE_CONFLICT_MESSAGE],
+    ['Availability', AVAILABILITY_SAVE_CONFLICT_MESSAGE],
+  ])('@contract shows the %s page conflict copy instead of the default', async (_page, copy) => {
+    const failure = await failHoursWith(
+      new HttpError({ message: RAW_SERVER_TEXT, status: 409, code: 'STALE_WRITE' }),
+    );
+    render(<DraftPage changeCount={1} failure={failure} conflictMessage={copy} />);
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(region).toHaveTextContent(`Hours not saved. ${copy}`);
+    expect(region).not.toHaveTextContent(CONFLICT_COPY);
+    expect(region).toHaveTextContent('Reason code CONFLICT');
+    expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
+  });
+
+  it('@contract uses the page conflict copy only for conflicts', async () => {
+    const failure = await failHoursWith(new HttpError({ message: RAW_SERVER_TEXT, status: 500 }));
+    render(
+      <DraftPage
+        changeCount={1}
+        failure={failure}
+        conflictMessage={DISCOVERY_SAVE_CONFLICT_MESSAGE}
+      />,
+    );
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(region).toHaveTextContent('Hours not saved. Your edits are still here.');
+    expect(region).not.toHaveTextContent(DISCOVERY_SAVE_CONFLICT_MESSAGE);
   });
 
   it('@contract keeps a specific API code on a 409 instead of claiming a conflict', async () => {

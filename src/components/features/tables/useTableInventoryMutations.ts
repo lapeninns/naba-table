@@ -113,6 +113,19 @@ function patchTable(
   );
 }
 
+/**
+ * A table save refused because another table already uses the number: shown on the number field.
+ * A bare 409 (a server without C1 codes) is treated the same way; any other 409, such as
+ * MAINTENANCE_CONFLICT, is a different problem and goes to the error toast.
+ */
+function isTableNumberConflict(error: unknown): boolean {
+  return (
+    error instanceof HttpError &&
+    error.status === 409 &&
+    (error.code === 'TABLE_NUMBER_TAKEN' || error.code === 'HTTP_409')
+  );
+}
+
 function isUpdateForZone(variables: unknown, zoneId: string) {
   return (
     typeof variables === 'object' &&
@@ -309,7 +322,7 @@ export function useTableInventoryMutations({
     });
 
   const handleTableSaveError = (error: unknown, tableNumber: string) => {
-    if (error instanceof HttpError && error.status === 409) {
+    if (isTableNumberConflict(error)) {
       onTableNumberConflict(tableNumber);
       return;
     }

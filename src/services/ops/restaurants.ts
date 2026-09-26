@@ -712,9 +712,20 @@ export type RestaurantBusinessContextFamily = {
 export type RestaurantBusinessContextSnapshot = {
   core: RestaurantBusinessContextFamily;
   providerSnapshot: RestaurantBusinessContextFamily;
+  /**
+   * Per-restaurant save revision. A save based on this snapshot sends it back as
+   * `expectedRevision`. Absent while the server has no revision support.
+   */
+  revision?: number;
 };
 
-export type UpdateRestaurantBusinessContextInput = Partial<{
+export type UpdateRestaurantBusinessContextInput = {
+  /**
+   * The revision of the snapshot the draft is based on. The server refuses the save with
+   * 409 STALE_WRITE when another write landed since.
+   */
+  expectedRevision?: number;
+} & Partial<{
   businessDetails: {
     openingDate?: string | null;
     businessStatus?: string | null;

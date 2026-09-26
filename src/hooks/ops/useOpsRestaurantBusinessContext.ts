@@ -41,13 +41,10 @@ export function useOpsRestaurantBusinessContext(
 }
 
 /**
- * One Discovery save: every changed section, applied in one transaction. `expectedRevision` is
- * the revision of the snapshot the draft is based on; the server refuses the save with
- * 409 STALE_WRITE when another write landed since.
+ * One Discovery save: every changed section, applied in one transaction, with the
+ * `expectedRevision` precondition (409 STALE_WRITE when another write landed since).
  */
-export type BusinessContextSaveInput = UpdateRestaurantBusinessContextInput & {
-  expectedRevision?: number;
-};
+export type BusinessContextSaveInput = UpdateRestaurantBusinessContextInput;
 
 export function useOpsUpdateRestaurantBusinessContext(
   restaurantId?: string | null,

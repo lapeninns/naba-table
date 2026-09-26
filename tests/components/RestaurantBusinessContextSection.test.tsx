@@ -268,7 +268,9 @@ describe('RestaurantBusinessContextSection', () => {
     await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalledTimes(1));
     expect(mutateAsyncMock).toHaveBeenCalledWith(expect.objectContaining({ expectedRevision: 7 }));
     expect(await within(saveBar()).findByText(/Categories not saved\./)).toBeInTheDocument();
-    expect(saveBar()).toHaveTextContent('Someone else changed these settings.');
+    expect(saveBar()).toHaveTextContent(
+      'Someone else changed these details. The latest version is loaded; review and save again.',
+    );
     expect(toastMock.success).not.toHaveBeenCalled();
   });
 

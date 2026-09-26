@@ -51,7 +51,7 @@ import {
 import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
 import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
-import { SettingsSaveBar } from '../shared/SettingsSaveBar';
+import { AVAILABILITY_SAVE_CONFLICT_MESSAGE, SettingsSaveBar } from '../shared/SettingsSaveBar';
 import { getSettingsSaveReasonCode, pluralise } from '../shared/settingsSaveSequence';
 import {
   scrollToSettingsSection,
@@ -720,6 +720,7 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
         onDiscard={controller.discard}
         onShowFirstIssue={showFirstIssue}
         onReview={() => setReviewOpen(true)}
+        conflictMessage={AVAILABILITY_SAVE_CONFLICT_MESSAGE}
       />
     </RestaurantSettingsCommandCenter>
   );

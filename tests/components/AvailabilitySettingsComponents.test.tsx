@@ -607,6 +607,12 @@ describe('AvailabilitySettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(await screen.findByText(/Someone else changed these settings\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Reload the page to load the latest, then make your edits again\./),
+    ).toBeInTheDocument();
+    // Discard reseeds from the same cached (stale) snapshot, so the copy must not promise that
+    // discarding loads newer settings.
+    expect(screen.queryByText(/Discard your changes to load the latest/)).not.toBeInTheDocument();
     expect(screen.getByText('CONFLICT', { selector: '.font-mono' })).toBeInTheDocument();
   });
 

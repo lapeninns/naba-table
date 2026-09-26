@@ -18,19 +18,11 @@ import type { RestaurantBusinessContextSnapshot } from '@/services/ops/restauran
 /** The editable value of every discovery section. */
 export type BusinessContextDrafts = BusinessContextFamilyPayloadState;
 
-/**
- * A snapshot as the API returns it: `revision` is the per-restaurant save revision the next save
- * sends back as its precondition. It is absent while the server has no revision support.
- */
-export type BusinessContextSnapshotWithRevision = RestaurantBusinessContextSnapshot & {
-  revision?: number;
-};
-
 /** The revision a draft based on `snapshot` must send with its save, if the server has one. */
 export function getBusinessContextRevision(
   snapshot: RestaurantBusinessContextSnapshot | null | undefined,
 ): number | undefined {
-  const revision = (snapshot as BusinessContextSnapshotWithRevision | null | undefined)?.revision;
+  const revision = snapshot?.revision;
   return typeof revision === 'number' && Number.isSafeInteger(revision) && revision >= 0
     ? revision
     : undefined;
@@ -44,7 +36,7 @@ export type BusinessContextDraftState = {
   restaurantKey: string | null;
   /** The snapshot object last received from the query, so each one is applied once. */
   seenSnapshot: RestaurantBusinessContextSnapshot | null;
-  baseline: BusinessContextSnapshotWithRevision | null;
+  baseline: RestaurantBusinessContextSnapshot | null;
   drafts: BusinessContextDrafts;
   seedSource: SeedSource;
   /**
