@@ -8,12 +8,12 @@
  * `customer_email`, or with the same address (case and surrounding whitespace ignored), is
  * returned unchanged.
  *
- * Limitation: this only works on direct `bookings.update(...)` payloads. It cannot revoke the
- * binding on the RPC path (`updateWithEnforcement` → `update_booking_with_capacity_check`),
- * because that RPC writes `auth_user_id = COALESCE(p_auth_user_id, existing.auth_user_id)`,
- * so passing null keeps the old binding. A staff email change routed through the RPC needs
- * an RPC or BEFORE UPDATE trigger change first; that DB-level enforcement is the real fix.
- * No staff path changes the contact email today.
+ * The database enforces the same rule for every writer, including the RPC path
+ * (`updateWithEnforcement` → `update_booking_with_capacity_check`, which COALESCEs a null
+ * `p_auth_user_id` back to the old binding): the `revoke_owner_binding_on_email_change`
+ * trigger (migration 20260927200100) clears `auth_user_id` when the contact email changes
+ * and the write does not set a different binding itself. This helper keeps the intent
+ * explicit in the payload.
  */
 export type OwnerBindingSource = {
   customer_email?: string | null;
