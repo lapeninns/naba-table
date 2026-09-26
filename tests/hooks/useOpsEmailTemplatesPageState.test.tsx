@@ -34,6 +34,7 @@ const templateHooks = vi.hoisted(() => ({
     data: undefined as { templateKey: string } | undefined,
     error: null as unknown,
     isPreviewStale: false,
+    refetch: undefined as (() => Promise<unknown>) | undefined,
   },
   testSendMutation: { mutateAsync: vi.fn(), isPending: false },
 }));
@@ -695,6 +696,24 @@ describe('useOpsEmailTemplatesPageState', () => {
     const { result } = setup();
 
     expect(result.current.previewErrorMessage).toMatch(/paused/i);
+    expect(result.current.previewErrorMessage).not.toMatch(/refresh in a moment/i);
+  });
+
+  it('@contract retries the preview on demand', () => {
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    templateHooks.previewQuery = {
+      data: undefined,
+      error: new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many' }),
+      isPreviewStale: false,
+      refetch,
+    };
+    const { result } = setup();
+
+    act(() => {
+      result.current.retryPreview();
+    });
+
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it('@contract exposes the preview only when it matches the selected template', () => {

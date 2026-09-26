@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EmailTemplatesPreviewPane } from '@/src/components/features/email-templates/EmailTemplatesPreviewPane';
@@ -84,5 +84,23 @@ describe('EmailTemplatesPreviewPane states', () => {
 
     expect(screen.getByText('Preview unavailable')).toBeInTheDocument();
     expect(screen.getByText('The preview is paused after too many updates.')).toBeInTheDocument();
+  });
+
+  it('offers a retry action on a preview error', async () => {
+    const onRetry = vi.fn();
+    render(
+      <EmailTemplatesPreviewPane
+        previewDevice="desktop"
+        onPreviewDeviceChange={vi.fn()}
+        isLoading={false}
+        errorMessage="The preview is paused after too many updates."
+        onRetry={onRetry}
+        preview={preview}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry preview' }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

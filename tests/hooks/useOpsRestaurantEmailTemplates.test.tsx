@@ -315,17 +315,55 @@ describe('useOpsRestaurantEmailTemplatePreview', () => {
     expect(transport.previewEmailTemplate).toHaveBeenCalledTimes(1);
   });
 
-  it('@contract surfaces a rate-limited preview without retrying it', async () => {
-    transport.previewEmailTemplate.mockRejectedValue(
-      new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many' }),
-    );
+  it('@contract retries a rate-limited preview once, after its Retry-After, and recovers', async () => {
+    vi.useFakeTimers();
+    transport.previewEmailTemplate
+      .mockRejectedValueOnce(
+        new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many', retryAfter: 3 }),
+      )
+      .mockResolvedValueOnce({ templateKey: 'confirmation', html: 'recovered' });
 
-    const { result } = setup(() =>
-      useOpsRestaurantEmailTemplatePreview(restaurantId, previewRequest('x'), { debounceMs: 0 }),
+    const { result } = renderHook(
+      () =>
+        useOpsRestaurantEmailTemplatePreview(restaurantId, previewRequest('x'), { debounceMs: 0 }),
+      { wrapper: createWrapper(createTestQueryClient()) },
     );
-
-    await waitFor(() => expect(result.current.isError).toBe(true));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(transport.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    // No hammering inside the Retry-After window.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_900);
+    });
+    expect(transport.previewEmailTemplate).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(transport.previewEmailTemplate).toHaveBeenCalledTimes(2);
+    expect(result.current.data).toEqual({ templateKey: 'confirmation', html: 'recovered' });
+    expect(result.current.isError).toBe(false);
+  });
+
+  it('@contract surfaces a preview that is still rate limited after one retry', async () => {
+    vi.useFakeTimers();
+    transport.previewEmailTemplate.mockRejectedValue(
+      new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many', retryAfter: 1 }),
+    );
+
+    const { result } = renderHook(
+      () =>
+        useOpsRestaurantEmailTemplatePreview(restaurantId, previewRequest('x'), { debounceMs: 0 }),
+      { wrapper: createWrapper(createTestQueryClient()) },
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    expect(transport.previewEmailTemplate).toHaveBeenCalledTimes(2);
+    expect(result.current.isError).toBe(true);
   });
 
   it('@contract stays idle without a draft', () => {

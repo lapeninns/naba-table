@@ -159,10 +159,31 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-/** Rate limits (429) are not retried: retrying only digs the hole deeper. */
+const PREVIEW_RATE_LIMIT_DEFAULT_WAIT_MS = 10_000;
+const PREVIEW_RATE_LIMIT_MAX_WAIT_MS = 60_000;
+
+function isRateLimited(error: unknown): error is HttpError {
+  return error instanceof HttpError && error.status === 429;
+}
+
+/**
+ * A rate-limited preview (429) is retried exactly once, after the server's Retry-After, so the
+ * last draft still renders once the window frees up without hammering the limit.
+ */
 function shouldRetryPreview(failureCount: number, error: unknown): boolean {
-  if (error instanceof HttpError && error.status === 429) return false;
+  if (isRateLimited(error)) return failureCount < 1;
   return shouldRetryQuery(failureCount, error);
+}
+
+function previewRetryDelay(failureCount: number, error: unknown): number {
+  if (isRateLimited(error)) {
+    const waitMs =
+      typeof error.retryAfter === 'number' && error.retryAfter > 0
+        ? error.retryAfter * 1000
+        : PREVIEW_RATE_LIMIT_DEFAULT_WAIT_MS;
+    return Math.min(waitMs, PREVIEW_RATE_LIMIT_MAX_WAIT_MS);
+  }
+  return Math.min(1000 * 2 ** failureCount, 30_000);
 }
 
 /**
@@ -211,6 +232,7 @@ export function useOpsRestaurantEmailTemplatePreview(
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000,
     retry: shouldRetryPreview,
+    retryDelay: previewRetryDelay,
     meta: { persist: false },
   });
 

@@ -151,6 +151,7 @@ export function OpsEmailTemplatesClient() {
                   isLoading={state.isPreviewLoading}
                   isRefreshing={state.previewQuery.isPreviewStale && Boolean(state.preview)}
                   errorMessage={state.previewErrorMessage}
+                  onRetry={state.retryPreview}
                 />
               </div>
             </div>

@@ -26,7 +26,8 @@ export type {
 } from '@src/hooks/ops/useEmailTemplateDraftState';
 
 const PREVIEW_ERROR_COPY = {
-  RATE_LIMITED: 'The preview is paused after too many updates. It will refresh in a moment.',
+  RATE_LIMITED:
+    'The preview is paused after too many updates. Wait a moment, then retry the preview.',
   VALIDATION_FAILED: 'The preview needs a valid draft. Check the highlighted fields.',
 };
 
@@ -89,9 +90,12 @@ export function useOpsEmailTemplatesPageState() {
   const previewErrorMessage = previewQuery.error
     ? toUserMessage(previewQuery.error, {
         copy: PREVIEW_ERROR_COPY,
-        fallback: "The preview couldn't be rendered. Keep editing or try again shortly.",
+        fallback: "The preview couldn't be rendered. Keep editing or retry the preview.",
       })
     : null;
+  const retryPreview = () => {
+    void previewQuery.refetch();
+  };
   const isPreviewLoading = previewQuery.isPreviewStale && !preview;
 
   const handleSave = async () => {
@@ -219,6 +223,7 @@ export function useOpsEmailTemplatesPageState() {
     preview,
     isPreviewLoading,
     previewErrorMessage,
+    retryPreview,
     activeVariantCount: draftState.activeVariantCount,
     handleSelectTemplate: draftState.handleSelectTemplate,
     handleAddVariant: draftState.handleAddVariant,
