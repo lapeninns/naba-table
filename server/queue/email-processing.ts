@@ -11,6 +11,7 @@ import {
   sendBookingCancellationEmail,
   sendBookingConfirmationEmail,
   sendBookingManageLinkEmail,
+  sendBookingModificationPendingEmail,
   sendBookingRejectedEmail,
   sendBookingReminderEmail,
   sendBookingReviewRequestEmail,
@@ -125,6 +126,9 @@ function shouldSendByStatus(type: EmailJobType, booking: BookingRecord): boolean
 
   switch (type) {
     case 'request_received':
+    case 'modification_pending':
+      // A pending modification that was confirmed or cancelled before the drain reached it is
+      // covered by the confirmation or cancellation email instead.
       return status === 'pending' || status === 'pending_allocation';
     case 'confirmation':
       return status === 'confirmed';
@@ -179,6 +183,9 @@ async function dispatchEmail(
       return;
     case 'updated':
       await sendBookingUpdateEmail(booking, QUEUE_SEND);
+      return;
+    case 'modification_pending':
+      await sendBookingModificationPendingEmail(booking, QUEUE_SEND);
       return;
     case 'cancelled':
       await sendBookingCancellationEmail(booking, QUEUE_SEND);

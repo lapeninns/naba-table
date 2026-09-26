@@ -20,6 +20,10 @@ const DEFAULT_BACKOFF = { type: 'exponential', delay: 60_000 } as const;
 const EMAIL_JOB_ID_SEPARATOR = '__';
 const DEFAULT_MAX_JOBS = 25;
 const MAX_JOB_HISTORY = 5_000;
+const INSERT_IF_ABSENT_EMAIL_TYPES: ReadonlySet<EmailJobType> = new Set([
+  'review_request',
+  'manage_link',
+]);
 
 export type EmailDispatchIntentStatus =
   | 'pending'
@@ -469,8 +473,10 @@ export async function scheduleEmailIntent(
 
   const { error } = await supabase.from('email_dispatch_intents').upsert(row, {
     onConflict: 'dedupe_key',
-    // Retry scheduling must never reset a claimed, sent or terminal review intent.
-    ignoreDuplicates: payload.type === 'review_request',
+    // Insert-if-absent types: a repeat must never reset a claimed, sent or terminal intent.
+    // Review retries reuse the journey key; manage-link lookups reuse the 15-minute bucket key,
+    // so resetting either would send the guest the same email twice.
+    ignoreDuplicates: INSERT_IF_ABSENT_EMAIL_TYPES.has(payload.type),
   });
 
   if (!error) {

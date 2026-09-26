@@ -1343,10 +1343,14 @@ export const sendBookingCancellationEmail = (
   booking: BookingRecord,
   sendOptions?: BookingEmailSendOptions,
 ) => dispatchEmail('cancelled', booking, sendOptions);
-export const sendBookingModificationPendingEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_pending', booking);
-export const sendBookingModificationConfirmedEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_confirmed', booking);
+export const sendBookingModificationPendingEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('modification_pending', booking, sendOptions);
+export const sendBookingModificationConfirmedEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('modification_confirmed', booking, sendOptions);
 export const sendBookingRejectedEmail = (
   booking: BookingRecord,
   sendOptions?: BookingEmailSendOptions,
