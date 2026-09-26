@@ -122,6 +122,7 @@ BEGIN
     );
     RAISE EXCEPTION 'an invalid change-log row should fail the save' USING ERRCODE = 'NB001';
   EXCEPTION
+    WHEN SQLSTATE 'NB001' THEN RAISE;
     WHEN check_violation THEN NULL;
   END;
   SELECT display_name INTO v_name FROM public.restaurant_categories WHERE id = v_category_id;
@@ -147,6 +148,10 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'business-context-atomic-save regression PASSED';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: business-context-atomic-save FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
 END;
 $regression$;
 

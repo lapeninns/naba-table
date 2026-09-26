@@ -145,7 +145,11 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'booking-email-intent-ensure regression PASSED';
-END
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: booking-email-intent-ensure FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
+END;
 $regression$;
 
 ROLLBACK;

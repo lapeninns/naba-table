@@ -166,6 +166,10 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'atomic-table-inventory-update regression PASSED';
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: atomic-table-inventory-update FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
 END;
 $regression$;
 

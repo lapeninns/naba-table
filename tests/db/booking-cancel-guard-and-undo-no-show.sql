@@ -127,7 +127,8 @@ BEGIN
   SELECT id, metadata INTO v_history_id, v_metadata
   FROM public.booking_state_history
   WHERE booking_id = v_no_show_booking_id AND to_status = 'no_show'
-  ORDER BY id DESC LIMIT 1;
+    AND id = (SELECT max(h.id) FROM public.booking_state_history h
+              WHERE h.booking_id = v_no_show_booking_id AND h.to_status = 'no_show');
 
   IF v_metadata -> 'releasedTables' -> 'tableIds' IS DISTINCT FROM jsonb_build_array(v_table_id)
      OR (v_metadata ->> 'action') IS DISTINCT FROM 'no-show' THEN
@@ -162,7 +163,8 @@ BEGIN
 
   SELECT metadata INTO v_metadata FROM public.booking_state_history
   WHERE booking_id = v_no_show_booking_id AND from_status = 'no_show'
-  ORDER BY id DESC LIMIT 1;
+    AND id = (SELECT max(h.id) FROM public.booking_state_history h
+              WHERE h.booking_id = v_no_show_booking_id AND h.from_status = 'no_show');
   IF (v_metadata ->> 'tableRestoration') IS DISTINCT FROM 'restored' THEN
     RAISE EXCEPTION 'undo history lacks the restoration outcome: %', v_metadata
       USING ERRCODE = 'NB001';
@@ -193,7 +195,8 @@ BEGIN
   );
   SELECT id INTO v_history_id FROM public.booking_state_history
   WHERE booking_id = v_no_show_booking_id AND to_status = 'no_show'
-  ORDER BY id DESC LIMIT 1;
+    AND id = (SELECT max(h.id) FROM public.booking_state_history h
+              WHERE h.booking_id = v_no_show_booking_id AND h.to_status = 'no_show');
 
   PERFORM public.assign_tables_atomic_v2(
     v_taker_booking_id, ARRAY[v_table_id], 'reg-s3a-taker', false, NULL,
@@ -231,7 +234,9 @@ BEGIN
     'status_change', '{}'::jsonb
   );
   SELECT id INTO v_history_id FROM public.booking_state_history
-  WHERE booking_id = v_legacy_booking_id AND to_status = 'no_show' ORDER BY id DESC LIMIT 1;
+  WHERE booking_id = v_legacy_booking_id AND to_status = 'no_show'
+    AND id = (SELECT max(h.id) FROM public.booking_state_history h
+              WHERE h.booking_id = v_legacy_booking_id AND h.to_status = 'no_show');
   SELECT result.table_restoration INTO v_restoration
   FROM public.undo_booking_no_show(
     v_legacy_booking_id, v_restaurant_id, v_history_id, 'confirmed', NULL, NULL,
@@ -247,7 +252,9 @@ BEGIN
     'status_change', '{}'::jsonb
   );
   SELECT id INTO v_history_id FROM public.booking_state_history
-  WHERE booking_id = v_tableless_booking_id AND to_status = 'no_show' ORDER BY id DESC LIMIT 1;
+  WHERE booking_id = v_tableless_booking_id AND to_status = 'no_show'
+    AND id = (SELECT max(h.id) FROM public.booking_state_history h
+              WHERE h.booking_id = v_tableless_booking_id AND h.to_status = 'no_show');
   SELECT result.table_restoration INTO v_restoration
   FROM public.undo_booking_no_show(
     v_tableless_booking_id, v_restaurant_id, v_history_id, 'confirmed', NULL, NULL,

@@ -106,7 +106,11 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'capacity-outbox-claim regression PASSED';
-END
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'nabatable-regression: capacity-outbox-claim FAILED (SQLSTATE %)', SQLSTATE;
+    RAISE;
+END;
 $regression$;
 
 ROLLBACK;
