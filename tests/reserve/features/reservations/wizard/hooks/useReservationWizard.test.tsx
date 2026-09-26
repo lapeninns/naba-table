@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -157,11 +157,11 @@ describe('useReservationWizard', () => {
     const root = join(process.cwd(), 'reserve');
     const offenders: string[] = [];
     const walk = (dir: string) => {
-      for (const entry of readdirSync(dir)) {
-        const path = join(dir, entry);
-        if (statSync(path).isDirectory()) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) {
           walk(path);
-        } else if (/\.(ts|tsx)$/.test(entry)) {
+        } else if (/\.(ts|tsx)$/.test(entry.name)) {
           const source = readFileSync(path, 'utf8');
           if (
             /bookings\?(email|phone)=|fetchBookingsByContact|recoverBookingAfterTimeout/.test(

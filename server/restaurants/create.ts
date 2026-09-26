@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { randomInt } from 'node:crypto';
 
 import { DEFAULT_RESERVATION_LIFECYCLE_GRACE_MINUTES } from '@/lib/restaurants/defaults';
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
@@ -121,10 +121,10 @@ const MAX_SLUG_ATTEMPTS = 4;
 const SLUG_SUFFIX_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 function randomSlugSuffix(): string {
-  const bytes = randomBytes(4);
+  // randomInt draws without modulo bias.
   let suffix = '';
-  for (const byte of bytes) {
-    suffix += SLUG_SUFFIX_ALPHABET[byte % SLUG_SUFFIX_ALPHABET.length];
+  for (let index = 0; index < 4; index += 1) {
+    suffix += SLUG_SUFFIX_ALPHABET[randomInt(SLUG_SUFFIX_ALPHABET.length)];
   }
   return suffix;
 }
