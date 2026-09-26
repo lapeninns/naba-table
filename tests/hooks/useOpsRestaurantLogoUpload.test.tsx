@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createAppQueryClient } from '@/lib/query/client';
 import { queryKeys } from '@/lib/query/keys';
+import { dualSyncQueryKeys } from '@src/hooks/ops/opsIntegrationQueries';
 import {
   useOpsRemoveRestaurantLogo,
   useOpsRestaurantLogoUpload,
@@ -32,10 +33,11 @@ function profile(logoUrl: string | null): RestaurantProfile {
 function setup<T>(hook: () => T) {
   const queryClient = createAppQueryClient();
   const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+  const cancelSpy = vi.spyOn(queryClient, 'cancelQueries');
   function Wrapper({ children }: { children: React.ReactNode }) {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
   }
-  return { queryClient, invalidateSpy, ...renderHook(hook, { wrapper: Wrapper }) };
+  return { queryClient, invalidateSpy, cancelSpy, ...renderHook(hook, { wrapper: Wrapper }) };
 }
 
 describe('restaurant logo mutations', () => {
@@ -65,12 +67,36 @@ describe('restaurant logo mutations', () => {
     expect(queryClient.getQueryData(detailKey)).toEqual(
       profile('https://cdn.example/logo-abc.png'),
     );
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    // logoUrl is a dual-sync field (core.logoUrl), so the drift view refreshes too.
+    expect(
+      invalidateSpy.mock.calls.map(([filters]) => (filters as { queryKey: unknown }).queryKey),
+    ).toEqual([dualSyncQueryKeys.state(restaurantId)]);
+  });
+
+  it('cancels an in-flight details GET before uploading, so it cannot overwrite the save', async () => {
+    uploadRestaurantLogoMock.mockResolvedValue({
+      path: 'p',
+      url: 'u',
+      cacheKey: 'c',
+      profile: profile('u'),
+    });
+    const { result, cancelSpy } = setup(() => useOpsRestaurantLogoUpload(restaurantId));
+
+    await act(async () => {
+      await result.current.mutateAsync(new File(['png'], 'logo.png', { type: 'image/png' }));
+    });
+
+    expect(cancelSpy).toHaveBeenCalledWith({ queryKey: detailKey });
+    expect(cancelSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      uploadRestaurantLogoMock.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 
   it('removes the logo and stores the canonical restaurant', async () => {
     removeRestaurantLogoMock.mockResolvedValue(profile(null));
-    const { result, queryClient } = setup(() => useOpsRemoveRestaurantLogo(restaurantId));
+    const { result, queryClient, invalidateSpy, cancelSpy } = setup(() =>
+      useOpsRemoveRestaurantLogo(restaurantId),
+    );
     queryClient.setQueryData(detailKey, profile('https://cdn.example/logo.png'));
 
     await act(async () => {
@@ -79,6 +105,10 @@ describe('restaurant logo mutations', () => {
 
     expect(removeRestaurantLogoMock).toHaveBeenCalledWith(restaurantId);
     expect(queryClient.getQueryData(detailKey)).toEqual(profile(null));
+    expect(cancelSpy).toHaveBeenCalledWith({ queryKey: detailKey });
+    expect(
+      invalidateSpy.mock.calls.map(([filters]) => (filters as { queryKey: unknown }).queryKey),
+    ).toEqual([dualSyncQueryKeys.state(restaurantId)]);
   });
 
   it('declares success toasts and inline errors, ordered with profile saves', async () => {
@@ -112,7 +142,7 @@ describe('restaurant logo mutations', () => {
 
   it('keeps the cache untouched when the upload fails', async () => {
     uploadRestaurantLogoMock.mockRejectedValue(new Error('rejected'));
-    const { result, queryClient } = setup(() => useOpsRestaurantLogoUpload(restaurantId));
+    const { result, queryClient, invalidateSpy } = setup(() => useOpsRestaurantLogoUpload(restaurantId));
     queryClient.setQueryData(detailKey, profile('https://cdn.example/old.png'));
 
     await act(async () => {
@@ -122,5 +152,6 @@ describe('restaurant logo mutations', () => {
     });
 
     expect(queryClient.getQueryData(detailKey)).toEqual(profile('https://cdn.example/old.png'));
+    expect(invalidateSpy).not.toHaveBeenCalled();
   });
 });

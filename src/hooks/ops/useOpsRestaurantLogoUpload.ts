@@ -10,7 +10,10 @@ import {
   type RestaurantProfile,
 } from '@/services/ops/restaurants';
 
+import { dualSyncQueryKeys } from './opsIntegrationQueries';
+
 import type { HttpError } from '@/lib/http/errors';
+import type { QueryClient } from '@tanstack/react-query';
 
 export type { RestaurantLogoUploadResult };
 
@@ -20,6 +23,22 @@ export type { RestaurantLogoUploadResult };
  */
 function restaurantDetailsScope(restaurantId?: string | null) {
   return restaurantId ? { id: `ops-restaurant-details:${restaurantId}` } : undefined;
+}
+
+/** An in-flight details GET started before the write would otherwise overwrite its response. */
+async function cancelDetailsFetch(queryClient: QueryClient, restaurantId?: string | null) {
+  if (!restaurantId) return;
+  await queryClient.cancelQueries({ queryKey: queryKeys.opsRestaurants.detail(restaurantId) });
+}
+
+/** Writes the canonical restaurant; logoUrl is a dual-sync field, so its drift view refreshes. */
+function applySavedProfile(
+  queryClient: QueryClient,
+  restaurantId: string,
+  profile: RestaurantProfile,
+) {
+  queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurantId), profile);
+  void queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.state(restaurantId) });
 }
 
 /**
@@ -40,9 +59,10 @@ export function useOpsRestaurantLogoUpload(
       }
       return uploadRestaurantLogo(restaurantId, file);
     },
+    onMutate: () => cancelDetailsFetch(queryClient, restaurantId),
     onSuccess: (result) => {
       if (!restaurantId) return;
-      queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurantId), result.profile);
+      applySavedProfile(queryClient, restaurantId, result.profile);
     },
   });
 }
@@ -62,9 +82,10 @@ export function useOpsRemoveRestaurantLogo(
       }
       return removeRestaurantLogo(restaurantId);
     },
+    onMutate: () => cancelDetailsFetch(queryClient, restaurantId),
     onSuccess: (profile) => {
       if (!restaurantId) return;
-      queryClient.setQueryData(queryKeys.opsRestaurants.detail(restaurantId), profile);
+      applySavedProfile(queryClient, restaurantId, profile);
     },
   });
 }
