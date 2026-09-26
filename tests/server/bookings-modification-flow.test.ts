@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const updateBookingRecordMock = vi.hoisted(() => vi.fn());
-const updateBookingAndClearAssignmentsAtomicallyMock = vi.hoisted(() => vi.fn());
+const modifyPendingBookingMock = vi.hoisted(() => vi.fn());
 const quoteTablesForBookingMock = vi.hoisted(() => vi.fn());
 const atomicConfirmAndTransitionMock = vi.hoisted(() => vi.fn());
 const releaseTableHoldMock = vi.hoisted(() => vi.fn());
@@ -26,7 +26,7 @@ vi.mock('@/server/runtime-policy', () => ({
 
 vi.mock('@/server/bookings', () => ({
   updateBookingRecord: updateBookingRecordMock,
-  updateBookingAndClearAssignmentsAtomically: updateBookingAndClearAssignmentsAtomicallyMock,
+  modifyPendingBookingAndClearAssignments: modifyPendingBookingMock,
 }));
 
 vi.mock('@/server/capacity/tables', () => ({
@@ -153,7 +153,7 @@ describe('beginBookingModificationFlow', () => {
       created: true,
       status: 'pending',
     });
-    updateBookingAndClearAssignmentsAtomicallyMock.mockImplementation(
+    modifyPendingBookingMock.mockImplementation(
       async (_client, _bookingId, payload) => makeBooking({ ...payload }),
     );
     quoteTablesForBookingMock.mockResolvedValue({
@@ -183,7 +183,7 @@ describe('beginBookingModificationFlow', () => {
     expect(error).toBeInstanceOf(BookingValidationError);
     expect(error).toMatchObject({ status: 409, code: 'MODIFICATION_NO_TABLES', retryable: false });
     // Nothing was released or rewritten: no clear, no swap, no pending downgrade.
-    expect(updateBookingAndClearAssignmentsAtomicallyMock).not.toHaveBeenCalled();
+    expect(modifyPendingBookingMock).not.toHaveBeenCalled();
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
     expect(atomicConfirmAndTransitionMock).not.toHaveBeenCalled();
@@ -217,7 +217,7 @@ describe('beginBookingModificationFlow', () => {
     expect(quoteTablesForBookingMock).toHaveBeenCalledWith(
       expect.objectContaining({ bookingId: 'booking-1', signal: expect.any(AbortSignal) }),
     );
-    expect(updateBookingAndClearAssignmentsAtomicallyMock).not.toHaveBeenCalled();
+    expect(modifyPendingBookingMock).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
 
@@ -275,7 +275,7 @@ describe('beginBookingModificationFlow', () => {
       p_history_metadata: { source: 'ops', holdId: 'hold-1' },
     });
     // The old two-step path (clear first, then assign) is gone.
-    expect(updateBookingAndClearAssignmentsAtomicallyMock).not.toHaveBeenCalled();
+    expect(modifyPendingBookingMock).not.toHaveBeenCalled();
     expect(atomicConfirmAndTransitionMock).not.toHaveBeenCalled();
     expect(ensureBookingEmailIntentMock).toHaveBeenCalledWith(client, {
       bookingId: 'booking-1',
@@ -283,7 +283,7 @@ describe('beginBookingModificationFlow', () => {
       type: 'updated',
       dedupeKey: 'email__updated__booking-1__hold-1',
       // A newer modification withdraws an older one's unsent email.
-      supersedeTypes: ['updated', 'request_received'],
+      supersedeTypes: ['updated', 'request_received', 'modification_pending'],
     });
     expect(sendBookingModificationConfirmedEmailMock).not.toHaveBeenCalled();
     expect(releaseTableHoldMock).not.toHaveBeenCalled();
@@ -372,7 +372,7 @@ describe('beginBookingModificationFlow', () => {
       ...PATCH,
       updated_at: '2026-06-30T10:00:00.000Z',
     });
-    updateBookingAndClearAssignmentsAtomicallyMock.mockResolvedValue(committed);
+    modifyPendingBookingMock.mockResolvedValue(committed);
     const { client } = makeClient();
     const run = () =>
       beginBookingModificationFlow({
@@ -393,13 +393,13 @@ describe('beginBookingModificationFlow', () => {
     expect(ensureBookingEmailIntentMock).toHaveBeenLastCalledWith(
       client,
       expect.objectContaining({
-        type: 'request_received',
-        supersedeTypes: ['updated', 'request_received'],
+        type: 'modification_pending',
+        supersedeTypes: ['updated', 'request_received', 'modification_pending'],
       }),
     );
 
     // A different committed change gets its own key (and supersedes the old email).
-    updateBookingAndClearAssignmentsAtomicallyMock.mockResolvedValue({
+    modifyPendingBookingMock.mockResolvedValue({
       ...committed,
       party_size: 6,
       updated_at: '2026-06-30T10:05:00.000Z',
@@ -416,7 +416,7 @@ describe('beginBookingModificationFlow', () => {
       reason: 'NO_CAPACITY',
       alternates: [],
     });
-    updateBookingAndClearAssignmentsAtomicallyMock.mockImplementation(
+    modifyPendingBookingMock.mockImplementation(
       async (_client, _bookingId, payload) => makeBooking({ status: 'pending', ...payload }),
     );
     const { client, rpc } = makeClient();
@@ -431,23 +431,23 @@ describe('beginBookingModificationFlow', () => {
 
     expect(result).toMatchObject({ status: 'pending', start_time: '19:45' });
     expect(rpc).not.toHaveBeenCalled();
-    expect(updateBookingAndClearAssignmentsAtomicallyMock).toHaveBeenCalledWith(
+    expect(modifyPendingBookingMock).toHaveBeenCalledWith(
       client,
       'booking-1',
       expect.objectContaining({
         ...PATCH,
         auto_assign_last_result: expect.objectContaining({ success: false, reason: 'NO_CAPACITY' }),
       }),
-      { restaurantId: 'rest-1' },
+      { restaurantId: 'rest-1', expectedStatus: 'pending' },
     );
-    const patch = updateBookingAndClearAssignmentsAtomicallyMock.mock.calls[0]![2] as Record<
+    const patch = modifyPendingBookingMock.mock.calls[0]![2] as Record<
       string,
       unknown
     >;
     expect(patch).not.toHaveProperty('status');
     expect(ensureBookingEmailIntentMock).toHaveBeenCalledWith(
       client,
-      expect.objectContaining({ type: 'request_received', bookingId: 'booking-1' }),
+      expect.objectContaining({ type: 'modification_pending', bookingId: 'booking-1' }),
     );
     expect(sendBookingModificationPendingEmailMock).not.toHaveBeenCalled();
     // Auto-assign runs through next/server after(), not a dangling promise.
@@ -459,6 +459,47 @@ describe('beginBookingModificationFlow', () => {
       reason: 'modification',
       emailVariant: 'modified',
     });
+  });
+
+  it('refuses the pending path with a 409 when the booking was confirmed while the planner ran', async () => {
+    quoteTablesForBookingMock.mockResolvedValue({ hold: null, reason: 'NO_CAPACITY', alternates: [] });
+    modifyPendingBookingMock.mockRejectedValue({ code: 'P0004', message: 'booking_state_conflict' });
+    const { client } = makeClient();
+
+    const error = await beginBookingModificationFlow({
+      client,
+      bookingId: 'booking-1',
+      existingBooking: makeBooking({ status: 'pending_allocation' }) as never,
+      payload: PATCH,
+      source: 'ops',
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(BookingModificationConflictError);
+    expect((error as BookingModificationConflictError).code).toBe('BOOKING_STATE_CONFLICT');
+    expect(modifyPendingBookingMock).toHaveBeenCalledWith(
+      client,
+      'booking-1',
+      expect.any(Object),
+      { restaurantId: 'rest-1', expectedStatus: 'pending_allocation' },
+    );
+    expect(ensureBookingEmailIntentMock).not.toHaveBeenCalled();
+    expect(afterCallbacks).toHaveLength(0);
+  });
+
+  it('refuses the pending path with 409 MODIFICATION_UNAVAILABLE when the guarded RPC is missing', async () => {
+    quoteTablesForBookingMock.mockResolvedValue({ hold: null, reason: 'NO_CAPACITY', alternates: [] });
+    modifyPendingBookingMock.mockRejectedValue({ code: 'PGRST202', message: 'not found' });
+    const { client } = makeClient();
+
+    await expect(
+      beginBookingModificationFlow({
+        client,
+        bookingId: 'booking-1',
+        existingBooking: makeBooking({ status: 'pending' }) as never,
+        payload: PATCH,
+        source: 'guest',
+      }),
+    ).rejects.toMatchObject({ code: 'MODIFICATION_UNAVAILABLE' });
   });
 
   it('sends the email inline only when the durable email queue is disabled', async () => {

@@ -582,6 +582,52 @@ export async function updateBookingAndClearAssignmentsAtomically(
   return data;
 }
 
+type ModifyPendingBookingRpcClient = DbClient & {
+  rpc: (
+    fn: 'modify_pending_booking_and_clear_assignments',
+    args: {
+      p_booking_id: string;
+      p_restaurant_id: string;
+      p_patch: Json;
+      p_expected_status: string;
+    },
+  ) => PromiseLike<{ data: BookingRecord | null; error: { code?: string | null } | null }>;
+};
+
+/**
+ * Pending-path modification (no table found for the new window): applies the patch and
+ * clears the booking's assignments and allocations only while its status is still
+ * `expectedStatus` (pending or pending_allocation). A concurrent status change raises
+ * SQLSTATE P0004 and nothing is written. The patch cannot change status or tenant.
+ * Throws the raw PostgREST error; callers map its `code`.
+ */
+export async function modifyPendingBookingAndClearAssignments(
+  client: DbClient,
+  bookingId: string,
+  payload: UpdateBookingPayload,
+  options: { restaurantId: string; expectedStatus: string },
+): Promise<BookingRecord> {
+  const nextPayload = await normalizeUpdateBookingPayload(payload);
+  const { data, error } = await (client as ModifyPendingBookingRpcClient).rpc(
+    'modify_pending_booking_and_clear_assignments',
+    {
+      p_booking_id: bookingId,
+      p_restaurant_id: options.restaurantId,
+      p_patch: nextPayload as Json,
+      p_expected_status: options.expectedStatus,
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+  if (!data) {
+    throw new Error('modify_pending_booking_and_clear_assignments returned no booking');
+  }
+
+  return data;
+}
+
 type TableAssignmentRow = {
   table_id: string | null;
 };
