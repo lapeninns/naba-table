@@ -39,6 +39,27 @@ describe('isNavItemActive with app-host pathnames', () => {
   });
 });
 
+describe('OPS_NAV_SECTIONS order', () => {
+  it('orders each group by how often it is used during service', () => {
+    expect(
+      OPS_NAV_SECTIONS.map((section) => ({
+        label: section.label ?? null,
+        titles: section.items.map((item) => item.title),
+      })),
+    ).toEqual([
+      { label: 'Service', titles: ['Dashboard', 'New Booking', 'Floor plan', 'Bookings'] },
+      { label: 'Guests & Communications', titles: ['Guests', 'Communications Delivery'] },
+      { label: null, titles: ['Settings'] },
+    ]);
+  });
+
+  it('keeps New Booking pointing at the booking wizard', () => {
+    const item = findNavItem('New Booking');
+    expect(item.href).toBe('/app/new-bookings');
+    expect(isNavItemActive('/app/new-bookings', item)).toBe(true);
+  });
+});
+
 describe('OPS_NAV_SECTIONS restaurant settings', () => {
   it('exposes a single Settings entry for all restaurant settings routes', () => {
     const settingsSection = OPS_NAV_SECTIONS.find((section) =>
@@ -60,8 +81,10 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
   });
 
   it('marks Communications Delivery as active-admin navigation', () => {
-    const guestInsights = OPS_NAV_SECTIONS.find((section) => section.label === 'Guest & Insights');
-    const communicationsItem = guestInsights?.items.find(
+    const guestsSection = OPS_NAV_SECTIONS.find(
+      (section) => section.label === 'Guests & Communications',
+    );
+    const communicationsItem = guestsSection?.items.find(
       (item) => item.title === 'Communications Delivery',
     );
 
@@ -78,7 +101,7 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     const titles = filtered.flatMap((section) => section.items.map((item) => item.title));
 
     expect(titles).not.toContain('Communications Delivery');
-    expect(titles).toContain('Email Templates');
+    expect(titles).toContain('Guests');
   });
 
   it('keeps active-admin navigation for admin active memberships', () => {

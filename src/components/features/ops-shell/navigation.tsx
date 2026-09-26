@@ -4,7 +4,6 @@ import {
   CircleHelp,
   DoorOpen,
   LayoutGrid,
-  Mail,
   MessageSquare,
   Settings2,
   Users,
@@ -44,12 +43,11 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname === path('/dashboard') || pathname === OPS_BASE_PATH,
       },
       {
-        title: 'Bookings',
-        description: 'Manage reservations',
-        href: path('/bookings'),
-        icon: CalendarDays,
-        match: (pathname) =>
-          pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
+        title: 'New Booking',
+        description: 'Take a phone booking or seat a walk-in',
+        href: path('/new-bookings'),
+        icon: DoorOpen,
+        match: (pathname) => pathname === path('/new-bookings'),
       },
       {
         title: 'Floor plan',
@@ -59,16 +57,17 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
         match: (pathname) => pathname.startsWith(path('/seating/floor-plan')),
       },
       {
-        title: 'New Bookings',
-        description: 'Log arrivals on the floor',
-        href: path('/new-bookings'),
-        icon: DoorOpen,
-        match: (pathname) => pathname === path('/new-bookings'),
+        title: 'Bookings',
+        description: 'Manage reservations',
+        href: path('/bookings'),
+        icon: CalendarDays,
+        match: (pathname) =>
+          pathname === path('/bookings') || pathname.startsWith(path('/bookings/')),
       },
     ],
   },
   {
-    label: 'Guest & Insights',
+    label: 'Guests & Communications',
     items: [
       {
         title: 'Guests',
@@ -88,13 +87,6 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
           pathname.startsWith(path('/sms-delivery')) ||
           pathname.startsWith(path('/message-delivery')),
         requiresActiveAdmin: true,
-      },
-      {
-        title: 'Email Templates',
-        description: 'Craft and A/B test guest email copy',
-        href: path('/email-templates'),
-        icon: Mail,
-        match: (pathname) => pathname.startsWith(path('/email-templates')),
       },
     ],
   },
