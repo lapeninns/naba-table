@@ -77,7 +77,11 @@ export function FindBookingForm({ venues, initialVenueSlug }: FindBookingFormPro
     captchaWidgetIdRef.current = window.turnstile.render(captchaContainerRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
       action: TURNSTILE_ACTION,
-      callback: (token) => setCaptchaToken(token),
+      callback: (token) => {
+        // A slow script can load after the timeout alert; a passed check clears it.
+        setCaptchaFailed(false);
+        setCaptchaToken(token);
+      },
       'expired-callback': () => setCaptchaToken(null),
       'error-callback': () => {
         setCaptchaToken(null);

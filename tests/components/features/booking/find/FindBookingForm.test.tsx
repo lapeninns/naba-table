@@ -79,6 +79,32 @@ describe('FindBookingForm security check failures', () => {
     expect(screen.queryByText(/security check didn’t load/i)).not.toBeInTheDocument();
   });
 
+  it('clears the failure alert when a slow script loads after the timeout and the check passes', async () => {
+    const { FindBookingForm } = await import('@/components/features/booking/find/FindBookingForm');
+    vi.useFakeTimers();
+    try {
+      render(
+        <FindBookingForm
+          venues={[{ slug: 'the-fox', name: 'The Fox' }]}
+          initialVenueSlug="the-fox"
+        />,
+      );
+      act(() => {
+        vi.advanceTimersByTime(16_000);
+      });
+      expect(screen.getByText(/security check didn’t load/i)).toBeInTheDocument();
+
+      const turnstile = installTurnstileMock();
+      act(() => (scriptProps.current as { onLoad?: () => void } | null)?.onLoad?.());
+      expect(turnstile.render).toHaveBeenCalled();
+      act(() => turnstile.configs[0]?.callback?.('token-1'));
+
+      expect(screen.queryByText(/security check didn’t load/i)).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('keeps submit enabled without a token and says what to do on submit', async () => {
     const user = userEvent.setup();
     installTurnstileMock();
