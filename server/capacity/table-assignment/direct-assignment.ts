@@ -175,6 +175,9 @@ type ValidationResult = {
 
 const PENDING_ASSIGNMENT_STATUSES = new Set(['pending', 'pending_allocation']);
 
+/** apply_booking_state_transition: the status no longer matches p_history_from. */
+const BOOKING_STATE_CONFLICT_SQLSTATE = 'P0004';
+
 async function confirmPendingBookingAfterAssignment(params: {
   booking: BookingRow;
   tableIds: string[];
@@ -208,11 +211,26 @@ async function confirmPendingBookingAfterAssignment(params: {
   });
 
   if (error) {
+    if (error.code === BOOKING_STATE_CONFLICT_SQLSTATE) {
+      // The status compare-and-set lost: the booking changed after it was read (auto-assign
+      // confirmed it, or it was cancelled). A booking that is now confirmed is exactly the
+      // outcome this step wanted; anything else is a state conflict the client refreshes on.
+      const current = await loadBooking(booking.id, supabase).catch(() => null);
+      if (current && String(current.status) === 'confirmed') {
+        return { ...booking, ...current };
+      }
+      throw new DirectAssignmentError(
+        'This booking was updated by someone else. Refresh and try again.',
+        'BOOKING_STATE_CONFLICT',
+        409,
+      );
+    }
+    // Database text (message, hint) is never carried: it would reach logs and clients.
     throw new DirectAssignmentError(
-      `Tables were assigned but booking status could not be confirmed: ${error.message}`,
-      error.code ?? 'BOOKING_STATUS_TRANSITION_FAILED',
+      'Tables were assigned but booking status could not be confirmed',
+      'BOOKING_STATUS_TRANSITION_FAILED',
       500,
-      { bookingId: booking.id, tableIds, hint: error.hint ?? null },
+      { bookingId: booking.id, tableIds, sqlState: error.code ?? null },
     );
   }
 

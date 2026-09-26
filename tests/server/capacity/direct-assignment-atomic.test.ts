@@ -231,6 +231,55 @@ describe('assignTablesDirectly', () => {
     expect(result.booking.status).toBe('confirmed');
   });
 
+  it('maps a concurrent status change on the pending-to-confirmed step to 409 BOOKING_STATE_CONFLICT', async () => {
+    const client = makeAssignmentClient();
+    client.rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0004', message: 'booking_state_conflict', hint: 'db hint' },
+    } as never);
+    ensureClientMock.mockReturnValue(client);
+    const pending = await loadBookingMock();
+    // First load: pending (read before the assign). Re-read after the conflict: cancelled.
+    loadBookingMock
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce({ ...pending, status: 'cancelled' });
+
+    const error = await assignTablesDirectly({
+      bookingId: BOOKING_ID,
+      tableIds: [TABLE_ID],
+      idempotencyKey: 'idem-1',
+      assignedBy: 'user-1',
+      client: client as never,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: 'BOOKING_STATE_CONFLICT', status: 409 });
+    expect((error as Error).message).not.toContain('booking_state_conflict');
+    expect((error as { details?: Record<string, unknown> }).details ?? {}).not.toHaveProperty('hint');
+  });
+
+  it('succeeds when the booking was confirmed concurrently while tables were assigned', async () => {
+    const client = makeAssignmentClient();
+    client.rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0004', message: 'booking_state_conflict' },
+    } as never);
+    ensureClientMock.mockReturnValue(client);
+    const pending = await loadBookingMock();
+    loadBookingMock
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce({ ...pending, status: 'confirmed' });
+
+    const result = await assignTablesDirectly({
+      bookingId: BOOKING_ID,
+      tableIds: [TABLE_ID],
+      idempotencyKey: 'idem-1',
+      assignedBy: 'user-1',
+      client: client as never,
+    });
+
+    expect(result.booking.status).toBe('confirmed');
+  });
+
   it('rejects duplicate table IDs before capacity validation', async () => {
     const client = makeAssignmentClient();
     ensureClientMock.mockReturnValue(client);
