@@ -224,3 +224,106 @@ test.describe('ops restaurant settings responsive sweep', () => {
     });
   }
 });
+
+/**
+ * `#ops-content` is the settings shell's only scroll container. If content escapes it (an
+ * absolutely positioned descendant whose containing block is the frame), the frame gains hidden
+ * scrollable overflow; `scrollIntoView` then scrolls the frame too, pushing the header off screen
+ * with no way for staff to scroll it back.
+ */
+async function measureShellFrame(page: Page) {
+  return page.evaluate(() => {
+    const content = document.getElementById('ops-content');
+    const frame = content?.closest('main');
+    if (!content || !frame) return null;
+    return {
+      frameOverflow: frame.scrollHeight - frame.clientHeight,
+      frameScrollTop: frame.scrollTop,
+    };
+  });
+}
+
+/**
+ * Live data renders visually hidden labels (`sr-only`, absolutely positioned) far down the page,
+ * such as "(opens in a new tab)" on the Google Maps link. Mock data may not, so add one to the
+ * lowest block of content that has no positioned ancestor below the shell: only the shell can
+ * contain it there.
+ */
+async function addScreenReaderLabelAtContentEnd(page: Page) {
+  await page.evaluate(() => {
+    const content = document.getElementById('ops-content');
+    if (!content) return;
+    const isStatic = (element: Element) => getComputedStyle(element).position === 'static';
+    let host: Element = content;
+    let lowest = -Infinity;
+    for (const element of Array.from(content.querySelectorAll('div, section, p'))) {
+      let ancestor: Element | null = element;
+      let unpositioned = true;
+      while (ancestor && ancestor !== content) {
+        if (!isStatic(ancestor)) {
+          unpositioned = false;
+          break;
+        }
+        ancestor = ancestor.parentElement;
+      }
+      const bottom = element.getBoundingClientRect().bottom;
+      if (unpositioned && bottom > lowest) {
+        lowest = bottom;
+        host = element;
+      }
+    }
+    const label = document.createElement('span');
+    label.className = 'sr-only';
+    label.textContent = '(opens in a new tab)';
+    host.append(label);
+  });
+}
+
+test.describe('ops restaurant settings scroll frame', () => {
+  test.use({ baseURL: appHostBaseUrl, viewport: { width: 1280, height: 720 } });
+
+  test.beforeEach(async ({ context, page }) => {
+    await context.addCookies([
+      {
+        name: qaAuthCookieName,
+        value: qaAuthCookieValue,
+        domain: 'app.localhost',
+        path: '/',
+        sameSite: 'Lax',
+      },
+    ]);
+    await installCommandCenterApiMocks(page);
+  });
+
+  for (const route of SETTINGS_ROUTES) {
+    test(`${route} keeps all content inside the settings scroll area @p1 @browser @local-only`, async ({
+      page,
+    }) => {
+      await page.goto(route, { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+      await expect(page.locator('h1').first()).toBeVisible();
+      await addScreenReaderLabelAtContentEnd(page);
+
+      expect(await measureShellFrame(page)).toEqual({ frameOverflow: 0, frameScrollTop: 0 });
+    });
+  }
+
+  test('a section jump scrolls the content, never the frame or header @p1 @browser @local-only', async ({
+    page,
+  }) => {
+    await page.goto('/settings/restaurant/profile', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => undefined);
+    const jump = page.getByRole('link', { name: 'Location and contact' });
+    await expect(jump).toBeVisible();
+    await addScreenReaderLabelAtContentEnd(page);
+
+    await jump.click();
+
+    await expect(jump).toHaveAttribute('aria-current', 'location');
+    await expect
+      .poll(() => page.evaluate(() => document.getElementById('ops-content')?.scrollTop ?? 0))
+      .toBeGreaterThan(0);
+    expect(await measureShellFrame(page)).toMatchObject({ frameScrollTop: 0 });
+    await expect(page.locator('h1').first()).toBeInViewport();
+  });
+});
