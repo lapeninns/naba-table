@@ -16,15 +16,14 @@ vi.mock('@/server/capacity/table-assignment/manual', () => ({
   getManualAssignmentContext: getManualAssignmentContextMock,
 }));
 
+import { ManualSelectionInputError } from '@/server/capacity/table-assignment/types';
 import { GET } from '@/src/app/api/ops/bookings/[id]/manual-context/route';
 
 const BOOKING_ID = 'ba760d72-617b-4fa7-bab2-9b198d398ef0';
 const RESTAURANT_A = '11111111-1111-4111-8111-111111111111';
 
 function request(bookingId = BOOKING_ID) {
-  return new NextRequest(
-    `https://app.nabatable.com/api/ops/bookings/${bookingId}/manual-context`,
-  );
+  return new NextRequest(`https://app.nabatable.com/api/ops/bookings/${bookingId}/manual-context`);
 }
 
 function routeContext(id = BOOKING_ID) {
@@ -96,7 +95,7 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
     expect(getManualAssignmentContextMock).not.toHaveBeenCalled();
   });
 
-  it("returns 404 when the booking is missing or hidden by RLS for another tenant @p1 @api @security", async () => {
+  it('returns 404 when the booking is missing or hidden by RLS for another tenant @p1 @api @security', async () => {
     const supabase = buildSupabase({ booking: null });
     getRouteHandlerSupabaseClientMock.mockResolvedValue(supabase);
 
@@ -184,18 +183,36 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
     });
   });
 
-  it('maps domain failures to a 500 with the error message @p2 @api', async () => {
+  it('maps unexpected failures to a generic C1 500 without the raw error text @p2 @api', async () => {
     const supabase = buildSupabase();
     getRouteHandlerSupabaseClientMock.mockResolvedValue(supabase);
     getTenantServiceSupabaseClientMock.mockReturnValue({ tag: 'tenant-service-client' });
-    getManualAssignmentContextMock.mockRejectedValue(new Error('Booking not eligible'));
+    getManualAssignmentContextMock.mockRejectedValue(
+      new Error('relation "public.table_inventory" permission denied'),
+    );
+
+    const response = await GET(request(), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({ code: 'INTERNAL_ERROR' });
+    expect(JSON.stringify(body)).not.toContain('table_inventory');
+  });
+
+  it('keeps app-built 4xx manual selection errors @p2 @api', async () => {
+    const supabase = buildSupabase();
+    getRouteHandlerSupabaseClientMock.mockResolvedValue(supabase);
+    getTenantServiceSupabaseClientMock.mockReturnValue({ tag: 'tenant-service-client' });
+    getManualAssignmentContextMock.mockRejectedValue(
+      new ManualSelectionInputError('Booking not found', 'BOOKING_NOT_FOUND', 404),
+    );
 
     const response = await GET(request(), routeContext());
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Booking not eligible',
-      code: 'INTERNAL_ERROR',
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
     });
   });
 });

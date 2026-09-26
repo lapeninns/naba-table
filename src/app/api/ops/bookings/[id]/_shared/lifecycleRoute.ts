@@ -1,17 +1,40 @@
-import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
+import {
+  apiError,
+  conflict,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
+import { logger } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { isBookingLifecycleAllowedToday } from '@/server/ops/booking-lifecycle/availability';
-import { applyBookingStateTransition } from '@/server/ops/booking-lifecycle/persistence';
+import {
+  applyBookingStateTransition,
+  applyUndoNoShowTransition,
+  type UndoNoShowPersistenceResult,
+} from '@/server/ops/booking-lifecycle/persistence';
+import {
+  isBookingNotFoundRpcError,
+  isBookingStateConflictError,
+  isBookingStatus,
+  isNoShowHistoryMissingError,
+  type BookingStatus,
+} from '@/server/ops/booking-lifecycle/rpcErrors';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 import { requireMembershipForRestaurant } from '@/server/team/access';
 
+import { bookingStateConflict, type LifecycleAssignmentRow } from './lifecycleResponses';
+
 import type { TransitionResult } from '@/server/ops/booking-lifecycle/actions';
 import type { Tables } from '@/types/supabase';
-import type { NextRequest } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
+
+const lifecycleLogger = logger.child({ module: 'api.ops.bookings.lifecycle' });
 
 type ParamsPromise = Promise<{ id: string | string[] }> | undefined;
 
@@ -52,6 +75,12 @@ type PersistTransitionResult =
     }
   | { result?: never; response: NextResponse };
 
+type PersistUndoResult =
+  | { result: UndoNoShowPersistenceResult; response?: never }
+  | { result?: never; response: NextResponse };
+
+type ServiceClient = ReturnType<typeof getServiceSupabaseClient>;
+
 export async function resolveBookingId(paramsPromise: ParamsPromise): Promise<string | null> {
   if (!paramsPromise) return null;
   const params = await paramsPromise;
@@ -74,16 +103,11 @@ export async function parseOptionalRouteBody<TSchema extends z.ZodTypeAny>(
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return {
-        response: NextResponse.json(
-          { error: 'Invalid payload', details: error.flatten() },
-          { status: 400 },
-        ),
-      };
+      return { response: validationError(error) };
     }
 
     return {
-      response: NextResponse.json({ error: 'Invalid payload' }, { status: 400 }),
+      response: apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.'),
     };
   }
 }
@@ -102,20 +126,13 @@ export async function loadLifecycleRouteContext(input: {
   } = await supabase.auth.getUser();
 
   if (error) {
-    console.error(`[ops][${logLabel}] failed to resolve auth`, error.message);
     const mapped = mapSupabaseAuthError(error);
-    return {
-      response: NextResponse.json(
-        { error: mapped.message, code: mapped.code },
-        { status: mapped.status },
-      ),
-    };
+    lifecycleLogger.warn('lifecycle.auth_failed', { route: logLabel, status: mapped.status });
+    return { response: apiError(mapped.status, mapped.code, mapped.message) };
   }
 
   if (!user) {
-    return {
-      response: NextResponse.json({ error: 'Authentication required' }, { status: 401 }),
-    };
+    return { response: unauthenticated('Authentication required') };
   }
 
   const serviceSupabase = getServiceSupabaseClient();
@@ -129,17 +146,14 @@ export async function loadLifecycleRouteContext(input: {
     .maybeSingle();
 
   if (bookingError) {
-    console.error(`[ops][${logLabel}] failed to load booking`, bookingError.message);
     return {
-      response: NextResponse.json({ error: 'Unable to load booking' }, { status: 500 }),
+      response: internalError(bookingError, { route: logLabel, stage: 'load_booking', bookingId }),
     };
   }
 
   const bookingRow = booking as LifecycleRouteBooking | null;
   if (!bookingRow) {
-    return {
-      response: NextResponse.json({ error: 'Booking not found' }, { status: 404 }),
-    };
+    return { response: notFound('BOOKING_NOT_FOUND', 'Booking not found') };
   }
 
   try {
@@ -148,11 +162,10 @@ export async function loadLifecycleRouteContext(input: {
       restaurantId: bookingRow.restaurant_id,
       client: supabase,
     });
-  } catch (accessError) {
-    console.error(`[ops][${logLabel}] access denied`, accessError);
-    return {
-      response: NextResponse.json({ error: 'Booking not found' }, { status: 404 }),
-    };
+  } catch {
+    // Non-members get the same 404 as a missing booking (no existence oracle).
+    lifecycleLogger.info('lifecycle.access_denied', { route: logLabel, bookingId });
+    return { response: notFound('BOOKING_NOT_FOUND', 'Booking not found') };
   }
 
   const rateLimit = await requireApiRateLimit({
@@ -176,9 +189,12 @@ export async function loadLifecycleRouteContext(input: {
     .maybeSingle();
 
   if (restaurantError) {
-    console.error(`[ops][${logLabel}] failed to load restaurant`, restaurantError.message);
     return {
-      response: NextResponse.json({ error: 'Unable to verify booking' }, { status: 500 }),
+      response: internalError(restaurantError, {
+        route: logLabel,
+        stage: 'load_restaurant',
+        bookingId,
+      }),
     };
   }
 
@@ -198,9 +214,9 @@ export async function loadLifecycleRouteContext(input: {
     })
   ) {
     return {
-      response: NextResponse.json(
-        { error: 'Lifecycle actions are only available on the reservation date' },
-        { status: 409 },
+      response: conflict(
+        'LIFECYCLE_DATE_LOCKED',
+        'Lifecycle actions are only available on the reservation date',
       ),
     };
   }
@@ -214,16 +230,83 @@ export async function loadLifecycleRouteContext(input: {
   };
 }
 
+/** Current status after a lost compare-and-set, for `details.currentStatus`. */
+async function loadCurrentStatus(
+  serviceSupabase: ServiceClient,
+  bookingId: string,
+): Promise<BookingStatus | null> {
+  try {
+    const { data, error } = await serviceSupabase
+      .from('bookings')
+      .select('status')
+      .eq('id', bookingId)
+      .maybeSingle();
+    if (error) return null;
+    const status = (data as { status?: unknown } | null)?.status;
+    return isBookingStatus(status) ? status : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Maps a lifecycle RPC failure to C1: a lost compare-and-set (`booking_state_conflict`)
+ * is a 409 BOOKING_STATE_CONFLICT with the current status, a vanished booking is a 404,
+ * anything else a logged 500 without DB text.
+ */
+async function mapTransitionFailure(input: {
+  error: unknown;
+  booking: LifecycleRouteBooking;
+  serviceSupabase: ServiceClient;
+  logLabel: string;
+  userId?: string;
+}): Promise<NextResponse> {
+  const { error, booking, serviceSupabase, logLabel, userId } = input;
+
+  if (isBookingStateConflictError(error)) {
+    const currentStatus = await loadCurrentStatus(serviceSupabase, booking.id);
+    lifecycleLogger.info('lifecycle.state_conflict', {
+      route: logLabel,
+      bookingId: booking.id,
+      expectedStatus: booking.status,
+      currentStatus,
+    });
+    return bookingStateConflict(currentStatus);
+  }
+
+  if (isNoShowHistoryMissingError(error)) {
+    return apiError(
+      400,
+      'NO_SHOW_HISTORY_MISSING',
+      'There is no no-show to undo for this booking.',
+    );
+  }
+
+  if (isBookingNotFoundRpcError(error)) {
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
+  }
+
+  captureServerException(error, {
+    distinctId: userId,
+    groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
+    properties: { bookingId: booking.id, source: 'ops', kind: logLabel },
+  });
+  return internalError(error, {
+    route: logLabel,
+    stage: 'persist_transition',
+    bookingId: booking.id,
+  });
+}
+
 export async function persistLifecycleTransition(input: {
   booking: LifecycleRouteBooking;
   transition: TransitionResult;
-  serviceSupabase: ReturnType<typeof getServiceSupabaseClient>;
+  serviceSupabase: ServiceClient;
   logLabel: string;
-  failureMessage: string;
+  userId?: string;
   releaseAssignments?: boolean;
 }): Promise<PersistTransitionResult> {
-  const { booking, transition, serviceSupabase, logLabel, failureMessage, releaseAssignments } =
-    input;
+  const { booking, transition, serviceSupabase, releaseAssignments } = input;
 
   try {
     return {
@@ -235,16 +318,59 @@ export async function persistLifecycleTransition(input: {
       }),
     };
   } catch (transitionError) {
-    console.error(
-      `[ops][${logLabel}] failed to persist transition`,
-      transitionError instanceof Error ? transitionError.message : transitionError,
-    );
-    captureServerException(transitionError, {
-      groups: booking.restaurant_id ? { restaurant: booking.restaurant_id } : undefined,
-      properties: { bookingId: booking.id, source: 'ops', kind: logLabel },
-    });
-    return {
-      response: NextResponse.json({ error: failureMessage }, { status: 500 }),
-    };
+    return { response: await mapTransitionFailure({ ...input, error: transitionError }) };
   }
+}
+
+export async function persistUndoNoShowTransition(input: {
+  booking: LifecycleRouteBooking;
+  transition: TransitionResult;
+  sourceHistoryId: number;
+  serviceSupabase: ServiceClient;
+  logLabel: string;
+  userId?: string;
+}): Promise<PersistUndoResult> {
+  const { booking, transition, sourceHistoryId, serviceSupabase } = input;
+
+  try {
+    return {
+      result: await applyUndoNoShowTransition({
+        supabase: serviceSupabase,
+        booking,
+        transition,
+        sourceHistoryId,
+      }),
+    };
+  } catch (transitionError) {
+    return { response: await mapTransitionFailure({ ...input, error: transitionError }) };
+  }
+}
+
+/**
+ * The booking's assignment rows after a write, in the assign-tables row shape. Returns
+ * null when they cannot be read (the write already committed; the client then refetches).
+ */
+export async function loadBookingAssignmentRows(
+  serviceSupabase: ServiceClient,
+  bookingId: string,
+  logLabel: string,
+): Promise<LifecycleAssignmentRow[] | null> {
+  const { data, error } = await serviceSupabase
+    .from('booking_table_assignments')
+    .select('id, booking_id, table_id, assigned_at, assigned_by')
+    .eq('booking_id', bookingId)
+    .order('table_id', { ascending: true });
+
+  if (error || !data) {
+    lifecycleLogger.warn('lifecycle.assignments_reload_failed', { route: logLabel, bookingId });
+    return null;
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    booking_id: row.booking_id,
+    table_id: row.table_id,
+    assigned_at: row.assigned_at,
+    assigned_by: row.assigned_by ?? null,
+  }));
 }

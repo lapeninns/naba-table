@@ -8324,6 +8324,26 @@ export type Database = {
         };
         Returns: boolean;
       };
+      move_booking_tables: {
+        Args: {
+          p_booking_id: string;
+          p_restaurant_id: string;
+          p_from_table_ids: string[];
+          p_to_table_ids: string[];
+          p_idempotency_key: string;
+          p_moved_by?: string | null;
+        };
+        Returns: {
+          replayed: boolean;
+          booking_status: Database['public']['Enums']['booking_status'];
+          booking_party_size: number;
+          booking_updated_at: string;
+          booking_date: string | null;
+          assignments: Json;
+          table_count: number;
+          total_capacity: number;
+        }[];
+      };
       ops_email_delivery_attempts_feed: {
         Args: {
           p_booking_ref?: string;
@@ -8583,6 +8603,29 @@ export type Database = {
         Args: { p_booking_id: string; p_table_ids?: string[] };
         Returns: {
           table_id: string;
+        }[];
+      };
+      undo_booking_no_show: {
+        Args: {
+          p_booking_id: string;
+          p_restaurant_id: string;
+          p_source_history_id: number;
+          p_status: Database['public']['Enums']['booking_status'];
+          p_checked_in_at: string | null;
+          p_checked_out_at: string | null;
+          p_updated_at: string;
+          p_history_changed_by: string | null;
+          p_history_changed_at: string;
+          p_history_reason: string;
+          p_history_metadata?: Json;
+        };
+        Returns: {
+          status: Database['public']['Enums']['booking_status'];
+          checked_in_at: string | null;
+          checked_out_at: string | null;
+          updated_at: string;
+          table_restoration: string;
+          released_table_ids: string[];
         }[];
       };
       update_booking_with_capacity_check: {

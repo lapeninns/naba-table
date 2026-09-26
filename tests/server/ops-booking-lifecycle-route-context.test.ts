@@ -125,7 +125,11 @@ describe('ops booking lifecycle route context', () => {
     const body = await response?.json();
 
     expect(response?.status).toBe(401);
-    expect(body).toEqual({ error: 'Authentication required' });
+    expect(body).toEqual({
+      error: 'Authentication required',
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    });
     expect(getServiceSupabaseClientMock).not.toHaveBeenCalled();
     expect(requireMembershipForRestaurantMock).not.toHaveBeenCalled();
   });
@@ -144,7 +148,11 @@ describe('ops booking lifecycle route context', () => {
       const body = await response?.json();
 
       expect(response?.status).toBe(404);
-      expect(body).toEqual({ error: 'Booking not found' });
+      expect(body).toEqual({
+        error: 'Booking not found',
+        code: 'BOOKING_NOT_FOUND',
+        message: 'Booking not found',
+      });
       expect(requireMembershipForRestaurantMock).toHaveBeenCalledWith({
         userId: USER_ID,
         restaurantId: RESTAURANT_ID,
@@ -183,6 +191,40 @@ describe('ops booking lifecycle route context', () => {
       endTime: BOOKING.end_time,
       graceMinutes: RESTAURANT.reservation_lifecycle_grace_minutes,
     });
+  });
+
+  it('returns a C1 409 LIFECYCLE_DATE_LOCKED outside the reservation date', async () => {
+    isBookingLifecycleAllowedTodayMock.mockReturnValue(false);
+
+    const result = await loadLifecycleRouteContext({
+      req: request(),
+      bookingId: BOOKING_ID,
+      logLabel: 'booking-check-in',
+    });
+
+    expect(result.response?.status).toBe(409);
+    await expect(result.response?.json()).resolves.toMatchObject({
+      code: 'LIFECYCLE_DATE_LOCKED',
+      message: 'Lifecycle actions are only available on the reservation date',
+    });
+  });
+
+  it('reports a booking lookup failure as a generic 500 without database text', async () => {
+    ({ serviceSupabase } = createServiceSupabase({
+      bookingResponse: { data: null, error: { message: 'relation "bookings" is locked' } },
+    }));
+    getServiceSupabaseClientMock.mockReturnValue(serviceSupabase);
+
+    const result = await loadLifecycleRouteContext({
+      req: request(),
+      bookingId: BOOKING_ID,
+      logLabel: 'booking-check-in',
+    });
+    const body = await result.response?.json();
+
+    expect(result.response?.status).toBe(500);
+    expect(body).toMatchObject({ code: 'INTERNAL_ERROR' });
+    expect(JSON.stringify(body)).not.toContain('locked');
   });
 
   it('returns rate-limit responses before loading restaurant lifecycle settings', async () => {

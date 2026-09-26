@@ -9,6 +9,8 @@ const prepareUndoNoShowTransitionMock = vi.hoisted(() => vi.fn());
 const loadLifecycleRouteContextMock = vi.hoisted(() => vi.fn());
 const parseOptionalRouteBodyMock = vi.hoisted(() => vi.fn());
 const persistLifecycleTransitionMock = vi.hoisted(() => vi.fn());
+const persistUndoNoShowTransitionMock = vi.hoisted(() => vi.fn());
+const loadBookingAssignmentRowsMock = vi.hoisted(() => vi.fn());
 const resolveBookingIdMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/bookings', () => ({
@@ -29,10 +31,13 @@ vi.mock('@/src/app/api/ops/bookings/[id]/_shared/lifecycleRoute', () => ({
   loadLifecycleRouteContext: loadLifecycleRouteContextMock,
   parseOptionalRouteBody: parseOptionalRouteBodyMock,
   persistLifecycleTransition: persistLifecycleTransitionMock,
+  persistUndoNoShowTransition: persistUndoNoShowTransitionMock,
+  loadBookingAssignmentRows: loadBookingAssignmentRowsMock,
   resolveBookingId: resolveBookingIdMock,
 }));
 
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import { BookingLifecycleError } from '@/server/ops/booking-lifecycle/stateMachine';
 import { POST as postCheckIn } from '@/src/app/api/ops/bookings/[id]/check-in/route';
 import { POST as postNoShow } from '@/src/app/api/ops/bookings/[id]/no-show/route';
 import { POST as postUndoNoShow } from '@/src/app/api/ops/bookings/[id]/undo-no-show/route';
@@ -53,7 +58,7 @@ const BOOKING = {
 };
 
 const HISTORY_ENTRY = {
-  id: 'history-1',
+  id: 42,
   booking_id: BOOKING_ID,
   from_status: 'confirmed',
   to_status: 'no_show',
@@ -61,6 +66,16 @@ const HISTORY_ENTRY = {
   changed_at: '2026-05-16T19:05:00.000Z',
   reason: 'guest did not arrive',
   metadata: { source: 'ops' },
+};
+
+const TABLE_ID = 'table-1';
+
+const RESTORED_ASSIGNMENT = {
+  id: 'assignment-1',
+  booking_id: BOOKING_ID,
+  table_id: TABLE_ID,
+  assigned_at: '2026-05-16T19:20:00.000Z',
+  assigned_by: USER_ID,
 };
 
 const TRANSITIONS = {
@@ -136,6 +151,19 @@ describe('ops booking lifecycle routes', () => {
     });
     resolveBookingIdMock.mockReset();
     resolveBookingIdMock.mockResolvedValue(BOOKING_ID);
+    persistUndoNoShowTransitionMock.mockReset();
+    persistUndoNoShowTransitionMock.mockResolvedValue({
+      result: {
+        status: 'confirmed',
+        checkedInAt: null,
+        checkedOutAt: null,
+        updatedAt: '2026-05-16T19:20:00.000Z',
+        changed: true,
+        tableRestoration: { status: 'restored', tableIds: [TABLE_ID] },
+      },
+    });
+    loadBookingAssignmentRowsMock.mockReset();
+    loadBookingAssignmentRowsMock.mockResolvedValue([RESTORED_ASSIGNMENT]);
 
     historyQuery = createHistoryQuery({ data: HISTORY_ENTRY, error: null });
     serviceSupabase = {
@@ -166,7 +194,17 @@ describe('ops booking lifecycle routes', () => {
       status: lifecycleResult.status,
       checkedInAt: lifecycleResult.checkedInAt,
       checkedOutAt: lifecycleResult.checkedOutAt,
+      changed: true,
+      booking: {
+        id: BOOKING_ID,
+        restaurantId: RESTAURANT_ID,
+        status: lifecycleResult.status,
+        checkedInAt: lifecycleResult.checkedInAt,
+        checkedOutAt: lifecycleResult.checkedOutAt,
+        updatedAt: lifecycleResult.updatedAt,
+      },
     });
+    expect(body).not.toHaveProperty('assignments');
     expect(prepareCheckInTransitionMock).toHaveBeenCalledWith({
       booking: BOOKING,
       actorId: USER_ID,
@@ -205,10 +243,13 @@ describe('ops booking lifecycle routes', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       status: 'no_show',
       checkedInAt: null,
       checkedOutAt: null,
+      changed: true,
+      booking: { id: BOOKING_ID, status: 'no_show', updatedAt: performedAt },
+      assignments: [],
     });
     expect(prepareNoShowTransitionMock).toHaveBeenCalledWith({
       booking: BOOKING,
@@ -227,16 +268,9 @@ describe('ops booking lifecycle routes', () => {
     });
   });
 
-  it('undoes no-show using the latest no-show history entry', async () => {
+  it('undoes no-show atomically and returns the restored tables', async () => {
     const reason = 'guest arrived late';
     parseOptionalRouteBodyMock.mockResolvedValue({ data: { reason } });
-    persistLifecycleTransitionMock.mockResolvedValue({
-      result: {
-        ...lifecycleResult,
-        status: 'confirmed',
-        checkedInAt: null,
-      },
-    });
 
     const response = await postUndoNoShow(
       buildRequest(`/api/ops/bookings/${BOOKING_ID}/undo-no-show`, { reason }),
@@ -249,6 +283,18 @@ describe('ops booking lifecycle routes', () => {
       status: 'confirmed',
       checkedInAt: null,
       checkedOutAt: null,
+      changed: true,
+      booking: {
+        id: BOOKING_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'confirmed',
+        checkedInAt: null,
+        checkedOutAt: null,
+        updatedAt: '2026-05-16T19:20:00.000Z',
+      },
+      assignments: [RESTORED_ASSIGNMENT],
+      tablesRestored: true,
+      tableRestoration: { status: 'restored', tableIds: [TABLE_ID] },
     });
     expect(serviceSupabase.from).toHaveBeenCalledWith('booking_state_history');
     expect(historyQuery.eq).toHaveBeenCalledWith('booking_id', BOOKING_ID);
@@ -261,16 +307,118 @@ describe('ops booking lifecycle routes', () => {
       historyEntry: HISTORY_ENTRY,
       reason,
     });
-    expect(persistLifecycleTransitionMock).toHaveBeenCalledWith(
+    expect(persistUndoNoShowTransitionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         booking: BOOKING,
         transition: TRANSITIONS.undoNoShow,
+        sourceHistoryId: 42,
         serviceSupabase,
         logLabel: 'booking-undo-no-show',
       }),
     );
+    expect(persistLifecycleTransitionMock).not.toHaveBeenCalled();
     expect(invalidateOpsDashboardCachesMock).toHaveBeenCalledWith(RESTAURANT_ID, {
       summaryDates: [BOOKING.booking_date],
     });
+  });
+
+  it('says explicitly when undo could not restore the released tables', async () => {
+    persistUndoNoShowTransitionMock.mockResolvedValue({
+      result: {
+        status: 'confirmed',
+        checkedInAt: null,
+        checkedOutAt: null,
+        updatedAt: '2026-05-16T19:20:00.000Z',
+        changed: true,
+        tableRestoration: { status: 'unavailable', tableIds: [TABLE_ID] },
+      },
+    });
+    loadBookingAssignmentRowsMock.mockResolvedValue([]);
+
+    const response = await postUndoNoShow(
+      buildRequest(`/api/ops/bookings/${BOOKING_ID}/undo-no-show`),
+      buildRouteParams(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      status: 'confirmed',
+      assignments: [],
+      tablesRestored: false,
+      tableRestoration: { status: 'unavailable', tableIds: [TABLE_ID] },
+    });
+  });
+
+  it('maps a lifecycle rule rejection to 409 BOOKING_STATE_CONFLICT with the current status', async () => {
+    prepareNoShowTransitionMock.mockImplementation(() => {
+      throw new BookingLifecycleError(
+        'Cannot mark a checked-in booking as no-show',
+        'TRANSITION_NOT_ALLOWED',
+      );
+    });
+
+    const response = await postNoShow(
+      buildRequest(`/api/ops/bookings/${BOOKING_ID}/no-show`),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'BOOKING_STATE_CONFLICT',
+      retryable: false,
+      details: { currentStatus: 'confirmed' },
+    });
+    expect(persistLifecycleTransitionMock).not.toHaveBeenCalled();
+  });
+
+  it('maps an invalid performedAt to 400 INVALID_TIMESTAMP', async () => {
+    prepareCheckInTransitionMock.mockImplementation(() => {
+      throw new BookingLifecycleError('Timestamp cannot be in the future', 'TIMESTAMP_INVALID');
+    });
+
+    const response = await postCheckIn(
+      buildRequest(`/api/ops/bookings/${BOOKING_ID}/check-in`),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'INVALID_TIMESTAMP' });
+  });
+
+  it('maps a missing no-show history row to 400 NO_SHOW_HISTORY_MISSING', async () => {
+    prepareUndoNoShowTransitionMock.mockImplementation(() => {
+      throw new BookingLifecycleError('No matching history entry', 'MISSING_HISTORY');
+    });
+
+    const response = await postUndoNoShow(
+      buildRequest(`/api/ops/bookings/${BOOKING_ID}/undo-no-show`),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ code: 'NO_SHOW_HISTORY_MISSING' });
+  });
+
+  it('passes a persistence conflict response through unchanged', async () => {
+    persistLifecycleTransitionMock.mockResolvedValue({
+      response: Response.json(
+        {
+          error: 'x',
+          message: 'x',
+          code: 'BOOKING_STATE_CONFLICT',
+          details: { currentStatus: 'no_show' },
+        },
+        { status: 409 },
+      ),
+    });
+
+    const response = await postCheckIn(
+      buildRequest(`/api/ops/bookings/${BOOKING_ID}/check-in`),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(409);
+    expect(invalidateOpsDashboardCachesMock).not.toHaveBeenCalled();
   });
 });
