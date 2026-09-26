@@ -85,6 +85,8 @@ const copyByCode: Record<
 };
 
 const FIND_BOOKING_PATH = '/bookings/find';
+/** Codes where a new emailed link cannot work, so it is not offered. */
+const NO_NEW_LINK_CODES: ReadonlySet<string> = new Set(['ACCESS_TOKEN_NOT_CONFIGURED']);
 
 export default async function BookingRecoverErrorPage({
   searchParams,
@@ -96,6 +98,7 @@ export default async function BookingRecoverErrorPage({
   const content = copyByCode[code] ?? copyByCode.INVALID_ACCESS_TOKEN;
   const { isAuthenticated } = await getGuestAuthState();
   const primaryAction = getBookingRecoveryPrimaryAction(isAuthenticated);
+  const canEmailNewLink = !NO_NEW_LINK_CODES.has(code);
 
   return (
     <GuestPageFrame>
@@ -105,12 +108,16 @@ export default async function BookingRecoverErrorPage({
         title={content.title}
         description={content.description}
         actions={
-          <>
-            <GuestPrimaryButton href={FIND_BOOKING_PATH}>Email me a new link</GuestPrimaryButton>
-            <GuestSecondaryButton href={primaryAction.href}>
-              {primaryAction.label}
-            </GuestSecondaryButton>
-          </>
+          canEmailNewLink ? (
+            <>
+              <GuestPrimaryButton href={FIND_BOOKING_PATH}>Email me a new link</GuestPrimaryButton>
+              <GuestSecondaryButton href={primaryAction.href}>
+                {primaryAction.label}
+              </GuestSecondaryButton>
+            </>
+          ) : (
+            <GuestPrimaryButton href={primaryAction.href}>{primaryAction.label}</GuestPrimaryButton>
+          )
         }
         meta={
           <>
