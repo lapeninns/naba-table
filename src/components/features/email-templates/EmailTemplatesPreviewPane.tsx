@@ -24,6 +24,8 @@ type EmailTemplatesPreviewPaneProps = {
   onPreviewDeviceChange: (device: EmailTemplatesPreviewDevice) => void;
   preview: RestaurantEmailTemplatePreview | null;
   isLoading: boolean;
+  /** A newer draft is being rendered while the previous preview stays visible. */
+  isRefreshing?: boolean;
   errorMessage: string | null;
 };
 
@@ -53,6 +55,7 @@ export function EmailTemplatesPreviewPane({
   onPreviewDeviceChange,
   preview,
   isLoading,
+  isRefreshing = false,
   errorMessage,
 }: EmailTemplatesPreviewPaneProps) {
   const isMobile = previewDevice === 'mobile';
@@ -69,8 +72,8 @@ export function EmailTemplatesPreviewPane({
           <Mail className="size-4 text-muted-foreground" />
           <div className="min-w-0">
             <div className="text-sm font-bold text-foreground">Live Preview</div>
-            <div className="text-xs text-muted-foreground">
-              Rendered using the current draft variant.
+            <div className="text-xs text-muted-foreground" aria-live="polite">
+              {isRefreshing ? 'Updating preview…' : 'Rendered using the current draft variant.'}
             </div>
           </div>
         </div>

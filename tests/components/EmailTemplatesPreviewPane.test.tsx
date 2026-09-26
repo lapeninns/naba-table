@@ -37,3 +37,52 @@ describe('EmailTemplatesPreviewPane', () => {
     expect(iframe.getAttribute('sandbox')).not.toContain('allow-same-origin');
   });
 });
+
+describe('EmailTemplatesPreviewPane states', () => {
+  const preview = {
+    templateKey: 'confirmation' as const,
+    selectedVariantId: 'variant-1',
+    selectedVariantName: 'Variant',
+    preheader: 'Preview',
+    headline: 'Headline',
+    intro: 'Intro',
+    cue: '',
+    ask: '',
+    ctaLabel: 'Manage',
+    ctaUrl: 'https://nabatable.com',
+    subject: 'Subject',
+    html: '<p>Hi</p>',
+    text: 'Plain text',
+  };
+
+  it('keeps the previous render visible while a newer draft is rendering', () => {
+    render(
+      <EmailTemplatesPreviewPane
+        previewDevice="desktop"
+        onPreviewDeviceChange={vi.fn()}
+        isLoading={false}
+        isRefreshing
+        errorMessage={null}
+        preview={preview}
+      />,
+    );
+
+    expect(screen.getByText('Updating preview…')).toBeInTheDocument();
+    expect(screen.getByTitle('desktop email preview')).toBeInTheDocument();
+  });
+
+  it('shows the preview error instead of a stale render', () => {
+    render(
+      <EmailTemplatesPreviewPane
+        previewDevice="desktop"
+        onPreviewDeviceChange={vi.fn()}
+        isLoading={false}
+        errorMessage="The preview is paused after too many updates."
+        preview={preview}
+      />,
+    );
+
+    expect(screen.getByText('Preview unavailable')).toBeInTheDocument();
+    expect(screen.getByText('The preview is paused after too many updates.')).toBeInTheDocument();
+  });
+});
