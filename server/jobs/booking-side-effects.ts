@@ -669,7 +669,8 @@ function errorNameOf(error: unknown): string {
 }
 
 /**
- * Sends the first confirmation for a booking that is confirmed at creation.
+ * Sends the first confirmation for a booking: at creation when it is confirmed
+ * straight away, or later when it moves from pending to confirmed.
  *
  * With the durable email queue enabled, the email is an `email_dispatch_intents`
  * row keyed `email__confirmation__<bookingId>`. It is ensured (insert-if-absent) on
@@ -680,7 +681,7 @@ function errorNameOf(error: unknown): string {
  * booking_confirmation_notification_claims row, so a replay retries a failed SMS
  * without sending a second one.
  */
-async function ensureCreatedConfirmation(
+async function ensureFirstConfirmation(
   booking: BookingPayload,
   restaurantId: string,
   client: SupabaseLike,
@@ -820,7 +821,7 @@ async function processBookingCreatedSideEffects(
     }
 
     if (booking.status === 'confirmed' && (allowConfirmationEmail || shouldSendSms)) {
-      queued = await ensureCreatedConfirmation(
+      queued = await ensureFirstConfirmation(
         booking,
         restaurantId,
         client,
@@ -954,14 +955,25 @@ async function processBookingUpdatedSideEffects(
     ((!SUPPRESS_EMAILS && isValidEmail(current.customer_email)) ||
       hasValidSmsRecipient(current.customer_phone))
   ) {
-    try {
-      await sendFirstBookingConfirmationNotifications(current as BookingRecord, {
+    // Same durable, per-booking confirmation key as the created path, so a booking
+    // is confirmed to the guest once however it reached `confirmed`.
+    await ensureFirstConfirmation(
+      current,
+      restaurantId,
+      resolveSupabase(_supabase),
+      {
         allowEmail: !SUPPRESS_EMAILS && isValidEmail(current.customer_email),
         allowSms: hasValidSmsRecipient(current.customer_phone),
-      });
-    } catch (error) {
-      console.error('[jobs][booking.updated][confirmation-notifications]', error);
-    }
+      },
+      (step, error) => {
+        logger.error('[jobs][booking.updated] confirmation side effect failed', {
+          bookingId: current.id,
+          restaurantId,
+          step,
+          ...(error === undefined ? {} : { errorName: errorNameOf(error) }),
+        });
+      },
+    );
 
     const timezone = await fetchRestaurantTimezone(restaurantId, resolveSupabase(_supabase));
     await scheduleReminderJob(
@@ -1107,17 +1119,16 @@ export async function enqueueBookingUpdatedSideEffects(
   options?: {
     supabase?: SupabaseLike;
     /**
-     * Skip sending update emails. Set to true when the modification flow
-     * has already sent a confirmation email to prevent duplicate emails.
-     * This happens when beginBookingModificationFlow successfully assigns
-     * tables inline and sends the "Changes Confirmed" email.
+     * Skip the guest update email and SMS. Set to true for changes made through
+     * beginBookingModificationFlow, which queues its own "changes confirmed" (or
+     * "request received") email, to avoid a duplicate.
      */
     skipEmail?: boolean;
   },
 ) {
   if (options?.skipEmail) {
     console.log(
-      '[jobs][booking.updated] Skipping guest update notifications - modification flow already handled email',
+      '[jobs][booking.updated] Skipping guest update notifications - modification flow queued its own email',
       {
         bookingId: payload.current.id,
       },

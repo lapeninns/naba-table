@@ -41,7 +41,10 @@ vi.mock('@/server/reviews/journeys', () => ({ createReviewJourney: vi.fn() }));
 vi.mock('@/server/supabase', () => ({ getServiceSupabaseClient: getServiceSupabaseClientMock }));
 vi.mock('@/lib/logger', () => ({ logger: loggerMock }));
 
-import { enqueueBookingCreatedSideEffects } from '@/server/jobs/booking-side-effects';
+import {
+  enqueueBookingCreatedSideEffects,
+  enqueueBookingUpdatedSideEffects,
+} from '@/server/jobs/booking-side-effects';
 
 type Intent = {
   id: string;
@@ -277,5 +280,36 @@ describe('booking created side effects: durable, idempotent confirmation', () =>
 
     expect(store.rpc).not.toHaveBeenCalledWith('ensure_booking_email_intent', expect.anything());
     expect(emailCalls()).toHaveLength(1);
+  });
+});
+
+describe('booking updated side effects: pending to confirmed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    emailQueueEnabled.value = true;
+    enqueueEmailJobMock.mockResolvedValue(undefined);
+    sendFirstBookingConfirmationNotificationsMock.mockResolvedValue({
+      alreadySent: false,
+      emailSent: true,
+      smsSent: true,
+    });
+  });
+
+  it('shares the confirmation intent with the create path, so a repeated event sends once', async () => {
+    const store = createIntentStore();
+    const previous = { ...confirmedBooking, status: 'pending' };
+    const event = {
+      previous,
+      current: confirmedBooking,
+      restaurantId: 'rest-1',
+    };
+
+    await enqueueBookingUpdatedSideEffects(event, { supabase: store.client });
+    await enqueueBookingUpdatedSideEffects(event, { supabase: store.client });
+
+    expect(emailCalls()).toHaveLength(1);
+    expect(confirmationIntents(store.intents)).toEqual([
+      expect.objectContaining({ dedupe_key: 'email__confirmation__booking-1', status: 'sent' }),
+    ]);
   });
 });
