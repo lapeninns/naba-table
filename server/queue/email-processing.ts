@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { isEmailRecipientSuppressedError } from '@/libs/resend';
 import {
   sendBookingCancellationEmail,
   sendBookingConfirmationEmail,
@@ -46,6 +47,8 @@ export type ProcessEmailJobResult = {
   jobId: string;
   success: boolean;
   skipped?: boolean;
+  /** A failure that cannot succeed on retry (invalid or suppressed recipient, rejected payload). */
+  terminal?: boolean;
   error?: string;
 };
 
@@ -53,6 +56,14 @@ function isValidEmail(value?: string | null): boolean {
   return Boolean(value && value.trim().length > 3 && value.includes('@'));
 }
 
+class BookingLookupError extends Error {
+  constructor() {
+    super('Booking lookup failed');
+    this.name = 'BookingLookupError';
+  }
+}
+
+/** Returns null only when the booking does not exist; a failed lookup throws (retryable). */
 async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
   const supabase = getServiceSupabaseClient();
   const { data, error } = await supabase
@@ -66,10 +77,27 @@ async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
       bookingId,
       error: error.message,
     });
-    return null;
+    throw new BookingLookupError();
   }
 
   return (data ?? null) as BookingRecord | null;
+}
+
+// Resend rejects the request itself (bad recipient or payload): retrying the same job cannot
+// succeed. Outages, rate limits and configuration errors stay retryable.
+const TERMINAL_PROVIDER_ERROR = /^Resend API error \((validation_error|invalid_parameter|missing_required_field)\)/;
+
+function classifyJobFailure(error: unknown): { error: string; terminal: boolean } {
+  if (error instanceof BookingLookupError) {
+    return { error: 'BOOKING_LOOKUP_FAILED', terminal: false };
+  }
+  if (isEmailRecipientSuppressedError(error)) {
+    return { error: 'RECIPIENT_SUPPRESSED', terminal: true };
+  }
+  if (error instanceof Error && TERMINAL_PROVIDER_ERROR.test(error.message)) {
+    return { error: 'INVALID_RECIPIENT', terminal: true };
+  }
+  return { error: 'EMAIL_JOB_FAILED', terminal: false };
 }
 
 function shouldSendByStatus(type: EmailJobType, booking: BookingRecord): boolean {
@@ -225,11 +253,10 @@ export async function processEmailJob(job: EmailJobEnvelope): Promise<ProcessEma
       jobId: job.id,
       message: error instanceof Error ? error.message : String(error),
     });
-    return {
-      jobId: job.id,
-      success: false,
-      error: 'EMAIL_JOB_FAILED',
-    };
+    const failure = classifyJobFailure(error);
+    return failure.terminal
+      ? { jobId: job.id, success: false, terminal: true, error: failure.error }
+      : { jobId: job.id, success: false, error: failure.error };
   }
 }
 

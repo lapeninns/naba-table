@@ -8108,6 +8108,35 @@ export type Database = {
           updated_at: string;
         }[];
       };
+      claim_email_delivery_retry_v1: {
+        Args: {
+          p_delivery_log_id: string;
+          p_restaurant_id: string;
+          p_stale_after_seconds?: number;
+        };
+        Returns: Json;
+      };
+      complete_email_delivery_retry_v1: {
+        Args: {
+          p_delivery_log_id: string;
+          p_restaurant_id: string;
+          p_retry_attempt: number;
+          p_outcome: string;
+          p_retry_delivery_log_id?: string | null;
+        };
+        Returns: boolean;
+      };
+      finalize_email_dispatch_intent_v1: {
+        Args: {
+          p_intent_id: string;
+          p_attempt: number;
+          p_status: string;
+          p_last_error?: string | null;
+          p_next_scheduled_for?: string | null;
+          p_payload_patch?: Json;
+        };
+        Returns: Database['public']['Tables']['email_dispatch_intents']['Row'][];
+      };
       assign_tables_atomic_v2:
         | {
             Args: {

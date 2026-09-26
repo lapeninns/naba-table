@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+
 const requireSessionMock = vi.hoisted(() => vi.fn());
 const requireRestaurantMemberMock = vi.hoisted(() => vi.fn());
 const cancelRestaurantEmailQueueJobMock = vi.hoisted(() => vi.fn());
@@ -9,7 +10,7 @@ const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
   const actual =
-    await vi.importActual<typeof import('@/server/auth/guards')>('@/server/auth/guards');
+    await vi.importActual<typeof GuardsModule>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: requireSessionMock,
@@ -26,10 +27,12 @@ vi.mock('@/server/security/api-rate-limit', () => ({
   requireApiRateLimit: requireApiRateLimitMock,
 }));
 
-import { GuardError } from '@/server/auth/guards';
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import { GuardError } from '@/server/auth/guards';
 import { POST as cancelPost } from '@/src/app/api/ops/email-queue/[jobId]/cancel/route';
 import { POST as requeuePost } from '@/src/app/api/ops/email-queue/[jobId]/requeue/route';
+
+import type * as GuardsModule from '@/server/auth/guards';
 
 const CSRF_TOKEN = 'email-queue-csrf';
 const RESTAURANT_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
@@ -90,7 +93,7 @@ describe('ops email queue mutations', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(404);
-    expect(payload).toMatchObject({ ok: false, code: 'NOT_FOUND' });
+    expect(payload).toMatchObject({ code: 'NOT_FOUND', message: expect.any(String) });
   });
 
   it('requeues a failed job', async () => {
@@ -118,6 +121,67 @@ describe('ops email queue mutations', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(409);
-    expect(payload).toMatchObject({ ok: false, code: 'NOT_REQUEUEABLE' });
+    expect(payload).toMatchObject({ code: 'NOT_REQUEUEABLE', error: payload.message });
+  });
+
+  it('returns 409 JOB_IN_PROGRESS when the job is being processed', async () => {
+    cancelRestaurantEmailQueueJobMock.mockResolvedValue('in_progress');
+
+    const response = await cancelPost(
+      buildRequest(`/api/ops/email-queue/${encodeURIComponent(JOB_ID)}/cancel`, {
+        restaurantId: RESTAURANT_ID,
+      }),
+      { params: Promise.resolve({ jobId: JOB_ID }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload).toMatchObject({ code: 'JOB_IN_PROGRESS' });
+  });
+
+  it('returns 409 JOB_NOT_CANCELLABLE for a finished job', async () => {
+    cancelRestaurantEmailQueueJobMock.mockResolvedValue('not_cancellable');
+
+    const response = await cancelPost(
+      buildRequest(`/api/ops/email-queue/${encodeURIComponent(JOB_ID)}/cancel`, {
+        restaurantId: RESTAURANT_ID,
+      }),
+      { params: Promise.resolve({ jobId: JOB_ID }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'JOB_NOT_CANCELLABLE' });
+  });
+
+  it('returns field errors for an invalid body', async () => {
+    const response = await cancelPost(
+      buildRequest(`/api/ops/email-queue/${encodeURIComponent(JOB_ID)}/cancel`, {
+        restaurantId: 'nope',
+      }),
+      { params: Promise.resolve({ jobId: JOB_ID }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(payload.fields).toHaveProperty('restaurantId');
+  });
+
+  it('never leaks database error text in a 500', async () => {
+    requeueRestaurantEmailQueueJobMock.mockRejectedValue(
+      new Error('relation "email_dispatch_intents" does not exist'),
+    );
+
+    const response = await requeuePost(
+      buildRequest(`/api/ops/email-queue/${encodeURIComponent(JOB_ID)}/requeue`, {
+        restaurantId: RESTAURANT_ID,
+      }),
+      { params: Promise.resolve({ jobId: JOB_ID }) },
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(payload)).not.toContain('email_dispatch_intents');
   });
 });
