@@ -39,8 +39,7 @@ vi.mock('@/server/supabase', () => ({
           return builder;
         },
         maybeSingle: async () => ({
-          data:
-            serviceRows.bookings.find((row) => filters.every(([c, v]) => row[c] === v)) ?? null,
+          data: serviceRows.bookings.find((row) => filters.every(([c, v]) => row[c] === v)) ?? null,
           error: null,
         }),
       };

@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 const routeSource = readFileSync(join(process.cwd(), 'src/app/api/bookings/[id]/route.ts'), 'utf8');

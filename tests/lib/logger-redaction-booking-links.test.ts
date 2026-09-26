@@ -15,7 +15,10 @@ describe('booking link redaction (§48)', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     const logger = createLogger({}, { now: () => new Date('2026-09-26T12:00:00.000Z') });
 
-    logger.info('bookings.recover.visit', { url: LINK, path: '/bookings/recover?access_token=bk1.x' });
+    logger.info('bookings.recover.visit', {
+      url: LINK,
+      path: '/bookings/recover?access_token=bk1.x',
+    });
 
     const output = JSON.stringify(logSpy.mock.calls);
     expect(output).not.toContain('bk1.aXZp');

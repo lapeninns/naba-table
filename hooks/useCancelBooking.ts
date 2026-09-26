@@ -97,10 +97,7 @@ export function useCancelBooking() {
         queryClient.setQueryData(queryKeys.bookings.detail(variables.id), context.detail);
       }
       if (context?.reservationDetail) {
-        queryClient.setQueryData(
-          reservationKeys.detail(variables.id),
-          context.reservationDetail,
-        );
+        queryClient.setQueryData(reservationKeys.detail(variables.id), context.reservationDetail);
       }
       if (error.code === 'PENDING_LOCKED' || error.code === 'BOOKING_IN_PAST') {
         emit('booking_cancel_blocked', { bookingId: variables.id, code: error.code });
