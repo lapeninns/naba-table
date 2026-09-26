@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, validationError } from '@/lib/api/errors';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
+import { onboardingInternalError } from '@/server/onboarding/errors';
 import { updateServicePeriods } from '@/server/restaurants/servicePeriods';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -56,15 +57,12 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   try {
@@ -75,14 +73,14 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
     return NextResponse.json({ servicePeriods: periods });
   } catch (updateError) {
-    console.error('[onboarding][service-periods][PATCH]', updateError);
-    captureServerException(updateError, {
-      distinctId: authorization.user.id,
-      groups: { restaurant: restaurantId },
-      properties: { restaurantId, source: 'api', kind: 'onboarding-service-periods' },
-    });
-    const message =
-      updateError instanceof Error ? updateError.message : 'Unable to save service periods';
-    return NextResponse.json({ message }, { status: 500 });
+    return onboardingInternalError(
+      updateError,
+      {
+        route: 'onboarding.restaurant.service-periods',
+        restaurantId,
+        userId: authorization.user.id,
+      },
+      "We couldn't save your service periods. Try again.",
+    );
   }
 }

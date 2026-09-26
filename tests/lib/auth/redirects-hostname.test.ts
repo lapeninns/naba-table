@@ -43,4 +43,18 @@ describe('auth redirect hostname resolution', () => {
 
     expect(redirectTarget).toBe('/guest/dashboard');
   });
+
+  it('keeps the onboarding signup confirmation redirect on the root host @contract', () => {
+    // Signup sends the confirmation link with redirectedFrom=/onboarding/profile. Without
+    // this the callback dropped the path and confirmed owners landed on /guest/dashboard.
+    expect(sanitizeRedirect('/onboarding/profile', 'nabatable.com', 'www.nabatable.com')).toBe(
+      '/onboarding/profile',
+    );
+    expect(sanitizeRedirect('/onboarding', 'localhost', 'localhost')).toBe('/onboarding');
+    expect(sanitizeRedirect('/onboardingx', 'localhost', 'localhost')).toBeUndefined();
+    // Onboarding is a root-host page; the app host keeps its ops-only allow-list.
+    expect(
+      sanitizeRedirect('/onboarding/profile', 'nabatable.com', 'app.nabatable.com'),
+    ).toBeUndefined();
+  });
 });

@@ -1,9 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
-
 const getRouteHandlerSupabaseClientMock = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClientMock = vi.hoisted(() => vi.fn());
 const requireMembershipForRestaurantMock = vi.hoisted(() => vi.fn());
@@ -12,6 +9,8 @@ const updateOperatingHoursMock = vi.hoisted(() => vi.fn());
 const updateServicePeriodsMock = vi.hoisted(() => vi.fn());
 const createZoneMock = vi.hoisted(() => vi.fn());
 const insertTableMock = vi.hoisted(() => vi.fn());
+const getOnboardingReadinessMock = vi.hoisted(() => vi.fn());
+const replaceOnboardingLayoutMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/supabase', () => ({
   getRouteHandlerSupabaseClient: getRouteHandlerSupabaseClientMock,
@@ -22,9 +21,7 @@ vi.mock('@/server/supabase', () => ({
 // requireRestaurantMember) and stub only the membership lookup underneath it,
 // so the shared onboarding auth model is exercised end-to-end.
 vi.mock('@/server/team/access', async () => {
-  const actual = await vi.importActual<typeof import('@/server/team/access')>(
-    '@/server/team/access',
-  );
+  const actual = await vi.importActual<typeof TeamAccessModule>('@/server/team/access');
   return {
     ...actual,
     requireMembershipForRestaurant: requireMembershipForRestaurantMock,
@@ -64,12 +61,33 @@ vi.mock('@/server/ops/tables', () => ({
   listTablesWithSummary: vi.fn(),
 }));
 
+vi.mock('@/server/onboarding/readiness', () => ({
+  getOnboardingReadiness: getOnboardingReadinessMock,
+}));
+
+// Keep the real error classes; stub only the RPC-backed writer.
+vi.mock('@/server/onboarding/layout', async () => {
+  const actual = await vi.importActual<typeof OnboardingLayoutModule>('@/server/onboarding/layout');
+  return { ...actual, replaceOnboardingLayout: replaceOnboardingLayoutMock };
+});
+
+import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '@/lib/security/csrf';
+import {
+  OnboardingLayoutInvalidError,
+  OnboardingLayoutLockedError,
+  OnboardingLayoutWriteError,
+} from '@/server/onboarding/layout';
 import { MembershipAccessError } from '@/server/team/access';
 import { POST as completePOST } from '@/src/app/api/onboarding/restaurant/[id]/complete/route';
 import { PATCH as hoursPATCH } from '@/src/app/api/onboarding/restaurant/[id]/hours/route';
+import { PUT as layoutPUT } from '@/src/app/api/onboarding/restaurant/[id]/layout/route';
 import { PATCH as servicePeriodsPATCH } from '@/src/app/api/onboarding/restaurant/[id]/service-periods/route';
 import { POST as tablesPOST } from '@/src/app/api/onboarding/restaurant/[id]/tables/route';
 import { POST as zonesPOST } from '@/src/app/api/onboarding/restaurant/[id]/zones/route';
+
+import type * as OnboardingLayoutModule from '@/server/onboarding/layout';
+import type * as TeamAccessModule from '@/server/team/access';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
 const ZONE_A = '33333333-3333-4333-8333-333333333333';
@@ -85,7 +103,7 @@ type StepHandler = (
 type StepDefinition = {
   handler: StepHandler;
   invalidBody: unknown;
-  method: 'PATCH' | 'POST';
+  method: 'PATCH' | 'POST' | 'PUT';
   name: string;
   validBody: unknown;
 };
@@ -141,6 +159,19 @@ const STEPS: StepDefinition[] = [
     handler: zonesPOST,
     validBody: { zones: [{ name: 'Main Dining' }] },
     invalidBody: { zones: [{ name: '' }] },
+  },
+  {
+    name: 'layout',
+    method: 'PUT',
+    handler: layoutPUT,
+    validBody: {
+      zones: [{ name: 'Main Dining' }, { name: 'Terrace' }],
+      tables: [
+        { tableNumber: 'T1', capacity: 2 },
+        { tableNumber: 'T2', capacity: 4, zoneName: 'terrace' },
+      ],
+    },
+    invalidBody: { zones: [], tables: [{ tableNumber: 'T1', capacity: 0 }] },
   },
 ];
 
@@ -215,6 +246,8 @@ function expectNoMutationBoundaryCalls() {
   expect(updateServicePeriodsMock).not.toHaveBeenCalled();
   expect(createZoneMock).not.toHaveBeenCalled();
   expect(insertTableMock).not.toHaveBeenCalled();
+  expect(getOnboardingReadinessMock).not.toHaveBeenCalled();
+  expect(replaceOnboardingLayoutMock).not.toHaveBeenCalled();
 }
 
 beforeEach(() => {
@@ -226,6 +259,8 @@ beforeEach(() => {
   updateServicePeriodsMock.mockReset();
   createZoneMock.mockReset();
   insertTableMock.mockReset();
+  getOnboardingReadinessMock.mockReset();
+  replaceOnboardingLayoutMock.mockReset();
 
   getRouteHandlerSupabaseClientMock.mockResolvedValue(buildRouteHandlerClient());
   getServiceSupabaseClientMock.mockReturnValue(SERVICE_CLIENT);
@@ -352,8 +387,10 @@ describe('onboarding restaurant step routes payload validation', () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.message).toBe('Validation failed');
-      expect(body.details).toBeDefined();
+      expect(body.code).toBe('VALIDATION_FAILED');
+      expect(body.message).toBe('Some fields need attention.');
+      expect(body.error).toBe(body.message);
+      expect(Object.keys(body.fields ?? {}).length).toBeGreaterThan(0);
       expectNoMutationBoundaryCalls();
     },
   );
@@ -364,7 +401,11 @@ describe('onboarding restaurant step routes payload validation', () => {
     const response = await step.handler(stepRequest(step, '{not-json'), routeContext());
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({ message: 'Invalid request body' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'The request body is not valid JSON.',
+      code: 'INVALID_JSON',
+      message: 'The request body is not valid JSON.',
+    });
     expectNoMutationBoundaryCalls();
   });
 
@@ -378,6 +419,8 @@ describe('onboarding restaurant step routes payload validation', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
+      error: 'Each onboarding table must reference a zone',
+      code: 'TABLE_ZONE_REQUIRED',
       message: 'Each onboarding table must reference a zone',
     });
     expect(insertTableMock).not.toHaveBeenCalled();
@@ -385,15 +428,151 @@ describe('onboarding restaurant step routes payload validation', () => {
 });
 
 describe('onboarding restaurant step routes happy paths', () => {
-  it('acknowledges completion for admins without touching service clients @p1 @api', async () => {
+  it('confirms launch readiness when hours, service periods and tables exist @p1 @api', async () => {
+    getOnboardingReadinessMock.mockResolvedValue({ ready: true, missing: [] });
+
     const response = await completePOST(stepRequest(STEPS[0], {}), routeContext());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       status: 'ok',
+      ready: true,
       restaurantId: RESTAURANT_ID,
     });
-    expectNoMutationBoundaryCalls();
+    expect(getOnboardingReadinessMock).toHaveBeenCalledWith(SERVICE_CLIENT, RESTAURANT_ID);
+  });
+
+  it('is idempotent: repeated launch checks give the same answer without writing @p1 @api', async () => {
+    getOnboardingReadinessMock.mockResolvedValue({ ready: true, missing: [] });
+
+    const first = await completePOST(stepRequest(STEPS[0], {}), routeContext());
+    const second = await completePOST(stepRequest(STEPS[0], {}), routeContext());
+
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(updateOperatingHoursMock).not.toHaveBeenCalled();
+    expect(replaceOnboardingLayoutMock).not.toHaveBeenCalled();
+  });
+
+  it('refuses launch with 409 ONBOARDING_INCOMPLETE listing what is missing @p1 @api @contract', async () => {
+    getOnboardingReadinessMock.mockResolvedValue({
+      ready: false,
+      missing: ['service_periods', 'tables'],
+    });
+
+    const response = await completePOST(stepRequest(STEPS[0], {}), routeContext());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Finish the remaining setup steps before launching.',
+      code: 'ONBOARDING_INCOMPLETE',
+      message: 'Finish the remaining setup steps before launching.',
+      details: { missing: ['service_periods', 'tables'] },
+    });
+  });
+
+  it('returns a generic 500 without database text when the readiness read fails @p1 @api @security', async () => {
+    getOnboardingReadinessMock.mockRejectedValue(
+      new Error('relation "restaurant_service_periods" does not exist'),
+    );
+
+    const response = await completePOST(stepRequest(STEPS[0], {}), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(body)).not.toContain('relation');
+  });
+
+  it('replaces the zones and tables layout in one call @p1 @api', async () => {
+    const layout = {
+      zones: [{ id: ZONE_A, name: 'Main Dining', sortOrder: 0, active: true }],
+      tables: [],
+    };
+    replaceOnboardingLayoutMock.mockResolvedValue(layout);
+
+    const response = await layoutPUT(stepRequest(STEPS[5], STEPS[5].validBody), routeContext());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ data: layout });
+    expect(replaceOnboardingLayoutMock).toHaveBeenCalledTimes(1);
+    expect(replaceOnboardingLayoutMock).toHaveBeenCalledWith(SERVICE_CLIENT, RESTAURANT_ID, {
+      zones: [{ name: 'Main Dining' }, { name: 'Terrace' }],
+      tables: [
+        { tableNumber: 'T1', capacity: 2 },
+        { tableNumber: 'T2', capacity: 4, zoneName: 'terrace' },
+      ],
+    });
+    expect(requireApiRateLimitMock).toHaveBeenCalledWith(
+      expect.objectContaining({ scope: 'onboarding:layout', tenantId: RESTAURANT_ID }),
+    );
+  });
+
+  it('rejects duplicate table numbers, duplicate zones and unknown zone names before the RPC @p1 @api @contract', async () => {
+    const response = await layoutPUT(
+      stepRequest(STEPS[5], {
+        zones: [{ name: 'Bar' }, { name: 'bar' }],
+        tables: [
+          { tableNumber: 'T1', capacity: 2 },
+          { tableNumber: 'T1', capacity: 2, zoneName: 'Garden' },
+        ],
+      }),
+      routeContext(),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.fields).toMatchObject({
+      'zones.1.name': ['Zone names must be unique'],
+      'tables.1.tableNumber': ['Table numbers must be unique'],
+      'tables.1.zoneName': ['Choose one of the zones above'],
+    });
+    expect(replaceOnboardingLayoutMock).not.toHaveBeenCalled();
+  });
+
+  it('maps a locked layout (restaurant has bookings) to 409 ONBOARDING_LAYOUT_LOCKED @p1 @api @contract', async () => {
+    replaceOnboardingLayoutMock.mockRejectedValue(new OnboardingLayoutLockedError());
+
+    const response = await layoutPUT(stepRequest(STEPS[5], STEPS[5].validBody), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('ONBOARDING_LAYOUT_LOCKED');
+  });
+
+  it('maps a database payload rejection to 400 and hides the reason @p2 @api', async () => {
+    replaceOnboardingLayoutMock.mockRejectedValue(
+      new OnboardingLayoutInvalidError('zone names must be unique'),
+    );
+
+    const response = await layoutPUT(stepRequest(STEPS[5], STEPS[5].validBody), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('ONBOARDING_LAYOUT_INVALID');
+  });
+
+  it('returns a generic 500 for unexpected layout write failures @p1 @api @security', async () => {
+    replaceOnboardingLayoutMock.mockRejectedValue(new OnboardingLayoutWriteError('XX000'));
+
+    const response = await layoutPUT(stepRequest(STEPS[5], STEPS[5].validBody), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toMatchObject({ code: 'INTERNAL_ERROR' });
+  });
+
+  it('never returns raw database text from step writers @p1 @api @security', async () => {
+    updateOperatingHoursMock.mockRejectedValue(
+      new Error('duplicate key value violates unique constraint "secret_idx"'),
+    );
+
+    const response = await hoursPATCH(stepRequest(STEPS[1], STEPS[1].validBody), routeContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(body)).not.toContain('secret_idx');
   });
 
   it('saves operating hours through the service-role client @p1 @api', async () => {

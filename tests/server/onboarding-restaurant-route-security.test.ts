@@ -29,6 +29,11 @@ vi.mock('@/server/team/access', () => ({
   fetchUserMemberships: fetchUserMembershipsMock,
 }));
 
+import {
+  RestaurantAccessExistsError,
+  RestaurantCreateValidationError,
+  RestaurantSlugUnavailableError,
+} from '@/server/restaurants/create-errors';
 import { POST } from '@/src/app/api/onboarding/restaurant/route';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
@@ -106,5 +111,74 @@ describe('POST /api/onboarding/restaurant security', () => {
       USER_ID,
       { tag: 'service-client' },
     );
+  });
+
+  it('returns the C1 conflict when the account already has a restaurant', async () => {
+    fetchUserMembershipsMock.mockResolvedValue([{ restaurant_id: 'restaurant-1', role: 'owner' }]);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'ONBOARDING_ALREADY_COMPLETED',
+      message: expect.any(String),
+    });
+  });
+
+  it('maps the RPC membership race to the same 409', async () => {
+    createRestaurantMock.mockRejectedValue(new RestaurantAccessExistsError());
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'ONBOARDING_ALREADY_COMPLETED' });
+  });
+
+  it('returns 409 SLUG_TAKEN with a slug field error when no slug candidate is free', async () => {
+    createRestaurantMock.mockRejectedValue(new RestaurantSlugUnavailableError());
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('SLUG_TAKEN');
+    expect(body.fields.slug).toHaveLength(1);
+  });
+
+  it('returns 400 with the safe message for input rule failures', async () => {
+    createRestaurantMock.mockRejectedValue(
+      new RestaurantCreateValidationError('Choose a valid timezone.'),
+    );
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Choose a valid timezone.',
+    });
+  });
+
+  it('never returns database text for unexpected creation failures', async () => {
+    createRestaurantMock.mockRejectedValue(
+      new Error('Failed to create restaurant: permission denied for table restaurants'),
+    );
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(body)).not.toContain('permission denied');
+  });
+
+  it('returns field errors for invalid payloads', async () => {
+    const response = await POST(request({ name: '', timezone: 'Europe/London' }));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('VALIDATION_FAILED');
+    expect(body.fields.name).toBeDefined();
+    expect(createRestaurantMock).not.toHaveBeenCalled();
   });
 });

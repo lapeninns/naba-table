@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, validationError } from '@/lib/api/errors';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import {
   RESERVATION_INTERVAL_MAX,
   RESERVATION_INTERVAL_MIN,
 } from '@/lib/restaurants/reservation-interval';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
+import { onboardingInternalError } from '@/server/onboarding/errors';
 import { updateOperatingHours } from '@/server/restaurants/operatingHours';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
@@ -49,15 +50,12 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   try {
@@ -71,14 +69,10 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
     );
     return NextResponse.json({ operatingHours: snapshot });
   } catch (updateError) {
-    console.error('[onboarding][hours][PATCH]', updateError);
-    captureServerException(updateError, {
-      distinctId: authorization.user.id,
-      groups: { restaurant: restaurantId },
-      properties: { restaurantId, source: 'api', kind: 'onboarding-hours' },
-    });
-    const message =
-      updateError instanceof Error ? updateError.message : 'Unable to save operating hours';
-    return NextResponse.json({ message }, { status: 500 });
+    return onboardingInternalError(
+      updateError,
+      { route: 'onboarding.restaurant.hours', restaurantId, userId: authorization.user.id },
+      "We couldn't save your opening hours. Try again.",
+    );
   }
 }

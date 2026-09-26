@@ -13,7 +13,9 @@ const OPS_REDIRECT_PREFIXES = [
   '/seating',
 ] as const;
 
-const GUEST_REDIRECT_PREFIXES = ['/guest', '/bookings', '/restaurants'] as const;
+// '/onboarding' is the restaurant-owner signup wizard. It lives on the root host, and the
+// signup confirmation link returns there (src/app/api/auth/signup/route.ts).
+const GUEST_REDIRECT_PREFIXES = ['/guest', '/bookings', '/restaurants', '/onboarding'] as const;
 
 function isAllowedPath(path: string, prefixes: readonly string[]) {
   return prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
