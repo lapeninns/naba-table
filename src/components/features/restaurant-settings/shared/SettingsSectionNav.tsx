@@ -28,6 +28,7 @@ import {
   SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS,
 } from './compactSettingsClasses';
+import { announceSettingsSectionJump } from './useSettingsSectionSpy';
 
 /** Section status on a jump link: "Edited" or "N issues". Always text, never colour alone. */
 export type SettingsSectionNavBadge = {
@@ -66,6 +67,7 @@ export function scrollToSettingsSection(targetId: string) {
     return;
   }
   target.scrollIntoView({ block: 'start', behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+  announceSettingsSectionJump(targetId);
   if (typeof window !== 'undefined' && window.location.hash !== `#${targetId}`) {
     window.history.replaceState(window.history.state, '', `#${targetId}`);
   }
@@ -355,13 +357,19 @@ export function SettingsSectionNav({
             {overflow.start ? (
               <div
                 aria-hidden
-                className={cn(SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS, 'left-0 border-r border-border/60')}
+                className={cn(
+                  SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS,
+                  'left-0 border-r border-border/60',
+                )}
               />
             ) : null}
             {overflow.end ? (
               <div
                 aria-hidden
-                className={cn(SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS, 'right-0 border-l border-border/60')}
+                className={cn(
+                  SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS,
+                  'right-0 border-l border-border/60',
+                )}
               />
             ) : null}
           </div>
