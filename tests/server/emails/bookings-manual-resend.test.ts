@@ -60,8 +60,10 @@ vi.mock('@/server/emails/email-delivery-log', async () => {
 });
 
 import {
+  BookingEmailSkippedError,
   resendBookingEmailFromDeliveryLog,
   sendBookingConfirmationEmail,
+  sendBookingReminderEmail,
 } from '@/server/emails/bookings';
 
 import type * as DeliveryLogModule from '@/server/emails/email-delivery-log';
@@ -182,5 +184,37 @@ describe('manual resend from the delivery log', () => {
       }),
     ).rejects.toMatchObject({ code: 'MISSING_RECIPIENT' });
     expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  describe('queue sends with reportSkips', () => {
+    it('rethrows a suppressed recipient instead of resolving as sent', async () => {
+      sendEmail.mockRejectedValue(new SuppressedError('suppressed'));
+
+      await expect(
+        sendBookingConfirmationEmail(buildBooking(), { reportSkips: true }),
+      ).rejects.toBeInstanceOf(SuppressedError);
+    });
+
+    it('reports a missing address as a skip', async () => {
+      await expect(
+        sendBookingConfirmationEmail(
+          { ...buildBooking(), customer_email: null } as ReturnType<typeof buildBooking>,
+          { reportSkips: true },
+        ),
+      ).rejects.toMatchObject({ name: 'BookingEmailSkippedError', reason: 'no_recipient' });
+    });
+
+    it('reports a recent duplicate reminder as a skip', async () => {
+      hasRecentEmailDelivery.mockResolvedValue(true);
+
+      const error = await sendBookingReminderEmail(buildBooking(), {
+        variant: 'standard',
+        reportSkips: true,
+      }).catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(BookingEmailSkippedError);
+      expect(error).toMatchObject({ reason: 'recent_duplicate' });
+      expect(sendEmail).not.toHaveBeenCalled();
+    });
   });
 });

@@ -8,6 +8,7 @@ vi.mock('@/server/supabase', () => ({
 }));
 
 vi.mock('@/server/emails/bookings', () => ({
+  isBookingEmailSkippedError: () => false,
   sendBookingCancellationEmail: vi.fn(),
   sendBookingConfirmationEmail: sendBookingConfirmationEmailMock,
   sendBookingRejectedEmail: vi.fn(),
@@ -22,7 +23,7 @@ vi.mock('@/server/reviews/journeys', () => ({
   recordReviewRequestEvent: vi.fn(),
 }));
 
-import { EmailRecipientSuppressedError } from '@/libs/resend';
+import { ResendSendError } from '@/libs/resend';
 import { processEmailJob } from '@/server/queue/email-processing';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
@@ -74,38 +75,17 @@ describe('email job failure classification', () => {
     });
   });
 
-  it('marks provider-rejected recipients as terminal failures', async () => {
-    mockBookingLookup({ data: confirmedBooking, error: null });
-    sendBookingConfirmationEmailMock.mockRejectedValue(
-      new Error('Resend API error (validation_error): Invalid `to` field.'),
-    );
-
-    await expect(processEmailJob(job)).resolves.toEqual({
-      jobId: 'job-1',
-      success: false,
-      terminal: true,
-      error: 'INVALID_RECIPIENT',
-    });
-  });
-
-  it('marks suppressed recipients as terminal failures', async () => {
-    mockBookingLookup({ data: confirmedBooking, error: null });
-    sendBookingConfirmationEmailMock.mockRejectedValue(
-      new EmailRecipientSuppressedError(['guest@example.com']),
-    );
-
-    await expect(processEmailJob(job)).resolves.toEqual({
-      jobId: 'job-1',
-      success: false,
-      terminal: true,
-      error: 'RECIPIENT_SUPPRESSED',
-    });
-  });
+  // Suppressed and provider-rejected recipients are covered through the real dispatch in
+  // email-processing-real-dispatch.test.ts.
 
   it('keeps provider outages and rate limits retryable', async () => {
     mockBookingLookup({ data: confirmedBooking, error: null });
     sendBookingConfirmationEmailMock.mockRejectedValue(
-      new Error('Resend API error (rate_limit_exceeded): Too many requests.'),
+      new ResendSendError({
+        name: 'rate_limit_exceeded',
+        message: 'Too many requests.',
+        statusCode: 429,
+      }),
     );
 
     await expect(processEmailJob(job)).resolves.toEqual({

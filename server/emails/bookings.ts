@@ -624,6 +624,34 @@ function bookingEmailCategory(type: BookingEmailType): EmailCategory {
   }
 }
 
+/**
+ * Thrown only for queue sends that opt in with `reportSkips`: the email was deliberately not
+ * sent, so the queue must not record it as sent.
+ */
+export class BookingEmailSkippedError extends Error {
+  readonly reason: 'no_recipient' | 'recent_duplicate';
+
+  constructor(reason: 'no_recipient' | 'recent_duplicate') {
+    super(`Booking email not sent (${reason}).`);
+    this.name = 'BookingEmailSkippedError';
+    this.reason = reason;
+  }
+}
+
+export function isBookingEmailSkippedError(error: unknown): error is BookingEmailSkippedError {
+  return error instanceof BookingEmailSkippedError;
+}
+
+/** Queue-facing send options: report why nothing was sent instead of returning null. */
+export type BookingEmailSendOptions = {
+  /**
+   * A suppressed recipient rethrows EmailRecipientSuppressedError, and a missing address or a
+   * recent duplicate throws BookingEmailSkippedError. A resolved call then means the provider
+   * accepted the email (a null entry only means its delivery-log insert failed).
+   */
+  reportSkips?: boolean;
+};
+
 async function dispatchEmail(
   type: BookingEmailType,
   booking: BookingRecord,
@@ -639,7 +667,7 @@ async function dispatchEmail(
      * EmailDeliveryRetryError('MISSING_RECIPIENT').
      */
     strict?: boolean;
-  },
+  } & BookingEmailSendOptions,
 ): Promise<EmailDeliveryLogEntry | null> {
   const venue = await resolveVenueDetails(booking.restaurant_id);
   const manageUrl = buildBookingManageUrl(booking);
@@ -822,6 +850,9 @@ async function dispatchEmail(
         'This booking has no email address to send to.',
       );
     }
+    if (options?.reportSkips) {
+      throw new BookingEmailSkippedError('no_recipient');
+    }
     return null;
   }
 
@@ -835,6 +866,9 @@ async function dispatchEmail(
       console.warn('[emails][bookings] review_request already sent recently; skipping', {
         bookingId: booking.id,
       });
+      if (options?.reportSkips) {
+        throw new BookingEmailSkippedError('recent_duplicate');
+      }
       return null;
     }
   }
@@ -855,6 +889,9 @@ async function dispatchEmail(
         bookingId: booking.id,
         templateType: deliveryTemplateType,
       });
+      if (options?.reportSkips) {
+        throw new BookingEmailSkippedError('recent_duplicate');
+      }
       return null;
     }
   }
@@ -891,7 +928,7 @@ async function dispatchEmail(
         }),
     });
   } catch (error) {
-    if (isEmailRecipientSuppressedError(error) && !options?.strict) {
+    if (isEmailRecipientSuppressedError(error) && !options?.strict && !options?.reportSkips) {
       console.warn('[emails][bookings] recipient suppressed; skipping send', {
         bookingId: booking.id,
         templateType: deliveryTemplateType,
@@ -1239,26 +1276,42 @@ export async function resendBookingEmailFromDeliveryLog(params: {
     idempotencyKey: params.idempotencyKey,
   });
 }
-export const sendBookingConfirmationEmail = (booking: BookingRecord) =>
-  dispatchEmail('created', booking);
-export const sendBookingUpdateEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_confirmed', booking);
-export const sendBookingCancellationEmail = (booking: BookingRecord) =>
-  dispatchEmail('cancelled', booking);
+export const sendBookingConfirmationEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('created', booking, sendOptions);
+export const sendBookingUpdateEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('modification_confirmed', booking, sendOptions);
+export const sendBookingCancellationEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('cancelled', booking, sendOptions);
 export const sendBookingModificationPendingEmail = (booking: BookingRecord) =>
   dispatchEmail('modification_pending', booking);
 export const sendBookingModificationConfirmedEmail = (booking: BookingRecord) =>
   dispatchEmail('modification_confirmed', booking);
-export const sendBookingRejectedEmail = (booking: BookingRecord) =>
-  dispatchEmail('booking_rejected', booking);
-export const sendRestaurantCancellationEmail = (booking: BookingRecord) =>
-  dispatchEmail('restaurant_cancellation', booking);
-export const sendBookingReviewRequestEmail = (booking: BookingRecord) =>
-  dispatchEmail('review_request', booking);
+export const sendBookingRejectedEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('booking_rejected', booking, sendOptions);
+export const sendRestaurantCancellationEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('restaurant_cancellation', booking, sendOptions);
+export const sendBookingReviewRequestEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('review_request', booking, sendOptions);
 export const sendBookingReminderEmail = (
   booking: BookingRecord,
-  options: { variant: 'short' | 'standard' },
-) => dispatchEmail('reminder', booking, { reminderVariant: options.variant });
+  options: { variant: 'short' | 'standard' } & BookingEmailSendOptions,
+) =>
+  dispatchEmail('reminder', booking, {
+    reminderVariant: options.variant,
+    reportSkips: options.reportSkips,
+  });
 export const sendBookingPendingAttentionEmail = (
   booking: BookingRecord,
   options: { reason: string },
