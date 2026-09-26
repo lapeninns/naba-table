@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { internalError } from '@/lib/api/errors';
+import { apiError, internalError, validationError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { getTodayBookingChanges } from '@/server/ops/bookings';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
@@ -27,20 +27,18 @@ const changesQuerySchema = z.object({
 type ChangesQuery = z.infer<typeof changesQuerySchema>;
 const CHANGES_MAX_LIMIT = 100;
 
-function parseQuery(request: NextRequest): ChangesQuery | null {
+function parseQuery(request: NextRequest) {
   const entries = Object.fromEntries(request.nextUrl.searchParams.entries());
   const result = changesQuerySchema.safeParse(entries);
-  if (!result.success) {
-    return null;
-  }
-  return result.data;
+  return result;
 }
 
 export async function GET(request: NextRequest) {
-  const query = parseQuery(request);
-  if (!query) {
-    return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+  const parsedQuery = parseQuery(request);
+  if (!parsedQuery.success) {
+    return validationError(parsedQuery.error, 'Invalid query');
   }
+  const query: ChangesQuery = parsedQuery.data;
 
   try {
     await requireDashboardAccess(query.restaurantId);
@@ -50,9 +48,11 @@ export async function GET(request: NextRequest) {
 
   const limit = query.limit ? parseInt(query.limit, 10) : 50;
   if (!Number.isFinite(limit) || limit < 1 || limit > CHANGES_MAX_LIMIT) {
-    return NextResponse.json(
-      { error: `Change feed limit must be between 1 and ${CHANGES_MAX_LIMIT}` },
-      { status: 400 },
+    return apiError(
+      400,
+      'VALIDATION_FAILED',
+      `Change feed limit must be between 1 and ${CHANGES_MAX_LIMIT}`,
+      { fields: { limit: [`Must be between 1 and ${CHANGES_MAX_LIMIT}`] } },
     );
   }
 

@@ -2,8 +2,15 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { mapAssignTablesErrorToHttp } from '@/app/api/staff/_utils/assign-tables-error';
-import { apiError, internalError } from '@/lib/api/errors';
-import { logger } from '@/lib/logger';
+import {
+  apiError,
+  forbidden,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { confirmHold } from '@/server/capacity/engine';
 import { AssignTablesRpcError, HoldNotFoundError } from '@/server/capacity/holds';
@@ -21,10 +28,17 @@ const confirmPayloadSchema = z.object({
 
 const ROUTE = '/api/staff/auto/confirm';
 
+/** Route-specific copy for the 4xx statuses the shared mapper returns. */
+const CONFIRM_COPY_BY_STATUS: Record<number, string> = {
+  409: 'This hold conflicts with another assignment. Re-quote the booking and try again.',
+  422: 'This hold can no longer be confirmed. Re-quote the booking and try again.',
+};
+
 /**
  * AssignTablesRpcError messages, details and hints can carry repository or
- * Postgres text, so only the status and code from the shared mapper reach the
- * client, with fixed copy per status class.
+ * Postgres text, so only the narrowed mapper payload ({ message, error, code })
+ * shapes the response: its status and code, with route copy for 409/422 and
+ * the mapper's fixed copy otherwise.
  */
 function assignTablesErrorResponse(error: AssignTablesRpcError, ctx: Record<string, unknown>) {
   const { status, payload } = mapAssignTablesErrorToHttp(error);
@@ -34,17 +48,13 @@ function assignTablesErrorResponse(error: AssignTablesRpcError, ctx: Record<stri
       ...ctx,
       status,
       errorKind: payload.code,
-      error,
+      errorMessage: sanitizeLogText(error.message),
     });
     return apiError(status, payload.code, 'Unable to confirm hold. Try again.', {
       retryable: status === 503,
     });
   }
-  const message =
-    status === 422
-      ? 'This hold can no longer be confirmed. Re-quote the booking and try again.'
-      : 'This hold conflicts with another assignment. Re-quote the booking and try again.';
-  return apiError(status, payload.code, message);
+  return apiError(status, payload.code, CONFIRM_COPY_BY_STATUS[status] ?? payload.message);
 }
 
 export async function POST(req: NextRequest) {
@@ -60,17 +70,14 @@ async function postStaffAutoConfirm(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   const body = await req.json().catch(() => null);
   const parsed = confirmPayloadSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid request payload', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid request payload');
   }
 
   const { holdId, bookingId, idempotencyKey, requireAdjacency } = parsed.data;
@@ -91,7 +98,7 @@ async function postStaffAutoConfirm(req: NextRequest) {
 
   const holdRow = holdLookup.data;
   if (!holdRow || !holdRow.restaurant_id) {
-    return NextResponse.json({ error: 'Hold not found' }, { status: 404 });
+    return notFound('HOLD_NOT_FOUND', 'Hold not found');
   }
 
   const membership = await supabase
@@ -110,7 +117,7 @@ async function postStaffAutoConfirm(req: NextRequest) {
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    return forbidden();
   }
 
   const bookingLookup = await supabase
@@ -129,7 +136,7 @@ async function postStaffAutoConfirm(req: NextRequest) {
   }
 
   if (!bookingLookup.data) {
-    return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   const serviceClient = getTenantServiceSupabaseClient(holdRow.restaurant_id);
@@ -147,12 +154,12 @@ async function postStaffAutoConfirm(req: NextRequest) {
     return NextResponse.json({ holdId, bookingId, assignments });
   } catch (error) {
     if (error instanceof HoldNotFoundError) {
-      return NextResponse.json({ error: 'Hold not found' }, { status: 404 });
+      return notFound('HOLD_NOT_FOUND', 'Hold not found');
     }
 
     if (error instanceof AssignTablesRpcError) {
       if ((error.code ?? '').toUpperCase() === 'HOLD_RESTAURANT_MISMATCH') {
-        return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
+        return notFound('BOOKING_NOT_FOUND', 'Booking not found');
       }
 
       return assignTablesErrorResponse(error, {

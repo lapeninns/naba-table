@@ -87,8 +87,9 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: 'Unauthorized',
-      code: 'UNAUTHORIZED',
+      error: 'Authentication required',
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
     });
     expect(supabase.from).not.toHaveBeenCalled();
     expect(getTenantServiceSupabaseClientMock).not.toHaveBeenCalled();
@@ -105,6 +106,7 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Booking not found',
       code: 'BOOKING_NOT_FOUND',
+      message: 'Booking not found',
     });
     expect(getTenantServiceSupabaseClientMock).not.toHaveBeenCalled();
     expect(getManualAssignmentContextMock).not.toHaveBeenCalled();
@@ -120,6 +122,7 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Access denied',
       code: 'ACCESS_DENIED',
+      message: 'Access denied',
     });
     expect(getTenantServiceSupabaseClientMock).not.toHaveBeenCalled();
     expect(getManualAssignmentContextMock).not.toHaveBeenCalled();
@@ -135,6 +138,7 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Failed to load booking',
       code: 'BOOKING_LOOKUP_FAILED',
+      message: 'Failed to load booking',
     });
     expect(getManualAssignmentContextMock).not.toHaveBeenCalled();
   });
@@ -152,6 +156,7 @@ describe('GET /api/ops/bookings/[id]/manual-context', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Failed to verify access',
       code: 'ACCESS_LOOKUP_FAILED',
+      message: 'Failed to verify access',
     });
     expect(getManualAssignmentContextMock).not.toHaveBeenCalled();
   });

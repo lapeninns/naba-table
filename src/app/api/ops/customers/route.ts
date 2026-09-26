@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 
-import { internalError } from '@/lib/api/errors';
-import { logger } from '@/lib/logger';
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getCustomersWithHistory } from '@/server/ops/customers';
@@ -29,17 +35,14 @@ export async function GET(req: NextRequest) {
   if (authError) {
     logger.error('[ops/customers][GET] failed to resolve auth', {
       route: ROUTE,
-      error: authError.message,
+      errorMessage: sanitizeLogText(authError.message),
     });
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   const rawParams = {
@@ -56,10 +59,7 @@ export async function GET(req: NextRequest) {
 
   const parsed = parseOpsCustomersQuery(rawParams);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: 'Invalid query', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error, 'Invalid query');
   }
 
   const params = parsed.data;
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
   if (targetRestaurantId) {
     const allowed = membershipIds.includes(targetRestaurantId);
     if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return forbidden();
     }
   } else {
     targetRestaurantId = membershipIds[0] ?? null;

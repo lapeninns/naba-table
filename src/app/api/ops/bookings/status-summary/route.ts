@@ -1,9 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 
-import { internalError } from '@/lib/api/errors';
+import {
+  apiError,
+  forbidden,
+  internalError,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { daysBetweenInclusive, firstString, safeDate, stringArray } from '@/lib/api/query-params';
-import { logger } from '@/lib/logger';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { getBookingStatusSummary } from '@/server/ops/booking-lifecycle/summary';
@@ -52,12 +58,9 @@ export async function GET(request: NextRequest) {
     params = parseQuery(request);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid query parameters', details: error.flatten() },
-        { status: 400 },
-      );
+      return validationError(error, 'Invalid query parameters');
     }
-    return NextResponse.json({ error: 'Invalid query parameters' }, { status: 400 });
+    return apiError(400, 'VALIDATION_FAILED', 'Invalid query parameters');
   }
 
   const windowDays = daysBetweenInclusive(params.from, params.to);
@@ -66,11 +69,10 @@ export async function GET(request: NextRequest) {
     windowDays < 1 ||
     windowDays > STATUS_SUMMARY_MAX_WINDOW_DAYS
   ) {
-    return NextResponse.json(
-      {
-        error: `Status summary range must be between 1 and ${STATUS_SUMMARY_MAX_WINDOW_DAYS} days`,
-      },
-      { status: 400 },
+    return apiError(
+      400,
+      'VALIDATION_FAILED',
+      `Status summary range must be between 1 and ${STATUS_SUMMARY_MAX_WINDOW_DAYS} days`,
     );
   }
 
@@ -83,17 +85,14 @@ export async function GET(request: NextRequest) {
   if (authError) {
     logger.error('[ops][booking-status-summary] auth lookup failed', {
       route: ROUTE,
-      error: authError.message,
+      errorMessage: sanitizeLogText(authError.message),
     });
     const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
+    return apiError(mapped.status, mapped.code, mapped.message);
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   try {
@@ -102,7 +101,7 @@ export async function GET(request: NextRequest) {
       (membership) => membership.restaurant_id === params.restaurantId,
     );
     if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return forbidden();
     }
   } catch (error) {
     captureServerException(error, {
@@ -164,10 +163,6 @@ export async function GET(request: NextRequest) {
       generatedAt: new Date().toISOString(),
     });
   } catch (error) {
-    logger.error('[ops][booking-status-summary] failed to compute summary', {
-      route: ROUTE,
-      error,
-    });
     captureServerException(error, {
       distinctId: user.id,
       groups: { restaurant: params.restaurantId },
@@ -177,9 +172,6 @@ export async function GET(request: NextRequest) {
         kind: 'ops-booking-status-summary',
       },
     });
-    return NextResponse.json(
-      { error: 'Unable to compute booking status summary' },
-      { status: 500 },
-    );
+    return internalError(error, { route: ROUTE }, 'Unable to compute booking status summary');
   }
 }

@@ -1,12 +1,34 @@
 import { NextResponse } from 'next/server';
 
-import { apiError, internalError } from '@/lib/api/errors';
+import { apiError, forbidden, internalError, notFound, unauthenticated } from '@/lib/api/errors';
+import { logger, sanitizeLogText } from '@/lib/logger';
 import { captureServerException } from '@/lib/posthog/server';
 import { getManualAssignmentContext } from '@/server/capacity/table-assignment/manual';
 import { ManualSelectionInputError } from '@/server/capacity/table-assignment/types';
 import { getRouteHandlerSupabaseClient, getTenantServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = '/api/ops/bookings/[id]/manual-context';
+
+/**
+ * A failed Supabase lookup keeps its stable 500 code; only the PostgREST code
+ * and sanitized message reach the log, never the response.
+ */
+function lookupFailed(
+  error: { code?: string; message?: string },
+  code: 'BOOKING_LOOKUP_FAILED' | 'ACCESS_LOOKUP_FAILED',
+  message: string,
+  ctx: Record<string, unknown>,
+) {
+  logger.error('ops.bookings.manual_context.lookup_failed', {
+    route: ROUTE,
+    ...ctx,
+    errorKind: error.code,
+    errorMessage: typeof error.message === 'string' ? sanitizeLogText(error.message) : undefined,
+  });
+  return apiError(500, code, message);
+}
 
 /**
  * GET /api/ops/bookings/{id}/manual-context
@@ -25,7 +47,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 });
+    return unauthenticated('Authentication required');
   }
 
   // === Authorization - Check restaurant access ===
@@ -36,18 +58,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (bookingLookup.error) {
-    return NextResponse.json(
-      { error: 'Failed to load booking', code: 'BOOKING_LOOKUP_FAILED' },
-      { status: 500 },
-    );
+    return lookupFailed(bookingLookup.error, 'BOOKING_LOOKUP_FAILED', 'Failed to load booking', {
+      stage: 'booking_lookup',
+      bookingId,
+    });
   }
 
   const bookingRow = bookingLookup.data;
   if (!bookingRow?.restaurant_id) {
-    return NextResponse.json(
-      { error: 'Booking not found', code: 'BOOKING_NOT_FOUND' },
-      { status: 404 },
-    );
+    return notFound('BOOKING_NOT_FOUND', 'Booking not found');
   }
 
   const membership = await supabase
@@ -58,14 +77,14 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .maybeSingle();
 
   if (membership.error) {
-    return NextResponse.json(
-      { error: 'Failed to verify access', code: 'ACCESS_LOOKUP_FAILED' },
-      { status: 500 },
-    );
+    return lookupFailed(membership.error, 'ACCESS_LOOKUP_FAILED', 'Failed to verify access', {
+      stage: 'membership_lookup',
+      bookingId,
+    });
   }
 
   if (!membership.data) {
-    return NextResponse.json({ error: 'Access denied', code: 'ACCESS_DENIED' }, { status: 403 });
+    return forbidden('ACCESS_DENIED', 'Access denied');
   }
 
   // === Get Manual Assignment Context ===
@@ -90,6 +109,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     });
 
     // No raw error text to the client (C1); internalError logs it sanitized.
-    return internalError(error, { route: 'ops.bookings.manual_context', bookingId });
+    return internalError(error, { route: ROUTE, bookingId });
   }
 }
