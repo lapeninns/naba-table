@@ -201,6 +201,22 @@ describe('restaurant email template server behavior', () => {
     expect(first[2]).not.toBe(second[2]);
   });
 
+  it('keys a test send by the client request key so a retried click is deduplicated', () => {
+    const first = buildBookingTemplateTestIdempotencyParts({
+      templateKey: 'review_request',
+      recipientEmail: 'Guest@example.com',
+      requestKey: 'click-1',
+    });
+    const retry = buildBookingTemplateTestIdempotencyParts({
+      templateKey: 'review_request',
+      recipientEmail: 'guest@example.com',
+      requestKey: 'click-1',
+    });
+
+    expect(first).toEqual(['review_request', 'guest@example.com', 'click-1']);
+    expect(retry).toEqual(first);
+  });
+
   it('keeps the text/plain CTA aligned with the resolved template CTA', () => {
     const text = renderBookingEmailText({
       booking: createBooking(),
