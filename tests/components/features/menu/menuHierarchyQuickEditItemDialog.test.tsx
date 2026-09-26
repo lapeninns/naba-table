@@ -2,7 +2,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { QuickEditItemDialog } from '@/components/features/menu/menuHierarchyQuickEditItemDialog';
+import { NONE_VALUE } from '@/components/features/menu/menuHierarchyDomain';
+import {
+  QuickEditItemDialog,
+  buildQuickEditPatch,
+} from '@/components/features/menu/menuHierarchyQuickEditItemDialog';
 
 import { makeItem, switchByLabel } from './__fixtures__/menuHierarchy';
 
@@ -31,7 +35,7 @@ describe('QuickEditItemDialog', () => {
     expect(switchByLabel('Sold out')).not.toBeChecked();
   });
 
-  it('@contract submits a patch with edited price and sold-out flag', async () => {
+  it('@contract submits only the changed fields as merge patches', async () => {
     const user = userEvent.setup();
     const item = makeItem();
     const props = renderDialog({ item });
@@ -45,9 +49,11 @@ describe('QuickEditItemDialog', () => {
     await waitFor(() => expect(props.onSubmit).toHaveBeenCalledTimes(1));
     const [submittedItem, payload] = props.onSubmit.mock.calls[0];
     expect(submittedItem).toBe(item);
-    expect(payload.attributes.price).toEqual({ currencyCode: 'GBP', amount: 12.25 });
-    expect(payload.extensions.availabilityPolicy.soldOut).toBe(true);
-    expect(payload.active).toBe(true);
+    // No whole attributes/extensions snapshot: concurrent edits to other fields survive.
+    expect(payload).toEqual({
+      attributesMerge: { price: { currencyCode: 'GBP', amount: 12.25 } },
+      extensionsMerge: { availabilityPolicy: { soldOut: true } },
+    });
   });
 
   it('@contract clearing the price submits a null amount', async () => {
@@ -58,7 +64,9 @@ describe('QuickEditItemDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save quick edit' }));
 
     await waitFor(() => expect(props.onSubmit).toHaveBeenCalledTimes(1));
-    expect(props.onSubmit.mock.calls[0][1].attributes.price.amount).toBeNull();
+    expect(props.onSubmit.mock.calls[0][1]).toEqual({
+      attributesMerge: { price: { currencyCode: 'GBP', amount: null } },
+    });
   });
 
   it('@contract picking an availability flag maps into the policy', async () => {
@@ -70,9 +78,33 @@ describe('QuickEditItemDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save quick edit' }));
 
     await waitFor(() => expect(props.onSubmit).toHaveBeenCalledTimes(1));
-    expect(props.onSubmit.mock.calls[0][1].extensions.availabilityPolicy.availabilityStatus).toBe(
-      'unavailable',
-    );
+    expect(props.onSubmit.mock.calls[0][1]).toEqual({
+      extensionsMerge: { availabilityPolicy: { availabilityStatus: 'unavailable' } },
+    });
+  });
+
+  it('@contract saving with no changes closes without a request', async () => {
+    const user = userEvent.setup();
+    const props = renderDialog();
+
+    await user.click(screen.getByRole('button', { name: 'Save quick edit' }));
+
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    expect(props.onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('@contract buildQuickEditPatch sends visibility alone when only that changed', () => {
+    const item = makeItem({ active: true });
+
+    expect(
+      buildQuickEditPatch(item, {
+        price: '9.5',
+        currencyCode: 'gbp',
+        active: false,
+        soldOut: false,
+        availabilityStatus: NONE_VALUE,
+      }),
+    ).toEqual({ active: false });
   });
 
   it('@contract disables saving while pending and closes on cancel', async () => {

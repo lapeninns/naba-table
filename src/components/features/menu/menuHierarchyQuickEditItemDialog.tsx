@@ -24,6 +24,56 @@ import type {
 } from '@/server/menu-hierarchy/types';
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
+type QuickEditDraft = {
+  price: string;
+  currencyCode: string;
+  active: boolean;
+  soldOut: boolean;
+  availabilityStatus: string;
+};
+
+type AvailabilityStatus = 'available' | 'unavailable' | 'seasonal';
+
+/**
+ * Only the fields the operator changed, as merge patches: the server merges them into the
+ * stored attributes and availability policy, so a concurrent edit to any other field survives.
+ */
+export function buildQuickEditPatch(
+  item: CanonicalRestaurantMenuItem,
+  draft: QuickEditDraft,
+): RestaurantMenuItemPatch {
+  const patch: RestaurantMenuItemPatch = {};
+
+  const parsed = draft.price.trim() ? Number(draft.price) : null;
+  const amount = typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : null;
+  const currencyCode = draft.currencyCode.trim().toUpperCase() || 'GBP';
+  const savedAmount =
+    typeof item.attributes.price?.amount === 'number' ? item.attributes.price.amount : null;
+  const savedCurrency = item.attributes.price?.currencyCode ?? 'GBP';
+  if (amount !== savedAmount || currencyCode !== savedCurrency) {
+    patch.attributesMerge = { price: { currencyCode, amount } };
+  }
+
+  if (draft.active !== item.active) patch.active = draft.active;
+
+  const policy = (item.extensions.availabilityPolicy ?? {}) as Record<string, unknown>;
+  const availabilityPolicy: { soldOut?: boolean; availabilityStatus?: AvailabilityStatus | null } =
+    {};
+  if (draft.soldOut !== (policy.soldOut === true)) availabilityPolicy.soldOut = draft.soldOut;
+  const status =
+    draft.availabilityStatus === NONE_VALUE
+      ? null
+      : (draft.availabilityStatus as AvailabilityStatus);
+  const savedStatus =
+    typeof policy.availabilityStatus === 'string' ? policy.availabilityStatus : null;
+  if (status !== savedStatus) availabilityPolicy.availabilityStatus = status;
+  if (Object.keys(availabilityPolicy).length > 0) {
+    patch.extensionsMerge = { availabilityPolicy };
+  }
+
+  return patch;
+}
+
 export function QuickEditItemDialog({
   gbpDriftField,
   item,
@@ -84,28 +134,18 @@ export function QuickEditItemDialog({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!item) return;
-    const amount = price.trim() ? Number(price) : null;
-    await onSubmit(item, {
+    const payload = buildQuickEditPatch(item, {
+      price,
+      currencyCode,
       active,
-      attributes: {
-        ...item.attributes,
-        price: {
-          currencyCode: currencyCode.trim() || 'GBP',
-          amount: Number.isFinite(amount) ? amount : null,
-        },
-      },
-      extensions: {
-        ...item.extensions,
-        availabilityPolicy: {
-          ...(item.extensions.availabilityPolicy ?? {}),
-          availabilityStatus:
-            availabilityStatus === NONE_VALUE
-              ? null
-              : (availabilityStatus as 'available' | 'unavailable' | 'seasonal'),
-          soldOut,
-        },
-      },
+      soldOut,
+      availabilityStatus,
     });
+    if (Object.keys(payload).length === 0) {
+      onOpenChange(false);
+      return;
+    }
+    await onSubmit(item, payload);
   };
 
   return (

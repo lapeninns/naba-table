@@ -12,6 +12,7 @@ import {
   useOpsCreateRestaurantMenuItem,
   useOpsUpdateRestaurantMenuItem,
 } from '@/hooks/ops/useOpsMenuHierarchy';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
 
 import {
   buildItemPayload,
@@ -55,6 +56,7 @@ export function ItemDialog({
   liveItem,
   open,
   onOpenChange,
+  onCreated,
   optionCallbacks = NO_OPTION_CALLBACKS,
 }: {
   restaurantId: string;
@@ -66,6 +68,11 @@ export function ItemDialog({
   liveItem?: CanonicalRestaurantMenuItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Called with the saved item after a create. When set, the dialog stays open and the parent
+   * switches it to edit that item, so options can be added straight away.
+   */
+  onCreated?: (item: CanonicalRestaurantMenuItem) => void;
   optionCallbacks?: ItemOptionCallbacks;
 }) {
   const formId = useId();
@@ -73,17 +80,12 @@ export function ItemDialog({
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [mediaKeyDraft, setMediaKeyDraft] = useState('');
   const [googleDetailsOpen, setGoogleDetailsOpen] = useState(false);
-  const createItem = useOpsCreateRestaurantMenuItem({
-    restaurantId,
-    menuId: menu?.id,
-    sectionId: section?.id,
-  });
-  const updateItem = useOpsUpdateRestaurantMenuItem({
-    restaurantId,
-    menuId: menu?.id,
-    sectionId: section?.id,
-    itemId: item?.id,
-  });
+  const createItem = useOpsCreateRestaurantMenuItem(restaurantId);
+  const updateItem = useOpsUpdateRestaurantMenuItem(restaurantId);
+  const { reset: resetCreate } = createItem;
+  const { reset: resetUpdate } = updateItem;
+  // One key per create draft, reused by retries, so a retried create never duplicates the item.
+  const [createKey, setCreateKey] = useState(generateIdempotencyKey);
 
   useEffect(() => {
     if (open) {
@@ -91,8 +93,11 @@ export function ItemDialog({
       setMediaError(null);
       setMediaKeyDraft('');
       setGoogleDetailsOpen(false);
+      resetCreate();
+      resetUpdate();
+      if (!item) setCreateKey(generateIdempotencyKey());
     }
-  }, [item, menu?.menuKind, open]);
+  }, [item, menu?.menuKind, open, resetCreate, resetUpdate]);
 
   const initial = useMemo(() => itemInitialState(item, menu?.menuKind), [item, menu?.menuKind]);
   const isDirty =
@@ -140,23 +145,42 @@ export function ItemDialog({
       setGoogleDetailsOpen(true);
       return;
     }
-    const payload = buildItemPayload({
-      state,
-      menuKind: menu.menuKind,
-      displayOrder: item?.displayOrder ?? section.items.length,
-      existing: item,
-    });
-    try {
-      if (item?.id) {
-        await updateItem.mutateAsync(payload);
-      } else {
-        await createItem.mutateAsync(payload as RestaurantMenuItemInput);
+    if (!menu.id || !section.id) return;
+    // No display order: new items are appended by the server, and an edit keeps the saved order.
+    const payload = buildItemPayload({ state, menuKind: menu.menuKind, existing: item });
+    const savedName = state.displayName.trim() || 'Item';
+    if (item?.id) {
+      try {
+        await updateItem.mutateAsync({
+          menuId: menu.id,
+          sectionId: section.id,
+          itemId: item.id,
+          payload,
+        });
+      } catch {
+        return;
       }
+      toast.success(`${savedName} saved.`);
+      onOpenChange(false);
+      return;
+    }
+
+    let created: CanonicalRestaurantMenuItem;
+    try {
+      created = await createItem.mutateAsync({
+        menuId: menu.id,
+        sectionId: section.id,
+        payload: { ...(payload as RestaurantMenuItemInput), idempotencyKey: createKey },
+      });
     } catch {
       return;
     }
-    const savedName = state.displayName.trim() || 'Item';
-    toast.success(item?.id ? `${savedName} saved.` : `${savedName} added.`);
+    if (onCreated) {
+      toast.success(`${savedName} added. You can add options now.`);
+      onCreated(created);
+      return;
+    }
+    toast.success(`${savedName} added.`);
     onOpenChange(false);
   };
 

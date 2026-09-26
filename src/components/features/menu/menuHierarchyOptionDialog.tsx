@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { FormRoot } from '@/components/ui/form';
 import {
   useOpsCreateRestaurantMenuOption,
-  useOpsPatchRestaurantMenuOption,
+  useOpsUpdateRestaurantMenuOption,
 } from '@/hooks/ops/useOpsMenuHierarchy';
 
 import {
@@ -52,17 +52,17 @@ export function OptionDialog({
 }) {
   const formId = useId();
   const [state, setState] = useState<OptionFormState>(() => optionInitialState(option));
-  const createOption = useOpsCreateRestaurantMenuOption({
-    restaurantId,
-    menuId: menu?.id,
-    sectionId: section?.id,
-    itemId: item?.id,
-  });
-  const updateOption = useOpsPatchRestaurantMenuOption(restaurantId);
+  const createOption = useOpsCreateRestaurantMenuOption(restaurantId);
+  const updateOption = useOpsUpdateRestaurantMenuOption(restaurantId);
+  const { reset: resetCreate } = createOption;
+  const { reset: resetUpdate } = updateOption;
 
   useEffect(() => {
-    if (item) setState(optionInitialState(option));
-  }, [item, option]);
+    if (!item) return;
+    setState(optionInitialState(option));
+    resetCreate();
+    resetUpdate();
+  }, [item, option, resetCreate, resetUpdate]);
 
   const initial = useMemo(() => optionInitialState(option), [option]);
   const isDirty = Boolean(item) && JSON.stringify(state) !== JSON.stringify(initial);
@@ -71,19 +71,15 @@ export function OptionDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!item) return;
-    const payload = buildOptionPayload(state, option?.displayOrder ?? item.options.length, option);
+    if (!item?.id || !menu?.id || !section?.id) return;
+    // No display order: new options are appended by the server, edits keep the saved order.
+    const payload = buildOptionPayload(state, undefined, option);
+    const ids = { menuId: menu.id, sectionId: section.id, itemId: item.id };
     try {
-      if (option?.id && menu?.id && section?.id && item.id) {
-        await updateOption.mutateAsync({
-          menuId: menu.id,
-          sectionId: section.id,
-          itemId: item.id,
-          optionId: option.id,
-          payload,
-        });
+      if (option?.id) {
+        await updateOption.mutateAsync({ ...ids, optionId: option.id, payload });
       } else {
-        await createOption.mutateAsync(payload as RestaurantMenuOptionInput);
+        await createOption.mutateAsync({ ...ids, payload: payload as RestaurantMenuOptionInput });
       }
     } catch {
       return;

@@ -114,16 +114,22 @@ export function makeMenu(
 
 export type MutationStub = {
   mutateAsync: ReturnType<typeof vi.fn>;
+  mutate: ReturnType<typeof vi.fn>;
+  reset: ReturnType<typeof vi.fn>;
   isPending: boolean;
   error: Error | null;
+  variables?: unknown;
 };
 
 /** Fresh react-query mutation stub. Create inside each test (config resets mocks). */
 export function mutationStub(overrides: Partial<MutationStub> = {}): MutationStub {
   return {
     mutateAsync: vi.fn().mockResolvedValue({}),
+    mutate: vi.fn(),
+    reset: vi.fn(),
     isPending: false,
     error: null,
+    variables: undefined,
     ...overrides,
   };
 }

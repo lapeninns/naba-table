@@ -83,7 +83,37 @@ describe('MenuDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save menu' }));
 
     await waitFor(() => expect(hooks.updateMenu.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(hooks.updateMenu.mutateAsync.mock.calls[0][0]).toMatchObject({
+      menuId: 'menu-1',
+      payload: expect.objectContaining({ labels: expect.any(Array) }),
+    });
     expect(hooks.createMenu.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it('@contract clears a previous save error each time the dialog opens', () => {
+    const { rerender } = render(
+      <MenuDialog
+        restaurantId="rest-1"
+        mode={null}
+        menu={null}
+        defaultMenuKind="food"
+        onOpenChange={vi.fn()}
+      />,
+    );
+    expect(hooks.createMenu.reset).not.toHaveBeenCalled();
+
+    rerender(
+      <MenuDialog
+        restaurantId="rest-1"
+        mode="create"
+        menu={null}
+        defaultMenuKind="food"
+        onOpenChange={vi.fn()}
+      />,
+    );
+
+    expect(hooks.createMenu.reset).toHaveBeenCalledTimes(1);
+    expect(hooks.updateMenu.reset).toHaveBeenCalledTimes(1);
   });
 
   it('@contract shows pending state and errors', () => {
@@ -115,7 +145,7 @@ describe('SectionDialog', () => {
     return props;
   }
 
-  it('@contract creating a section appends at the end of the menu', async () => {
+  it('@contract creating a section lets the server append it (no client display order)', async () => {
     const user = userEvent.setup();
     const props = renderSectionDialog();
 
@@ -126,14 +156,15 @@ describe('SectionDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Add section' }));
 
     await waitFor(() => expect(hooks.createSection.mutateAsync).toHaveBeenCalledTimes(1));
-    const payload = hooks.createSection.mutateAsync.mock.calls[0][0];
-    expect(payload.labels[0].displayName).toBe('Desserts');
-    expect(payload.displayOrder).toBe(1);
-    expect(payload.legacyCategory).toBe('Desserts');
+    const variables = hooks.createSection.mutateAsync.mock.calls[0][0];
+    expect(variables.menuId).toBe('menu-1');
+    expect(variables.payload.labels[0].displayName).toBe('Desserts');
+    expect(variables.payload).not.toHaveProperty('displayOrder');
+    expect(variables.payload.legacyCategory).toBe('Desserts');
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it('@contract editing keeps the existing display order and uses update', async () => {
+  it('@contract editing sends no display order (keeps a concurrent reorder) and uses update', async () => {
     const user = userEvent.setup();
     renderSectionDialog({ mode: 'edit', section: makeSection({ displayOrder: 4 }) });
 
@@ -143,7 +174,9 @@ describe('SectionDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Save section' }));
 
     await waitFor(() => expect(hooks.updateSection.mutateAsync).toHaveBeenCalledTimes(1));
-    expect(hooks.updateSection.mutateAsync.mock.calls[0][0].displayOrder).toBe(4);
+    const variables = hooks.updateSection.mutateAsync.mock.calls[0][0];
+    expect(variables).toMatchObject({ menuId: 'menu-1', sectionId: 'section-1' });
+    expect(variables.payload).not.toHaveProperty('displayOrder');
     expect(hooks.createSection.mutateAsync).not.toHaveBeenCalled();
   });
 
@@ -151,5 +184,12 @@ describe('SectionDialog', () => {
     renderSectionDialog({ menu: null });
 
     expect(screen.getByRole('button', { name: 'Add section' })).toBeDisabled();
+  });
+
+  it('@contract clears a previous save error when the dialog opens', () => {
+    renderSectionDialog();
+
+    expect(hooks.createSection.reset).toHaveBeenCalled();
+    expect(hooks.updateSection.reset).toHaveBeenCalled();
   });
 });

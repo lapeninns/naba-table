@@ -5,10 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { queryKeys } from '@/lib/query/keys';
 import {
   useOpsCreateRestaurantMenu,
+  useOpsCreateRestaurantMenuItem,
+  useOpsCreateRestaurantMenuSection,
   useOpsDeleteRestaurantMenu,
+  useOpsDeleteRestaurantMenuItem,
   useOpsMenuHierarchy,
-  useOpsPatchRestaurantMenuItem,
+  useOpsReorderMenuChildren,
   useOpsUpdateRestaurantMenu,
+  useOpsUpdateRestaurantMenuItem,
   useOpsUpdateRestaurantMenuSection,
 } from '@src/hooks/ops/useOpsMenuHierarchy';
 
@@ -26,6 +30,7 @@ const menuHierarchyService = vi.hoisted(() => ({
   deleteMenu: vi.fn(),
   deleteSection: vi.fn(),
   deleteItem: vi.fn(),
+  reorderChildren: vi.fn(),
 }));
 
 vi.mock('@/contexts/ops-services', () => ({
@@ -75,18 +80,65 @@ describe('useOpsMenuHierarchy', () => {
   });
 });
 
+type Hierarchy = { menus: Array<Record<string, unknown>> };
+
+function seedHierarchy(queryClient: ReturnType<typeof createTestQueryClient>) {
+  const hierarchy: Hierarchy = {
+    menus: [
+      {
+        id: 'menu-1',
+        displayOrder: 0,
+        sections: [
+          {
+            id: 'section-1',
+            displayOrder: 0,
+            items: [
+              { id: 'item-1', displayOrder: 0, active: true, options: [] },
+              { id: 'item-2', displayOrder: 1, active: true, options: [] },
+            ],
+          },
+          { id: 'section-2', displayOrder: 1, items: [] },
+        ],
+      },
+    ],
+  };
+  queryClient.setQueryData(listKey, hierarchy);
+  return hierarchy;
+}
+
+function cached(queryClient: ReturnType<typeof createTestQueryClient>) {
+  return queryClient.getQueryData(listKey) as Hierarchy;
+}
+
+function sectionsOf(queryClient: ReturnType<typeof createTestQueryClient>) {
+  return (cached(queryClient).menus[0]!.sections as Array<Record<string, unknown>>).map(
+    (section) => [section.id, section.displayOrder],
+  );
+}
+
+function itemsOf(queryClient: ReturnType<typeof createTestQueryClient>) {
+  const section = (cached(queryClient).menus[0]!.sections as Array<{ items: unknown[] }>)[0]!;
+  return section.items as Array<Record<string, unknown>>;
+}
+
 describe('menu hierarchy mutations', () => {
-  it('@contract creating a menu invalidates the hierarchy list for the restaurant', async () => {
-    const menu = { id: 'menu-1', name: 'Dinner' };
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('@contract creating a menu writes it into the cache and refreshes in the background', async () => {
+    const menu = { id: 'menu-2', displayOrder: 1, sections: [] };
     menuHierarchyService.createMenu.mockResolvedValue(menu);
 
-    const { result, invalidateSpy } = setup(() => useOpsCreateRestaurantMenu(restaurantId));
+    const { result, invalidateSpy, queryClient } = setup(() =>
+      useOpsCreateRestaurantMenu(restaurantId),
+    );
+    seedHierarchy(queryClient);
 
     await expect(result.current.mutateAsync({ name: 'Dinner' } as never)).resolves.toEqual(menu);
 
-    expect(menuHierarchyService.createMenu).toHaveBeenCalledWith(restaurantId, {
-      name: 'Dinner',
-    });
+    expect(menuHierarchyService.createMenu).toHaveBeenCalledWith(restaurantId, { name: 'Dinner' });
+    expect(cached(queryClient).menus.map((entry) => entry.id)).toEqual(['menu-1', 'menu-2']);
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: listKey });
   });
 
@@ -99,28 +151,51 @@ describe('menu hierarchy mutations', () => {
     expect(menuHierarchyService.createMenu).not.toHaveBeenCalled();
   });
 
-  it('@contract updating a section requires both menu and section ids', async () => {
-    const { result } = setup(() =>
-      useOpsUpdateRestaurantMenuSection({ restaurantId, menuId: 'menu-1', sectionId: null }),
+  it('@contract resolves from the saved entity without waiting for the hierarchy refetch', async () => {
+    let releaseRefetch: (() => void) | undefined;
+    menuHierarchyService.listMenus.mockImplementation(
+      () => new Promise((resolve) => (releaseRefetch = () => resolve({ menus: [] }))),
     );
+    menuHierarchyService.updateItem.mockResolvedValue({
+      id: 'item-1',
+      displayOrder: 0,
+      active: false,
+      options: [{ id: 'opt-1' }],
+    });
 
-    await expect(result.current.mutateAsync({ name: 'Starters' } as never)).rejects.toThrow(
-      'Restaurant id, menu id, and section id are required',
-    );
-    expect(menuHierarchyService.updateSection).not.toHaveBeenCalled();
+    const { result, queryClient } = setup(() => ({
+      hierarchy: useOpsMenuHierarchy(restaurantId),
+      update: useOpsUpdateRestaurantMenuItem(restaurantId),
+    }));
+    seedHierarchy(queryClient);
+
+    await result.current.update.mutateAsync({
+      menuId: 'menu-1',
+      sectionId: 'section-1',
+      itemId: 'item-1',
+      payload: { active: false },
+    });
+
+    // Saved before the background refetch settles: the canonical item is already cached.
+    expect(itemsOf(queryClient)[0]).toMatchObject({ id: 'item-1', active: false });
+    expect(itemsOf(queryClient)[0]!.options).toEqual([{ id: 'opt-1' }]);
+    releaseRefetch?.();
   });
 
-  it('@contract patching an item passes the full id path and invalidates the list', async () => {
-    const item = { id: 'item-1', name: 'Soup' };
-    menuHierarchyService.updateItem.mockResolvedValue(item);
+  it('@contract one item update hook passes the full id path', async () => {
+    menuHierarchyService.updateItem.mockResolvedValue({
+      id: 'item-1',
+      displayOrder: 0,
+      options: [],
+    });
 
-    const { result, invalidateSpy } = setup(() => useOpsPatchRestaurantMenuItem(restaurantId));
+    const { result } = setup(() => useOpsUpdateRestaurantMenuItem(restaurantId));
 
     await result.current.mutateAsync({
       menuId: 'menu-1',
       sectionId: 'section-1',
       itemId: 'item-1',
-      payload: { name: 'Soup' } as never,
+      payload: { attributesMerge: { spiciness: 'MILD' } },
     });
 
     expect(menuHierarchyService.updateItem).toHaveBeenCalledWith(
@@ -128,9 +203,86 @@ describe('menu hierarchy mutations', () => {
       'menu-1',
       'section-1',
       'item-1',
-      { name: 'Soup' },
+      { attributesMerge: { spiciness: 'MILD' } },
     );
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: listKey });
+  });
+
+  it('@contract section updates keep the cached items (the response has none)', async () => {
+    menuHierarchyService.updateSection.mockResolvedValue({
+      id: 'section-1',
+      displayOrder: 0,
+      active: false,
+      items: [],
+    });
+
+    const { result, queryClient } = setup(() => useOpsUpdateRestaurantMenuSection(restaurantId));
+    seedHierarchy(queryClient);
+
+    await result.current.mutateAsync({
+      menuId: 'menu-1',
+      sectionId: 'section-1',
+      payload: { active: false },
+    });
+
+    const section = (cached(queryClient).menus[0]!.sections as Array<Record<string, unknown>>)[0]!;
+    expect(section).toMatchObject({ id: 'section-1', active: false });
+    expect(section.items).toHaveLength(2);
+  });
+
+  it('@contract created sections and items are appended from the server response', async () => {
+    menuHierarchyService.createSection.mockResolvedValue({
+      id: 'section-3',
+      displayOrder: 2,
+      items: [],
+    });
+    menuHierarchyService.createItem.mockResolvedValue({
+      id: 'item-3',
+      displayOrder: 2,
+      options: [],
+    });
+
+    const { result, queryClient } = setup(() => ({
+      section: useOpsCreateRestaurantMenuSection(restaurantId),
+      item: useOpsCreateRestaurantMenuItem(restaurantId),
+    }));
+    seedHierarchy(queryClient);
+
+    await result.current.section.mutateAsync({ menuId: 'menu-1', payload: {} as never });
+    await result.current.item.mutateAsync({
+      menuId: 'menu-1',
+      sectionId: 'section-1',
+      payload: { idempotencyKey: 'draft-key-1' } as never,
+    });
+
+    expect(sectionsOf(queryClient).map(([id]) => id)).toEqual([
+      'section-1',
+      'section-2',
+      'section-3',
+    ]);
+    expect(itemsOf(queryClient).map((item) => item.id)).toEqual(['item-1', 'item-2', 'item-3']);
+    expect(menuHierarchyService.createItem).toHaveBeenCalledWith(
+      restaurantId,
+      'menu-1',
+      'section-1',
+      {
+        idempotencyKey: 'draft-key-1',
+      },
+    );
+  });
+
+  it('@contract deleting an item removes it from the cache', async () => {
+    menuHierarchyService.deleteItem.mockResolvedValue(undefined);
+
+    const { result, queryClient } = setup(() => useOpsDeleteRestaurantMenuItem(restaurantId));
+    seedHierarchy(queryClient);
+
+    await result.current.mutateAsync({
+      menuId: 'menu-1',
+      sectionId: 'section-1',
+      itemId: 'item-1',
+    });
+
+    expect(itemsOf(queryClient).map((item) => item.id)).toEqual(['item-2']);
   });
 
   it('@contract deleting a menu invalidates the hierarchy list', async () => {
@@ -152,17 +304,16 @@ describe('menu hierarchy mutations', () => {
     await expect(result.current.mutateAsync({ menuId: 'menu-1' })).rejects.toThrow('in use');
     expect(invalidateSpy).not.toHaveBeenCalled();
   });
+
   it('@contract menu edits invalidate only the restaurant hierarchy list, not dual-sync state', async () => {
     // Dual-sync food-menu drift compares the stored Nabatable projection, which only
     // dual-sync refresh/publish rebuilds, so a menu edit cannot change the state response.
-    const menu = { id: 'menu-1', name: 'Dinner' };
+    const menu = { id: 'menu-1', displayOrder: 0, sections: [] };
     menuHierarchyService.updateMenu.mockResolvedValue(menu);
 
-    const { result, invalidateSpy } = setup(() =>
-      useOpsUpdateRestaurantMenu({ restaurantId, menuId: 'menu-1' }),
-    );
+    const { result, invalidateSpy } = setup(() => useOpsUpdateRestaurantMenu(restaurantId));
 
-    await result.current.mutateAsync({ name: 'Dinner' } as never);
+    await result.current.mutateAsync({ menuId: 'menu-1', payload: { active: false } });
 
     expect(
       (invalidateSpy.mock.calls as Array<[{ queryKey: readonly unknown[] }]>).map(
@@ -170,5 +321,83 @@ describe('menu hierarchy mutations', () => {
       ),
     ).toEqual([listKey]);
     expect(listKey).toContain(restaurantId);
+  });
+});
+
+describe('useOpsReorderMenuChildren', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('@contract shows the new order immediately and keeps it after the save', async () => {
+    let resolveSave: ((value: unknown) => void) | undefined;
+    menuHierarchyService.reorderChildren.mockImplementation(
+      () => new Promise((resolve) => (resolveSave = resolve)),
+    );
+
+    const { result, queryClient } = setup(() => useOpsReorderMenuChildren(restaurantId));
+    seedHierarchy(queryClient);
+
+    const pending = result.current.mutateAsync({
+      target: { level: 'sections', menuId: 'menu-1' },
+      orderedIds: ['section-2', 'section-1'],
+    });
+
+    await waitFor(() =>
+      expect(sectionsOf(queryClient)).toEqual([
+        ['section-2', 0],
+        ['section-1', 1],
+      ]),
+    );
+    expect(menuHierarchyService.reorderChildren).toHaveBeenCalledWith(
+      restaurantId,
+      { level: 'sections', menuId: 'menu-1' },
+      ['section-2', 'section-1'],
+    );
+
+    resolveSave?.([
+      { id: 'section-2', displayOrder: 0 },
+      { id: 'section-1', displayOrder: 1 },
+    ]);
+    await pending;
+    expect(sectionsOf(queryClient)).toEqual([
+      ['section-2', 0],
+      ['section-1', 1],
+    ]);
+  });
+
+  it('@contract rolls the optimistic order back when the save fails', async () => {
+    menuHierarchyService.reorderChildren.mockRejectedValue(new Error('stale'));
+
+    const { result, queryClient } = setup(() => useOpsReorderMenuChildren(restaurantId));
+    seedHierarchy(queryClient);
+
+    await expect(
+      result.current.mutateAsync({
+        target: { level: 'items', menuId: 'menu-1', sectionId: 'section-1' },
+        orderedIds: ['item-2', 'item-1'],
+      }),
+    ).rejects.toThrow('stale');
+
+    expect(itemsOf(queryClient).map((item) => [item.id, item.displayOrder])).toEqual([
+      ['item-1', 0],
+      ['item-2', 1],
+    ]);
+  });
+
+  it('@contract declares global error feedback with copy for a stale order', async () => {
+    menuHierarchyService.reorderChildren.mockRejectedValue(new Error('stale'));
+    const { result, queryClient } = setup(() => useOpsReorderMenuChildren(restaurantId));
+
+    await result.current
+      .mutateAsync({ target: { level: 'sections', menuId: 'menu-1' }, orderedIds: ['section-1'] })
+      .catch(() => undefined);
+
+    const [mutation] = queryClient.getMutationCache().getAll();
+    expect(mutation?.meta?.feedback?.error).toMatchObject({
+      copy: { MENU_ORDER_STALE: expect.any(String) },
+      fallback: expect.stringContaining('previous order'),
+    });
+    expect(mutation?.options.scope).toEqual({ id: `menu-order:${restaurantId}` });
   });
 });

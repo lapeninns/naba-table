@@ -162,6 +162,7 @@ function renderClient(options?: {
   memberships?: OpsMembership[];
   listMenus?: ReturnType<typeof vi.fn>;
   updateItem?: ReturnType<typeof vi.fn>;
+  createItem?: ReturnType<typeof vi.fn>;
   searchParams?: string;
 }) {
   navigationMocks.searchParams = options?.searchParams ?? '';
@@ -169,6 +170,7 @@ function renderClient(options?: {
   const listMenus =
     options?.listMenus ?? vi.fn().mockResolvedValue({ menus: buildCanonicalMenus() });
   const updateItem = options?.updateItem ?? vi.fn().mockResolvedValue({});
+  const createItem = options?.createItem ?? vi.fn().mockResolvedValue({});
 
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -184,6 +186,7 @@ function renderClient(options?: {
             ({
               listMenus,
               updateItem,
+              createItem,
             }) as never,
         }}
       >
@@ -317,29 +320,54 @@ describe('OpsMenuManagementClient', () => {
     await user.click(screen.getByRole('button', { name: 'Save quick edit' }));
 
     await waitFor(() => expect(updateItem).toHaveBeenCalledTimes(1));
+    // Only the changed price goes out, as a merge patch: the server keeps allergens, media
+    // keys, service periods and customisation even if another operator changed them meanwhile.
     expect(updateItem).toHaveBeenCalledWith(
       'rest-1',
       'menu-food',
       'section-starters',
       'item-burrata',
-      expect.objectContaining({
-        attributes: expect.objectContaining({
-          price: { currencyCode: 'GBP', amount: 10.25 },
-          allergen: ['MILK'],
-          mediaKeys: ['google-media-1'],
-        }),
-        extensions: expect.objectContaining({
-          availabilityPolicy: expect.objectContaining({
-            servicePeriods: ['dinner'],
-            soldOut: false,
-          }),
-          customizationControls: expect.objectContaining({
-            requiredOptionGroupIds: ['sides'],
-          }),
-        }),
-      }),
+      { attributesMerge: { price: { currencyCode: 'GBP', amount: 10.25 } } },
     );
     expect(updateItem.mock.calls[0]?.[4]).not.toHaveProperty('options');
+  });
+
+  it('after creating an item the dialog switches to editing it so options can be added', async () => {
+    const user = userEvent.setup();
+    const created = {
+      ...buildCanonicalMenus()[0]!.sections[0]!.items[0]!,
+      id: 'item-focaccia',
+      externalItemId: 'ops:focaccia',
+      labels: [label('Focaccia')],
+      options: [],
+      displayOrder: 2,
+    };
+    const createItem = vi.fn().mockResolvedValue(created);
+    const withCreated = buildCanonicalMenus();
+    withCreated[0]!.sections[0]!.items.push(created);
+    const listMenus = vi
+      .fn()
+      .mockResolvedValueOnce({ menus: buildCanonicalMenus() })
+      .mockResolvedValue({ menus: withCreated });
+    renderClient({ createItem, listMenus });
+
+    await screen.findByText('Dinner Menu');
+    await user.click(screen.getByRole('button', { name: 'Add item to Starters' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Add item to Starters' });
+    const [nameInput] = within(dialog).getAllByRole('textbox');
+    await user.type(nameInput!, 'Focaccia');
+    await user.click(within(dialog).getByRole('button', { name: 'Save item' }));
+
+    await waitFor(() => expect(createItem).toHaveBeenCalledTimes(1));
+    expect(createItem.mock.calls[0]![3]).toMatchObject({ idempotencyKey: expect.any(String) });
+    expect(createItem.mock.calls[0]![3]).not.toHaveProperty('displayOrder');
+
+    const editDialog = await screen.findByRole('dialog', { name: 'Edit Focaccia' });
+    expect(
+      within(editDialog).getByRole('button', { name: /Options guests can choose/ }),
+    ).toHaveTextContent('0 options');
+    // The saved item comes from the create response; the list refreshes in the background.
+    await waitFor(() => expect(listMenus).toHaveBeenCalledTimes(2));
   });
 
   it('shows FoodMenus drift beside matching menu items', async () => {

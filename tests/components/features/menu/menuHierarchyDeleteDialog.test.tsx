@@ -53,6 +53,22 @@ describe('DeleteHierarchyDialog', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
+  it('@contract clears a stale delete error when opened for a new target', () => {
+    renderDialog(null);
+    expect(hooks.deleteMenu.reset).not.toHaveBeenCalled();
+
+    renderDialog({ type: 'section', menu: makeMenu(), section: makeSection() });
+
+    for (const stub of [
+      hooks.deleteMenu,
+      hooks.deleteSection,
+      hooks.deleteItem,
+      hooks.deleteOption,
+    ]) {
+      expect(stub.reset).toHaveBeenCalledTimes(1);
+    }
+  });
+
   it('@contract @a11y names the menu target and deletes it on confirm', async () => {
     const user = userEvent.setup();
     const menu = makeMenu();

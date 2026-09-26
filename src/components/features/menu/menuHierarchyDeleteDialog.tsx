@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { toast } from 'sonner';
 
 import {
@@ -60,6 +61,20 @@ export function DeleteHierarchyDialog({
   const deleteSection = useOpsDeleteRestaurantMenuSection(restaurantId);
   const deleteItem = useOpsDeleteRestaurantMenuItem(restaurantId);
   const deleteOption = useOpsDeleteRestaurantMenuOption(restaurantId);
+  const { reset: resetMenu } = deleteMenu;
+  const { reset: resetSection } = deleteSection;
+  const { reset: resetItem } = deleteItem;
+  const { reset: resetOption } = deleteOption;
+  const isOpen = Boolean(target);
+
+  useEffect(() => {
+    // Opening the dialog for a new target never shows the previous attempt's error.
+    if (!isOpen) return;
+    resetMenu();
+    resetSection();
+    resetItem();
+    resetOption();
+  }, [isOpen, target, resetMenu, resetSection, resetItem, resetOption]);
 
   const pending =
     deleteMenu.isPending ||

@@ -20,7 +20,7 @@ const hooks = vi.hoisted(() => ({
 
 vi.mock('@/hooks/ops/useOpsMenuHierarchy', () => ({
   useOpsCreateRestaurantMenuOption: () => hooks.createOption,
-  useOpsPatchRestaurantMenuOption: () => hooks.updateOption,
+  useOpsUpdateRestaurantMenuOption: () => hooks.updateOption,
 }));
 
 function renderDialog(overrides: Partial<Parameters<typeof OptionDialog>[0]> = {}) {
@@ -68,9 +68,11 @@ describe('OptionDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Add option' }));
 
     await waitFor(() => expect(hooks.createOption.mutateAsync).toHaveBeenCalledTimes(1));
-    const payload = hooks.createOption.mutateAsync.mock.calls[0][0];
-    expect(payload.labels[0].displayName).toBe('Large');
-    expect(payload.displayOrder).toBe(0);
+    const variables = hooks.createOption.mutateAsync.mock.calls[0][0];
+    expect(variables).toMatchObject({ menuId: 'menu-1', sectionId: 'section-1', itemId: 'item-1' });
+    expect(variables.payload.labels[0].displayName).toBe('Large');
+    // The server appends new options (max + 1); the client sends no display order.
+    expect(variables.payload).not.toHaveProperty('displayOrder');
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -107,6 +109,25 @@ describe('OptionDialog', () => {
       'Not saved. Your edits are still in this dialog.',
     );
     expect(screen.queryByText(/Option save failed/)).not.toBeInTheDocument();
+  });
+
+  it('@contract clears a previous save error when the dialog opens', () => {
+    renderDialog();
+
+    expect(hooks.createOption.reset).toHaveBeenCalled();
+    expect(hooks.updateOption.reset).toHaveBeenCalled();
+  });
+
+  it('@contract editing sends no display order, so a concurrent reorder is kept', async () => {
+    const user = userEvent.setup();
+    renderDialog({ option: makeOption({ displayOrder: 3 }) });
+
+    await user.click(screen.getByRole('button', { name: 'Save option' }));
+
+    await waitFor(() => expect(hooks.updateOption.mutateAsync).toHaveBeenCalledTimes(1));
+    expect(hooks.updateOption.mutateAsync.mock.calls[0][0].payload).not.toHaveProperty(
+      'displayOrder',
+    );
   });
 
   it('@contract cancel closes without mutating', async () => {

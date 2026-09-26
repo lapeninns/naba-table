@@ -192,7 +192,11 @@ export function buildItemPayload({
 }: {
   state: ItemFormState;
   menuKind: MenuKind;
-  displayOrder: number;
+  /**
+   * Omit for new items (the server appends) and for edits (a snapshot order would undo a
+   * concurrent reorder). Pass it only to move an item explicitly.
+   */
+  displayOrder?: number;
   existing?: CanonicalRestaurantMenuItem | null;
 }): RestaurantMenuItemInput | RestaurantMenuItemPatch {
   const googleMediaKeys = splitTokens(state.googleMediaKeys);
@@ -267,15 +271,16 @@ export function buildItemPayload({
       localMedia: existing?.media.localMedia ?? {},
     },
     extensions,
-    displayOrder,
+    ...(typeof displayOrder === 'number' ? { displayOrder } : {}),
     active: state.active,
     legacySource: existing?.legacySource ?? { editedFrom: 'ops-menu-hierarchy-ui' },
   };
 }
 
+/** `displayOrder` is omitted unless given: new options are appended by the server. */
 export function buildOptionPayload(
   state: OptionFormState,
-  displayOrder: number,
+  displayOrder?: number,
   existing?: CanonicalRestaurantMenuOption | null,
 ): RestaurantMenuOptionInput | RestaurantMenuOptionPatch {
   return {
@@ -292,7 +297,7 @@ export function buildOptionPayload(
       localImageUrl: state.localImageUrl.trim() || null,
       localMedia: existing?.media.localMedia ?? {},
     },
-    displayOrder,
+    ...(typeof displayOrder === 'number' ? { displayOrder } : {}),
     active: state.active,
     legacySource: existing?.legacySource ?? { editedFrom: 'ops-menu-hierarchy-ui' },
   };
