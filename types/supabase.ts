@@ -8654,6 +8654,17 @@ export type Database = {
       };
       user_restaurants: { Args: never; Returns: string[] };
       user_restaurants_admin: { Args: never; Returns: string[] };
+      update_table_inventory_atomic: {
+        Args: {
+          p_table_id: string;
+          p_restaurant_id: string;
+          p_patch?: Json;
+          p_maintenance_start?: string;
+          p_maintenance_end?: string;
+          p_actor_id?: string;
+        };
+        Returns: Database['public']['Tables']['table_inventory']['Row'];
+      };
       validate_booking_capacity_after_assignment: {
         Args: { p_booking_id: string };
         Returns: undefined;

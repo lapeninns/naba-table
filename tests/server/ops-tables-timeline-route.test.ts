@@ -66,7 +66,10 @@ describe('GET /api/ops/tables/timeline', () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body).toEqual({ error: 'Invalid query' });
+    expect(body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { restaurantId: [expect.any(String)] },
+    });
     expectNoProtectedSideEffects({
       routeClient: getRouteHandlerSupabaseClientMock,
       membership: requireMembershipForRestaurantMock,
@@ -90,7 +93,7 @@ describe('GET /api/ops/tables/timeline', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({ error: 'Authentication required' });
+    expect(body).toMatchObject({ code: 'UNAUTHENTICATED' });
     expectNoProtectedSideEffects({
       membership: requireMembershipForRestaurantMock,
       timeline: getTableAvailabilityTimelineMock,
@@ -108,7 +111,7 @@ describe('GET /api/ops/tables/timeline', () => {
       const body = await response.json();
 
       expect(response.status).toBe(403);
-      expect(body).toEqual({ error: 'Forbidden' });
+      expect(body).toMatchObject({ code: 'FORBIDDEN' });
       expect(requireMembershipForRestaurantMock).toHaveBeenCalledWith({
         userId: 'user-1',
         restaurantId: OTHER_RESTAURANT_ID,
@@ -161,9 +164,27 @@ describe('GET /api/ops/tables/timeline', () => {
       const body = await response.json();
 
       expect(response.status).toBe(500);
-      expect(body).toEqual({ error: 'Unable to load table timeline' });
+      expect(body).toMatchObject({ code: 'INTERNAL_ERROR' });
+      expect(JSON.stringify(body)).not.toContain('booking load failed');
     } finally {
       consoleErrorSpy.mockRestore();
     }
+  });
+
+  it('answers a retryable 503 when membership cannot be checked, not a 403 @p2 @api', async () => {
+    requireMembershipForRestaurantMock.mockRejectedValue(
+      Object.assign(new Error('lookup failed'), { code: 'MEMBERSHIP_VALIDATION_UNAVAILABLE' }),
+    );
+
+    const response = await GET(
+      appHostRequest(`/api/ops/tables/timeline?restaurantId=${RESTAURANT_ID}`),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'MEMBERSHIP_VALIDATION_UNAVAILABLE',
+      retryable: true,
+    });
+    expect(getTableAvailabilityTimelineMock).not.toHaveBeenCalled();
   });
 });

@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { forbidden, internalError, unauthenticated, validationError } from '@/lib/api/errors';
 import { isRestaurantAdminRole } from '@/lib/owner/auth/roles';
+import { captureServerException } from '@/lib/posthog/server';
 import { createZone, listZones } from '@/server/ops/zones';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient } from '@/server/supabase';
 
+import { postgresCode, zoneNameBlank, zoneNameTaken, zoneRoleForbidden } from './_errors';
+
 import type { NextRequest } from 'next/server';
+
+const ROUTE = 'ops/zones';
 
 const querySchema = z.object({
   restaurantId: z.string().uuid(),
@@ -29,17 +34,14 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized', message: 'Unauthorized' }, { status: 401 });
+      return unauthenticated();
     }
 
     const searchParams = Object.fromEntries(req.nextUrl.searchParams.entries());
     const parsed = querySchema.safeParse(searchParams);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'restaurantId is required', message: 'restaurantId is required' },
-        { status: 400 },
-      );
+      return validationError(parsed.error);
     }
 
     const { restaurantId } = parsed.data;
@@ -52,36 +54,25 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: 'Access denied to this restaurant', message: 'Access denied to this restaurant' },
-        { status: 403 },
-      );
+      return forbidden();
     }
 
     try {
       const zones = await listZones(supabase, restaurantId);
       return NextResponse.json({ zones });
     } catch (error) {
-      console.error('[ops/zones][GET] Failed to list zones', { error });
       captureServerException(error, {
         distinctId: user.id,
         groups: { restaurant: restaurantId },
         properties: { restaurantId, source: 'ops', kind: 'ops-zones' },
       });
-      return NextResponse.json(
-        { error: 'Failed to load zones', message: 'Failed to load zones' },
-        { status: 500 },
-      );
+      return internalError(error, { route: ROUTE, method: 'GET', restaurantId });
     }
   } catch (error) {
-    console.error('[ops/zones][GET] Unexpected error', { error });
     captureServerException(error, {
       properties: { source: 'ops', kind: 'ops-zones' },
     });
-    return NextResponse.json(
-      { error: 'An unexpected error occurred', message: 'An unexpected error occurred' },
-      { status: 500 },
-    );
+    return internalError(error, { route: ROUTE, method: 'GET' });
   }
 }
 
@@ -98,31 +89,21 @@ async function postZone(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized', message: 'Unauthorized' }, { status: 401 });
+      return unauthenticated();
     }
 
     const body = await req.json().catch(() => null);
     const parsed = createSchema.safeParse(body);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid request body',
-          message: 'Invalid request body',
-          details: parsed.error.flatten(),
-        },
-        { status: 400 },
-      );
+      return validationError(parsed.error);
     }
 
     const data = parsed.data;
 
     const trimmedName = data.name.trim();
     if (trimmedName.length === 0) {
-      return NextResponse.json(
-        { error: 'Zone name cannot be blank', message: 'Zone name cannot be blank' },
-        { status: 400 },
-      );
+      return zoneNameBlank();
     }
 
     const { data: membership, error: membershipError } = await supabase
@@ -133,20 +114,11 @@ async function postZone(req: NextRequest) {
       .maybeSingle();
 
     if (membershipError || !membership) {
-      return NextResponse.json(
-        { error: 'Access denied to this restaurant', message: 'Access denied to this restaurant' },
-        { status: 403 },
-      );
+      return forbidden();
     }
 
     if (!isRestaurantAdminRole(membership.role)) {
-      return NextResponse.json(
-        {
-          error: 'Insufficient permissions for zone management',
-          message: 'Insufficient permissions for zone management',
-        },
-        { status: 403 },
-      );
+      return zoneRoleForbidden();
     }
 
     try {
@@ -158,25 +130,24 @@ async function postZone(req: NextRequest) {
       });
       return NextResponse.json({ zone }, { status: 201 });
     } catch (error) {
-      console.error('[ops/zones][POST] Create error', { error });
+      if (postgresCode(error) === '23505') {
+        return zoneNameTaken();
+      }
       captureServerException(error, {
         distinctId: user.id,
         groups: { restaurant: data.restaurantId },
         properties: { restaurantId: data.restaurantId, source: 'ops', kind: 'ops-zones' },
       });
-      return NextResponse.json(
-        { error: 'Failed to create zone', message: 'Failed to create zone' },
-        { status: 500 },
-      );
+      return internalError(error, {
+        route: ROUTE,
+        method: 'POST',
+        restaurantId: data.restaurantId,
+      });
     }
   } catch (error) {
-    console.error('[ops/zones][POST] Unexpected error', { error });
     captureServerException(error, {
       properties: { source: 'ops', kind: 'ops-zones' },
     });
-    return NextResponse.json(
-      { error: 'An unexpected error occurred', message: 'An unexpected error occurred' },
-      { status: 500 },
-    );
+    return internalError(error, { route: ROUTE, method: 'POST' });
   }
 }

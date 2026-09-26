@@ -131,6 +131,10 @@ export const queryKeys = {
     // --- wave 2 (integrator) ---
     /** Prefix of every tables query (lists, timelines, zones, capacities) for one restaurant. */
     restaurantPrefix: (restaurantId: string) => ['ops', 'tables', restaurantId] as const,
+    // --- wave 2 (s6-tables-holds) ---
+    /** Mutation key for staff hold releases (not a query; never matched by query invalidation). */
+    releaseHoldMutation: (restaurantId: string | null) =>
+      ['ops', 'tables', restaurantId ?? 'none', 'release-hold'] as const,
   },
   /** Mutation keys, so pending floor-plan changes can be read with useMutationState. */
   opsFloorPlan: {

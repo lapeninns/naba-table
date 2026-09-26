@@ -73,7 +73,7 @@ describe('TableTimelineSegmentDialog', () => {
     );
   });
 
-  it('@contract releases a hold with the hold and booking ids', async () => {
+  it('@contract releases a hold by its id', async () => {
     const user = userEvent.setup();
     const props = makeProps({
       selected: {
@@ -91,7 +91,29 @@ describe('TableTimelineSegmentDialog', () => {
     expect(screen.getByText('Linked booking ID: booking-9')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Release hold' }));
-    expect(props.onReleaseHold).toHaveBeenCalledWith('hold-1', 'booking-9');
+    expect(props.onReleaseHold).toHaveBeenCalledWith('hold-1');
+  });
+
+  it('@contract releases an unbound hold (no booking) too', async () => {
+    const user = userEvent.setup();
+    const props = makeProps({
+      selected: {
+        table,
+        segment: makeSegment({
+          state: 'hold',
+          booking: null,
+          hold: { id: 'hold-2', bookingId: null },
+        }),
+      },
+    });
+    render(<TableTimelineSegmentDialog {...props} />);
+
+    expect(screen.getByText('Not linked to a booking')).toBeInTheDocument();
+    const button = screen.getByRole('button', { name: 'Release hold' });
+    expect(button).toBeEnabled();
+
+    await user.click(button);
+    expect(props.onReleaseHold).toHaveBeenCalledWith('hold-2');
   });
 
   it('@contract disables the release action while releasing and surfaces errors', () => {

@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
+import { toUserMessage } from '@/lib/http/userMessage';
+import { useReleaseTableHold } from '@src/hooks/ops/useReleaseTableHold';
 
 import {
   clampToServiceWindow,
@@ -21,6 +23,11 @@ type TimelineActionState = {
   error: string | null;
 };
 
+const RELEASE_HOLD_ERROR_COPY = {
+  copy: { FORBIDDEN: "You don't have permission to release holds for this restaurant." },
+  fallback: 'The hold wasn’t released. Try again.',
+};
+
 export function useTableTimelineController() {
   const { activeRestaurantId, activeMembership } = useOpsSession();
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -30,10 +37,7 @@ export function useTableTimelineController() {
   const [selectedSegment, setSelectedSegment] = useState<SelectedSegment | null>(null);
   const [statusFilters, setStatusFilters] =
     useState<TableTimelineSegmentState[]>(DEFAULT_STATUS_FILTERS);
-  const [actionState, setActionState] = useState<TimelineActionState>({
-    releasing: false,
-    error: null,
-  });
+  const releaseHold = useReleaseTableHold(activeRestaurantId ?? null);
   const [now, setNow] = useState<Date>(() => new Date());
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -110,38 +114,24 @@ export function useTableTimelineController() {
     });
   };
 
-  const handleReleaseHold = async (holdId: string, bookingId: string | null) => {
-    if (!holdId || !bookingId) {
-      setActionState({
-        releasing: false,
-        error: 'Cannot release hold without a booking reference.',
-      });
-      return;
-    }
-    setActionState({ releasing: true, error: null });
-    try {
-      const response = await fetch('/api/staff/manual/hold', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ holdId, bookingId }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error || 'Unable to release hold');
-      }
-      await timelineQuery.refetch();
-      setSelectedSegment(null);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to release hold';
-      setActionState({ releasing: false, error: message });
-      return;
-    }
-    setActionState({ releasing: false, error: null });
+  // Holds may be unbound (no booking), so only the hold id and the restaurant are needed.
+  const handleReleaseHold = (holdId: string) => {
+    if (!holdId || !activeRestaurantId) return;
+    releaseHold.mutate(
+      { restaurantId: activeRestaurantId, holdId },
+      // The hook refetches the timeline; closing the dialog is this screen's decision.
+      { onSuccess: () => setSelectedSegment(null) },
+    );
   };
 
   const closeSelectedSegment = () => {
-    setActionState({ releasing: false, error: null });
+    releaseHold.reset();
     setSelectedSegment(null);
+  };
+
+  const actionState: TimelineActionState = {
+    releasing: releaseHold.isPending,
+    error: releaseHold.isError ? toUserMessage(releaseHold.error, RELEASE_HOLD_ERROR_COPY) : null,
   };
 
   return {
