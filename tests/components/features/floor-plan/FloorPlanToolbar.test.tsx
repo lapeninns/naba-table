@@ -18,7 +18,17 @@ function controller(overrides: Partial<FloorPlanController>): FloorPlanControlle
     timezone: 'Europe/London',
     service: 'all',
     view: 'plan',
-    actions: { goToDate: vi.fn(), setView: vi.fn(), chooseService: vi.fn(), refresh: vi.fn() },
+    dirtyIds: [],
+    saveErrors: {},
+    isSavingLayout: false,
+    actions: {
+      goToDate: vi.fn(),
+      setView: vi.fn(),
+      chooseService: vi.fn(),
+      refresh: vi.fn(),
+      discardLayout: vi.fn(),
+      saveLayout: vi.fn(),
+    },
   };
   return { ...base, ...overrides } as unknown as FloorPlanController;
 }
@@ -49,5 +59,22 @@ describe('FloorPlanToolbar', () => {
     expect(screen.queryByRole('group', { name: 'View' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Edit layout' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh tables' })).toBeInTheDocument();
+  });
+
+  // The save bar lives in the toolbar so the narrow-screen sheet and the phone list view can't hide it.
+  it('keeps unsaved layout changes savable from the toolbar', () => {
+    const fp = controller({ surface: 'layout', mode: 'arrange', dirtyIds: ['t1', 't2'] });
+    render(<FloorPlanToolbar fp={fp} />);
+
+    const bar = screen.getByRole('region', { name: 'Unsaved layout' });
+    expect(bar).toHaveTextContent('2 unsaved layout changes');
+    screen.getByRole('button', { name: 'Save layout' }).click();
+    expect(fp.actions.saveLayout).toHaveBeenCalledOnce();
+  });
+
+  it('shows no save bar when the layout has no changes', () => {
+    render(<FloorPlanToolbar fp={controller({ surface: 'layout', mode: 'arrange' })} />);
+
+    expect(screen.queryByRole('region', { name: 'Unsaved layout' })).not.toBeInTheDocument();
   });
 });

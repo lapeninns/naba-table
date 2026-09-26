@@ -86,7 +86,7 @@ export function useFloorPlanController({
   const nowMs = useClock(CLOCK_TICK_MS);
 
   const [requestedDate, setRequestedDate] = useState<string | null>(initialDate);
-  const data = useOpsFloorPlan({ restaurantId, date: requestedDate });
+  const data = useOpsFloorPlan({ restaurantId, date: requestedDate, scope: surface });
   const assignments = useOpsFloorPlanAssignments({ restaurantId, date: requestedDate });
   const lifecycle = useOpsFloorPlanLifecycle({ restaurantId, date: requestedDate });
   const layoutSave = useOpsFloorPlanLayoutSave(restaurantId);

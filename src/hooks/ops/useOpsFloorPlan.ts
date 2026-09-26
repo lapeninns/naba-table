@@ -3,7 +3,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
-import { buildFloorPlanSnapshot } from '@/components/features/floor-plan/model/floorPlanSnapshot';
+import {
+  buildFloorLayoutSnapshot,
+  buildFloorPlanSnapshot,
+} from '@/components/features/floor-plan/model/floorPlanSnapshot';
+import { todayInTimezone } from '@/components/features/floor-plan/model/floorPlanTime';
 import { useTableInventoryService } from '@/contexts/ops-services';
 import { useOpsDashboardData } from '@/hooks/ops/useOpsDashboardData';
 import { useOpsTableTimeline } from '@/hooks/ops/useOpsTableTimeline';
@@ -36,11 +40,15 @@ export type UseOpsFloorPlanResult = {
 export function useOpsFloorPlan({
   restaurantId,
   date,
+  scope = 'service',
 }: {
   restaurantId: string | null;
   /** ISO date, or null for "today" in the restaurant's timezone. */
   date: string | null;
+  /** `layout` loads tables only: arranging the room needs no bookings or service times. */
+  scope?: 'service' | 'layout';
 }): UseOpsFloorPlanResult {
+  const withService = scope === 'service';
   const tableService = useTableInventoryService();
 
   const tablesQuery = useQuery({
@@ -55,13 +63,18 @@ export function useOpsFloorPlan({
     staleTime: 30_000,
   });
 
-  const summaryQuery = useOpsDashboardData({ restaurantId, targetDate: date });
+  const summaryQuery = useOpsDashboardData({
+    restaurantId,
+    targetDate: date,
+    enabled: withService,
+  });
 
   const timelineQuery = useOpsTableTimeline({
     restaurantId,
     date,
     service: 'all',
     includeSummary: false,
+    enabled: withService,
   });
 
   const tables = tablesQuery.data;
@@ -69,35 +82,59 @@ export function useOpsFloorPlan({
   const timeline = timelineQuery.data;
 
   const snapshot = useMemo(() => {
+    if (!withService) {
+      if (!restaurantId || !tables) return null;
+      return buildFloorLayoutSnapshot({
+        restaurantId,
+        date: date ?? todayInTimezone(Date.now(), 'Europe/London'),
+        tables,
+      });
+    }
     if (!restaurantId || !tables || !summary || !timeline) return null;
     // keepPreviousData can briefly return another date's payload; never mix dates.
     const resolvedDate = date ?? summary.date;
-    if (summary.date !== resolvedDate || timeline.date !== resolvedDate || summary.restaurantId !== restaurantId) {
+    if (
+      summary.date !== resolvedDate ||
+      timeline.date !== resolvedDate ||
+      summary.restaurantId !== restaurantId
+    ) {
       return null;
     }
     return buildFloorPlanSnapshot({ restaurantId, date: resolvedDate, tables, summary, timeline });
-  }, [date, restaurantId, summary, tables, timeline]);
+  }, [date, restaurantId, summary, tables, timeline, withService]);
 
   const failedSources = useMemo(() => {
     const failed: UseOpsFloorPlanResult['failedSources'] = [];
     if (tablesQuery.isError && !tables) failed.push('tables');
-    if (summaryQuery.isError && !summary) failed.push('bookings');
-    if (timelineQuery.isError && !timeline) failed.push('timeline');
+    if (withService && summaryQuery.isError && !summary) failed.push('bookings');
+    if (withService && timelineQuery.isError && !timeline) failed.push('timeline');
     return failed;
-  }, [summary, summaryQuery.isError, tables, tablesQuery.isError, timeline, timelineQuery.isError]);
+  }, [
+    summary,
+    summaryQuery.isError,
+    tables,
+    tablesQuery.isError,
+    timeline,
+    timelineQuery.isError,
+    withService,
+  ]);
 
   const status: FloorPlanStatus = snapshot ? 'ready' : failedSources.length ? 'error' : 'loading';
 
   const updatedAt = snapshot
-    ? Math.max(tablesQuery.dataUpdatedAt, summaryQuery.dataUpdatedAt, timelineQuery.dataUpdatedAt)
+    ? withService
+      ? Math.max(tablesQuery.dataUpdatedAt, summaryQuery.dataUpdatedAt, timelineQuery.dataUpdatedAt)
+      : tablesQuery.dataUpdatedAt
     : null;
 
   const { refetch: refetchTables } = tablesQuery;
   const { refetch: refetchSummary } = summaryQuery;
   const { refetch: refetchTimeline } = timelineQuery;
   const refresh = useCallback(async () => {
-    await Promise.all([refetchTables(), refetchSummary(), refetchTimeline()]);
-  }, [refetchSummary, refetchTables, refetchTimeline]);
+    await Promise.all(
+      withService ? [refetchTables(), refetchSummary(), refetchTimeline()] : [refetchTables()],
+    );
+  }, [refetchSummary, refetchTables, refetchTimeline, withService]);
 
   return {
     status,
@@ -106,8 +143,9 @@ export function useOpsFloorPlan({
     updatedAt,
     isRefreshing:
       status === 'ready' &&
-      (tablesQuery.isFetching || summaryQuery.isFetching || timelineQuery.isFetching),
-    isRealtime: summaryQuery.realtimeHealthy && !summaryQuery.isPolling,
+      (tablesQuery.isFetching ||
+        (withService && (summaryQuery.isFetching || timelineQuery.isFetching))),
+    isRealtime: withService && summaryQuery.realtimeHealthy && !summaryQuery.isPolling,
     refresh,
   };
 }

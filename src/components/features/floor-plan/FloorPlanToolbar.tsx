@@ -5,9 +5,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Hourglass,
+  Loader2,
   Move,
   PencilRuler,
   RefreshCw,
+  TriangleAlert,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import Link from 'next/link';
@@ -243,6 +245,47 @@ function DatePicker({ fp }: { fp: FloorPlanController }) {
   );
 }
 
+/** In the toolbar, not over the canvas: the narrow-screen sheet and the phone list can't hide it. */
+function LayoutSaveBar({ fp }: { fp: FloorPlanController }) {
+  const n = fp.dirtyIds.length;
+  const failed = Object.keys(fp.saveErrors).length;
+  if (fp.mode !== 'arrange' || (!n && !failed)) return null;
+  return (
+    <div
+      role="region"
+      aria-label="Unsaved layout"
+      className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm"
+    >
+      <b>
+        {n} unsaved layout {n === 1 ? 'change' : 'changes'}
+      </b>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={fp.isSavingLayout}
+        onClick={fp.actions.discardLayout}
+      >
+        Discard
+      </Button>
+      <Button
+        size="sm"
+        disabled={fp.isSavingLayout || n === 0}
+        onClick={() => void fp.actions.saveLayout()}
+      >
+        {fp.isSavingLayout ? <Loader2 className="animate-spin" aria-hidden /> : null}
+        {fp.isSavingLayout ? 'Saving layout…' : 'Save layout'}
+      </Button>
+      {failed ? (
+        <p role="alert" className="flex w-full items-center gap-1.5 text-destructive">
+          <TriangleAlert className="size-4" aria-hidden />
+          {failed} {failed === 1 ? 'table wasn’t' : 'tables weren’t'} saved:{' '}
+          {Object.values(fp.saveErrors)[0]} Try again.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
   const { snapshot, data, mode } = fp;
   const services = snapshot ? servicesForToolbar(snapshot) : [];
@@ -254,7 +297,10 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
       <div className="flex flex-wrap items-center gap-2">
         {arrange ? (
           // The settings chrome owns the Floor layout heading; no service controls here.
-          <span className="flex-1" />
+          <>
+            <LayoutSaveBar fp={fp} />
+            <span className="flex-1" />
+          </>
         ) : (
           <>
             <Heading as="h1" variant="title" className="mr-2">

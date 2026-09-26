@@ -79,15 +79,21 @@ function ViewArea({ fp, phone }: { fp: FloorPlanController; phone: boolean }) {
     const what = data.failedSources
       .map((s) => (s === 'bookings' ? 'bookings' : s === 'tables' ? 'tables' : 'service times'))
       .join(' and ');
+    const arranging = fp.mode === 'arrange';
     return (
-      <CenteredState icon={<TriangleAlert className="size-5" />} title="The floor plan didn’t load">
+      <CenteredState
+        icon={<TriangleAlert className="size-5" />}
+        title={arranging ? 'Your floor layout didn’t load' : 'The floor plan didn’t load'}
+      >
         <Alert variant="destructive" className="text-left">
           <AlertIcon>
             <TriangleAlert className="size-4" aria-hidden />
           </AlertIcon>
           <AlertTitle>Couldn’t fetch {what || 'the floor plan'}</AlertTitle>
           <AlertDescription>
-            {formatLongDate(fp.date)} couldn’t be loaded.
+            {arranging
+              ? 'Your tables couldn’t be loaded.'
+              : `${formatLongDate(fp.date)} couldn’t be loaded.`}
             {data.updatedAt
               ? ` The last update was at ${formatClock(data.updatedAt, fp.timezone)}.`
               : ''}

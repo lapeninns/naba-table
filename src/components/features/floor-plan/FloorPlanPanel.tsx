@@ -872,13 +872,25 @@ function panelParts(
 ): PanelParts {
   const { data, snapshot, mode, pick } = fp;
   if (data.status !== 'ready' || !snapshot) {
+    const arranging = mode === 'arrange';
     return {
-      peek: data.status === 'error' ? 'Bookings unavailable' : 'Loading…',
-      head: <h2 className="text-base font-semibold">Needs a table</h2>,
+      peek:
+        data.status === 'error'
+          ? arranging
+            ? 'Tables unavailable'
+            : 'Bookings unavailable'
+          : 'Loading…',
+      head: (
+        <h2 className="text-base font-semibold">
+          {arranging ? 'Arrange layout' : 'Needs a table'}
+        </h2>
+      ),
       body:
         data.status === 'error' ? (
           <p className="text-sm text-muted-foreground">
-            Bookings appear here once the floor plan loads.
+            {arranging
+              ? 'Table details appear here once your tables load.'
+              : 'Bookings appear here once the floor plan loads.'}
           </p>
         ) : (
           <div className="space-y-2" aria-busy="true">
@@ -1057,7 +1069,9 @@ export function FloorPlanPanel({
         className={cn(
           'flex min-h-0 flex-col border-t bg-card',
           'max-[1099px]:absolute max-[1099px]:inset-x-0 max-[1099px]:bottom-0 max-[1099px]:z-30 max-[1099px]:rounded-t-xl max-[1099px]:shadow-lg',
-          sheet === 'open' ? 'max-[1099px]:h-[min(70%,560px)] max-md:h-[min(75dvh,560px)]' : 'max-[1099px]:h-14',
+          sheet === 'open'
+            ? 'max-[1099px]:h-[min(70%,560px)] max-md:h-[min(75dvh,560px)]'
+            : 'max-[1099px]:h-14',
           // Phones scroll the page, so pin the sheet to the screen above the bottom nav.
           'max-md:fixed max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)]',
           'min-[1100px]:w-[340px] min-[1100px]:shrink-0 min-[1100px]:border-l min-[1100px]:border-t-0',

@@ -187,3 +187,26 @@ export function buildFloorPlanSnapshot(input: {
     holds: holdsFromTimeline(timeline),
   };
 }
+
+/**
+ * The saved room without a service: what the Floor layout settings page arranges. Tables and
+ * zones only, so the page works on closed days and when bookings can't load.
+ */
+export function buildFloorLayoutSnapshot(input: {
+  restaurantId: string;
+  date: string;
+  tables: ListTablesResult;
+}): FloorPlanSnapshot {
+  return {
+    restaurantId: input.restaurantId,
+    date: input.date,
+    timezone: 'Europe/London',
+    isClosed: false,
+    window: null,
+    services: [],
+    zones: buildZones(input.tables),
+    tables: input.tables.tables.map(toFloorTable),
+    bookings: [],
+    holds: [],
+  };
+}
