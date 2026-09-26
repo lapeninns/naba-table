@@ -7,7 +7,7 @@ import { toUserMessage } from '@/lib/http/userMessage';
  * known codes get this copy, other 4xx keep the (safe, C1) server message, and
  * 5xx/network failures get the generic copy.
  */
-export const GUEST_BOOKING_ERROR_COPY: Partial<Record<string, string>> = {
+const GUEST_BOOKING_ERROR_COPY: Partial<Record<string, string>> = {
   ACCESS_TOKEN_EXPIRED:
     'This booking link has expired. Request a new link from the booking page, then try again.',
   ACCESS_TOKEN_REVOKED:

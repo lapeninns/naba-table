@@ -140,11 +140,3 @@ export function buildBookingPlainUrl(booking: Pick<ManageUrlBooking, 'id'>): str
   }
   return `${bookingSiteUrl}/bookings/${booking.id}`;
 }
-
-export function isBookingRecoverErrorUrl(url: string): boolean {
-  try {
-    return new URL(url).pathname === '/bookings/recover/error';
-  } catch {
-    return true;
-  }
-}

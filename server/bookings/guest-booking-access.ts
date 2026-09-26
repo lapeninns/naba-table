@@ -52,10 +52,10 @@ export const SESSION_EMAIL_MATCH_ENABLED = false;
 
 export const BOOKING_ACCESS_COOKIE_PREFIX = '__Host-nt_bk.';
 export const BOOKING_ACCESS_DEV_COOKIE_PREFIX = 'nt_bk.';
-export const BOOKING_ACCESS_COOKIE_CAP = 10;
-export const LEGACY_SESSION_RECOVERY_COOKIE = 'sr_access';
-export const LEGACY_CONFIRMATION_COOKIE = 'sr_confirm';
-export const QUERY_STRING_TOKEN_PARAMS = ['access_token', 'accessToken', 'token'] as const;
+const BOOKING_ACCESS_COOKIE_CAP = 10;
+const LEGACY_SESSION_RECOVERY_COOKIE = 'sr_access';
+const LEGACY_CONFIRMATION_COOKIE = 'sr_confirm';
+const QUERY_STRING_TOKEN_PARAMS = ['access_token', 'accessToken', 'token'] as const;
 
 const TOKEN_READ_LIMIT = { limit: 120, windowMs: 60_000 } as const;
 const TOKEN_WRITE_LIMIT = { limit: 10, windowMs: 60_000 } as const;
@@ -74,7 +74,7 @@ export type GuestSessionUser = {
   email_confirmed_at?: string | null;
 };
 
-export type TokenFailureReason =
+type TokenFailureReason =
   | 'not_configured'
   | 'invalid'
   | 'wrong_booking'
@@ -249,7 +249,7 @@ export function clearBookingAccessCookie(res: Response, bookingId: string): void
   }
 }
 
-export function normalizeRootDomain(value: string): string {
+function normalizeRootDomain(value: string): string {
   const trimmed = value.trim().toLowerCase();
   const withoutScheme = trimmed.replace(/^https?:\/\//, '');
   const withoutPath = withoutScheme.split('/')[0] ?? '';
@@ -343,7 +343,7 @@ export function isVerifiedBookingOwner(
 // ---------------------------------------------------------------------------
 
 /** Booking tokens are never accepted from the URL on the API. */
-export function rejectQueryStringToken(req: Pick<NextRequest, 'nextUrl'>): NextResponse | null {
+function rejectQueryStringToken(req: Pick<NextRequest, 'nextUrl'>): NextResponse | null {
   for (const param of QUERY_STRING_TOKEN_PARAMS) {
     if (req.nextUrl.searchParams.has(param)) {
       return apiError(
@@ -388,7 +388,7 @@ function tokenFailureResponse(reason: TokenFailureReason): NextResponse {
   return apiError(failure.status, failure.code, failure.message);
 }
 
-export function bookingNotFoundResponse(): NextResponse {
+function bookingNotFoundResponse(): NextResponse {
   return apiError(404, 'BOOKING_NOT_FOUND', 'Booking not found.');
 }
 

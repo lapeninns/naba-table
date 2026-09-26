@@ -17,7 +17,7 @@ import { openAeadToken, sealAeadToken } from '@/server/security/aead-token';
  * Format: `bk1.<iv>.<ciphertext>.<tag>` (AES-256-GCM, see aead-token.ts).
  */
 
-export const BOOKING_ACCESS_TOKEN_PREFIX = 'bk1' as const;
+const BOOKING_ACCESS_TOKEN_PREFIX = 'bk1' as const;
 const KEY_LABEL = 'booking-access-token';
 const FINGERPRINT_KEY_LABEL = 'booking-access-cfp';
 const FINGERPRINT_LENGTH = 22; // 16 bytes, base64url, unpadded
@@ -26,11 +26,11 @@ const HOUR_SECONDS = 60 * 60;
 const DAY_SECONDS = 24 * HOUR_SECONDS;
 
 /** A link must stay usable for at least this long, even for a past booking. */
-export const BOOKING_ACCESS_LINK_MIN_SECONDS = HOUR_SECONDS;
+const BOOKING_ACCESS_LINK_MIN_SECONDS = HOUR_SECONDS;
 /** Links never outlive this, so far-future bookings rely on fresh reminder links. */
-export const BOOKING_ACCESS_LINK_MAX_SECONDS = 30 * DAY_SECONDS;
+const BOOKING_ACCESS_LINK_MAX_SECONDS = 30 * DAY_SECONDS;
 /** Links stay valid this long after the booking ends. */
-export const BOOKING_ACCESS_LINK_GRACE_SECONDS = DAY_SECONDS;
+const BOOKING_ACCESS_LINK_GRACE_SECONDS = DAY_SECONDS;
 /** Cookie minted when a link is redeemed at /bookings/recover. */
 export const BOOKING_ACCESS_REDEEM_MAX_SECONDS = 14 * DAY_SECONDS;
 /** Cookie minted for the guest who just created the booking. */
@@ -41,7 +41,7 @@ const FALLBACK_DURATION_SECONDS = 4 * HOUR_SECONDS;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-export const bookingAccessSourceSchema = z.enum(['create', 'link', 'redeem']);
+const bookingAccessSourceSchema = z.enum(['create', 'link', 'redeem']);
 export type BookingAccessSource = z.infer<typeof bookingAccessSourceSchema>;
 
 const payloadSchema = z
@@ -58,7 +58,7 @@ const payloadSchema = z
 
 export type BookingAccessTokenPayload = z.infer<typeof payloadSchema>;
 
-export type BookingAccessTokenValidationError =
+type BookingAccessTokenValidationError =
   | 'invalid_format'
   | 'invalid_prefix'
   | 'invalid_signature'
@@ -144,7 +144,7 @@ export function resolveBookingAccessEndSeconds(
 }
 
 /** Link expiry: `clamp(endAt + 24h, iat + 1h, iat + 30d)`. */
-export function computeBookingLinkExpirySeconds(
+function computeBookingLinkExpirySeconds(
   booking: BookingAccessBooking,
   issuedAtSeconds: number,
 ): number {

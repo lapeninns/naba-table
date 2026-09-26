@@ -29,14 +29,14 @@ import type { NextRequest } from 'next/server';
  * the request's email is only a lookup key, never a recipient.
  */
 
-export const LOOKUP_EMAIL_ACCEPTED_MESSAGE =
+const LOOKUP_EMAIL_ACCEPTED_MESSAGE =
   "If that email has an upcoming booking at this venue, we'll send a link to manage it within a few minutes.";
-export const LOOKUP_EMAIL_IP_LIMIT = { limit: 5, windowMs: 15 * 60 * 1000 } as const;
-export const LOOKUP_EMAIL_MAX_BOOKINGS = 5;
+const LOOKUP_EMAIL_IP_LIMIT = { limit: 5, windowMs: 15 * 60 * 1000 } as const;
+const LOOKUP_EMAIL_MAX_BOOKINGS = 5;
 const JOB_BUCKET_MS = 15 * 60 * 1000;
 const TURNSTILE_ACTION = 'booking_lookup_email';
 
-export const lookupEmailRequestSchema = z
+const lookupEmailRequestSchema = z
   .object({
     restaurantId: z.string().uuid().optional(),
     restaurantSlug: z.string().trim().min(1).max(120).optional(),

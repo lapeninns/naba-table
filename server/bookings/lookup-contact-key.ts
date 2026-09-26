@@ -12,8 +12,8 @@ import { consumeRateLimit } from '@/server/security/rate-limit';
  * ever appears in a rate-limit identifier.
  */
 
-export const CONTACT_THROTTLE_HOURLY = { limit: 3, windowMs: 60 * 60 * 1000 } as const;
-export const CONTACT_THROTTLE_DAILY = { limit: 5, windowMs: 24 * 60 * 60 * 1000 } as const;
+const CONTACT_THROTTLE_HOURLY = { limit: 3, windowMs: 60 * 60 * 1000 } as const;
+const CONTACT_THROTTLE_DAILY = { limit: 5, windowMs: 24 * 60 * 60 * 1000 } as const;
 
 export function lookupContactKey(params: {
   restaurantId: string;

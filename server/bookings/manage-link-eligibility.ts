@@ -5,7 +5,7 @@ import { resolveBookingAccessEndSeconds } from '@/server/security/booking-access
 import type { BookingRecord } from '@/server/bookings';
 
 /** Statuses a guest can still act on through a manage link. */
-export const MANAGE_LINK_ELIGIBLE_STATUSES = [
+const MANAGE_LINK_ELIGIBLE_STATUSES = [
   'pending',
   'pending_allocation',
   'confirmed',

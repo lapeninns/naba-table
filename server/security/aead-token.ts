@@ -22,7 +22,7 @@ export type AeadTokenParams = {
   secret: string;
 };
 
-export type AeadTokenOpenFailure = 'invalid_format' | 'invalid_prefix' | 'invalid_signature';
+type AeadTokenOpenFailure = 'invalid_format' | 'invalid_prefix' | 'invalid_signature';
 
 export type AeadTokenOpenResult =
   | { ok: true; plaintext: string }

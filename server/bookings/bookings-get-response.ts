@@ -7,7 +7,7 @@ import type { NextResponse } from 'next/server';
 export type BookingsGetMyBookingsResponseBuilder = typeof buildAuthenticatedMyBookingsHttpResponse;
 export type BookingsGetLogger = (message: string, detail?: unknown) => void;
 
-export const CONTACT_LOOKUP_REMOVED_MESSAGE =
+const CONTACT_LOOKUP_REMOVED_MESSAGE =
   'Looking up bookings by email or phone is no longer available. Use the link in your booking email, or request a new one.';
 
 /**

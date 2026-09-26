@@ -143,4 +143,3 @@ export function toGuestAccessBookingDTO(
   };
 }
 
-export type GuestAccessBookingDTO = ReturnType<typeof toGuestAccessBookingDTO>;
