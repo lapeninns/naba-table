@@ -7,6 +7,7 @@ vi.mock('@/server/restaurants/update', () => ({
 }));
 
 import { updateRestaurantDetails } from '@/server/restaurants/details';
+import { RestaurantUpdateError } from '@/server/restaurants/update-errors';
 
 const updatedRestaurant = {
   id: 'restaurant-1',
@@ -65,6 +66,31 @@ describe('updateRestaurantDetails', () => {
       { contactEmail: null },
       client,
     );
+  });
+});
+
+describe('updateRestaurantDetails field validation', () => {
+  beforeEach(() => {
+    updateRestaurantMock.mockReset();
+  });
+
+  it.each([
+    ['an invalid timezone', { timezone: 'Not/AZone' }, 'timezone'],
+    ['a whitespace-only name', { name: '   ' }, 'name'],
+    ['a malformed slug', { slug: 'Bad Slug' }, 'slug'],
+    ['a negative capacity', { capacity: -1 }, 'capacity'],
+  ] as const)('refuses %s with a VALIDATION_FAILED field error', async (_label, input, field) => {
+    const client = makeClient();
+
+    const failure = updateRestaurantDetails('restaurant-1', input, client as never);
+
+    await expect(failure).rejects.toBeInstanceOf(RestaurantUpdateError);
+    await expect(failure).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+      status: 400,
+      fields: { [field]: [expect.any(String)] },
+    });
+    expect(updateRestaurantMock).not.toHaveBeenCalled();
   });
 });
 

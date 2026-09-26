@@ -35,7 +35,7 @@ vi.mock('@/server/auth/password-confirmation', () => ({
   verifyUserPasswordConfirmation: vi.fn(),
 }));
 
-import { slugTakenError } from '@/server/restaurants/update-errors';
+import { fieldValidationError, slugTakenError } from '@/server/restaurants/update-errors';
 import { POST, PUT } from '@/src/app/api/ops/restaurants/[id]/details/route';
 
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../../lib/security/csrf';
@@ -154,6 +154,23 @@ describe('ops restaurant details route', () => {
     expect(await response.json()).toMatchObject({
       code: 'SLUG_TAKEN',
       fields: { slug: [expect.any(String)] },
+    });
+  });
+
+  it('returns 400 VALIDATION_FAILED with fields for a server-side field refusal', async () => {
+    updateRestaurantDetailsMock.mockRejectedValue(
+      fieldValidationError('timezone', 'Choose a valid timezone.'),
+    );
+
+    const response = await PUT(
+      jsonRequest(`/api/ops/restaurants/${RESTAURANT_ID}/details`, { timezone: 'Not/AZone' }),
+      routeContext(),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      fields: { timezone: ['Choose a valid timezone.'] },
     });
   });
 

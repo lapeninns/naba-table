@@ -9,6 +9,7 @@ import { assertValidTimezone } from '@/server/restaurants/timezone';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import { updateRestaurant } from './update';
+import { fieldValidationError } from './update-errors';
 
 import type { UpdateRestaurantInput } from './update';
 import type { Database } from '@/types/supabase';
@@ -74,7 +75,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 function validateName(value: string | undefined): string {
   const name = value?.trim() ?? '';
   if (!name) {
-    throw new Error('Name is required');
+    throw fieldValidationError('name', 'Enter the restaurant name.');
   }
   return name;
 }
@@ -82,10 +83,10 @@ function validateName(value: string | undefined): string {
 function validateSlug(value: string | undefined): string {
   const slug = value?.trim() ?? '';
   if (!slug) {
-    throw new Error('Slug is required');
+    throw fieldValidationError('slug', 'Enter a booking page link.');
   }
   if (!SLUG_PATTERN.test(slug)) {
-    throw new Error('Slug must contain only lowercase letters, numbers, and hyphens');
+    throw fieldValidationError('slug', 'Use lowercase letters, numbers and single hyphens.');
   }
   return slug;
 }
@@ -94,7 +95,7 @@ function validateCapacity(value: number | null | undefined): number | null {
   const capacity =
     value === null || value === undefined ? null : Number.isFinite(value) ? value : null;
   if (capacity !== null && capacity < 0) {
-    throw new Error('Capacity must be a positive number');
+    throw fieldValidationError('capacity', 'Capacity must be a positive number.');
   }
   return capacity;
 }
@@ -118,7 +119,11 @@ function buildRestaurantDetailsUpdatePayload(
     payload.slug = validateSlug(input.slug);
   }
   if (hasInput(input, 'timezone')) {
-    payload.timezone = assertValidTimezone(input.timezone);
+    try {
+      payload.timezone = assertValidTimezone(input.timezone);
+    } catch {
+      throw fieldValidationError('timezone', 'Choose a valid timezone.');
+    }
   }
   if (hasInput(input, 'capacity')) {
     payload.capacity = validateCapacity(input.capacity);
