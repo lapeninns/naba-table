@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import {
   runBookingCreateInlineAutoAssign,
   scheduleBookingCreateAutoAssignRetry,
@@ -78,13 +79,24 @@ export async function finalizeBookingCreateCommit({
     return { booking: finalBooking };
   }
 
-  await auditDispatcher({
-    actor,
-    booking: finalBooking,
-    client,
-    customer,
-    restaurantId,
-  });
+  // The booking is committed. An audit_logs failure is logged and never turns
+  // it into a 500: the guest still gets the 201, the creator cookie and the
+  // confirmation side effects below.
+  try {
+    await auditDispatcher({
+      actor,
+      booking: finalBooking,
+      client,
+      customer,
+      restaurantId,
+    });
+  } catch (error) {
+    logger.error('bookings.create.audit_failed', {
+      bookingId: finalBooking.id,
+      restaurantId,
+      errorName: error instanceof Error ? error.name : typeof error,
+    });
+  }
 
   try {
     const updatedBooking = await inlineAutoAssignRunner({

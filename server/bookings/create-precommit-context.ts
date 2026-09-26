@@ -59,6 +59,14 @@ export type BookingCreatePrecommitContextResult =
       response: NextResponse;
     };
 
+function bookingDurationMinutes(booking: BookingRecord): number {
+  const start = booking.start_at ? Date.parse(booking.start_at) : Number.NaN;
+  const end = booking.end_at ? Date.parse(booking.end_at) : Number.NaN;
+  return Number.isFinite(start) && Number.isFinite(end) && end > start
+    ? Math.round((end - start) / 60_000)
+    : 0;
+}
+
 export async function runBookingCreatePrecommitContext({
   capacityPrechecker = runBookingCreateCapacityPrecheck,
   client,
@@ -98,6 +106,46 @@ export async function runBookingCreatePrecommitContext({
   let startTime = request.time;
   let scheduleTimezone: string | null = null;
 
+  const headerIdempotencyKey = requestContext.headerIdempotencyKey;
+
+  // 0. A same-key retry of a booking that already committed is answered before the schedule
+  //    gate. The gate re-reads the clock and the current hours, so a retry landing after the
+  //    past-time grace, or after a staff hours or closure change, would otherwise be refused for
+  //    a booking that exists. Only an exact match on the requested time short-circuits here; any
+  //    other keyed booking falls through to the gate and the full check in step 1, which compares
+  //    against the gate's normalized start time and answers a mismatch as IDEMPOTENCY_KEY_REUSED.
+  let prefetchedKeyedBooking: BookingRecord | null | undefined;
+  if (headerIdempotencyKey) {
+    prefetchedKeyedBooking = await keyedBookingFinder(client, {
+      restaurantId,
+      idempotencyKey: headerIdempotencyKey,
+    });
+    if (
+      prefetchedKeyedBooking &&
+      matchesIdempotentCreatePayload(prefetchedKeyedBooking, {
+        bookingDate: request.date,
+        startTime: request.time,
+        partySize: request.party,
+        customerEmail: request.email,
+      })
+    ) {
+      const replayed = prefetchedKeyedBooking;
+      return {
+        kind: 'continue',
+        booking: replayed,
+        bookingType: (replayed.booking_type as typeof bookingType | null) ?? bookingType,
+        customer: { id: replayed.customer_id },
+        durationMinutes: bookingDurationMinutes(replayed),
+        endTime: replayed.end_time ?? '',
+        idempotencyKey: headerIdempotencyKey,
+        reusedExisting: true,
+        createOrigin: 'key_replay',
+        scheduleTimezone: null,
+        startTime: replayed.start_time,
+      };
+    }
+  }
+
   const scheduleGate = await scheduleGateRunner({
     client,
     restaurantId,
@@ -132,18 +180,22 @@ export async function runBookingCreatePrecommitContext({
   });
   const endTime = endTimeDeriver(startTime, durationMinutes);
 
-  const headerIdempotencyKey = requestContext.headerIdempotencyKey;
-
   // 1. The client's own key, in the scope of the unique (restaurant_id, idempotency_key) index.
   //    A replay needs neither the capacity precheck (its own booking fills the slot) nor a
   //    customer write.
   const resolveKeyedReplay = async (): Promise<BookingCreatePrecommitContextResult | null> => {
     if (!headerIdempotencyKey) return null;
 
-    const keyedBooking = await keyedBookingFinder(client, {
-      restaurantId,
-      idempotencyKey: headerIdempotencyKey,
-    });
+    // The first check reuses the lookup made before the gate; a later one (the capacity race)
+    // must read again.
+    const keyedBooking =
+      prefetchedKeyedBooking !== undefined
+        ? prefetchedKeyedBooking
+        : await keyedBookingFinder(client, {
+            restaurantId,
+            idempotencyKey: headerIdempotencyKey,
+          });
+    prefetchedKeyedBooking = undefined;
     if (!keyedBooking) return null;
 
     if (
