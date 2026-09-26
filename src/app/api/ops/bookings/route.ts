@@ -846,6 +846,16 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
             source: 'ops_staff',
           })
         : existing;
+    // Idempotent replay of a booking that committed earlier: its side effects may have failed
+    // or never run (for example a crash after the commit). Re-ensure them; they are keyed per
+    // booking and effect type, so nothing is sent twice, and the call never throws.
+    await enqueueBookingCreatedSideEffects({
+      booking: safeBookingPayload(recoveredBooking),
+      idempotencyKey: normalizedIdempotencyKey,
+      restaurantId: payload.restaurantId,
+      emailProvided,
+      replay: true,
+    });
     const bookings = await fetchBookingsForContact(
       service,
       payload.restaurantId,
@@ -1021,15 +1031,18 @@ async function handleUnifiedWalkInCreate(params: UnifiedCreateParams) {
       }
     }
 
-    // Send emails AFTER auto-assign so the correct email (confirmation vs request) is sent
-    if (!reusedExisting) {
-      await enqueueBookingCreatedSideEffects({
-        booking: safeBookingPayload(booking),
-        idempotencyKey: normalizedIdempotencyKey,
-        restaurantId: payload.restaurantId,
-        emailProvided,
-      });
+    // Send emails AFTER auto-assign so the correct email (confirmation vs request) is sent.
+    // A duplicate commit (the RPC found this key's booking) re-ensures them as a replay: they
+    // are keyed per booking and effect type, so nothing is sent twice.
+    await enqueueBookingCreatedSideEffects({
+      booking: safeBookingPayload(booking),
+      idempotencyKey: normalizedIdempotencyKey,
+      restaurantId: payload.restaurantId,
+      emailProvided,
+      ...(reusedExisting ? { replay: true } : {}),
+    });
 
+    if (!reusedExisting) {
       try {
         await scheduleBookingCreateAutoAssignRetry({
           autoAssignEnabled: isAutoAssignOnBookingEnabled(),

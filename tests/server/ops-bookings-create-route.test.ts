@@ -360,7 +360,72 @@ describe('POST /api/ops/bookings', () => {
       expect(queryChain.eq).toHaveBeenCalledWith('idempotency_key', KEY);
       expect(upsertCustomerMock).not.toHaveBeenCalled();
       expect(createWithEnforcementMock).not.toHaveBeenCalled();
-      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+      // A replay re-ensures the idempotent side effects (nothing is sent twice).
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          booking: expect.objectContaining({ id: 'booking-1' }),
+          idempotencyKey: KEY,
+          restaurantId: RESTAURANT_ID,
+          emailProvided: true,
+          replay: true,
+        }),
+      );
+    });
+
+    it('re-ensures side effects when signature recovery finds a live booking', async () => {
+      maybeSingleMock
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({
+          data: makeBooking({ status: 'confirmed', start_time: '19:30:00' }),
+          error: null,
+        });
+
+      const response = await postWalkIn();
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ duplicate: true, booking: { id: 'booking-1' } });
+      expect(createWithEnforcementMock).not.toHaveBeenCalled();
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          booking: expect.objectContaining({ id: 'booking-1', status: 'confirmed' }),
+          idempotencyKey: KEY,
+          restaurantId: RESTAURANT_ID,
+          emailProvided: true,
+          replay: true,
+        }),
+      );
+    });
+
+    it('re-ensures side effects as a replay when the commit reports a duplicate', async () => {
+      createWithEnforcementMock.mockResolvedValueOnce({
+        booking: makeBooking({ status: 'confirmed', idempotency_key: KEY }),
+        response: { ok: true, overridden: false, overrideCodes: [] },
+        duplicate: true,
+      });
+
+      const response = await postWalkIn();
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body).toMatchObject({ duplicate: true });
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: KEY, replay: true }),
+      );
+      expect(retrySchedulerMock).not.toHaveBeenCalled();
+    });
+
+    it('runs side effects once, not as a replay, for a fresh create', async () => {
+      const response = await postWalkIn();
+
+      expect(response.status).toBe(201);
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledTimes(1);
+      expect(enqueueBookingCreatedSideEffectsMock.mock.calls[0]?.[0]).not.toHaveProperty(
+        'replay',
+      );
     });
 
     it('rejects the same key with a different party size as 409 IDEMPOTENCY_KEY_REUSED', async () => {
@@ -446,7 +511,9 @@ describe('POST /api/ops/bookings', () => {
       expect(response.status).toBe(200);
       expect(body).toMatchObject({ duplicate: true, booking: { id: 'booking-1' } });
       expect(maybeSingleMock).toHaveBeenCalledTimes(3);
-      expect(enqueueBookingCreatedSideEffectsMock).not.toHaveBeenCalled();
+      expect(enqueueBookingCreatedSideEffectsMock).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: KEY, replay: true }),
+      );
     });
 
     it('keeps the capacity failure when the key still holds nothing', async () => {
