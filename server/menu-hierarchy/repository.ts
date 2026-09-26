@@ -1,5 +1,6 @@
 import { getServiceSupabaseClient } from '@/server/supabase';
 
+import { MenuHierarchyError, toMenuHierarchyError } from './errors';
 import {
   DEFAULT_MENU_LANGUAGE_CODE,
   buildCanonicalMenuLabel,
@@ -13,6 +14,7 @@ import {
   type MenuKind,
   type NabatableMenuItemExtensions,
   type RestaurantMenuInput,
+  type MenuItemExtensionsMerge,
   type RestaurantMenuItemInput,
   type RestaurantMenuItemPatch,
   type RestaurantMenuOptionInput,
@@ -145,7 +147,70 @@ type MenuHierarchyDatabase = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      create_restaurant_menu_item_v1: {
+        Args: {
+          p_restaurant_id: string;
+          p_menu_id: string;
+          p_section_id: string;
+          p_item: Json;
+          p_extensions: Json;
+          p_options: Json;
+          p_idempotency_key: string | null;
+        };
+        Returns: Json;
+      };
+      update_restaurant_menu_item_v1: {
+        Args: {
+          p_restaurant_id: string;
+          p_menu_id: string;
+          p_section_id: string;
+          p_item_id: string;
+          p_set: Json;
+          p_attributes_merge: Json | null;
+          p_extensions: Json | null;
+          p_extensions_merge: Json | null;
+        };
+        Returns: Json;
+      };
+      create_restaurant_menu_section_v1: {
+        Args: { p_restaurant_id: string; p_menu_id: string; p_section: Json };
+        Returns: SectionRow;
+      };
+      create_restaurant_menu_item_option_v1: {
+        Args: {
+          p_restaurant_id: string;
+          p_menu_id: string;
+          p_section_id: string;
+          p_item_id: string;
+          p_option: Json;
+        };
+        Returns: OptionRow;
+      };
+      reorder_restaurant_menu_sections_v1: {
+        Args: { p_restaurant_id: string; p_menu_id: string; p_ordered_ids: string[] };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_items_v1: {
+        Args: {
+          p_restaurant_id: string;
+          p_menu_id: string;
+          p_section_id: string;
+          p_ordered_ids: string[];
+        };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_item_options_v1: {
+        Args: {
+          p_restaurant_id: string;
+          p_menu_id: string;
+          p_section_id: string;
+          p_item_id: string;
+          p_ordered_ids: string[];
+        };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };
@@ -236,14 +301,6 @@ function primaryDescription(labels: readonly CanonicalMenuLabel[]): string | nul
 
 function parseAttributes(value: Json | null): CanonicalMenuItemAttributes {
   return parseRecord(value) as CanonicalMenuItemAttributes;
-}
-
-function moneyAmount(attributes: CanonicalMenuItemAttributes): number {
-  return attributes.price?.amount ?? 0;
-}
-
-function moneyCurrency(attributes: CanonicalMenuItemAttributes): string {
-  return attributes.price?.currencyCode ?? 'GBP';
 }
 
 function mapOption(row: OptionRow): CanonicalRestaurantMenuOption {
@@ -363,100 +420,6 @@ function mapMenu(
   };
 }
 
-async function readSection(
-  restaurantId: string,
-  menuId: string,
-  sectionId: string,
-  client: DbClient,
-): Promise<SectionRow> {
-  const { data, error } = await client
-    .from('restaurant_menu_sections')
-    .select('*')
-    .eq('restaurant_id', restaurantId)
-    .eq('menu_id', menuId)
-    .eq('id', sectionId)
-    .single();
-  if (error) throw error;
-  return data as SectionRow;
-}
-
-async function readItem(
-  restaurantId: string,
-  menuId: string,
-  sectionId: string,
-  itemId: string,
-  client: DbClient,
-): Promise<ItemRow> {
-  const { data, error } = await client
-    .from('restaurant_menu_items')
-    .select(
-      'id, restaurant_id, menu_id, section_id, item_kind, external_item_id, item_name, category, subcategory, base_price, currency, display_order, active, labels, google_attributes, google_media_keys, local_media, image_url, legacy_source, created_at, updated_at',
-    )
-    .eq('restaurant_id', restaurantId)
-    .eq('menu_id', menuId)
-    .eq('section_id', sectionId)
-    .eq('id', itemId)
-    .single();
-  if (error) throw error;
-  return data as ItemRow;
-}
-
-async function deleteMenuItemsByIds({
-  restaurantId,
-  itemIds,
-  client,
-}: {
-  restaurantId: string;
-  itemIds: readonly string[];
-  client: DbClient;
-}): Promise<void> {
-  if (itemIds.length === 0) return;
-
-  const { error: optionsError } = await client
-    .from('restaurant_menu_item_options')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .in('menu_item_id', [...itemIds]);
-  if (optionsError) throw optionsError;
-
-  const { error: extensionsError } = await client
-    .from('restaurant_menu_item_extensions')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .in('menu_item_id', [...itemIds]);
-  if (extensionsError) throw extensionsError;
-
-  const { error: itemsError } = await client
-    .from('restaurant_menu_items')
-    .delete()
-    .eq('restaurant_id', restaurantId)
-    .in('id', [...itemIds]);
-  if (itemsError) throw itemsError;
-}
-
-async function upsertItemExtensions({
-  restaurantId,
-  menuItemId,
-  extensions,
-  client,
-}: {
-  restaurantId: string;
-  menuItemId: string;
-  extensions: NabatableMenuItemExtensions;
-  client: DbClient;
-}): Promise<void> {
-  const { error } = await client.from('restaurant_menu_item_extensions').upsert({
-    restaurant_id: restaurantId,
-    menu_item_id: menuItemId,
-    drink_profile: toJson(extensions.drinkProfile),
-    recommendation_metadata: toJson(extensions.recommendationMetadata),
-    availability_policy: toJson(extensions.availabilityPolicy),
-    customization_controls: toJson(extensions.customizationControls),
-    source_metadata: toJson(extensions.sourceMetadata),
-  });
-  if (error) throw error;
-}
-
 export async function listRestaurantMenuHierarchy(
   restaurantId: string,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
@@ -522,6 +485,102 @@ export async function listRestaurantMenuHierarchy(
   };
 }
 
+// --- write helpers --------------------------------------------------------------------------
+
+/** Throws the domain error for known database failures, otherwise the original error. */
+function fail(error: unknown): never {
+  throw toMenuHierarchyError(error);
+}
+
+/**
+ * Labels as stored. The table check (`is_google_menu_label_array`) rejects a present,
+ * non-string `description`, while the canonical schema normalises a missing description to
+ * `null`, so a null description is dropped instead of written.
+ */
+function labelsForDb(labels: readonly CanonicalMenuLabel[]): Json {
+  return labels.map(({ description, ...label }) =>
+    typeof description === 'string' ? { ...label, description } : label,
+  ) as Json;
+}
+
+function extensionsForDb(
+  extensions: Partial<Record<keyof NabatableMenuItemExtensions, unknown>>,
+): Record<string, unknown> {
+  const columns: Record<string, unknown> = {};
+  if (extensions.drinkProfile !== undefined) columns.drink_profile = extensions.drinkProfile;
+  if (extensions.recommendationMetadata !== undefined) {
+    columns.recommendation_metadata = extensions.recommendationMetadata;
+  }
+  if (extensions.availabilityPolicy !== undefined) {
+    columns.availability_policy = extensions.availabilityPolicy;
+  }
+  if (extensions.customizationControls !== undefined) {
+    columns.customization_controls = extensions.customizationControls;
+  }
+  if (extensions.sourceMetadata !== undefined) columns.source_metadata = extensions.sourceMetadata;
+  return columns;
+}
+
+function extensionsMergeForDb(merge: MenuItemExtensionsMerge): Record<string, unknown> {
+  return extensionsForDb(merge);
+}
+
+function optionForDb(input: RestaurantMenuOptionInput): Record<string, unknown> {
+  return {
+    external_option_id: input.externalOptionId ?? null,
+    labels: labelsForDb(input.labels),
+    google_attributes: input.attributes,
+    google_media_keys: input.media.googleMediaKeys,
+    active: input.active,
+    legacy_source: input.legacySource,
+    ...(typeof input.displayOrder === 'number' ? { display_order: input.displayOrder } : {}),
+  };
+}
+
+type ItemSnapshot = {
+  item: ItemRow;
+  extension: ExtensionRow | null;
+  options: OptionRow[];
+  replayed?: boolean;
+};
+
+function parseItemSnapshot(data: unknown): ItemSnapshot {
+  const snapshot = data as Partial<ItemSnapshot> | null;
+  if (!snapshot?.item) {
+    throw new MenuHierarchyError('not_found');
+  }
+  return {
+    item: snapshot.item,
+    extension: snapshot.extension ?? null,
+    options: Array.isArray(snapshot.options) ? snapshot.options : [],
+    replayed: snapshot.replayed === true,
+  };
+}
+
+function mapItemSnapshot(snapshot: ItemSnapshot): CanonicalRestaurantMenuItem {
+  return mapItem(snapshot.item, snapshot.options, snapshot.extension ?? undefined);
+}
+
+async function readItem(
+  restaurantId: string,
+  menuId: string,
+  sectionId: string,
+  itemId: string,
+  client: DbClient,
+): Promise<void> {
+  const { error } = await client
+    .from('restaurant_menu_items')
+    .select('id')
+    .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
+    .eq('section_id', sectionId)
+    .eq('id', itemId)
+    .single();
+  if (error) fail(error);
+}
+
+// --- menus ------------------------------------------------------------------------------------
+
 export async function createRestaurantMenu(
   restaurantId: string,
   input: RestaurantMenuInput,
@@ -532,7 +591,7 @@ export async function createRestaurantMenu(
     .from('restaurant_menus')
     .insert({
       restaurant_id: restaurantId,
-      labels: toJson(input.labels),
+      labels: labelsForDb(input.labels),
       source_url: input.sourceUrl,
       cuisines: input.cuisines,
       default_language_code: input.defaultLanguageCode,
@@ -543,7 +602,7 @@ export async function createRestaurantMenu(
     })
     .select('*')
     .single();
-  if (error) throw error;
+  if (error) fail(error);
   return mapMenu(data as MenuRow, [], [], [], []);
 }
 
@@ -555,7 +614,7 @@ export async function updateRestaurantMenu(
 ): Promise<CanonicalRestaurantMenu> {
   const client = hierarchyClient(baseClient);
   const patch: Update<MenuRow> = {};
-  if (input.labels) patch.labels = toJson(input.labels);
+  if (input.labels) patch.labels = labelsForDb(input.labels);
   if ('sourceUrl' in input) patch.source_url = input.sourceUrl;
   if (input.cuisines) patch.cuisines = input.cuisines;
   if (input.defaultLanguageCode) patch.default_language_code = input.defaultLanguageCode;
@@ -571,7 +630,7 @@ export async function updateRestaurantMenu(
     .eq('id', menuId)
     .select('*')
     .single();
-  if (error) throw error;
+  if (error) fail(error);
   return mapMenu(data as MenuRow, [], [], [], []);
 }
 
@@ -584,13 +643,15 @@ export async function deleteRestaurantMenu(
   const rpc = client.rpc as unknown as (
     fn: 'delete_restaurant_menu_hierarchy',
     args: { p_restaurant_id: string; p_menu_id: string },
-  ) => Promise<{ error: Error | null }>;
+  ) => Promise<{ error: unknown }>;
   const { error } = await rpc('delete_restaurant_menu_hierarchy', {
     p_restaurant_id: restaurantId,
     p_menu_id: menuId,
   });
-  if (error) throw error;
+  if (error) fail(error);
 }
+
+// --- sections ---------------------------------------------------------------------------------
 
 export async function createRestaurantMenuSection(
   restaurantId: string,
@@ -599,21 +660,21 @@ export async function createRestaurantMenuSection(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuSection> {
   const client = hierarchyClient(baseClient);
-  const { data, error } = await client
-    .from('restaurant_menu_sections')
-    .insert({
-      restaurant_id: restaurantId,
-      menu_id: menuId,
-      labels: toJson(input.labels),
-      display_order: input.displayOrder,
-      active: input.active,
-      legacy_category: input.legacyCategory,
-      legacy_subcategory: input.legacySubcategory,
-      legacy_source: toJson(input.legacySource),
-    })
-    .select('*')
-    .single();
-  if (error) throw error;
+  const section: Record<string, unknown> = {
+    labels: labelsForDb(input.labels),
+    active: input.active,
+    legacy_category: input.legacyCategory ?? null,
+    legacy_subcategory: input.legacySubcategory ?? null,
+    legacy_source: input.legacySource,
+  };
+  if (typeof input.displayOrder === 'number') section.display_order = input.displayOrder;
+
+  const { data, error } = await client.rpc('create_restaurant_menu_section_v1', {
+    p_restaurant_id: restaurantId,
+    p_menu_id: menuId,
+    p_section: toJson(section),
+  });
+  if (error) fail(error);
   return mapSection(data as SectionRow, [], [], []);
 }
 
@@ -626,7 +687,7 @@ export async function updateRestaurantMenuSection(
 ): Promise<CanonicalRestaurantMenuSection> {
   const client = hierarchyClient(baseClient);
   const patch: Update<SectionRow> = {};
-  if (input.labels) patch.labels = toJson(input.labels);
+  if (input.labels) patch.labels = labelsForDb(input.labels);
   if (typeof input.displayOrder === 'number') patch.display_order = input.displayOrder;
   if (typeof input.active === 'boolean') patch.active = input.active;
   if ('legacyCategory' in input) patch.legacy_category = input.legacyCategory;
@@ -641,7 +702,7 @@ export async function updateRestaurantMenuSection(
     .eq('id', sectionId)
     .select('*')
     .single();
-  if (error) throw error;
+  if (error) fail(error);
   return mapSection(data as SectionRow, [], [], []);
 }
 
@@ -655,13 +716,63 @@ export async function deleteRestaurantMenuSection(
   const rpc = client.rpc as unknown as (
     fn: 'delete_restaurant_menu_section_hierarchy',
     args: { p_restaurant_id: string; p_menu_id: string; p_section_id: string },
-  ) => Promise<{ error: Error | null }>;
+  ) => Promise<{ error: unknown }>;
   const { error } = await rpc('delete_restaurant_menu_section_hierarchy', {
     p_restaurant_id: restaurantId,
     p_menu_id: menuId,
     p_section_id: sectionId,
   });
-  if (error) throw error;
+  if (error) fail(error);
+}
+
+// --- items ------------------------------------------------------------------------------------
+
+export type CreateRestaurantMenuItemResult = {
+  item: CanonicalRestaurantMenuItem;
+  /** True when an earlier request with the same idempotency key already created the item. */
+  replayed: boolean;
+};
+
+/**
+ * Creates the item, its extensions and any initial options in one transaction
+ * (`create_restaurant_menu_item_v1`). With `input.idempotencyKey`, a retry returns the item
+ * the first request created. Without `input.displayOrder` the item is appended.
+ */
+export async function createRestaurantMenuItemIdempotent(
+  restaurantId: string,
+  menuId: string,
+  sectionId: string,
+  input: RestaurantMenuItemInput,
+  baseClient: BaseDbClient = getServiceSupabaseClient(),
+): Promise<CreateRestaurantMenuItemResult> {
+  const client = hierarchyClient(baseClient);
+  const item: Record<string, unknown> = {
+    item_kind: input.itemKind,
+    external_item_id: input.externalItemId,
+    item_name: primaryLabel(input.labels, input.externalItemId),
+    short_description: primaryDescription(input.labels),
+    active: input.active,
+    labels: labelsForDb(input.labels),
+    google_attributes: input.attributes,
+    google_media_keys: input.media.googleMediaKeys,
+    local_media: input.media.localMedia,
+    image_url: input.media.localImageUrl ?? null,
+    legacy_source: input.legacySource,
+  };
+  if (typeof input.displayOrder === 'number') item.display_order = input.displayOrder;
+
+  const { data, error } = await client.rpc('create_restaurant_menu_item_v1', {
+    p_restaurant_id: restaurantId,
+    p_menu_id: menuId,
+    p_section_id: sectionId,
+    p_item: toJson(item),
+    p_extensions: toJson(extensionsForDb(input.extensions)),
+    p_options: toJson((input.options ?? []).map(optionForDb)),
+    p_idempotency_key: input.idempotencyKey ?? null,
+  });
+  if (error) fail(error);
+  const snapshot = parseItemSnapshot(data);
+  return { item: mapItemSnapshot(snapshot), replayed: snapshot.replayed === true };
 }
 
 export async function createRestaurantMenuItem(
@@ -671,50 +782,21 @@ export async function createRestaurantMenuItem(
   input: RestaurantMenuItemInput,
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuItem> {
-  const client = hierarchyClient(baseClient);
-  const section = await readSection(restaurantId, menuId, sectionId, client);
-  const labels = input.labels;
-  const itemName = primaryLabel(labels, input.externalItemId);
-  const category = section.legacy_category ?? primaryLabel(parseLabels(section.labels), 'Menu');
-  const subcategory = section.legacy_subcategory ?? null;
-
-  const { data, error } = await client
-    .from('restaurant_menu_items')
-    .insert({
-      restaurant_id: restaurantId,
-      menu_id: menuId,
-      section_id: sectionId,
-      item_kind: input.itemKind,
-      external_item_id: input.externalItemId,
-      item_name: itemName,
-      category,
-      subcategory,
-      short_description: primaryDescription(labels),
-      base_price: String(moneyAmount(input.attributes)),
-      currency: moneyCurrency(input.attributes),
-      display_order: input.displayOrder,
-      active: input.active,
-      labels: toJson(labels),
-      google_attributes: toJson(input.attributes),
-      google_media_keys: input.media.googleMediaKeys,
-      local_media: toJson(input.media.localMedia),
-      image_url: input.media.localImageUrl,
-      legacy_source: toJson(input.legacySource),
-    })
-    .select(
-      'id, restaurant_id, menu_id, section_id, item_kind, external_item_id, item_name, category, subcategory, base_price, currency, display_order, active, labels, google_attributes, google_media_keys, local_media, image_url, legacy_source, created_at, updated_at',
-    )
-    .single();
-  if (error) throw error;
-  await upsertItemExtensions({
+  const { item } = await createRestaurantMenuItemIdempotent(
     restaurantId,
-    menuItemId: data.id,
-    extensions: input.extensions,
-    client,
-  });
-  return mapItem(data as ItemRow, [], undefined);
+    menuId,
+    sectionId,
+    input,
+    baseClient,
+  );
+  return item;
 }
 
+/**
+ * Updates an item and its extensions under one row lock (`update_restaurant_menu_item_v1`).
+ * `attributes` / `extensions` replace stored values; `attributesMerge` / `extensionsMerge`
+ * merge only the keys sent. Returns the canonical item with options and extensions.
+ */
 export async function updateRestaurantMenuItem(
   restaurantId: string,
   menuId: string,
@@ -724,51 +806,41 @@ export async function updateRestaurantMenuItem(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuItem> {
   const client = hierarchyClient(baseClient);
-  const patch: Update<ItemRow> = {};
-  if (input.itemKind) patch.item_kind = input.itemKind;
-  if (input.externalItemId) patch.external_item_id = input.externalItemId;
+  const set: Record<string, unknown> = {};
+  if (input.itemKind) set.item_kind = input.itemKind;
+  if (input.externalItemId) set.external_item_id = input.externalItemId;
   if (input.labels) {
-    patch.labels = toJson(input.labels);
-    patch.item_name = primaryLabel(input.labels, input.externalItemId ?? 'Menu item');
-    patch.short_description = primaryDescription(input.labels);
+    set.labels = labelsForDb(input.labels);
+    set.item_name = primaryLabel(input.labels, input.externalItemId ?? 'Menu item');
+    set.short_description = primaryDescription(input.labels);
   }
-  if (input.attributes) {
-    patch.google_attributes = toJson(input.attributes);
-    patch.base_price = String(moneyAmount(input.attributes));
-    patch.currency = moneyCurrency(input.attributes);
-  }
+  if (input.attributes) set.google_attributes = input.attributes;
   if (input.media) {
-    patch.google_media_keys = input.media.googleMediaKeys;
-    patch.local_media = toJson(input.media.localMedia);
-    patch.image_url = input.media.localImageUrl;
+    set.google_media_keys = input.media.googleMediaKeys;
+    set.local_media = input.media.localMedia;
+    set.image_url = input.media.localImageUrl ?? null;
   }
-  if (typeof input.displayOrder === 'number') patch.display_order = input.displayOrder;
-  if (typeof input.active === 'boolean') patch.active = input.active;
-  if (input.legacySource) patch.legacy_source = toJson(input.legacySource);
+  if (typeof input.displayOrder === 'number') set.display_order = input.displayOrder;
+  if (typeof input.active === 'boolean') set.active = input.active;
+  if (input.legacySource) set.legacy_source = input.legacySource;
 
-  const { data, error } = await client
-    .from('restaurant_menu_items')
-    .update(patch)
-    .eq('restaurant_id', restaurantId)
-    .eq('menu_id', menuId)
-    .eq('section_id', sectionId)
-    .eq('id', itemId)
-    .select(
-      'id, restaurant_id, menu_id, section_id, item_kind, external_item_id, item_name, category, subcategory, base_price, currency, display_order, active, labels, google_attributes, google_media_keys, local_media, image_url, legacy_source, created_at, updated_at',
-    )
-    .single();
-  if (error) throw error;
-  if (input.extensions) {
-    await upsertItemExtensions({
-      restaurantId,
-      menuItemId: data.id,
-      extensions: input.extensions,
-      client,
-    });
-  }
-  return mapItem(data as ItemRow, [], undefined);
+  const { data, error } = await client.rpc('update_restaurant_menu_item_v1', {
+    p_restaurant_id: restaurantId,
+    p_menu_id: menuId,
+    p_section_id: sectionId,
+    p_item_id: itemId,
+    p_set: toJson(set),
+    p_attributes_merge: input.attributesMerge ? toJson(input.attributesMerge) : null,
+    p_extensions: input.extensions ? toJson(extensionsForDb(input.extensions)) : null,
+    p_extensions_merge: input.extensionsMerge
+      ? toJson(extensionsMergeForDb(input.extensionsMerge))
+      : null,
+  });
+  if (error) fail(error);
+  return mapItemSnapshot(parseItemSnapshot(data));
 }
 
+/** One statement: options, extensions and GBP identities cascade from the item row. */
 export async function deleteRestaurantMenuItem(
   restaurantId: string,
   menuId: string,
@@ -777,9 +849,19 @@ export async function deleteRestaurantMenuItem(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
-  await readItem(restaurantId, menuId, sectionId, itemId, client);
-  await deleteMenuItemsByIds({ restaurantId, itemIds: [itemId], client });
+  const { data, error } = await client
+    .from('restaurant_menu_items')
+    .delete()
+    .eq('restaurant_id', restaurantId)
+    .eq('menu_id', menuId)
+    .eq('section_id', sectionId)
+    .eq('id', itemId)
+    .select('id');
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new MenuHierarchyError('not_found');
 }
+
+// --- options ----------------------------------------------------------------------------------
 
 export async function createRestaurantMenuOption(
   restaurantId: string,
@@ -790,23 +872,14 @@ export async function createRestaurantMenuOption(
   baseClient: BaseDbClient = getServiceSupabaseClient(),
 ): Promise<CanonicalRestaurantMenuOption> {
   const client = hierarchyClient(baseClient);
-  await readItem(restaurantId, menuId, sectionId, itemId, client);
-  const { data, error } = await client
-    .from('restaurant_menu_item_options')
-    .insert({
-      restaurant_id: restaurantId,
-      menu_item_id: itemId,
-      external_option_id: input.externalOptionId,
-      labels: toJson(input.labels),
-      google_attributes: toJson(input.attributes),
-      google_media_keys: input.media.googleMediaKeys,
-      display_order: input.displayOrder,
-      active: input.active,
-      legacy_source: toJson(input.legacySource),
-    })
-    .select('*')
-    .single();
-  if (error) throw error;
+  const { data, error } = await client.rpc('create_restaurant_menu_item_option_v1', {
+    p_restaurant_id: restaurantId,
+    p_menu_id: menuId,
+    p_section_id: sectionId,
+    p_item_id: itemId,
+    p_option: toJson(optionForDb(input)),
+  });
+  if (error) fail(error);
   return mapOption(data as OptionRow);
 }
 
@@ -823,7 +896,7 @@ export async function updateRestaurantMenuOption(
   await readItem(restaurantId, menuId, sectionId, itemId, client);
   const patch: Update<OptionRow> = {};
   if ('externalOptionId' in input) patch.external_option_id = input.externalOptionId;
-  if (input.labels) patch.labels = toJson(input.labels);
+  if (input.labels) patch.labels = labelsForDb(input.labels);
   if (input.attributes) patch.google_attributes = toJson(input.attributes);
   if (input.media) patch.google_media_keys = input.media.googleMediaKeys;
   if (typeof input.displayOrder === 'number') patch.display_order = input.displayOrder;
@@ -838,7 +911,7 @@ export async function updateRestaurantMenuOption(
     .eq('id', optionId)
     .select('*')
     .single();
-  if (error) throw error;
+  if (error) fail(error);
   return mapOption(data as OptionRow);
 }
 
@@ -852,11 +925,73 @@ export async function deleteRestaurantMenuOption(
 ): Promise<void> {
   const client = hierarchyClient(baseClient);
   await readItem(restaurantId, menuId, sectionId, itemId, client);
-  const { error } = await client
+  const { data, error } = await client
     .from('restaurant_menu_item_options')
     .delete()
     .eq('restaurant_id', restaurantId)
     .eq('menu_item_id', itemId)
-    .eq('id', optionId);
-  if (error) throw error;
+    .eq('id', optionId)
+    .select('id');
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new MenuHierarchyError('not_found');
+}
+
+// --- reorder ----------------------------------------------------------------------------------
+
+export type MenuReorderTarget =
+  | { readonly level: 'sections'; readonly menuId: string }
+  | { readonly level: 'items'; readonly menuId: string; readonly sectionId: string }
+  | {
+      readonly level: 'options';
+      readonly menuId: string;
+      readonly sectionId: string;
+      readonly itemId: string;
+    };
+
+export type MenuChildOrder = { id: string; displayOrder: number };
+
+function parseChildOrder(data: unknown): MenuChildOrder[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const { id, displayOrder } = entry as { id?: unknown; displayOrder?: unknown };
+    return typeof id === 'string' && typeof displayOrder === 'number' ? [{ id, displayOrder }] : [];
+  });
+}
+
+/**
+ * Renumbers one parent's children 0..n-1 in the given order, in one transaction. The ids must
+ * be exactly the parent's current children in this restaurant; otherwise `order_stale`.
+ */
+export async function reorderRestaurantMenuChildren(
+  restaurantId: string,
+  target: MenuReorderTarget,
+  orderedIds: readonly string[],
+  baseClient: BaseDbClient = getServiceSupabaseClient(),
+): Promise<MenuChildOrder[]> {
+  const client = hierarchyClient(baseClient);
+  const ids = [...orderedIds];
+  const { data, error } =
+    target.level === 'sections'
+      ? await client.rpc('reorder_restaurant_menu_sections_v1', {
+          p_restaurant_id: restaurantId,
+          p_menu_id: target.menuId,
+          p_ordered_ids: ids,
+        })
+      : target.level === 'items'
+        ? await client.rpc('reorder_restaurant_menu_items_v1', {
+            p_restaurant_id: restaurantId,
+            p_menu_id: target.menuId,
+            p_section_id: target.sectionId,
+            p_ordered_ids: ids,
+          })
+        : await client.rpc('reorder_restaurant_menu_item_options_v1', {
+            p_restaurant_id: restaurantId,
+            p_menu_id: target.menuId,
+            p_section_id: target.sectionId,
+            p_item_id: target.itemId,
+            p_ordered_ids: ids,
+          });
+  if (error) fail(error);
+  return parseChildOrder(data);
 }

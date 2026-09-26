@@ -4,10 +4,11 @@ import { deleteRestaurantMenu, updateRestaurantMenu } from '@/server/menu-hierar
 import { RestaurantMenuPatchSchema } from '@/server/menu-hierarchy/types';
 
 import {
+  invalidJson,
   invalidPayload,
   readJsonBody,
   requireMenusAdmin,
-  resolveRouteParam,
+  resolveMenuParams,
   routeError,
 } from '../_shared';
 
@@ -21,35 +22,35 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
-  const menuId = await resolveRouteParam(params, 'menuId');
-  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
+  const route = await resolveMenuParams(params, ['menuId']);
+  if (route.response) return route.response;
 
   const body = await readJsonBody(request);
-  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  if (!body) return invalidJson();
 
   const parsed = RestaurantMenuPatchSchema.safeParse(body);
-  if (!parsed.success) return invalidPayload(parsed.error.flatten());
+  if (!parsed.success) return invalidPayload(parsed.error);
 
   try {
-    const menu = await updateRestaurantMenu(access.restaurantId, menuId, parsed.data);
+    const menu = await updateRestaurantMenu(access.restaurantId, route.values.menuId, parsed.data);
     return NextResponse.json({ menu });
   } catch (error) {
-    return routeError('PATCH menu', error, 'Unable to update menu');
+    return routeError('PATCH menu', error, 'Unable to update the menu.');
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  const access = await requireMenusAdmin(params, _request);
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
-  const menuId = await resolveRouteParam(params, 'menuId');
-  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
+  const route = await resolveMenuParams(params, ['menuId']);
+  if (route.response) return route.response;
 
   try {
-    await deleteRestaurantMenu(access.restaurantId, menuId);
+    await deleteRestaurantMenu(access.restaurantId, route.values.menuId);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    return routeError('DELETE menu', error, 'Unable to delete menu');
+    return routeError('DELETE menu', error, 'Unable to delete the menu.');
   }
 }
 

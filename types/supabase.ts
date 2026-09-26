@@ -8283,6 +8283,78 @@ export type Database = {
         };
         Returns: Json;
       };
+      // --- wave 2 (S7 menu): 20260927140000_menu_mutation_integrity ---
+      create_restaurant_menu_item_v1: {
+        Args: {
+          p_extensions?: Json;
+          p_idempotency_key?: string | null;
+          p_item: Json;
+          p_menu_id: string;
+          p_options?: Json;
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      create_restaurant_menu_item_option_v1: {
+        Args: {
+          p_item_id: string;
+          p_menu_id: string;
+          p_option: Json;
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      create_restaurant_menu_section_v1: {
+        Args: { p_menu_id: string; p_restaurant_id: string; p_section: Json };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_item_options_v1: {
+        Args: {
+          p_item_id: string;
+          p_menu_id: string;
+          p_ordered_ids: string[];
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_items_v1: {
+        Args: {
+          p_menu_id: string;
+          p_ordered_ids: string[];
+          p_restaurant_id: string;
+          p_section_id: string;
+        };
+        Returns: Json;
+      };
+      reorder_restaurant_menu_sections_v1: {
+        Args: { p_menu_id: string; p_ordered_ids: string[]; p_restaurant_id: string };
+        Returns: Json;
+      };
+      restaurant_menu_item_snapshot_v1: {
+        Args: { p_item_id: string; p_restaurant_id: string };
+        Returns: Json;
+      };
+      restaurant_menu_order_matches_v1: {
+        Args: { p_existing: string[]; p_ordered: string[] };
+        Returns: boolean;
+      };
+      update_restaurant_menu_item_v1: {
+        Args: {
+          p_attributes_merge?: Json | null;
+          p_extensions?: Json | null;
+          p_extensions_merge?: Json | null;
+          p_item_id: string;
+          p_menu_id: string;
+          p_restaurant_id: string;
+          p_section_id: string;
+          p_set?: Json;
+        };
+        Returns: Json;
+      };
+      // --- end wave 2 (S7 menu) ---
       current_restaurant_id: { Args: never; Returns: string };
       generate_booking_reference: { Args: never; Returns: string };
       get_or_create_booking_slot: {

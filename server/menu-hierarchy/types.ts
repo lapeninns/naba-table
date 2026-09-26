@@ -122,6 +122,30 @@ const DEFAULT_MENU_ITEM_EXTENSIONS = {
   sourceMetadata: {},
 };
 
+/**
+ * Merge-patch wrapper: validates with `schema` but returns only the keys the client sent, so
+ * schema defaults and `undefined -> null` transforms never overwrite stored values the client
+ * did not touch.
+ */
+function presentKeysOnly<Output extends Record<string, unknown>>(schema: z.ZodType<Output>) {
+  return z.record(z.string(), z.unknown()).transform((raw, ctx): Partial<Output> => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) {
+        ctx.addIssue({ code: 'custom', message: issue.message, path: [...issue.path] });
+      }
+      return z.NEVER;
+    }
+    const present: Partial<Output> = {};
+    for (const key of Object.keys(raw)) {
+      if (key in parsed.data) {
+        (present as Record<string, unknown>)[key] = parsed.data[key];
+      }
+    }
+    return present;
+  });
+}
+
 function looksLikeLocalMediaUrl(value: string): boolean {
   return /^(https?:|data:|blob:|\/)/i.test(value.trim());
 }
@@ -277,7 +301,8 @@ export const RestaurantMenuPatchSchema = z.object({
 
 export const RestaurantMenuSectionInputSchema = z.object({
   labels: z.array(CanonicalMenuLabelSchema).default([]),
-  displayOrder: z.number().int().default(0),
+  /** Omit to append: the server assigns max(display_order) + 1 inside the create. */
+  displayOrder: z.number().int().optional(),
   active: z.boolean().default(true),
   legacyCategory: optionalNullableText.optional(),
   legacySubcategory: optionalNullableText.optional(),
@@ -293,6 +318,17 @@ export const RestaurantMenuSectionPatchSchema = z.object({
   legacySource: jsonObject.optional(),
 });
 
+export const RestaurantMenuOptionInputSchema = z.object({
+  externalOptionId: optionalNullableText.optional(),
+  labels: z.array(CanonicalMenuLabelSchema).default([]),
+  attributes: CanonicalMenuItemAttributesSchema.default(DEFAULT_MENU_ITEM_ATTRIBUTES),
+  media: CanonicalMenuMediaSchema.default(DEFAULT_MENU_MEDIA),
+  /** Omit to append: the server assigns max(display_order) + 1 inside the create. */
+  displayOrder: z.number().int().optional(),
+  active: z.boolean().default(true),
+  legacySource: jsonObject.default({}),
+});
+
 export const RestaurantMenuItemInputSchema = z.object({
   itemKind: z.enum(MENU_ITEM_KINDS),
   externalItemId: requiredText,
@@ -300,10 +336,30 @@ export const RestaurantMenuItemInputSchema = z.object({
   attributes: CanonicalMenuItemAttributesSchema.default(DEFAULT_MENU_ITEM_ATTRIBUTES),
   media: CanonicalMenuMediaSchema.default(DEFAULT_MENU_MEDIA),
   extensions: NabatableMenuItemExtensionsSchema.default(DEFAULT_MENU_ITEM_EXTENSIONS),
-  displayOrder: z.number().int().default(0),
+  /** Omit to append: the server assigns max(display_order) + 1 inside the create. */
+  displayOrder: z.number().int().optional(),
   active: z.boolean().default(true),
   legacySource: jsonObject.default({}),
+  /** Options created in the same transaction as the item. */
+  options: z.array(RestaurantMenuOptionInputSchema).max(50).optional(),
+  /**
+   * Client idempotency key, unique per restaurant. A retry with the same key returns the item
+   * the first request created instead of creating a duplicate.
+   */
+  idempotencyKey: z.string().trim().min(8).max(200).optional(),
 });
+
+export const MenuItemAttributesMergeSchema = presentKeysOnly(CanonicalMenuItemAttributesSchema);
+
+export const MenuItemExtensionsMergeSchema = z
+  .object({
+    drinkProfile: presentKeysOnly(DrinkProfileExtensionSchema).optional(),
+    recommendationMetadata: presentKeysOnly(RecommendationMetadataExtensionSchema).optional(),
+    availabilityPolicy: presentKeysOnly(AvailabilityPolicyExtensionSchema).optional(),
+    customizationControls: presentKeysOnly(CustomizationControlsExtensionSchema).optional(),
+    sourceMetadata: presentKeysOnly(SourceMetadataExtensionSchema).optional(),
+  })
+  .strict();
 
 export const RestaurantMenuItemPatchSchema = z.object({
   itemKind: z.enum(MENU_ITEM_KINDS).optional(),
@@ -312,19 +368,16 @@ export const RestaurantMenuItemPatchSchema = z.object({
   attributes: CanonicalMenuItemAttributesSchema.optional(),
   media: CanonicalMenuMediaSchema.optional(),
   extensions: NabatableMenuItemExtensionsSchema.optional(),
+  /**
+   * Shallow merge into the stored attributes (`google_attributes || patch`). Only the keys
+   * sent change, so concurrent edits to other attributes survive. Applied after `attributes`.
+   */
+  attributesMerge: MenuItemAttributesMergeSchema.optional(),
+  /** Per extension group shallow merge. Applied after `extensions`. */
+  extensionsMerge: MenuItemExtensionsMergeSchema.optional(),
   displayOrder: z.number().int().optional(),
   active: z.boolean().optional(),
   legacySource: jsonObject.optional(),
-});
-
-export const RestaurantMenuOptionInputSchema = z.object({
-  externalOptionId: optionalNullableText.optional(),
-  labels: z.array(CanonicalMenuLabelSchema).default([]),
-  attributes: CanonicalMenuItemAttributesSchema.default(DEFAULT_MENU_ITEM_ATTRIBUTES),
-  media: CanonicalMenuMediaSchema.default(DEFAULT_MENU_MEDIA),
-  displayOrder: z.number().int().default(0),
-  active: z.boolean().default(true),
-  legacySource: jsonObject.default({}),
 });
 
 export const RestaurantMenuOptionPatchSchema = z.object({
@@ -335,6 +388,17 @@ export const RestaurantMenuOptionPatchSchema = z.object({
   displayOrder: z.number().int().optional(),
   active: z.boolean().optional(),
   legacySource: jsonObject.optional(),
+});
+
+export const MENU_REORDER_MAX_IDS = 500;
+
+/** Body of `PATCH …/order`: the complete new order of one parent's children. */
+export const MenuReorderSchema = z.object({
+  orderedIds: z
+    .array(z.guid())
+    .min(1)
+    .max(MENU_REORDER_MAX_IDS)
+    .refine((ids) => new Set(ids).size === ids.length, 'Each id may appear only once.'),
 });
 
 export function buildCanonicalMenuLabel(input: {
@@ -379,3 +443,6 @@ export type RestaurantMenuItemInput = z.infer<typeof RestaurantMenuItemInputSche
 export type RestaurantMenuItemPatch = z.infer<typeof RestaurantMenuItemPatchSchema>;
 export type RestaurantMenuOptionInput = z.infer<typeof RestaurantMenuOptionInputSchema>;
 export type RestaurantMenuOptionPatch = z.infer<typeof RestaurantMenuOptionPatchSchema>;
+export type MenuItemAttributesMerge = z.infer<typeof MenuItemAttributesMergeSchema>;
+export type MenuItemExtensionsMerge = z.infer<typeof MenuItemExtensionsMergeSchema>;
+export type MenuReorderInput = z.infer<typeof MenuReorderSchema>;

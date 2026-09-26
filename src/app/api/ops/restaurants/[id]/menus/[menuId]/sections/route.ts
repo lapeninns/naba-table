@@ -4,10 +4,11 @@ import { createRestaurantMenuSection } from '@/server/menu-hierarchy/repository'
 import { RestaurantMenuSectionInputSchema } from '@/server/menu-hierarchy/types';
 
 import {
+  invalidJson,
   invalidPayload,
   readJsonBody,
   requireMenusAdmin,
-  resolveRouteParam,
+  resolveMenuParams,
   routeError,
 } from '../../_shared';
 
@@ -21,20 +22,24 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
-  const menuId = await resolveRouteParam(params, 'menuId');
-  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
+  const route = await resolveMenuParams(params, ['menuId']);
+  if (route.response) return route.response;
 
   const body = await readJsonBody(request);
-  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  if (!body) return invalidJson();
 
   const parsed = RestaurantMenuSectionInputSchema.safeParse(body);
-  if (!parsed.success) return invalidPayload(parsed.error.flatten());
+  if (!parsed.success) return invalidPayload(parsed.error);
 
   try {
-    const section = await createRestaurantMenuSection(access.restaurantId, menuId, parsed.data);
+    const section = await createRestaurantMenuSection(
+      access.restaurantId,
+      route.values.menuId,
+      parsed.data,
+    );
     return NextResponse.json({ section }, { status: 201 });
   } catch (error) {
-    return routeError('POST section', error, 'Unable to create menu section');
+    return routeError('POST section', error, 'Unable to create the menu section.');
   }
 }
 

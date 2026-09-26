@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { createRestaurantMenuItem } from '@/server/menu-hierarchy/repository';
+import { createRestaurantMenuItemIdempotent } from '@/server/menu-hierarchy/repository';
 import { RestaurantMenuItemInputSchema } from '@/server/menu-hierarchy/types';
 
 import {
+  invalidJson,
   invalidPayload,
   readJsonBody,
   requireMenusAdmin,
-  resolveRouteParam,
+  resolveMenuParams,
   routeError,
 } from '../../../../_shared';
 
@@ -21,33 +22,33 @@ type RouteContext = {
   }>;
 };
 
+/**
+ * Creates the item, its extensions and optional `options[]` in one transaction. With an
+ * `idempotencyKey`, a retry returns the item the first request created (200 instead of 201).
+ */
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const access = await requireMenusAdmin(params, request);
   if (access.response) return access.response;
 
-  const [menuId, sectionId] = await Promise.all([
-    resolveRouteParam(params, 'menuId'),
-    resolveRouteParam(params, 'sectionId'),
-  ]);
-  if (!menuId) return NextResponse.json({ error: 'Missing menu id' }, { status: 400 });
-  if (!sectionId) return NextResponse.json({ error: 'Missing section id' }, { status: 400 });
+  const route = await resolveMenuParams(params, ['menuId', 'sectionId']);
+  if (route.response) return route.response;
 
   const body = await readJsonBody(request);
-  if (!body) return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  if (!body) return invalidJson();
 
   const parsed = RestaurantMenuItemInputSchema.safeParse(body);
-  if (!parsed.success) return invalidPayload(parsed.error.flatten());
+  if (!parsed.success) return invalidPayload(parsed.error);
 
   try {
-    const item = await createRestaurantMenuItem(
+    const { item, replayed } = await createRestaurantMenuItemIdempotent(
       access.restaurantId,
-      menuId,
-      sectionId,
+      route.values.menuId,
+      route.values.sectionId,
       parsed.data,
     );
-    return NextResponse.json({ item }, { status: 201 });
+    return NextResponse.json({ item }, { status: replayed ? 200 : 201 });
   } catch (error) {
-    return routeError('POST item', error, 'Unable to create menu item');
+    return routeError('POST item', error, 'Unable to create the menu item.');
   }
 }
 
