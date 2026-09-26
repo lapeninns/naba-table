@@ -7,7 +7,6 @@ export type {
 } from './restaurantDetailsFormModel';
 export {
   AdvancedIdentitySubform,
-  BookingRulesSubform,
   BrandIdentitySubform,
   ContactLocationSubform,
   ManagerNotificationsSubform,
