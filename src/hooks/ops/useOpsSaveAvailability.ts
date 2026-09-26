@@ -9,12 +9,11 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
+import { useAvailabilityService } from '@/contexts/availability-service';
 import { queryKeys } from '@/lib/query/keys';
 import {
-  getRestaurantAvailabilityRevision,
-  saveRestaurantAvailability,
   type AvailabilityCommandPayload,
-  type AvailabilitySaveResult,
+  type AvailabilitySnapshot,
 } from '@/services/ops/availability';
 
 import { dualSyncQueryKeys } from './opsIntegrationQueries';
@@ -29,28 +28,31 @@ function ownKeys(restaurantId: string) {
     queryKeys.opsRestaurants.servicePeriods(restaurantId),
     queryKeys.opsRestaurants.turnBands(restaurantId),
     queryKeys.opsRestaurants.detail(restaurantId),
-    queryKeys.opsRestaurants.availabilityRevision(restaurantId),
+    queryKeys.opsRestaurants.availability(restaurantId),
   ];
 }
 
 /**
- * The revision the availability save command checks (`expectedRevision`). Not persisted: a
- * restored revision older than freshly fetched settings would make the first save look stale.
+ * The Availability page's source: hours, meal times, table times and booking rules together with
+ * the revision of exactly those rows (one server read). The page builds its draft from this, never
+ * from the single-resource caches, so the `expectedRevision` it sends always describes the data
+ * the draft came from. Always refetched on mount (`staleTime: 0`); persisting is safe because a
+ * restored snapshot carries its own, equally old, revision (a save from it is refused if stale).
  */
-export function useOpsAvailabilityRevision(
+export function useOpsAvailability(
   restaurantId?: string | null,
-): UseQueryResult<string, HttpError | Error> {
-  return useQuery<string, HttpError | Error>({
-    queryKey: queryKeys.opsRestaurants.availabilityRevision(restaurantId ?? 'none'),
+): UseQueryResult<AvailabilitySnapshot, HttpError | Error> {
+  const service = useAvailabilityService();
+  return useQuery<AvailabilitySnapshot, HttpError | Error>({
+    queryKey: queryKeys.opsRestaurants.availability(restaurantId ?? 'none'),
     queryFn: ({ signal }) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return getRestaurantAvailabilityRevision(restaurantId, { signal });
+      return service.getAvailability(restaurantId, { signal });
     },
     enabled: Boolean(restaurantId),
     staleTime: 0,
-    meta: { persist: false },
   });
 }
 
@@ -58,10 +60,10 @@ export function useOpsAvailabilityRevision(
  * Writes the canonical save response into every cache it covers. The restaurant detail cache
  * only receives the booking-rule fields; its other fields did not change.
  */
-export function applyAvailabilitySaveResult(
+export function applyAvailabilitySnapshot(
   queryClient: QueryClient,
   restaurantId: string,
-  result: AvailabilitySaveResult,
+  result: AvailabilitySnapshot,
 ): void {
   queryClient.setQueryData(queryKeys.opsRestaurants.hours(restaurantId), result.hours);
   queryClient.setQueryData(
@@ -69,10 +71,7 @@ export function applyAvailabilitySaveResult(
     result.servicePeriods,
   );
   queryClient.setQueryData(queryKeys.opsRestaurants.turnBands(restaurantId), result.turnBands);
-  queryClient.setQueryData(
-    queryKeys.opsRestaurants.availabilityRevision(restaurantId),
-    result.revision,
-  );
+  queryClient.setQueryData(queryKeys.opsRestaurants.availability(restaurantId), result);
   queryClient.setQueryData<RestaurantProfile>(
     queryKeys.opsRestaurants.detail(restaurantId),
     (current) =>
@@ -92,23 +91,24 @@ export function applyAvailabilitySaveResult(
 
 /**
  * The restaurant-owned part of "Save availability": one request, one database transaction.
- * On success the response is written into the hours, meal-time, table-time, restaurant-detail
- * and revision caches; only what the server derives from them is invalidated (the guest booking
+ * On success the response is written into the availability snapshot and the hours, meal-time,
+ * table-time and restaurant-detail caches; only what the server derives from them is invalidated (the guest booking
  * schedule and the Google dual-sync comparison). Errors are shown inline by the page.
  */
 export function useOpsSaveAvailability(
   restaurantId?: string | null,
-): UseMutationResult<AvailabilitySaveResult, HttpError | Error, AvailabilityCommandPayload> {
+): UseMutationResult<AvailabilitySnapshot, HttpError | Error, AvailabilityCommandPayload> {
   const queryClient = useQueryClient();
+  const service = useAvailabilityService();
 
-  return useMutation<AvailabilitySaveResult, HttpError | Error, AvailabilityCommandPayload>({
+  return useMutation<AvailabilitySnapshot, HttpError | Error, AvailabilityCommandPayload>({
     scope: restaurantId ? { id: `restaurant-settings:availability:${restaurantId}` } : undefined,
     meta: { feedback: { error: false } },
     mutationFn: (payload) => {
       if (!restaurantId) {
         throw new Error('Restaurant id is required');
       }
-      return saveRestaurantAvailability(restaurantId, payload);
+      return service.saveAvailability(restaurantId, payload);
     },
     onMutate: async () => {
       if (!restaurantId) return;
@@ -119,7 +119,7 @@ export function useOpsSaveAvailability(
     },
     onSuccess: (result) => {
       if (!restaurantId) return;
-      applyAvailabilitySaveResult(queryClient, restaurantId, result);
+      applyAvailabilitySnapshot(queryClient, restaurantId, result);
       void queryClient.invalidateQueries({ queryKey: queryKeys.reservations.schedulePrefix() });
       // Dual-sync compares the live Core snapshot (hours, meal times) against Google.
       void queryClient.invalidateQueries({ queryKey: dualSyncQueryKeys.state(restaurantId) });

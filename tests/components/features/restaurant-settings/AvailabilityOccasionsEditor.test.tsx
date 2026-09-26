@@ -26,7 +26,8 @@ function makeOccasion(over: Partial<OpsOccasion> = {}): OpsOccasion {
 
 function renderEditor(
   occasions: OpsOccasion[] = [makeOccasion()],
-  { canEditCatalog }: { canEditCatalog?: boolean } = {},
+  // Most cases exercise the platform-admin editor; the prop is passed explicitly, as callers must.
+  { canEditCatalog = true }: { canEditCatalog?: boolean } = {},
 ) {
   const onChange = vi.fn();
   const onTurnBandsChange = vi.fn();
@@ -128,10 +129,30 @@ describe('AvailabilityOccasionsEditor', () => {
 });
 
 describe('AvailabilityOccasionsEditor for restaurant staff (not platform admins)', () => {
+  it('@security is read-only when canEditCatalog is omitted (fails closed)', () => {
+    render(
+      <AvailabilityOccasionsEditor
+        occasions={[makeOccasion()]}
+        savedOccasions={[makeOccasion()]}
+        savedTurnBands={{}}
+        turnBands={{}}
+        onChange={vi.fn()}
+        onTurnBandsChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('booking-types-managed-note')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add booking type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
   it('@security shows booking types read-only with the managed-by-Nabatable note', () => {
-    renderEditor([makeOccasion(), makeOccasion({ key: 'lunch', label: 'Lunch', isBuiltin: true })], {
-      canEditCatalog: false,
-    });
+    renderEditor(
+      [makeOccasion(), makeOccasion({ key: 'lunch', label: 'Lunch', isBuiltin: true })],
+      {
+        canEditCatalog: false,
+      },
+    );
 
     expect(screen.getByTestId('booking-types-managed-note')).toHaveTextContent(
       'Booking types are managed by Nabatable.',

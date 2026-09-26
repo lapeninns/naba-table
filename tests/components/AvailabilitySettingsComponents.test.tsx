@@ -76,7 +76,10 @@ const availabilityState = vi.hoisted(() => ({
     isPending: false,
     mutateAsync: vi.fn(),
   },
+  /** Revision of the availability snapshot the page loads (rows and revision come together). */
   revisionQuery: { data: 'rev-1' as string | undefined, error: null as Error | null },
+  /** When set, the snapshot query returns exactly this (independent of the per-part fixtures). */
+  snapshotQueryOverride: null as null | { data: unknown; error: null; isLoading: false },
   isPlatformAdmin: false,
   gbpFields: [] as unknown[],
 }));
@@ -85,8 +88,75 @@ vi.mock('@/contexts/ops-session', () => ({
   useOpsSession: () => ({ permissions: { isPlatformAdmin: availabilityState.isPlatformAdmin } }),
 }));
 
+/**
+ * The page reads hours, meal times, table times and rules from ONE snapshot query. It is composed
+ * here from the per-part fixtures, memoised on their identities so a render sees stable data.
+ */
+const snapshotQueryCache = vi.hoisted(() => ({
+  inputs: [] as unknown[],
+  result: null as unknown,
+}));
+
 vi.mock('@src/hooks/ops/useOpsSaveAvailability', () => ({
-  useOpsAvailabilityRevision: () => availabilityState.revisionQuery,
+  useOpsAvailability: () => {
+    const state = availabilityState;
+    if (state.snapshotQueryOverride) {
+      return state.snapshotQueryOverride;
+    }
+    const inputs = [
+      state.operatingHoursQuery.data,
+      state.operatingHoursQuery.error,
+      state.servicePeriodsQuery.data,
+      state.servicePeriodsQuery.error,
+      state.turnBandsQuery.data,
+      state.turnBandsQuery.error,
+      state.detailsQuery.data,
+      state.revisionQuery.data,
+      state.revisionQuery.error,
+    ];
+    if (
+      snapshotQueryCache.result &&
+      inputs.length === snapshotQueryCache.inputs.length &&
+      inputs.every((value, index) => Object.is(value, snapshotQueryCache.inputs[index]))
+    ) {
+      return snapshotQueryCache.result;
+    }
+    const details = state.detailsQuery.data;
+    const ready =
+      state.operatingHoursQuery.data &&
+      state.servicePeriodsQuery.data &&
+      state.turnBandsQuery.data &&
+      state.revisionQuery.data;
+    const result = {
+      data: ready
+        ? {
+            restaurantId: 'rest-1',
+            revision: state.revisionQuery.data,
+            hours: state.operatingHoursQuery.data,
+            servicePeriods: state.servicePeriodsQuery.data,
+            turnBands: state.turnBandsQuery.data,
+            rules: {
+              reservationIntervalMinutes: details.reservationIntervalMinutes,
+              reservationDefaultDurationMinutes: details.reservationDefaultDurationMinutes,
+              reservationLastSeatingBufferMinutes: details.reservationLastSeatingBufferMinutes,
+              reservationLifecycleGraceMinutes: details.reservationLifecycleGraceMinutes,
+              bookingPolicy: details.bookingPolicy,
+              updatedAt: details.updatedAt,
+            },
+          }
+        : undefined,
+      error:
+        state.operatingHoursQuery.error ??
+        state.servicePeriodsQuery.error ??
+        state.turnBandsQuery.error ??
+        state.revisionQuery.error,
+      isLoading: false,
+      refetch: vi.fn(),
+    };
+    snapshotQueryCache.inputs = inputs;
+    snapshotQueryCache.result = result;
+    return result;
+  },
   useOpsSaveAvailability: () => availabilityState.saveAvailability,
 }));
 
@@ -178,10 +248,7 @@ import {
 } from '@/components/features/restaurant-settings/availabilityScheduleValidation';
 import { HttpError } from '@/lib/http/errors';
 
-import type {
-  AvailabilityCommandPayload,
-  AvailabilitySaveResult,
-} from '@/services/ops/availability';
+import type { AvailabilityCommandPayload, AvailabilitySnapshot } from '@/services/ops/availability';
 import type { OpsOccasion } from '@/services/ops/occasions';
 import type {
   OperatingHoursSnapshot,
@@ -252,7 +319,7 @@ function buildTurnBands(): TurnBandsSnapshot {
 }
 
 /** What the availability command answers: the canonical state after the save. */
-function buildSaveResult(payload: AvailabilityCommandPayload): AvailabilitySaveResult {
+function buildSaveResult(payload: AvailabilityCommandPayload): AvailabilitySnapshot {
   const details = availabilityState.detailsQuery.data;
   return {
     restaurantId: 'rest-1',
@@ -375,6 +442,7 @@ describe('AvailabilitySettingsPage', () => {
     }));
     availabilityState.isPlatformAdmin = false;
     availabilityState.revisionQuery = { data: 'rev-1', error: null };
+    availabilityState.snapshotQueryOverride = null;
     availabilityState.saveAvailability.mutateAsync.mockReset();
     availabilityState.saveAvailability.mutateAsync.mockImplementation(
       async (payload: AvailabilityCommandPayload) => buildSaveResult(payload),
@@ -471,6 +539,59 @@ describe('AvailabilitySettingsPage', () => {
     expect(screen.getByText('Not all changes saved')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(recordedWrites()).toEqual(['availability:command']);
+  });
+
+  it('@contract builds the draft and the precondition from the same snapshot, never from older caches', async () => {
+    const user = userEvent.setup();
+    // The single-resource caches say Monday closes 22:00 (e.g. restored from a warm cache); the
+    // snapshot, read together with its revision, says 23:00.
+    const hours = buildOperatingHours();
+    hours.weekly = hours.weekly.map((row) =>
+      row.dayOfWeek === 1 ? { ...row, closesAt: '23:00' } : row,
+    );
+    const snapshot = {
+      ...buildSaveResult({}),
+      revision: 'rev-7',
+      hours,
+    };
+    availabilityState.snapshotQueryOverride = { data: snapshot, error: null, isLoading: false };
+    renderPage();
+    await openMonday(user);
+
+    expect(screen.getByLabelText('Closes', { selector: '#availability-w1-closes' })).toHaveValue(
+      '23:00',
+    );
+    await user.click(screen.getByLabelText('Increase last seating before closing by 15 minutes'));
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    expect(lastCommand().expectedRevision).toBe('rev-7');
+  });
+
+  it('@contract keeps the loaded revision while dirty, so a newer save elsewhere makes this one stale', async () => {
+    const user = userEvent.setup();
+    const loaded = { ...buildSaveResult({}), revision: 'rev-7' };
+    availabilityState.snapshotQueryOverride = { data: loaded, error: null, isLoading: false };
+    const view = renderPage();
+
+    await user.click(
+      await screen.findByLabelText('Increase last seating before closing by 15 minutes'),
+    );
+    // Someone else saves; the snapshot refetch brings their rows and revision.
+    availabilityState.snapshotQueryOverride = {
+      data: { ...buildSaveResult({}), revision: 'rev-8' },
+      error: null,
+      isLoading: false,
+    };
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <AvailabilitySettingsPage restaurantId="rest-1" />
+      </QueryClientProvider>,
+    );
+    await user.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() => expect(recordedWrites()).toEqual(['availability:command']));
+    expect(lastCommand().expectedRevision).toBe('rev-7');
   });
 
   it('explains a stale save instead of overwriting newer settings', async () => {

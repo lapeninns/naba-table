@@ -2,23 +2,22 @@ import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AvailabilityServiceProvider } from '@/contexts/availability-service';
 import { HttpError } from '@/lib/http/errors';
 import { createAppQueryClient } from '@/lib/query/client';
 import { queryKeys } from '@/lib/query/keys';
+import { createRestaurantServiceAvailability } from '@/services/ops/availability';
 import { dualSyncQueryKeys } from '@src/hooks/ops/opsIntegrationQueries';
-import {
-  useOpsAvailabilityRevision,
-  useOpsSaveAvailability,
-} from '@src/hooks/ops/useOpsSaveAvailability';
+import { useOpsAvailability, useOpsSaveAvailability } from '@src/hooks/ops/useOpsSaveAvailability';
 
-import type { AvailabilitySaveResult } from '@/services/ops/availability';
-import type { RestaurantProfile } from '@/services/ops/restaurants';
+import type { AvailabilitySnapshot } from '@/services/ops/availability';
+import type { RestaurantProfile, RestaurantService } from '@/services/ops/restaurants';
 import type { ReactNode } from 'react';
 
 const restaurantId = 'restaurant-1';
 const SCHEDULE_KEY = ['reservations', 'schedule', 'the-pub', '2026-10-01', 2] as const;
 
-const saveResult: AvailabilitySaveResult = {
+const saveResult: AvailabilitySnapshot = {
   restaurantId,
   revision: 'fedcba9876543210fedcba9876543210',
   hours: {
@@ -132,9 +131,9 @@ describe('useOpsSaveAvailability', () => {
     expect(queryClient.getQueryData(queryKeys.opsRestaurants.turnBands(restaurantId))).toEqual(
       saveResult.turnBands,
     );
-    expect(
-      queryClient.getQueryData(queryKeys.opsRestaurants.availabilityRevision(restaurantId)),
-    ).toBe(saveResult.revision);
+    expect(queryClient.getQueryData(queryKeys.opsRestaurants.availability(restaurantId))).toEqual(
+      saveResult,
+    );
     expect(
       queryClient.getQueryData<RestaurantProfile>(queryKeys.opsRestaurants.detail(restaurantId)),
     ).toMatchObject({
@@ -186,23 +185,103 @@ describe('useOpsSaveAvailability', () => {
     ).toBe(profile);
   });
 
-  it('reads the save revision without persisting it', async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, { data: { restaurantId, revision: saveResult.revision } }),
-    );
+  it('reads rows and revision together in ONE request (the page draft source)', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { data: saveResult }));
 
-    const { result } = renderHook(() => useOpsAvailabilityRevision(restaurantId), {
+    const { result } = renderHook(() => useOpsAvailability(restaurantId), {
       wrapper: wrapperFor(queryClient),
     });
 
-    await waitFor(() => expect(result.current.data).toBe(saveResult.revision));
+    await waitFor(() => expect(result.current.data).toEqual(saveResult));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(String(fetchMock.mock.calls[0]![0])).toBe(
       `/api/ops/restaurants/${restaurantId}/availability`,
     );
-    expect(
-      queryClient
-        .getQueryCache()
-        .find({ queryKey: queryKeys.opsRestaurants.availabilityRevision(restaurantId) })?.meta,
-    ).toMatchObject({ persist: false });
+    // Rows and revision live in one cache entry: they can never be refreshed separately.
+    const query = queryClient
+      .getQueryCache()
+      .find({ queryKey: queryKeys.opsRestaurants.availability(restaurantId) });
+    expect(query?.observers[0]?.options.staleTime).toBe(0);
+  });
+});
+
+describe('createRestaurantServiceAvailability (dev harness adapter)', () => {
+  function inMemoryService() {
+    const state = {
+      hours: { weekly: saveResult.hours.weekly, overrides: [] as never[] },
+      periods: saveResult.servicePeriods,
+      bands: saveResult.turnBands,
+      profile,
+    };
+    const service = {
+      getOperatingHours: vi.fn(async () => state.hours),
+      getServicePeriods: vi.fn(async () => state.periods),
+      getTurnBands: vi.fn(async () => state.bands),
+      getProfile: vi.fn(async () => state.profile),
+      updateOperatingHours: vi.fn(async (_id: string, hours: typeof state.hours) => {
+        state.hours = hours;
+        return hours;
+      }),
+      updateServicePeriods: vi.fn(),
+      updateTurnBands: vi.fn(),
+      updateProfile: vi.fn(async (_id: string, patch: Partial<RestaurantProfile>) => {
+        state.profile = { ...state.profile, ...patch };
+        return state.profile;
+      }),
+    };
+    return { service, state };
+  }
+
+  it('serves the hooks without the real route, and keeps the stale-write contract', async () => {
+    const { service } = inMemoryService();
+    const adapter = createRestaurantServiceAvailability(service as unknown as RestaurantService);
+    function Wrapper({ children }: { children: ReactNode }) {
+      return (
+        <QueryClientProvider client={queryClientForAdapter}>
+          <AvailabilityServiceProvider service={adapter}>{children}</AvailabilityServiceProvider>
+        </QueryClientProvider>
+      );
+    }
+    const queryClientForAdapter = createAppQueryClient();
+    const fetchSpy = vi.fn<typeof fetch>();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const { result } = renderHook(
+      () => ({
+        snapshot: useOpsAvailability(restaurantId),
+        save: useOpsSaveAvailability(restaurantId),
+      }),
+      { wrapper: Wrapper },
+    );
+    await waitFor(() => expect(result.current.snapshot.data).toBeDefined());
+    const loaded = result.current.snapshot.data!;
+
+    await act(async () => {
+      await result.current.save.mutateAsync({
+        rules: { bookingPolicy: 'Mock policy' },
+        expectedRevision: loaded.revision,
+      });
+    });
+    expect(service.updateProfile).toHaveBeenCalledWith(restaurantId, {
+      bookingPolicy: 'Mock policy',
+    });
+    expect(service.updateOperatingHours).not.toHaveBeenCalled();
+
+    // The old revision no longer matches: the adapter refuses like the route (409 STALE_WRITE).
+    let caught: unknown;
+    await act(async () => {
+      try {
+        await result.current.save.mutateAsync({
+          rules: { bookingPolicy: 'Overwrite' },
+          expectedRevision: loaded.revision,
+        });
+      } catch (error) {
+        caught = error;
+      }
+    });
+    expect((caught as HttpError).code).toBe('STALE_WRITE');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    queryClientForAdapter.clear();
+    vi.unstubAllGlobals();
   });
 });

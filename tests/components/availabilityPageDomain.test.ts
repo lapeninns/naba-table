@@ -433,17 +433,28 @@ describe('availability attention checks', () => {
     );
   });
 
-  it('offers to create Lunch and Dinner and to show the first issue', () => {
+  it('offers platform admins to create Lunch and Dinner and to show the first issue', () => {
     const items = buildAvailabilityAttention({
       draft: buildSaved([]),
       errors: { 'r-buffer': 'Enter a whole number from 15 to 300' },
       offeredCount: () => 1,
       googleDriftCount: 0,
+      canEditCatalog: true,
     });
     expect(items.map((item) => item.actionLabel)).toEqual([
       'Show first issue',
       'Create Lunch and Dinner',
     ]);
+  });
+
+  it('@security never offers the catalog action when canEditCatalog is omitted', () => {
+    const items = buildAvailabilityAttention({
+      draft: buildSaved([]),
+      errors: {},
+      offeredCount: () => 1,
+      googleDriftCount: 0,
+    });
+    expect(items.map((item) => item.actionLabel)).not.toContain('Create Lunch and Dinner');
   });
 });
 

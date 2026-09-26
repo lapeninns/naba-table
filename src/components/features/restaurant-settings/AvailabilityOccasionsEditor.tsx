@@ -70,6 +70,7 @@ type AvailabilityOccasionsEditorProps = {
   /**
    * Nabatable platform admin: may add, edit, turn off and remove booking types (a global
    * catalog). Otherwise the rows are read-only and only this restaurant's table times can change.
+   * Defaults to false (read-only): a caller must opt in to the catalog controls.
    */
   canEditCatalog?: boolean;
 };
@@ -83,7 +84,7 @@ export function AvailabilityOccasionsEditor({
   turnBandDefaults,
   onTurnBandsChange,
   editRequest,
-  canEditCatalog = true,
+  canEditCatalog = false,
 }: AvailabilityOccasionsEditorProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<OccasionFormState>(() => createEmptyOccasionForm());

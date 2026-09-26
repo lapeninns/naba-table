@@ -37,7 +37,7 @@ export type AvailabilityAttentionInput = {
   offeredCount: (dayOfWeek: number, meal: MealKey) => number;
   /** Google Business Profile fields for hours and meal times that differ and need a decision. */
   googleDriftCount: number;
-  /** Nabatable platform admin: may create booking types. Defaults to true. */
+  /** Nabatable platform admin: may create booking types. Defaults to false (fail closed). */
   canEditCatalog?: boolean;
 };
 
@@ -53,7 +53,7 @@ export function buildAvailabilityAttention({
   errors,
   offeredCount,
   googleDriftCount,
-  canEditCatalog = true,
+  canEditCatalog = false,
 }: AvailabilityAttentionInput): AvailabilityAttentionItem[] {
   const items: AvailabilityAttentionItem[] = [];
   const issueCount = Object.keys(errors).length;

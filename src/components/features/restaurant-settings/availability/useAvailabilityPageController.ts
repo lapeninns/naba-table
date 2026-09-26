@@ -5,17 +5,14 @@ import { toast } from 'sonner';
 
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsOccasions } from '@/hooks/ops/useOccasions';
-import { useOpsOperatingHours } from '@/hooks/ops/useOpsOperatingHours';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
-import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
-import { useOpsTurnBands } from '@/hooks/ops/useOpsTurnBands';
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts';
 
 import { emitProfileAnalytics } from '../../../../../components/ops/restaurants/details/shared';
 // Relative on purpose: vitest resolves `@/hooks/ops/*` through a per-file alias list
 // (vitest.config.ts), which does not include this new hook yet.
 import {
-  useOpsAvailabilityRevision,
+  useOpsAvailability,
   useOpsSaveAvailability,
 } from '../../../../hooks/ops/useOpsSaveAvailability';
 import { buildAvailabilityDraftOverrides } from '../availabilityScheduleManagerDomain';
@@ -133,12 +130,12 @@ export function useAvailabilityPageController(
   restaurantId: string | null,
   { canEditCatalog = false }: AvailabilityPageControllerOptions = {},
 ) {
-  const operatingHoursQuery = useOpsOperatingHours(restaurantId);
-  const servicePeriodsQuery = useOpsServicePeriods(restaurantId);
+  // Hours, meal times, table times and booking rules come from ONE snapshot with the revision of
+  // exactly those rows, never from the single-resource caches (which can be older or newer than a
+  // separately fetched revision). The profile supplies only the fields the snapshot has no copy of.
+  const availabilityQuery = useOpsAvailability(restaurantId);
   const occasionsQuery = useOpsOccasions();
-  const turnBandsQuery = useOpsTurnBands(restaurantId);
   const profileQuery = useOpsRestaurantDetails(restaurantId);
-  const revisionQuery = useOpsAvailabilityRevision(restaurantId);
   const saveAvailability = useOpsSaveAvailability(restaurantId);
   const saveOccasions = useSaveAvailabilityOccasions();
   const saveSequence = useSettingsSaveSequence();
@@ -150,30 +147,27 @@ export function useAvailabilityPageController(
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const [showAllErrors, setShowAllErrors] = useState(false);
 
+  const snapshot = availabilityQuery.data ?? null;
   const sources = useMemo(() => {
-    if (
-      !operatingHoursQuery.data ||
-      !servicePeriodsQuery.data ||
-      !occasionsQuery.data ||
-      !turnBandsQuery.data ||
-      !profileQuery.data
-    ) {
+    if (!snapshot || !occasionsQuery.data || !profileQuery.data) {
       return null;
     }
     return {
-      operatingHours: operatingHoursQuery.data,
-      servicePeriods: servicePeriodsQuery.data,
+      revision: snapshot.revision,
+      operatingHours: snapshot.hours,
+      servicePeriods: snapshot.servicePeriods,
       occasions: occasionsQuery.data,
-      turnBands: turnBandsQuery.data,
-      profile: profileQuery.data,
+      turnBands: snapshot.turnBands,
+      profile: {
+        ...profileQuery.data,
+        reservationIntervalMinutes: snapshot.rules.reservationIntervalMinutes,
+        reservationDefaultDurationMinutes: snapshot.rules.reservationDefaultDurationMinutes,
+        reservationLastSeatingBufferMinutes: snapshot.rules.reservationLastSeatingBufferMinutes,
+        reservationLifecycleGraceMinutes: snapshot.rules.reservationLifecycleGraceMinutes,
+        bookingPolicy: snapshot.rules.bookingPolicy,
+      },
     };
-  }, [
-    occasionsQuery.data,
-    operatingHoursQuery.data,
-    profileQuery.data,
-    servicePeriodsQuery.data,
-    turnBandsQuery.data,
-  ]);
+  }, [occasionsQuery.data, profileQuery.data, snapshot]);
 
   const dirtyGroups = useMemo(
     () => (saved && draft ? getDirtyAvailabilityGroups(saved, draft) : []),
@@ -181,7 +175,9 @@ export function useAvailabilityPageController(
   );
   const isDirty = dirtyGroups.length > 0;
 
-  // Seed from the server, and re-seed when saved data changes while nothing is unsaved.
+  // Seed from the server, and re-seed when saved data changes while nothing is unsaved. The
+  // revision is taken in the same step from the same snapshot, then held while the draft is dirty,
+  // so a save made from older data is refused (STALE_WRITE) instead of overwriting newer settings.
   useEffect(() => {
     if (!sources || saveSequence.isSaving || isDirty) {
       return;
@@ -189,18 +185,8 @@ export function useAvailabilityPageController(
     const next = buildAvailabilityPageDraft(sources);
     setSaved(next);
     setDraft(next);
+    setSavedRevision(sources.revision);
   }, [isDirty, saveSequence.isSaving, sources]);
-
-  // The revision follows the loaded settings while nothing is unsaved, and is then held, so a
-  // save made with an older draft is refused (STALE_WRITE) instead of overwriting newer settings.
-  // A missing revision (still loading or failed) only drops the optional precondition.
-  const loadedRevision = revisionQuery.data ?? null;
-  useEffect(() => {
-    if (saveSequence.isSaving || isDirty) {
-      return;
-    }
-    setSavedRevision(loadedRevision);
-  }, [isDirty, loadedRevision, saveSequence.isSaving]);
 
   const errors: AvailabilityErrors = useMemo(
     () => (draft ? validateAvailabilityDraft(draft, dirtyGroups) : {}),
@@ -251,7 +237,7 @@ export function useAvailabilityPageController(
         saved: base,
         draft: sent,
         canEditCatalog,
-        savedServicePeriods: servicePeriodsQuery.data ?? [],
+        savedServicePeriods: snapshot?.servicePeriods ?? [],
         expectedRevision: savedRevision,
       });
       const steps: SettingsSaveStep[] = [];
@@ -335,7 +321,7 @@ export function useAvailabilityPageController(
       saveAvailability,
       saveOccasions,
       savedRevision,
-      servicePeriodsQuery.data,
+      snapshot?.servicePeriods,
     ],
   );
 
@@ -422,38 +408,26 @@ export function useAvailabilityPageController(
     },
   ]);
 
-  const settingsQueries = [
-    operatingHoursQuery,
-    servicePeriodsQuery,
-    occasionsQuery,
-    turnBandsQuery,
-    profileQuery,
-  ];
+  const settingsQueries = [availabilityQuery, occasionsQuery, profileQuery];
   // Only a query that never loaded blocks the page; a failed background refresh keeps the
   // loaded page and its unsaved edits, and is reported as `refreshError` instead.
   const loadError = settingsQueries.find((query) => query.error && !query.data)?.error ?? null;
   const refreshError = settingsQueries.find((query) => query.error && query.data)?.error ?? null;
   const retryLoad = useCallback(() => {
-    for (const query of [
-      operatingHoursQuery,
-      servicePeriodsQuery,
-      occasionsQuery,
-      turnBandsQuery,
-      profileQuery,
-    ]) {
+    for (const query of [availabilityQuery, occasionsQuery, profileQuery]) {
       if (query.error) {
         void query.refetch();
       }
     }
-  }, [occasionsQuery, operatingHoursQuery, profileQuery, servicePeriodsQuery, turnBandsQuery]);
+  }, [availabilityQuery, occasionsQuery, profileQuery]);
 
   const lastSavedAt = useMemo(() => {
     const stamps = [
-      operatingHoursQuery.data?.updatedAt,
-      ...(servicePeriodsQuery.data ?? []).map((row) => row.updatedAt),
+      snapshot?.hours.updatedAt,
+      ...(snapshot?.servicePeriods ?? []).map((row) => row.updatedAt),
     ].filter((value): value is string => Boolean(value));
     return stamps.sort().at(-1) ?? null;
-  }, [operatingHoursQuery.data?.updatedAt, servicePeriodsQuery.data]);
+  }, [snapshot]);
 
   return {
     saved,
@@ -479,8 +453,8 @@ export function useAvailabilityPageController(
     retryLoad,
     lastSavedAt,
     timezone: profileQuery.data?.timezone ?? 'Europe/London',
-    savedServicePeriods: servicePeriodsQuery.data ?? [],
-    turnBandDefaults: turnBandsQuery.data?.defaults,
+    savedServicePeriods: snapshot?.servicePeriods ?? [],
+    turnBandDefaults: snapshot?.turnBands.defaults,
     googleDrift: gbpDrift,
     canEditCatalog,
   };
