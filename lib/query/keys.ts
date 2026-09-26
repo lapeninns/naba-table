@@ -71,6 +71,11 @@ export const queryKeys = {
     summaryDisabled: () => ['ops', 'dashboard', 'summary', 'disabled'] as const,
     /** Placeholder key while the heatmap inputs are incomplete (the query is disabled). */
     heatmapDisabled: () => ['ops', 'dashboard', 'heatmap', 'disabled'] as const,
+    // --- wave 2 (integrator): shared prefixes for cross-domain invalidation ---
+    /** Prefix of every dashboard query (summaries, heatmaps) for one restaurant. */
+    restaurantPrefix: (restaurantId: string) => ['ops', 'dashboard', restaurantId] as const,
+    /** Prefix of every summary date for one restaurant. */
+    summaryPrefix: (restaurantId: string) => ['ops', 'dashboard', restaurantId, 'summary'] as const,
   },
   opsSettings: {
     strategicConfig: (restaurantId: string) =>
@@ -109,6 +114,9 @@ export const queryKeys = {
     // --- wave 1 (query-core): migrated inline literals ---
     /** Placeholder key while no restaurant is selected (the query is disabled). */
     timelineDisabled: () => ['ops', 'tables', 'timeline', 'disabled'] as const,
+    // --- wave 2 (integrator) ---
+    /** Prefix of every tables query (lists, timelines, zones, capacities) for one restaurant. */
+    restaurantPrefix: (restaurantId: string) => ['ops', 'tables', restaurantId] as const,
   },
   /** Mutation keys, so pending floor-plan changes can be read with useMutationState. */
   opsFloorPlan: {
