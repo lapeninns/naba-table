@@ -139,7 +139,8 @@ Source of truth: `server/bookings/guest-booking-access.ts` and `server/security/
   within 15 minutes of creation (same 201 body). A booking matched any other way (derived key,
   slot signature, stale or foreign key) gets a neutral `409 BOOKING_NOT_COMPLETED` with no
   booking data and no cookie; it consumes the lost-link contact throttle and, under the limit,
-  emails a manage link to the address stored on that booking.
+  emails a manage link to the address stored on that booking. Such a request changes nothing on
+  the matched booking: WhatsApp consent is only written for an eligible (creator) request.
 - **Endpoints.** `GET/PUT/DELETE /api/bookings/[id]`, its history route and the confirmation PDF
   resolve access through `resolveGuestBookingAccess`: the booking cookie (bound to booking,
   restaurant and current contact; only a cookie that decrypts for the booking is rate limited per

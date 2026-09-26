@@ -160,36 +160,6 @@ vi.mock('@/server/booking/http', () => ({
 vi.mock('@/server/bookings/confirmation-token', () => ({
   generateConfirmationToken: vi.fn(() => 'confirm-token'),
   computeTokenExpiry: vi.fn(() => new Date('2026-04-14T12:00:00.000Z').toISOString()),
-  getStoredBookingConfirmationTokenState: vi.fn((booking) => ({
-    confirmationToken: booking.confirmation_token ?? null,
-    confirmationTokenExpiresAt:
-      typeof booking.confirmation_token_expires_at === 'string'
-        ? booking.confirmation_token_expires_at
-        : null,
-  })),
-  buildBookingConfirmationTokenAttachment: vi.fn(
-    ({
-      bookingId,
-      confirmationToken,
-      confirmationTokenExpiresAt,
-    }: {
-      bookingId: string;
-      confirmationToken: string | null;
-      confirmationTokenExpiresAt: string | null;
-    }) =>
-      confirmationToken && confirmationTokenExpiresAt
-        ? null
-        : {
-            bookingId,
-            confirmationToken: confirmationToken ?? 'confirm-token',
-            confirmationTokenExpiresAt:
-              confirmationTokenExpiresAt ?? new Date('2026-04-14T12:00:00.000Z').toISOString(),
-          },
-  ),
-  attachTokenToBooking: vi.fn(async () => undefined),
-  resolveBookingCreateConfirmationToken: vi.fn(async ({ booking }) => {
-    return booking.confirmation_token ?? 'confirm-token';
-  }),
 }));
 
 vi.mock('@reserve/shared/validation', () => ({

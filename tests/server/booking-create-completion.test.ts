@@ -377,4 +377,159 @@ describe('completeBookingCreate', () => {
       expect.objectContaining({ createOrigin: 'key_replay', creatorCapabilityEligible: false }),
     );
   });
+
+  describe('WhatsApp consent is gated on creator capability (guest-auth §3/§4.2)', () => {
+    const consentedBooking = {
+      ...booking,
+      whatsapp_opt_in: true,
+      whatsapp_consent_phone: request.phone,
+    } as BookingRecord;
+    const whatsappRequest = { ...request, whatsappOptIn: true };
+
+    it('does not write consent onto a booking matched by contact details (recovered) @security @contract', async () => {
+      const consentPersister = vi.fn(async () => consentedBooking);
+      const finalizer = vi.fn(async () => ({ booking })) as BookingCreateFinalizer;
+      const responseBuilder = vi.fn(async () =>
+        NextResponse.json({ code: 'BOOKING_NOT_COMPLETED' }, { status: 409 }),
+      ) as BookingCreateHttpResponseBuilder;
+
+      await completeBookingCreate({
+        accessSecret,
+        cookieRequest,
+        autoAssignEnabled: false,
+        client,
+        consentPersister,
+        finalizer,
+        persistence: { ...persistence, reusedExisting: true, createOrigin: 'recovered' },
+        request: whatsappRequest,
+        requestContext,
+        responseBuilder,
+        restaurantId,
+        useUnifiedValidation: false,
+      });
+
+      expect(consentPersister).not.toHaveBeenCalled();
+      expect(finalizer).toHaveBeenCalledWith(expect.objectContaining({ booking }));
+      expect(responseBuilder).toHaveBeenCalledWith(
+        expect.objectContaining({ createOrigin: 'recovered', creatorCapabilityEligible: false }),
+      );
+    });
+
+    it('does not write consent for a key replay outside the 15-minute window @security @contract', async () => {
+      const now = new Date('2026-09-27T12:16:00.000Z').getTime();
+      const replayed = {
+        ...booking,
+        idempotency_key: HEADER_KEY,
+        created_at: '2026-09-27T12:00:00.000Z',
+      } as BookingRecord;
+      const consentPersister = vi.fn(async () => consentedBooking);
+      const responseBuilder = vi.fn(async () =>
+        NextResponse.json({ ok: false }, { status: 409 }),
+      ) as BookingCreateHttpResponseBuilder;
+
+      await completeBookingCreate({
+        accessSecret,
+        cookieRequest,
+        autoAssignEnabled: false,
+        client,
+        consentPersister,
+        finalizer: vi.fn(async () => ({ booking: replayed })) as BookingCreateFinalizer,
+        now: () => now,
+        persistence: {
+          ...persistence,
+          booking: replayed,
+          reusedExisting: true,
+          createOrigin: 'key_replay',
+        },
+        request: whatsappRequest,
+        requestContext,
+        responseBuilder,
+        restaurantId,
+        useUnifiedValidation: false,
+      });
+
+      expect(consentPersister).not.toHaveBeenCalled();
+      expect(responseBuilder).toHaveBeenCalledWith(
+        expect.objectContaining({ creatorCapabilityEligible: false }),
+      );
+    });
+
+    it('does not write consent for a replay with a different header key @security @contract', async () => {
+      const now = new Date('2026-09-27T12:05:00.000Z').getTime();
+      const replayed = {
+        ...booking,
+        idempotency_key: '9b2f6c1e-3d4a-4b5c-8d6e-7f8091a2b3c4',
+        created_at: '2026-09-27T12:00:00.000Z',
+      } as BookingRecord;
+      const consentPersister = vi.fn(async () => consentedBooking);
+
+      await completeBookingCreate({
+        accessSecret,
+        cookieRequest,
+        autoAssignEnabled: false,
+        client,
+        consentPersister,
+        finalizer: vi.fn(async () => ({ booking: replayed })) as BookingCreateFinalizer,
+        now: () => now,
+        persistence: {
+          ...persistence,
+          booking: replayed,
+          reusedExisting: true,
+          createOrigin: 'key_replay',
+        },
+        request: whatsappRequest,
+        requestContext,
+        responseBuilder: vi.fn(async () =>
+          NextResponse.json({ ok: false }, { status: 409 }),
+        ) as BookingCreateHttpResponseBuilder,
+        restaurantId,
+        useUnifiedValidation: false,
+      });
+
+      expect(consentPersister).not.toHaveBeenCalled();
+    });
+
+    it('still writes consent before finalization for a fresh own-key replay @contract', async () => {
+      const now = new Date('2026-09-27T12:05:00.000Z').getTime();
+      const replayed = {
+        ...booking,
+        idempotency_key: HEADER_KEY,
+        created_at: '2026-09-27T12:00:00.000Z',
+      } as BookingRecord;
+      const order: string[] = [];
+      const consentPersister = vi.fn(async () => {
+        order.push('consent');
+        return { ...replayed, whatsapp_opt_in: true } as BookingRecord;
+      });
+      const finalizer = vi.fn(async () => {
+        order.push('finalize');
+        return { booking: replayed };
+      }) as BookingCreateFinalizer;
+
+      await completeBookingCreate({
+        accessSecret,
+        cookieRequest,
+        autoAssignEnabled: false,
+        client,
+        consentPersister,
+        finalizer,
+        now: () => now,
+        persistence: {
+          ...persistence,
+          booking: replayed,
+          reusedExisting: true,
+          createOrigin: 'key_replay',
+        },
+        request: whatsappRequest,
+        requestContext,
+        responseBuilder: vi.fn(async () =>
+          NextResponse.json({ ok: true }, { status: 201 }),
+        ) as BookingCreateHttpResponseBuilder,
+        restaurantId,
+        useUnifiedValidation: false,
+      });
+
+      expect(order).toEqual(['consent', 'finalize']);
+    });
+  });
 });

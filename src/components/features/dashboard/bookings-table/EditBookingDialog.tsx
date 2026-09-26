@@ -294,9 +294,10 @@ function useEditBookingDialogState({
   const copyForCode = useCallback(
     (code: string | undefined): string | undefined => {
       if (!code) return undefined;
-      return (
-        errorCopy[code] ?? (guestAccessRecovery ? GUEST_ACCESS_LINK_ERROR_COPY[code] : undefined)
-      );
+      // Guest dialogs prefer the link-recovery copy (e.g. UNAUTHENTICATED after the booking
+      // cookie expired); ops copy is unchanged.
+      if (guestAccessRecovery) return GUEST_ACCESS_LINK_ERROR_COPY[code] ?? errorCopy[code];
+      return errorCopy[code];
     },
     [guestAccessRecovery],
   );

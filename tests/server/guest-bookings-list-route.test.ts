@@ -38,7 +38,6 @@ vi.mock('@/server/bookings', () => ({
 }));
 
 vi.mock('@/server/bookings/confirmation-token', () => ({
-  attachTokenToBooking: vi.fn(),
   computeTokenExpiry: vi.fn(() => '2026-05-16T12:00:00.000Z'),
   generateConfirmationToken: vi.fn(() => 'token'),
 }));

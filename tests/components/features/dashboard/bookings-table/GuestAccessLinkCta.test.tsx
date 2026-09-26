@@ -37,7 +37,7 @@ describe('guest dialogs: "Get a new link" on booking-link errors', () => {
     cancelMutation.error = null;
   });
 
-  it.each(['ACCESS_TOKEN_EXPIRED', 'ACCESS_TOKEN_REVOKED'])(
+  it.each(['ACCESS_TOKEN_EXPIRED', 'ACCESS_TOKEN_REVOKED', 'UNAUTHENTICATED'])(
     'cancel dialog offers /bookings/find for %s',
     (code) => {
       cancelMutation.error = { code, message: 'raw server text', status: 410 };
@@ -48,6 +48,17 @@ describe('guest dialogs: "Get a new link" on booking-link errors', () => {
     },
   );
 
+  it('cancel dialog shows no CTA when the server secret is missing (a new link cannot work)', () => {
+    cancelMutation.error = {
+      code: 'ACCESS_TOKEN_NOT_CONFIGURED',
+      message: 'Booking access is temporarily unavailable.',
+      status: 503,
+    };
+    render(<CancelBookingDialog booking={booking} open onOpenChange={vi.fn()} />);
+
+    expect(newLinkCta()).toBeNull();
+  });
+
   it('cancel dialog shows no CTA for other errors', () => {
     cancelMutation.error = { code: 'BOOKING_NOT_CANCELLABLE', message: 'x', status: 409 };
     render(<CancelBookingDialog booking={booking} open onOpenChange={vi.fn()} />);
@@ -57,16 +68,15 @@ describe('guest dialogs: "Get a new link" on booking-link errors', () => {
   });
 });
 
-// EditBookingDialog cannot be rendered under vitest yet: its '@/hooks/ops/useOpsUpdateBooking'
-// import has no vitest alias (the hook lives under src/hooks/ops). Its CTA uses the same
-// helpers, covered here; the render test is an integrator follow-up.
+// EditBookingDialog render cases (guest CTA, ops unchanged) live in EditBookingDialogGuestLink.test.tsx.
 describe('guest access-link CTA helpers', () => {
   it.each([
     ['ACCESS_TOKEN_EXPIRED', true],
     ['ACCESS_TOKEN_REVOKED', true],
-    ['ACCESS_TOKEN_IN_URL_REJECTED', true],
+    ['ACCESS_TOKEN_IN_URL_REJECTED', false],
+    ['ACCESS_TOKEN_NOT_CONFIGURED', false],
     ['INVALID_ACCESS_TOKEN', true],
-    ['UNAUTHENTICATED', false],
+    ['UNAUTHENTICATED', true],
     ['MODIFICATION_NO_TABLES', false],
     [undefined, false],
   ])('%s -> %s', (code, expected) => {

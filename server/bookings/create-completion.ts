@@ -65,7 +65,19 @@ export async function completeBookingCreate({
   restaurantId: string;
   useUnifiedValidation: boolean;
 }): Promise<NextResponse> {
-  const shouldPersistConsent = request.whatsappOptIn && !persistence.booking.whatsapp_opt_in;
+  // Guest-auth §4.2: an insert always acts for the creator; any other origin only when it
+  // replays the client's own uuid key within the replay window. Decided up front so a
+  // caller who only knows the contact details and slot cannot change the matched booking.
+  const creatorCapabilityEligible =
+    persistence.createOrigin === 'inserted' ||
+    isCreatorKeyReplayEligible({
+      booking: persistence.booking,
+      headerIdempotencyKey: requestContext.headerIdempotencyKey,
+      now: now(),
+    });
+
+  const shouldPersistConsent =
+    request.whatsappOptIn && creatorCapabilityEligible && !persistence.booking.whatsapp_opt_in;
   // The booking row is already committed here; a consent write failure must not
   // fail the request, or the guest gets an error for a booking that exists.
   let bookingWithConsent = persistence.booking;
@@ -116,16 +128,6 @@ export async function completeBookingCreate({
       props: { bookingId: finalBooking.id, source: 'api' },
     });
   }
-
-  // Guest-auth §4.2: an insert always acts for the creator; any other origin only when it
-  // replays the client's own uuid key within the replay window.
-  const creatorCapabilityEligible =
-    persistence.createOrigin === 'inserted' ||
-    isCreatorKeyReplayEligible({
-      booking: finalBooking,
-      headerIdempotencyKey: requestContext.headerIdempotencyKey,
-      now: now(),
-    });
 
   // Not eligible: 409 BOOKING_NOT_COMPLETED with no DTO, plus the throttled lost-link email.
   return await responseBuilder({
