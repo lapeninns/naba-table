@@ -1,4 +1,4 @@
-import { fetchJson } from '@/lib/http/fetchJson';
+import { fetchJson, type RequestSignalOptions } from '@/lib/http/fetchJson';
 import {
   buildEditableTemplateVariants,
   getRestaurantBookingEmailTemplateCatalog,
@@ -130,6 +130,7 @@ export class DevRestaurantEmailTemplates extends DevRestaurantSettings {
     restaurantId: string,
     templateKey: RestaurantBookingEmailTemplateKey,
     payload: PreviewEmailTemplateInput = {},
+    options?: RequestSignalOptions,
   ): Promise<RestaurantEmailTemplatePreview> {
     const restaurant = this.getRestaurantSnapshot(restaurantId);
     const response = await fetchJson<{
@@ -137,6 +138,7 @@ export class DevRestaurantEmailTemplates extends DevRestaurantSettings {
       preview: RestaurantEmailTemplatePreview;
     }>('/dev/api/restaurant-email-template-preview', {
       method: 'POST',
+      signal: options?.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         templateKey,

@@ -1,12 +1,12 @@
-import { redirect } from 'next/navigation';
+import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
+import { getRestaurantSettingsMetadata } from '@/components/features/restaurant-settings/routes';
 
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = {
-  title: 'Email Templates · Nab a Table Ops',
-  description: 'This route has moved to the standalone email templates command center.',
-};
+export const metadata: Metadata = getRestaurantSettingsMetadata(
+  '/settings/restaurant/email-templates',
+);
 
 export default function RestaurantEmailTemplatesSettingsPage() {
-  redirect('/app/email-templates');
+  return <OpsRestaurantSettingsClient view="email-templates" />;
 }

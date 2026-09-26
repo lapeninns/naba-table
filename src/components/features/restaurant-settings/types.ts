@@ -8,7 +8,9 @@ export type RestaurantSettingsView =
   | 'menu'
   | 'tables'
   | 'team'
-  | 'staff-communications';
+  | 'staff-communications'
+  | 'table-layout'
+  | 'email-templates';
 
 export type WeeklyRow = {
   dayOfWeek: number;

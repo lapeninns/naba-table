@@ -1025,6 +1025,7 @@ export interface RestaurantService {
     restaurantId: string,
     templateKey: RestaurantBookingEmailTemplateKey,
     payload?: PreviewEmailTemplateInput,
+    options?: RequestSignalOptions,
   ): Promise<RestaurantEmailTemplatePreview>;
   sendTestEmailTemplate(
     restaurantId: string,
@@ -1455,6 +1456,7 @@ export function createBrowserRestaurantService(): RestaurantService {
       restaurantId: string,
       templateKey: RestaurantBookingEmailTemplateKey,
       payload: PreviewEmailTemplateInput = {},
+      options?: RequestSignalOptions,
     ) {
       const response = await fetchJson<EmailTemplatePreviewResponse>(
         `${OPS_RESTAURANTS_BASE}/${restaurantId}/email-templates/${templateKey}/preview`,
@@ -1462,6 +1464,7 @@ export function createBrowserRestaurantService(): RestaurantService {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
+          signal: options?.signal,
         },
       );
       return response.preview;

@@ -6,7 +6,9 @@ import { useEffect, type ReactNode } from 'react';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from './routes';
 import { SETTINGS_COMPACT_ROUTE_STACK_CLASS } from './shared';
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
@@ -127,6 +129,20 @@ const StaffCommunicationsSection = dynamic(
   },
 );
 
+const FloorLayoutWorkspace = dynamic(
+  () => import('../floor-plan/FloorPlanClient').then((m) => m.FloorLayoutClient),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading floor layout" />,
+  },
+);
+
+const OpsEmailTemplatesClient = dynamic(
+  () => import('../email-templates/OpsEmailTemplatesClient').then((m) => m.OpsEmailTemplatesClient),
+  {
+    loading: () => <SettingsSectionSkeleton title="Loading email templates" />,
+  },
+);
+
 export type OpsRestaurantSettingsClientProps = {
   defaultRestaurantId?: string | null;
   view: RestaurantSettingsView;
@@ -185,10 +201,14 @@ export function OpsRestaurantSettingsClient({
     'staff-communications': ({ restaurantId }) => (
       <StaffCommunicationsSection restaurantId={restaurantId} />
     ),
+    'table-layout': () => <FloorLayoutWorkspace />,
+    'email-templates': () => <OpsEmailTemplatesClient />,
   };
 
+  const workspace = RESTAURANT_SETTINGS_ROUTE_MAP[view].layout === 'workspace';
+
   return (
-    <div className={SETTINGS_COMPACT_ROUTE_STACK_CLASS}>
+    <div className={cn(SETTINGS_COMPACT_ROUTE_STACK_CLASS, workspace && 'min-h-0 flex-1')}>
       {renderByView[view]({ restaurantId: selectedRestaurantId })}
     </div>
   );

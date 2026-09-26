@@ -121,7 +121,10 @@ export function occupancy(
   if (booking.status === 'completed') {
     const checkedOut = booking.checkedOutAtMs ?? booking.endMs;
     // Completed means the table is free now, whatever the server clock said.
-    return [booking.checkedInAtMs ?? booking.startMs, live ? Math.min(checkedOut, ctx.nowMs) : checkedOut];
+    return [
+      booking.checkedInAtMs ?? booking.startMs,
+      live ? Math.min(checkedOut, ctx.nowMs) : checkedOut,
+    ];
   }
   return [booking.startMs, booking.endMs];
 }

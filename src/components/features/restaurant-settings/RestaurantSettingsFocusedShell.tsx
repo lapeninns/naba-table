@@ -25,12 +25,15 @@ export type RestaurantSettingsFocusedShellProps = {
   envBanner?: string | null;
   /** Explicit chrome title for routes without settings route copy (legacy pages, harnesses). */
   title?: string;
+  /** Full-height workspace: content fills the area edge to edge and scrolls its own panes. */
+  workspace?: boolean;
 };
 
 export function RestaurantSettingsFocusedShell({
   children,
   envBanner,
   title,
+  workspace = false,
 }: RestaurantSettingsFocusedShellProps) {
   const { confirmNavigation } = useOpsUnsavedChanges();
   const [sectionNav, setSectionNav] = useState<ReactNode | null>(null);
@@ -100,13 +103,18 @@ export function RestaurantSettingsFocusedShell({
             <div
               id="ops-content"
               tabIndex={-1}
-              className={cn(
-                'min-h-0 min-w-0 flex-1 scroll-pb-28 scroll-pt-14 overflow-x-hidden overflow-y-auto overscroll-contain',
-                'pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:pb-8',
-                sectionNavSlot.hasDockedSectionNav ? 'pt-4' : 'pt-4 sm:pt-6',
-                OPS_SHELL_GUTTER_X_CLASS,
-                SETTINGS_COMPACT_PAGE_CONTENT_CLASS,
-              )}
+              data-layout={workspace ? 'workspace' : 'page'}
+              className={
+                workspace
+                  ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+                  : cn(
+                      'min-h-0 min-w-0 flex-1 scroll-pb-28 scroll-pt-14 overflow-x-hidden overflow-y-auto overscroll-contain',
+                      'pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:pb-8',
+                      sectionNavSlot.hasDockedSectionNav ? 'pt-4' : 'pt-4 sm:pt-6',
+                      OPS_SHELL_GUTTER_X_CLASS,
+                      SETTINGS_COMPACT_PAGE_CONTENT_CLASS,
+                    )
+              }
             >
               {children}
             </div>

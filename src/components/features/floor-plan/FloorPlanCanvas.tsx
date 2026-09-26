@@ -1,6 +1,6 @@
 'use client';
 
-import { Info, List, Loader2, Maximize, Minus, Move, Plus, TriangleAlert } from 'lucide-react';
+import { Info, List, Maximize, Minus, Move, Plus } from 'lucide-react';
 import { useCallback, useMemo, useRef } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -216,46 +216,6 @@ function CanvasControls({
           <Plus />
         </Button>
       </div>
-    </div>
-  );
-}
-
-function SaveBar({ fp }: { fp: FloorPlanController }) {
-  const n = fp.dirtyIds.length;
-  const failed = Object.keys(fp.saveErrors).length;
-  if (fp.mode !== 'arrange' || (!n && !failed)) return null;
-  return (
-    <div
-      role="region"
-      aria-label="Unsaved layout"
-      className="absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow-md"
-    >
-      <b>
-        {n} unsaved layout {n === 1 ? 'change' : 'changes'}
-      </b>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={fp.isSavingLayout}
-        onClick={fp.actions.discardLayout}
-      >
-        Discard
-      </Button>
-      <Button
-        size="sm"
-        disabled={fp.isSavingLayout || n === 0}
-        onClick={() => void fp.actions.saveLayout()}
-      >
-        {fp.isSavingLayout ? <Loader2 className="animate-spin" aria-hidden /> : null}
-        {fp.isSavingLayout ? 'Saving layout…' : 'Save layout'}
-      </Button>
-      {failed ? (
-        <p role="alert" className="flex w-full items-center gap-1.5 text-destructive">
-          <TriangleAlert className="size-4" aria-hidden />
-          {failed} {failed === 1 ? 'table wasn’t' : 'tables weren’t'} saved:{' '}
-          {Object.values(fp.saveErrors)[0]} Try again.
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -551,7 +511,6 @@ export function FloorPlanCanvas({ fp }: { fp: FloorPlanController }) {
           <Move className="size-3.5" aria-hidden /> Drag, or use arrow keys. R rotates.
         </p>
       ) : null}
-      <SaveBar fp={fp} />
       <CanvasControls fp={fp} scale={view.scale} fitted={view.fit} onFit={fit} onZoom={zoomBy} />
     </div>
   );

@@ -135,17 +135,32 @@ describe('RestaurantSettingsSidebarNav', () => {
       '/app/settings/restaurant/tables',
       '/app/settings/restaurant/discovery',
       '/app/settings/restaurant/menu',
+      '/app/settings/restaurant/table-layout',
+      '/app/settings/restaurant/email-templates',
       '/app/settings/restaurant/team',
       '/app/settings/restaurant/staff-communications',
       '/app/settings/restaurant/google-business-profile',
     ]);
-    const labels = ['Required setup', 'Restaurant details', 'Staff', 'Integrations'];
+    const labels = [
+      'Required setup',
+      'Restaurant details',
+      'Guest communications',
+      'Staff',
+      'Integrations',
+    ];
     for (const label of labels) {
       expect(screen.getByText(label, { selector: '[data-sidebar="group-label"]' })).toBeVisible();
     }
     expect(screen.queryByText('Operations')).not.toBeInTheDocument();
-    // Email Templates stays in the main app navigation, not in restaurant settings.
-    expect(within(nav).queryByRole('link', { name: /email templates/i })).toBeNull();
+  });
+
+  it('@contract marks Floor layout "Unsaved" while floor plan layout drafts are pending', () => {
+    unsavedState.entries = [{ id: 'floor-plan-layout' }];
+    renderNav({ normalizedPathname: '/settings/restaurant/table-layout' });
+
+    const link = screen.getByRole('link', { name: /Floor layout/ });
+    expect(link).toHaveAttribute('aria-current', 'page');
+    expect(within(link).getByText('Unsaved')).toBeInTheDocument();
   });
 
   it('@contract marks Staff communications active and "Unsaved" from its own draft', () => {

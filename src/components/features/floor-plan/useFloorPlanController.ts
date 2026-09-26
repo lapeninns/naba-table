@@ -45,6 +45,11 @@ import type { FloorPlanLifecycleAction } from '@/hooks/ops/useOpsFloorPlanLifecy
 
 export type FloorView = 'plan' | 'timeline';
 export type FloorMode = 'service' | 'arrange';
+/**
+ * Where the plan is shown. `service` is the live floor plan staff seat from; `layout` is the
+ * admin-only Floor layout settings page, which is always in arrange mode.
+ */
+export type FloorSurface = 'service' | 'layout';
 export type StatFilter = 'seated' | 'free' | 'awaiting' | 'over';
 export type PickState = { bookingId: string; kind: 'assign' | 'move' };
 export type ConfirmState =
@@ -68,14 +73,20 @@ function useClock(intervalMs: number): number {
  * All state and actions for the floor plan page. Components stay presentational;
  * everything that talks to the server goes through the floor-plan hooks.
  */
-export function useFloorPlanController({ initialDate }: { initialDate: string | null }) {
+export function useFloorPlanController({
+  initialDate,
+  surface = 'service',
+}: {
+  initialDate: string | null;
+  surface?: FloorSurface;
+}) {
   const restaurantId = useOpsActiveRestaurantId();
   const membership = useOpsActiveMembership();
   const canArrange = membership ? isRestaurantAdminRole(membership.role) : false;
   const nowMs = useClock(CLOCK_TICK_MS);
 
   const [requestedDate, setRequestedDate] = useState<string | null>(initialDate);
-  const data = useOpsFloorPlan({ restaurantId, date: requestedDate });
+  const data = useOpsFloorPlan({ restaurantId, date: requestedDate, scope: surface });
   const assignments = useOpsFloorPlanAssignments({ restaurantId, date: requestedDate });
   const lifecycle = useOpsFloorPlanLifecycle({ restaurantId, date: requestedDate });
   const layoutSave = useOpsFloorPlanLayoutSave(restaurantId);
@@ -89,7 +100,7 @@ export function useFloorPlanController({ initialDate }: { initialDate: string | 
   const [atMsChoice, setAtMsChoice] = useState<number | null>(null);
   const [view, setView] = useState<FloorView>('plan');
   const [listOn, setListOn] = useState(false);
-  const [mode, setMode] = useState<FloorMode>('service');
+  const mode: FloorMode = surface === 'layout' ? 'arrange' : 'service';
   const [zoneFilter, setZoneFilter] = useState<string>('all');
   const [statFilter, setStatFilter] = useState<StatFilter | null>(null);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -511,38 +522,6 @@ export function useFloorPlanController({ initialDate }: { initialDate: string | 
 
   /* ───────── arrange ───────── */
 
-  const switchMode = useCallback(
-    (next: FloorMode) => {
-      if (next === mode) return;
-      const apply = () => {
-        dispatchDraft({ type: 'discard' });
-        setSaveErrors({});
-        setMode(next);
-        setView('plan');
-        setListOn(false);
-        setPick(null);
-        setStatFilter(null);
-        setSelectedTableId(null);
-      };
-      if (mode === 'arrange' && dirtyIds.length > 0)
-        setConfirm({ kind: 'leave-arrange', then: apply });
-      else apply();
-    },
-    [
-      dirtyIds.length,
-      dispatchDraft,
-      mode,
-      setConfirm,
-      setListOn,
-      setMode,
-      setPick,
-      setSaveErrors,
-      setSelectedTableId,
-      setStatFilter,
-      setView,
-    ],
-  );
-
   const placeTable = useCallback(
     (table: FloorTable, position: FloorPosition) => {
       const zone = layout?.zoneById.get(table.zoneId);
@@ -669,7 +648,6 @@ export function useFloorPlanController({ initialDate }: { initialDate: string | 
       scrubTo,
       setView,
       setListOn,
-      switchMode,
       setZoneFilter,
       setStatFilter,
       selectTable,
@@ -733,13 +711,13 @@ export function useFloorPlanController({ initialDate }: { initialDate: string | 
       setZoneFilter,
       startDrag,
       startPick,
-      switchMode,
       unassign,
     ],
   );
 
   return {
     restaurantId,
+    surface,
     canArrange,
     data,
     snapshot,

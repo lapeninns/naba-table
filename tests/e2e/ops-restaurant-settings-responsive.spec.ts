@@ -13,9 +13,6 @@ import type { Page } from '@playwright/test';
  * Responsive sweep for every route under /settings/restaurant/*. Each route is loaded once and
  * then resized through phone, tablet, laptop, and desktop widths (including awkward intermediate
  * widths) so layout breaks between the usual breakpoints are caught, not just at presets.
- *
- * `email-templates` is excluded: it redirects to the standalone email templates workspace, which
- * is outside the settings shell (covered by ops-settings-team.spec.ts).
  */
 const SETTINGS_ROUTES = [
   '/settings/restaurant',
@@ -30,6 +27,8 @@ const SETTINGS_ROUTES = [
   '/settings/restaurant/menu',
   '/settings/restaurant/tables',
   '/settings/restaurant/team',
+  '/settings/restaurant/table-layout',
+  '/settings/restaurant/email-templates',
 ] as const;
 
 const VIEWPORT_WIDTHS = [

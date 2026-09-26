@@ -1,169 +1,214 @@
 'use client';
 
-import Link from 'next/link';
-import { useRef } from 'react';
+import { RefreshCw, TriangleAlert } from 'lucide-react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-import { EmailTemplateResetDialog } from '@/components/features/email-templates/EmailTemplateResetDialog';
-import { EmailTemplatesEditorPane } from '@/components/features/email-templates/EmailTemplatesEditorPane';
-import { EmailTemplatesPreviewPane } from '@/components/features/email-templates/EmailTemplatesPreviewPane';
-import { EmailTemplatesSidebarPane } from '@/components/features/email-templates/EmailTemplatesSidebarPane';
-import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useOpsEmailTemplatesPageState } from '@/hooks/ops/useOpsEmailTemplatesPageState';
-import { opsHref } from '@/lib/url/opsHref';
+import { useOpsEmailTemplatesEditor } from '@/hooks/ops/useOpsEmailTemplatesEditor';
 import { cn } from '@/lib/utils';
 
-export function OpsEmailTemplatesClient() {
-  const state = useOpsEmailTemplatesPageState();
-  const previewSectionRef = useRef<HTMLDivElement | null>(null);
+import { EmailTemplateCommitBar } from './EmailTemplateCommitBar';
+import { DeleteVariantDialog, ResetTemplateDialog, SendTestDialog } from './EmailTemplateDialogs';
+import { EMAIL_TEMPLATE_LIVE_SWITCH_ID, EmailTemplateEditor } from './EmailTemplateEditor';
+import { emailTemplateFieldId } from './EmailTemplateField';
+import { EmailTemplateHeader, type EmailTemplatesTab } from './EmailTemplateHeader';
+import { EmailTemplateList } from './EmailTemplateList';
+import { EmailTemplatePreview } from './EmailTemplatePreview';
 
-  const scrollToPreview = () => {
-    previewSectionRef.current?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
+import type { SaveBlocker } from './model/emailTemplateEditorModel';
+import type { RestaurantBookingEmailTemplateKey } from '@/lib/restaurants/email-templates';
+
+type Pane = 'list' | 'editor';
+type OpenDialog = 'test' | 'reset' | 'delete' | null;
+
+function focusBlocker(blocker: SaveBlocker) {
+  const id =
+    blocker.kind === 'field'
+      ? emailTemplateFieldId(blocker.field)
+      : blocker.kind === 'duplicate'
+        ? emailTemplateFieldId('headline')
+        : EMAIL_TEMPLATE_LIVE_SWITCH_ID;
+  // After the variant with the problem has rendered.
+  requestAnimationFrame(() => document.getElementById(id)?.focus());
+}
+
+function LoadingWorkspace() {
+  return (
+    <div className="grid h-full min-h-0 gap-0 md:grid-cols-[252px_minmax(0,1fr)]" aria-busy="true">
+      <div className="hidden space-y-3 border-r p-3 md:block">
+        <Skeleton className="h-9" />
+        {Array.from({ length: 7 }, (_, index) => (
+          <Skeleton key={index} className="h-12" />
+        ))}
+      </div>
+      <div className="space-y-3 bg-muted/40 p-4">
+        <Skeleton className="h-10" />
+        <Skeleton className="h-32" />
+        <Skeleton className="h-44" />
+        <Skeleton className="h-64" />
+      </div>
+      <span className="sr-only" role="status">
+        Loading email templates…
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Email templates settings workspace: pick an email, edit its variants' wording, preview the
+ * server-rendered email and save one email at a time. Fills the settings content area; the
+ * layout follows the workspace's own width (container queries), not the viewport's.
+ */
+export function OpsEmailTemplatesClient() {
+  const editor = useOpsEmailTemplatesEditor();
+  const [pane, setPane] = useState<Pane>('list');
+  const [tab, setTab] = useState<EmailTemplatesTab>('edit');
+  const [dialog, setDialog] = useState<OpenDialog>(null);
+  const editorScrollRef = useRef<HTMLDivElement | null>(null);
+
+  const save = async () => {
+    const outcome = await editor.save();
+    if (outcome.status === 'blocked') {
+      setTab('edit');
+      focusBlocker(outcome.blocker);
+    }
   };
 
-  if (state.memberships.length === 0) {
+  // Cmd/Ctrl+S saves the open email.
+  const onSaveShortcut = useEffectEvent(() => void save());
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        onSaveShortcut();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const selectTemplate = (key: RestaurantBookingEmailTemplateKey) => {
+    editor.selectTemplate(key);
+    setPane('editor');
+  };
+
+  // Each email opens at the top of its editor, once the pane is showing.
+  const openedKey = editor.templateKey;
+  useEffect(() => {
+    if (editorScrollRef.current) editorScrollRef.current.scrollTop = 0;
+  }, [openedKey, pane]);
+
+  if (editor.memberships.length === 0) {
     return (
-      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
-        <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center">
-          <OpsEmptyState
-            title="No restaurant access"
-            description="You need access to at least one restaurant to manage guest-facing email templates."
-            action={
-              <Button asChild variant="secondary">
-                <Link href={opsHref('/dashboard')} prefetch={false}>
-                  Return to ops home
-                </Link>
-              </Button>
-            }
-          />
-        </section>
-      </OpsPageShell>
+      <OpsEmptyState
+        title="No restaurant access"
+        description="You need access to at least one restaurant to manage guest-facing email templates."
+      />
     );
   }
 
-  if (!state.restaurantId) {
+  if (editor.templatesQuery.isError && !editor.templatesQuery.data) {
     return (
-      <OpsPageShell variant="standard" className={OPS_PAGE_RHYTHM_CLASS}>
-        <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center">
-          <OpsEmptyState
-            title="Choose a restaurant"
-            description="Use the sidebar switcher to choose the restaurant whose email templates you want to edit."
-          />
-        </section>
-      </OpsPageShell>
+      <div className="grid h-full place-items-center p-6">
+        <div className="max-w-md space-y-3 text-center">
+          <TriangleAlert className="mx-auto size-5" aria-hidden />
+          <h2 className="text-lg font-semibold">Email templates didn’t load</h2>
+          <p className="text-sm text-muted-foreground">
+            Nothing has changed for guests. Try again in a moment.
+          </p>
+          <Button type="button" onClick={() => void editor.templatesQuery.refetch()}>
+            <RefreshCw aria-hidden />
+            Try again
+          </Button>
+        </div>
+      </div>
     );
   }
 
-  const showSkeleton = state.templatesQuery.isLoading && !state.templatesQuery.data;
+  if (!editor.template) return <LoadingWorkspace />;
+
+  // One column (narrow): the list or the email; the email shows Edit or Preview.
+  // Two columns: list beside the email, Edit or Preview. Three columns: everything at once.
+  const onList = pane === 'list';
+  const previewing = tab === 'preview';
+  const singleColumnEmail = onList ? 'hidden' : 'block';
 
   return (
-    <OpsPageShell
-      variant="immersive"
-      as="section"
-      className="relative flex bg-muted/40 text-foreground"
-    >
-      {showSkeleton ? (
-        <div className="grid h-full w-full min-w-0 gap-0 lg:grid-cols-[20rem,minmax(0,1fr)]">
-          <div className="hidden border-r border-border bg-background p-[var(--pg-gutter)] lg:block">
-            <Skeleton className="h-7 w-44 rounded-xl" />
-            <Skeleton className="mt-2 h-4 w-56 rounded-xl" />
-            <Skeleton className="mt-4 h-11 w-full rounded-xl" />
-            <div className="mt-6 space-y-3">
-              <Skeleton className="h-24 w-full rounded-2xl" />
-              <Skeleton className="h-24 w-full rounded-2xl" />
-              <Skeleton className="h-24 w-full rounded-2xl" />
-            </div>
-          </div>
-          <div className="overflow-y-auto p-[var(--pg-gutter)]">
-            <div className="mx-auto flex max-w-6xl flex-col gap-6">
-              <Skeleton className="h-16 w-full rounded-2xl" />
-              <Skeleton className="h-28 w-full rounded-[1.5rem]" />
-              <Skeleton className="h-[640px] w-full rounded-[1.5rem]" />
-              <Skeleton className="h-[720px] w-full rounded-[1.5rem]" />
-            </div>
-          </div>
+    <div className="@container h-full min-h-0 min-w-0">
+      <div
+        className={cn(
+          'grid h-full min-h-0 min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]',
+          "[grid-template-areas:'head''ed''bar']",
+          "@2xl:grid-cols-[252px_minmax(0,1fr)] @2xl:[grid-template-areas:'list_head''list_ed''list_bar']",
+          "@6xl:grid-cols-[272px_minmax(0,1fr)_minmax(380px,42%)] @6xl:[grid-template-areas:'list_head_head''list_ed_pv''list_bar_pv']",
+        )}
+      >
+        <aside
+          aria-label="Email templates"
+          className={cn(
+            'min-h-0 border-r bg-background [grid-area:1/1/-1/-1] @2xl:grid @2xl:[grid-area:list]',
+            onList ? 'grid' : 'hidden',
+          )}
+        >
+          <EmailTemplateList editor={editor} onSelect={selectTemplate} />
+        </aside>
+
+        <div className={cn('min-w-0 [grid-area:head] @2xl:block', singleColumnEmail)}>
+          <EmailTemplateHeader
+            editor={editor}
+            tab={tab}
+            onTabChange={setTab}
+            onBack={() => setPane('list')}
+            onSendTest={() => setDialog('test')}
+            onReset={() => setDialog('reset')}
+          />
         </div>
-      ) : (
-        <>
-          <div
-            className={cn(
-              state.activePane === 'list' ? 'flex' : 'hidden',
-              'h-full min-h-0 w-full lg:flex lg:w-80 lg:shrink-0 xl:w-[22rem]',
-            )}
-          >
-            <EmailTemplatesSidebarPane
-              filteredGroups={state.filteredGroups}
-              searchQuery={state.searchQuery}
-              onSearchQueryChange={state.setSearchQuery}
-              selectedTemplateKey={state.selectedTemplateKey}
-              dirtyTemplateKeys={state.dirtyTemplateKeys}
-              restaurantName={state.restaurantName}
-              onSelectTemplate={state.handleSelectTemplate}
-            />
-          </div>
 
-          <div
-            className={cn(
-              state.activePane === 'editor' ? 'flex' : 'hidden',
-              'min-w-0 flex-1 flex-col overflow-y-auto lg:flex',
-            )}
-          >
-            <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-[var(--pg-gutter)] py-[var(--pg-section-y-tight)]">
-              <EmailTemplatesEditorPane
-                restaurantName={state.restaurantName}
-                canEdit={Boolean(state.templatesQuery.data?.canEdit)}
-                baseTemplate={state.baseTemplate}
-                currentVariants={state.currentVariants}
-                currentVariant={state.currentVariant}
-                selectedVariantId={state.selectedVariantId}
-                activeVariantCount={state.activeVariantCount}
-                isCurrentDirty={state.isCurrentDirty}
-                testEmail={state.testEmail}
-                onTestEmailChange={state.setTestEmail}
-                activePane={state.activePane}
-                isSaving={state.updateMutation.isPending}
-                isResetting={state.resetMutation.isPending}
-                isSendingTest={state.testSendMutation.isPending}
-                onBackToList={() => state.setActivePane('list')}
-                onOpenPreview={scrollToPreview}
-                onDiscardCurrent={state.handleDiscardCurrent}
-                onSave={state.handleSave}
-                onAddVariant={state.handleAddVariant}
-                onMoveVariant={state.handleMoveVariant}
-                onDeleteVariant={state.handleDeleteVariant}
-                onSelectVariant={state.setSelectedVariantId}
-                onResetTemplate={state.handleResetTemplate}
-                onSendTest={state.handleSendTest}
-                onUpdateVariant={state.updateCurrentVariant}
-              />
+        <section
+          ref={editorScrollRef}
+          aria-label="Edit copy"
+          className={cn(
+            '@container min-h-0 overflow-y-auto bg-muted/40 [grid-area:ed] @6xl:block',
+            !onList && !previewing ? 'block' : 'hidden',
+            previewing ? '@2xl:hidden' : '@2xl:block',
+          )}
+        >
+          <EmailTemplateEditor editor={editor} onRequestDelete={() => setDialog('delete')} />
+        </section>
 
-              <div ref={previewSectionRef} id="preview-section">
-                <EmailTemplatesPreviewPane
-                  previewDevice={state.previewDevice}
-                  onPreviewDeviceChange={state.setPreviewDevice}
-                  preview={state.preview}
-                  isLoading={state.isPreviewLoading}
-                  isRefreshing={state.previewQuery.isPreviewStale && Boolean(state.preview)}
-                  errorMessage={state.previewErrorMessage}
-                  onRetry={state.retryPreview}
-                />
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-      <EmailTemplateResetDialog
-        templateTitle={state.pendingResetTemplate?.title ?? null}
-        isPending={state.resetMutation.isPending}
-        onConfirm={state.confirmResetTemplate}
-        onCancel={state.cancelResetTemplate}
+        <aside
+          aria-label="Preview"
+          className={cn(
+            'min-h-0 [grid-area:ed] @6xl:grid @6xl:border-l @6xl:[grid-area:pv]',
+            !onList && previewing ? 'grid' : 'hidden',
+            previewing ? '@2xl:grid' : '@2xl:hidden',
+          )}
+        >
+          <EmailTemplatePreview editor={editor} />
+        </aside>
+
+        <div className={cn('min-w-0 [grid-area:bar] @2xl:block', singleColumnEmail)}>
+          <EmailTemplateCommitBar editor={editor} onSave={() => void save()} />
+        </div>
+      </div>
+
+      <SendTestDialog
+        editor={editor}
+        open={dialog === 'test'}
+        onOpenChange={(open) => setDialog(open ? 'test' : null)}
       />
-    </OpsPageShell>
+      <ResetTemplateDialog
+        editor={editor}
+        open={dialog === 'reset'}
+        onOpenChange={(open) => setDialog(open ? 'reset' : null)}
+      />
+      <DeleteVariantDialog
+        editor={editor}
+        open={dialog === 'delete'}
+        onOpenChange={(open) => setDialog(open ? 'delete' : null)}
+      />
+    </div>
   );
 }
