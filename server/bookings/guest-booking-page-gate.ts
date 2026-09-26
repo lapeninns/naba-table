@@ -1,13 +1,17 @@
+import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import {
   resolveGuestBookingAccessForPage,
   type GuestPageAccessResult,
 } from '@/server/bookings/guest-booking-access';
 import { isUuid } from '@/server/security/booking-access-token';
 
-export type BookingAccessDeniedReason = Exclude<
-  Extract<GuestPageAccessResult, { status: 'denied' }>['reason'],
-  'unauthenticated'
->;
+/**
+ * Why a guest page could not be shown. `signed_out` means no booking cookie
+ * and no session: the guest is offered a new link first, sign-in second.
+ */
+export type BookingAccessDeniedReason =
+  | Exclude<Extract<GuestPageAccessResult, { status: 'denied' }>['reason'], 'unauthenticated'>
+  | 'signed_out';
 
 export type GuestBookingPageSearchParams = {
   token?: string | string[];
@@ -17,8 +21,13 @@ export type GuestBookingPageSearchParams = {
 
 export type GuestBookingPageGate =
   | { kind: 'redirect'; location: string }
-  | { kind: 'sign_in' }
-  | { kind: 'denied'; reason: BookingAccessDeniedReason; isAuthenticated: boolean }
+  | {
+      kind: 'denied';
+      reason: BookingAccessDeniedReason;
+      isAuthenticated: boolean;
+      /** Sign-in URL that returns to this page. */
+      signInHref: string;
+    }
   | { kind: 'allowed' };
 
 function first(value: string | string[] | undefined): string | null {
@@ -33,7 +42,9 @@ function first(value: string | string[] | undefined): string | null {
  * - legacy `?token=` links go to the deprecation page;
  * - otherwise the booking cookie or an owning session must grant access, with
  *   the same fingerprint check as the API, so a revoked cookie never renders
- *   a manageable page.
+ *   a manageable page. Without either, the guest sees the access state with
+ *   "Email me a new link" first and sign-in second (signing in grants nothing
+ *   until the booking is claimed through a link).
  */
 export async function resolveGuestBookingPageGate(params: {
   bookingId: string;
@@ -55,20 +66,20 @@ export async function resolveGuestBookingPageGate(params: {
     };
   }
 
+  const signInHref = withRedirectedFrom('/auth/signin', params.ownPath);
+
   if (!isUuid(params.bookingId)) {
-    return { kind: 'denied', reason: 'not_found', isAuthenticated: false };
+    return { kind: 'denied', reason: 'not_found', isAuthenticated: false, signInHref };
   }
 
   const access = await resolveGuestBookingAccessForPage(params.cookies, params.bookingId);
   if (access.status === 'ok') {
     return { kind: 'allowed' };
   }
-  if (access.reason === 'unauthenticated') {
-    return { kind: 'sign_in' };
-  }
   return {
     kind: 'denied',
-    reason: access.reason,
-    isAuthenticated: access.reason === 'not_found',
+    reason: access.reason === 'unauthenticated' ? 'signed_out' : access.reason,
+    isAuthenticated: access.signedIn,
+    signInHref,
   };
 }

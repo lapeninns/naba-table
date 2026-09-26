@@ -30,6 +30,11 @@ const COPY: Record<BookingAccessDeniedReason, { title: string; description: stri
     description:
       'It isn’t linked to your account. Open the link from your booking email, or request a new one.',
   },
+  signed_out: {
+    title: 'Open your booking',
+    description:
+      'Use the link from your booking email, or we can email you a new one. It goes to the address saved on your booking.',
+  },
   not_configured: {
     title: 'Booking links are temporarily unavailable',
     description: 'Please try again later, or contact the venue.',
@@ -43,9 +48,11 @@ const COPY: Record<BookingAccessDeniedReason, { title: string; description: stri
 export function BookingAccessExpiredState({
   reason,
   isAuthenticated,
+  signInHref = '/auth/signin',
 }: {
   reason: BookingAccessDeniedReason;
   isAuthenticated: boolean;
+  signInHref?: string;
 }) {
   const copy = COPY[reason];
   return (
@@ -58,17 +65,19 @@ export function BookingAccessExpiredState({
         actions={
           <>
             <GuestPrimaryButton href="/bookings/find">Email me a new link</GuestPrimaryButton>
-            <GuestSecondaryButton href={isAuthenticated ? '/guest/bookings' : '/auth/signin'}>
+            <GuestSecondaryButton href={isAuthenticated ? '/guest/bookings' : signInHref}>
               {isAuthenticated ? 'My bookings' : 'Sign in'}
             </GuestSecondaryButton>
           </>
         }
         meta={
           <>
-            <span className="pg-chip pg-danger-badge">
-              <LinkIcon className="size-3.5" aria-hidden />
-              Link not opened
-            </span>
+            {reason === 'signed_out' ? null : (
+              <span className="pg-chip pg-danger-badge">
+                <LinkIcon className="size-3.5" aria-hidden />
+                Link not opened
+              </span>
+            )}
             <span className="pg-chip">
               <ShieldCheck className="size-3.5" aria-hidden />
               Booking protected

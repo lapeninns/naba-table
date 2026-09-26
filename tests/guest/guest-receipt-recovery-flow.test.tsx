@@ -1,4 +1,6 @@
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 
 const redirectMock = vi.hoisted(() =>
   vi.fn(() => {
@@ -50,6 +52,8 @@ vi.mock('@/server/supabase', () => ({
 
 import { createBookingAccessToken } from '@/server/security/booking-access-token';
 import GuestBookingReceiptPage from '@/src/app/guest/bookings/[bookingId]/receipt/page';
+
+import type { ReactElement } from 'react';
 
 const bookingId = '33333333-3333-4333-8333-333333333333';
 const restaurantId = '11111111-1111-4111-8111-111111111111';
@@ -174,20 +178,49 @@ describe('guest receipt recovery flow', () => {
     expect(redirectMock).not.toHaveBeenCalled();
   });
 
-  it('ignores the retired sr_access cookie and asks the guest to sign in', async () => {
+  it('ignores the retired sr_access cookie and offers a new link before sign-in (§8.3)', async () => {
     useCookies([{ name: 'sr_access', value: 'sr2.a.b.c' }]);
 
-    await expect(
-      GuestBookingReceiptPage({
-        params: Promise.resolve({ bookingId }),
-        searchParams: Promise.resolve({}),
-      }),
-    ).rejects.toThrow('NEXT_REDIRECT');
+    const element = await GuestBookingReceiptPage({
+      params: Promise.resolve({ bookingId }),
+      searchParams: Promise.resolve({}),
+    });
 
-    expect(redirectMock).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/signin?redirectedFrom='),
-    );
+    expect(redirectMock).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
+    render(element as ReactElement);
+    expect(screen.getByRole('link', { name: 'Email me a new link' })).toHaveAttribute(
+      'href',
+      '/bookings/find',
+    );
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute(
+      'href',
+      `/auth/signin?redirectedFrom=${encodeURIComponent(`/guest/bookings/${bookingId}/receipt`)}`,
+    );
+  });
+
+  it('marks a signed-in guest with a revoked cookie as authenticated', async () => {
+    const cookie = bookingCookie();
+    serviceRows.bookings = [{ ...booking, customer_email: 'changed@example.com' }];
+    useCookies([cookie]);
+    getUserMock.mockResolvedValue({
+      data: { user: { id: 'user-2', email: 'someone@example.com' } },
+      error: null,
+    });
+
+    const element = await GuestBookingReceiptPage({
+      params: Promise.resolve({ bookingId }),
+      searchParams: Promise.resolve({}),
+    });
+
+    const props = (element as { props: { reason: string; isAuthenticated: boolean } }).props;
+    expect(props.reason).toBe('revoked');
+    expect(props.isAuthenticated).toBe(true);
+    render(element as ReactElement);
+    expect(screen.getByRole('link', { name: 'My bookings' })).toHaveAttribute(
+      'href',
+      '/guest/bookings',
+    );
   });
 
   it('renders the expired-link state for a revoked cookie without prefetching', async () => {

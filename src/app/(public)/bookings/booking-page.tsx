@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import ReservationDetailClient from '@/components/features/booking/detail/ReservationDetailClient';
 import { BookingAccessExpiredState } from '@/components/features/booking/manage/BookingAccessExpiredState';
 import { getTrustedSiteOrigin } from '@/lib/site-url';
-import { withRedirectedFrom } from '@/lib/url/withRedirectedFrom';
 import {
   resolveGuestBookingPageGate,
   type GuestBookingPageSearchParams,
@@ -101,12 +100,13 @@ export async function BookingDetailPage({
   if (gate.kind === 'redirect') {
     redirect(gate.location);
   }
-  if (gate.kind === 'sign_in') {
-    redirect(withRedirectedFrom('/auth/signin', ownPath));
-  }
   if (gate.kind === 'denied') {
     return (
-      <BookingAccessExpiredState reason={gate.reason} isAuthenticated={gate.isAuthenticated} />
+      <BookingAccessExpiredState
+        reason={gate.reason}
+        isAuthenticated={gate.isAuthenticated}
+        signInHref={gate.signInHref}
+      />
     );
   }
 

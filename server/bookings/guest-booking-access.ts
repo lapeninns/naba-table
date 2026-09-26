@@ -710,6 +710,8 @@ export type GuestPageAccessResult =
         | 'revoked'
         | 'invalid'
         | 'not_configured';
+      /** Whether a Supabase session was present (it did not own the booking). */
+      signedIn: boolean;
     };
 
 /**
@@ -763,10 +765,14 @@ export async function resolveGuestBookingAccessForPage(
   if (tokenFailure) {
     const reason =
       tokenFailure === 'wrong_booking' || tokenFailure === 'missing' ? 'invalid' : tokenFailure;
-    return { status: 'denied', reason };
+    return { status: 'denied', reason, signedIn: Boolean(user) };
   }
 
-  return { status: 'denied', reason: user ? 'not_found' : 'unauthenticated' };
+  return {
+    status: 'denied',
+    reason: user ? 'not_found' : 'unauthenticated',
+    signedIn: Boolean(user),
+  };
 }
 
 // ---------------------------------------------------------------------------
