@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
@@ -118,8 +119,8 @@ export function computeBookingContactFingerprint(
 
 function parseInstantSeconds(value: string | null | undefined): number | null {
   if (!value) return null;
-  const ms = Date.parse(value);
-  return Number.isFinite(ms) ? Math.floor(ms / 1000) : null;
+  const parsed = DateTime.fromISO(value, { setZone: true });
+  return parsed.isValid ? Math.floor(parsed.toMillis() / 1000) : null;
 }
 
 /**

@@ -9,8 +9,7 @@ const updateBookingRecordMock = vi.hoisted(() => vi.fn());
 const beginBookingModificationFlowMock = vi.hoisted(() => vi.fn());
 const logAuditEventMock = vi.hoisted(() => vi.fn());
 const enqueueBookingUpdatedSideEffectsMock = vi.hoisted(() => vi.fn());
-const sessionRecoveryTokenMatchesBookingContactMock = vi.hoisted(() => vi.fn());
-const validateSessionRecoveryAccessTokenMock = vi.hoisted(() => vi.fn());
+const consumeRateLimitMock = vi.hoisted(() => vi.fn());
 const createBookingValidationServiceMock = vi.hoisted(() => vi.fn());
 const isUnifiedBookingValidationEnabledMock = vi.hoisted(() => vi.fn());
 
@@ -112,9 +111,8 @@ vi.mock('@/server/security/api-rate-limit', () => ({
   requireApiRateLimit: vi.fn(async () => null),
 }));
 
-vi.mock('@/server/security/session-recovery-access-token', () => ({
-  sessionRecoveryTokenMatchesBookingContact: sessionRecoveryTokenMatchesBookingContactMock,
-  validateSessionRecoveryAccessToken: validateSessionRecoveryAccessTokenMock,
+vi.mock('@/server/security/rate-limit', () => ({
+  consumeRateLimit: consumeRateLimitMock,
 }));
 
 vi.mock('@/server/supabase', () => ({
@@ -137,6 +135,8 @@ vi.mock('@reserve/shared/validation', () => ({
 }));
 
 import { PUT } from '@/src/app/api/bookings/[id]/route';
+
+import { guestTokenHeaders } from './helpers/guestBookingAccess';
 
 const restaurantId = '11111111-1111-4111-8111-111111111111';
 const otherRestaurantId = '22222222-2222-4222-8222-222222222222';
@@ -187,9 +187,7 @@ function makeUpdateRequest(overrides: Record<string, unknown> = {}) {
     'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
     {
       method: 'PUT',
-      headers: {
-        'x-session-recovery-token': 'valid-token',
-      },
+      headers: guestTokenHeaders(makeBooking()),
       body: JSON.stringify({
         restaurantId,
         date: '2026-07-01',
@@ -212,9 +210,7 @@ function makeDashboardUpdateRequest(overrides: Record<string, unknown> = {}) {
     'https://www.nabatable.com/api/bookings/65c3207e-318a-4e4b-b82d-1249a720d776',
     {
       method: 'PUT',
-      headers: {
-        'x-session-recovery-token': 'valid-token',
-      },
+      headers: guestTokenHeaders(makeBooking()),
       body: JSON.stringify({
         startIso: '2026-07-02T18:30:00.000Z',
         partySize: 4,
@@ -277,27 +273,24 @@ describe('public PUT /api/bookings/[id]', () => {
     logAuditEventMock.mockResolvedValue(undefined);
     enqueueBookingUpdatedSideEffectsMock.mockReset();
     enqueueBookingUpdatedSideEffectsMock.mockResolvedValue(undefined);
-    validateSessionRecoveryAccessTokenMock.mockReset();
-    validateSessionRecoveryAccessTokenMock.mockReturnValue({
+    consumeRateLimitMock.mockReset();
+    consumeRateLimitMock.mockResolvedValue({
       ok: true,
-      payload: {
-        restaurantId,
-        email: 'alex@example.com',
-        phone: '+447700900123',
-      },
+      limit: 10,
+      remaining: 9,
+      resetAt: Date.now() + 60_000,
+      source: 'memory',
     });
     createBookingValidationServiceMock.mockReset();
     isUnifiedBookingValidationEnabledMock.mockReset();
     isUnifiedBookingValidationEnabledMock.mockReturnValue(false);
-    sessionRecoveryTokenMatchesBookingContactMock.mockReset();
-    sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(true);
   });
 
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('allows session-recovery guest updates for the scoped booking contact', async () => {
+  it('allows booking-cookie guest updates for the scoped booking', async () => {
     const lookup = makeBookingLookup(makeBooking());
     serviceFromMock.mockReturnValueOnce(lookup);
 
@@ -314,9 +307,13 @@ describe('public PUT /api/bookings/[id]', () => {
       start_time: '19:00',
       end_time: '20:30',
       party_size: 2,
-      customer_email: 'alex@example.com',
+      // Token access gets masked contact details.
+      customer_email: '',
+      customer_phone: '***0123',
       notes: 'Window seat if possible',
     });
+    expect(body.booking).not.toHaveProperty('idempotency_key');
+    expect(body.booking).not.toHaveProperty('client_request_id');
     expect(lookup.eq).toHaveBeenCalledWith('id', '65c3207e-318a-4e4b-b82d-1249a720d776');
     expect(lookup.eq).toHaveBeenCalledWith('restaurant_id', restaurantId);
     expect(updateBookingRecordMock).toHaveBeenCalledWith(
@@ -338,7 +335,7 @@ describe('public PUT /api/bookings/[id]', () => {
     expect(enqueueBookingUpdatedSideEffectsMock).toHaveBeenCalledOnce();
   });
 
-  it('passes canonical instants through session-recovery dashboard realignment updates', async () => {
+  it('passes canonical instants through booking-cookie dashboard realignment updates', async () => {
     getRestaurantScheduleMock.mockResolvedValue({
       date: '2026-07-02',
       timezone: 'Europe/London',
@@ -453,7 +450,7 @@ describe('public PUT /api/bookings/[id]', () => {
     expect(updateWithEnforcement).not.toHaveBeenCalled();
   });
 
-  it('blocks session-recovery updates when the payload moves the booking across restaurants', async () => {
+  it('blocks booking-cookie updates when the payload moves the booking across restaurants', async () => {
     serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
 
     const response = await PUT(makeUpdateRequest({ restaurantId: otherRestaurantId }), {
@@ -467,17 +464,21 @@ describe('public PUT /api/bookings/[id]', () => {
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
   });
 
-  it('rejects session-recovery updates when the token does not match booking contact data', async () => {
-    sessionRecoveryTokenMatchesBookingContactMock.mockReturnValue(false);
-    serviceFromMock.mockReturnValueOnce(makeBookingLookup(makeBooking()));
+  it('rejects booking-cookie updates once the booking contact changed (revoked)', async () => {
+    serviceFromMock.mockReturnValueOnce(
+      makeBookingLookup(makeBooking({ customer_email: 'changed@example.com' })),
+    );
 
     const response = await PUT(makeUpdateRequest(), {
       params: Promise.resolve({ id: '65c3207e-318a-4e4b-b82d-1249a720d776' }),
     });
     const body = await response.json();
 
-    expect(response.status).toBe(404);
-    expect(body.code).toBe('BOOKING_NOT_FOUND');
+    expect(response.status).toBe(410);
+    expect(body.code).toBe('ACCESS_TOKEN_REVOKED');
+    expect(response.headers.getSetCookie().join('\n')).toContain(
+      '__Host-nt_bk.65c3207e-318a-4e4b-b82d-1249a720d776=;',
+    );
     expect(updateBookingRecordMock).not.toHaveBeenCalled();
     expect(beginBookingModificationFlowMock).not.toHaveBeenCalled();
   });
