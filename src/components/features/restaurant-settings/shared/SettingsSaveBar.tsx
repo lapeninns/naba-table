@@ -39,11 +39,27 @@ export type SettingsSaveBarProps = {
   onDiscard: () => void;
   onShowFirstIssue: () => void;
   onReview?: () => void;
+  /**
+   * Fixed copy shown when a save fails because the stored settings changed underneath the draft.
+   * Pages whose recovery differs from "reload and reapply" pass their own. Never server text.
+   */
+  conflictMessage?: string;
 };
 
 /** Fixed copy for a conflicting save. The server's own error text is never shown. */
 export const SETTINGS_SAVE_CONFLICT_MESSAGE =
   'Someone else changed these settings. Reload to see the latest, then reapply your edits.';
+
+/** Discovery refetches the latest snapshot on a conflict and rebases the draft onto it. */
+export const DISCOVERY_SAVE_CONFLICT_MESSAGE =
+  'Someone else changed these details. The latest version is loaded; review and save again.';
+
+/**
+ * Availability keeps the draft (and the revision it was based on) while it has unsaved edits, so
+ * retrying would be refused again: discarding loads the latest saved settings.
+ */
+export const AVAILABILITY_SAVE_CONFLICT_MESSAGE =
+  'Someone else changed these settings. Discard your changes to load the latest, then make your edits again.';
 
 const BAR_CLASS =
   'z-20 flex shrink-0 flex-col gap-2 border-t border-border/60 bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between sm:gap-4';
@@ -115,6 +131,7 @@ function SettingsSaveBarRegion({
   onSave,
   onShowFirstIssue,
   onReview,
+  conflictMessage = SETTINGS_SAVE_CONFLICT_MESSAGE,
   onRequestDiscard,
 }: SettingsSaveBarProps & { onRequestDiscard: () => void }) {
   const isSaving = progress !== null;
@@ -139,7 +156,7 @@ function SettingsSaveBarRegion({
           <span>
             {failure.failedSection} not saved.{' '}
             {failure.reasonCode === SETTINGS_SAVE_CONFLICT_CODE
-              ? SETTINGS_SAVE_CONFLICT_MESSAGE
+              ? conflictMessage
               : 'Your edits are still here.'}
           </span>
         </p>

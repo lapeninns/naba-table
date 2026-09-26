@@ -607,6 +607,9 @@ describe('AvailabilitySettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(await screen.findByText(/Someone else changed these settings\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Discard your changes to load the latest, then make your edits again\./),
+    ).toBeInTheDocument();
     expect(screen.getByText('CONFLICT', { selector: '.font-mono' })).toBeInTheDocument();
   });
 

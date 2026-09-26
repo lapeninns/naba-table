@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 
-import { apiError, internalError, validationError } from '@/lib/api/errors';
-import { captureServerException } from '@/lib/posthog/server';
 import {
-  authorizeAvailabilityAdmin,
-  resolveAvailabilityRouteRestaurantId,
-} from '@/server/restaurants/availabilityRouteAuth';
+  apiError,
+  forbidden,
+  internalError,
+  validationError,
+  type ApiErrorBody,
+} from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
+import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
+import { resolveAvailabilityRouteRestaurantId } from '@/server/restaurants/availabilityRouteAuth';
 import { turnBandsPayloadSchema } from '@/server/restaurants/availabilitySchemas';
 import { getServicePeriods } from '@/server/restaurants/servicePeriods';
 import { buildTurnBandsSnapshot } from '@/server/restaurants/turnBandDefaults';
@@ -16,6 +20,7 @@ import {
 } from '@/server/restaurants/turnBands';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
+import { requireAdminMembership } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
 
@@ -29,6 +34,54 @@ type RouteParams = {
 
 function missingRestaurantId() {
   return apiError(400, 'RESTAURANT_ID_REQUIRED', 'Missing restaurant id.');
+}
+
+type SessionClient = Awaited<ReturnType<typeof getRouteHandlerSupabaseClient>>;
+
+function membershipErrorCode(error: unknown): string | null {
+  if (error && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === 'string' ? code : null;
+  }
+  return null;
+}
+
+/**
+ * Route-level guard: session, then restaurant-admin membership, before the body is read and
+ * before any service-role client exists. Kept in this file (not only in the shared availability
+ * helper) because the PUT writes with the service client, and the service-role route scanner
+ * requires the admin check to be visible where that client is created. Same C1 responses as
+ * `authorizeAvailabilityAdmin`.
+ */
+async function requireTurnBandsAdmin(
+  restaurantId: string,
+): Promise<NextResponse<ApiErrorBody> | { userId: string; supabase: SessionClient }> {
+  const supabase = await getRouteHandlerSupabaseClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError) {
+    const mapped = mapSupabaseAuthError(authError);
+    return apiError(mapped.status, mapped.code, mapped.message, {
+      retryable: mapped.status >= 500,
+    });
+  }
+  if (!user) {
+    return apiError(401, 'UNAUTHENTICATED', 'Authentication required');
+  }
+
+  try {
+    await requireAdminMembership({ userId: user.id, restaurantId, client: supabase });
+  } catch (error) {
+    if (membershipErrorCode(error) === 'MEMBERSHIP_VALIDATION_UNAVAILABLE') {
+      return internalError(error, { route: ROUTE, restaurantId, stage: 'membership' });
+    }
+    return forbidden('FORBIDDEN', 'Only restaurant owners and managers can change availability.');
+  }
+
+  return { userId: user.id, supabase };
 }
 
 function handleFailure(error: unknown, method: string, restaurantId: string) {
@@ -47,13 +100,13 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     return missingRestaurantId();
   }
 
-  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  const actor = await requireTurnBandsAdmin(restaurantId);
   if (actor instanceof NextResponse) {
     return actor;
   }
 
   try {
-    const supabase = await getRouteHandlerSupabaseClient();
+    const { supabase } = actor;
     const [bands, periods] = await Promise.all([
       getRestaurantTurnBands(restaurantId, supabase),
       getServicePeriods(restaurantId, supabase),
@@ -74,8 +127,8 @@ async function putTurnBands(req: NextRequest, { params }: RouteParams) {
     return missingRestaurantId();
   }
 
-  // Authorise before reading the body.
-  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  // Authorise before reading the body and before any service-role client is created.
+  const actor = await requireTurnBandsAdmin(restaurantId);
   if (actor instanceof NextResponse) {
     return actor;
   }

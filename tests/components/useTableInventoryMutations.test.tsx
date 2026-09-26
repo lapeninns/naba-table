@@ -206,6 +206,47 @@ describe('useTableInventoryMutations', () => {
     vi.clearAllMocks();
   });
 
+  it.each([
+    ['TABLE_NUMBER_TAKEN', true],
+    // A server that predates C1 codes answers a duplicate number with a bare 409.
+    ['HTTP_409', true],
+    ['MAINTENANCE_CONFLICT', false],
+    ['STALE_WRITE', false],
+  ] as const)(
+    'routes a 409 %s on table save to the number field only when it is a number clash',
+    async (code, isNumberConflict) => {
+      const queryClient = createAppQueryClient();
+      const tableService = createTableService({
+        update: vi
+          .fn()
+          .mockRejectedValue(new HttpError({ message: 'Conflict', status: 409, code })),
+      });
+      const { result } = renderMutations({
+        queryClient,
+        tableService,
+        zoneService: createZoneService(),
+      });
+      await waitFor(() => expect(cachedTable(queryClient, 'table-1')).toBeDefined());
+
+      await act(async () => {
+        await result.current.updateMutation
+          .mutateAsync({ tableId: 'table-1', payload: { tableNumber: '4', capacity: 6 } })
+          .catch(() => undefined);
+      });
+
+      if (isNumberConflict) {
+        expect(callbacks.onTableNumberConflict).toHaveBeenCalledWith('4');
+        expect(toastMocks.error).not.toHaveBeenCalled();
+      } else {
+        expect(callbacks.onTableNumberConflict).not.toHaveBeenCalled();
+        expect(toastMocks.error).toHaveBeenCalledWith(
+          'Table wasn’t saved. Your details are still here.',
+          expect.objectContaining({ description: expect.anything() }),
+        );
+      }
+    },
+  );
+
   it("leaves another restaurant's tables cache alone when a table is saved", async () => {
     const queryClient = createAppQueryClient();
     const otherKey = queryKeys.opsTables.list(RESTAURANT_B);

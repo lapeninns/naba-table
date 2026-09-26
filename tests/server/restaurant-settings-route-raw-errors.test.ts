@@ -26,6 +26,25 @@ const disconnectConnectionMock = vi.hoisted(() => vi.fn());
 const createAuthorizationMock = vi.hoisted(() => vi.fn());
 const verifyUserPasswordConfirmationMock = vi.hoisted(() => vi.fn());
 const requireProviderRefreshBudgetMock = vi.hoisted(() => vi.fn());
+const businessContextErrors = vi.hoisted(() => {
+  class BusinessContextValidationError extends Error {
+    readonly field: string;
+    constructor(field: string, message: string) {
+      super(message);
+      this.name = 'BusinessContextValidationError';
+      this.field = field;
+    }
+  }
+  class BusinessContextStaleWriteError extends Error {
+    readonly currentRevision: number;
+    constructor(currentRevision: number) {
+      super('Business context changed since it was loaded.');
+      this.name = 'BusinessContextStaleWriteError';
+      this.currentRevision = currentRevision;
+    }
+  }
+  return { BusinessContextValidationError, BusinessContextStaleWriteError };
+});
 const PasswordConfirmationErrorMock = vi.hoisted(
   () =>
     class PasswordConfirmationError extends Error {
@@ -61,6 +80,8 @@ vi.mock('@/src/app/api/ops/restaurants/[id]/email-templates/_shared', () => ({
 }));
 
 vi.mock('@/server/restaurants/businessContext', () => ({
+  BusinessContextValidationError: businessContextErrors.BusinessContextValidationError,
+  BusinessContextStaleWriteError: businessContextErrors.BusinessContextStaleWriteError,
   getRestaurantBusinessContext: getRestaurantBusinessContextMock,
   updateRestaurantBusinessContext: updateRestaurantBusinessContextMock,
 }));
@@ -136,6 +157,8 @@ vi.mock('@/server/security/csrf', () => ({
   withCsrfProtectedMutation: vi.fn((_req: unknown, handler: () => Promise<Response>) => handler()),
 }));
 
+import { INTERNAL_ERROR_MESSAGE } from '@/lib/api/errors';
+import { GoogleBusinessProfileError } from '@/server/google-business-profile/errors';
 import {
   GET as getBusinessContext,
   PUT as putBusinessContext,
@@ -157,6 +180,7 @@ import {
 } from '@/src/app/api/ops/restaurants/[id]/route';
 import { GET as getServicePeriodsRoute } from '@/src/app/api/ops/restaurants/[id]/service-periods/route';
 import { GET as getTurnBands } from '@/src/app/api/ops/restaurants/[id]/turn-bands/route';
+
 
 import type * as LoggerModule from '@/lib/logger';
 
@@ -208,6 +232,28 @@ async function expectSafeFailure(
 }
 
 /**
+ * A known failure mapped to a fixed C1 code (4xx): the body never carries the raw exception text,
+ * and nothing that was logged carries staff PII.
+ */
+async function expectSafeKnownFailure(
+  response: Response,
+  expected: { status: number; code: string },
+): Promise<Record<string, unknown>> {
+  expect(response.status).toBe(expected.status);
+  const text = await response.text();
+  expect(text).not.toContain(SENTINEL);
+  expect(text).not.toContain(STAFF_EMAIL);
+  const body = JSON.parse(text) as Record<string, unknown>;
+  expect(body.code).toBe(expected.code);
+  expect(typeof body.message).toBe('string');
+  expect(body.error).toBe(body.message);
+  const logged = JSON.stringify(loggerErrorMock.mock.calls);
+  expect(logged).not.toContain(STAFF_EMAIL);
+  expect(logged).not.toContain('7700 900123');
+  return body;
+}
+
+/**
  * Routes migrated to C1 (`internalError`) log a sanitized error message server-side (PII
  * redacted by lib/logger) and never return it. The client body is the fixed C1 shape.
  */
@@ -227,6 +273,27 @@ async function expectC1InternalFailure(
   expect(loggerErrorMock).toHaveBeenCalledWith(
     'api.internal_error',
     expect.objectContaining({ route: expected.route, restaurantId: RESTAURANT_ID }),
+  );
+  const logged = JSON.stringify(loggerErrorMock.mock.calls);
+  expect(logged).not.toContain(STAFF_EMAIL);
+  expect(logged).not.toContain('7700 900123');
+}
+
+/** GBP routes: internalError with the route's own fallback copy; the body is fixed. */
+async function expectGbpInternalFailure(response: Response): Promise<void> {
+  expect(response.status).toBe(500);
+  const text = await response.text();
+  expect(text).not.toContain(SENTINEL);
+  expect(text).not.toContain(STAFF_EMAIL);
+  const body = JSON.parse(text) as Record<string, unknown>;
+  expect(body.code).toBe('INTERNAL_ERROR');
+  expect(Object.keys(body).sort()).toEqual(['code', 'error', 'message']);
+  expect(loggerErrorMock).toHaveBeenCalledWith(
+    'api.internal_error',
+    expect.objectContaining({
+      route: 'ops.restaurants.google-business-profile',
+      restaurantId: RESTAURANT_ID,
+    }),
   );
   const logged = JSON.stringify(loggerErrorMock.mock.calls);
   expect(logged).not.toContain(STAFF_EMAIL);
@@ -261,31 +328,66 @@ describe('restaurant settings routes never echo raw exception text', () => {
 
     const response = await getBusinessContext(jsonRequest('GET'), routeContext());
 
-    await expectSafeFailure(response, { status: 500, route: 'ops.restaurants.business-context' });
+    await expectC1InternalFailure(response, {
+      route: 'ops.restaurants.business-context',
+      message: 'Unable to load restaurant business context.',
+    });
   });
 
-  it('business-context PUT keeps its 400 status with fixed copy and a stable code', async () => {
+  it('business-context PUT returns a fixed 500 with a stable code for unexpected failures', async () => {
     updateRestaurantBusinessContextMock.mockRejectedValue(secretError());
 
     const response = await putBusinessContext(jsonRequest('PUT', { links: [] }), routeContext());
 
-    const body = await expectSafeFailure(response, {
-      status: 400,
+    await expectC1InternalFailure(response, {
       route: 'ops.restaurants.business-context',
-    });
-    expect(body).toEqual({
-      error: 'Unable to update restaurant business context.',
-      code: 'SETTINGS_REQUEST_FAILED',
+      message: 'Unable to update restaurant business context.',
     });
   });
 
-  it('business-context PUT still returns zod details for invalid payloads', async () => {
+  it('business-context PUT maps domain validation to a 400 with field errors', async () => {
+    updateRestaurantBusinessContextMock.mockRejectedValue(
+      new businessContextErrors.BusinessContextValidationError(
+        'links.0.url',
+        'Enter a full web address.',
+      ),
+    );
+
+    const response = await putBusinessContext(jsonRequest('PUT', { links: [] }), routeContext());
+
+    const body = await expectSafeKnownFailure(response, {
+      status: 400,
+      code: 'VALIDATION_FAILED',
+    });
+    expect(body.fields).toEqual({ 'links.0.url': ['Enter a full web address.'] });
+    expect(loggerErrorMock).not.toHaveBeenCalled();
+  });
+
+  it('business-context PUT maps a stale revision to 409 STALE_WRITE', async () => {
+    updateRestaurantBusinessContextMock.mockRejectedValue(
+      new businessContextErrors.BusinessContextStaleWriteError(7),
+    );
+
+    const response = await putBusinessContext(
+      jsonRequest('PUT', { links: [], expectedRevision: 6 }),
+      routeContext(),
+    );
+
+    const body = await expectSafeKnownFailure(response, { status: 409, code: 'STALE_WRITE' });
+    expect(body.details).toEqual({ currentRevision: 7 });
+  });
+
+  it('business-context PUT returns C1 field errors for invalid payloads', async () => {
     const response = await putBusinessContext(jsonRequest('PUT', {}), routeContext());
 
-    expect(response.status).toBe(400);
-    const body = (await response.json()) as { error: string; details: unknown };
-    expect(body.error).toBe('Invalid payload');
-    expect(body.details).toBeTruthy();
+    const body = await expectSafeKnownFailure(response, {
+      status: 400,
+      code: 'VALIDATION_FAILED',
+    });
+    expect(body.fields).toEqual({
+      _root: ['At least one business-context family must be provided.'],
+    });
+    expect(updateRestaurantBusinessContextMock).not.toHaveBeenCalled();
     expect(loggerErrorMock).not.toHaveBeenCalled();
   });
 
@@ -367,22 +469,43 @@ describe('restaurant settings routes never echo raw exception text', () => {
     ],
     ['turn-bands', () => getRestaurantTurnBandsMock, getTurnBands, 'ops.restaurants.turn-bands'],
   ] as const)(
-    '%s keeps its 400 status with fixed copy when the domain call throws',
+    '%s GET returns a fixed 500 when the read fails',
     async (_name, getMock, handler, route) => {
       getMock().mockRejectedValue(secretError());
       getServicePeriodsMock.mockRejectedValue(secretError());
 
       const response = await handler(jsonRequest('GET'), routeContext());
 
-      const body = await expectSafeFailure(response, { status: 400, route });
-      expect(body).toEqual({
-        error: 'Unable to process these settings.',
-        code: 'SETTINGS_REQUEST_FAILED',
+      // A failed read is not a caller mistake: C1 internalError, no raw text in the body.
+      await expectC1InternalFailure(response, {
+        route,
+        message: INTERNAL_ERROR_MESSAGE,
       });
     },
   );
 
   it('GBP link keeps a 404 for an unavailable location without echoing the message', async () => {
+    linkLocationMock.mockRejectedValue(
+      new GoogleBusinessProfileError(`${SENTINEL} The selected location is no longer available.`, {
+        code: 'GBP_LOCATION_NOT_FOUND',
+        status: 404,
+      }),
+    );
+
+    const response = await gbpPUT(
+      jsonRequest('PUT', {
+        accountName: 'accounts/1',
+        accountId: '1',
+        locationName: 'locations/2',
+        locationId: '2',
+      }),
+      routeContext(),
+    );
+
+    await expectSafeKnownFailure(response, { status: 404, code: 'GBP_LOCATION_NOT_FOUND' });
+  });
+
+  it('GBP link does not classify an untyped error by its message', async () => {
     linkLocationMock.mockRejectedValue(
       new Error(`${SENTINEL} The selected location is no longer available.`),
     );
@@ -397,11 +520,10 @@ describe('restaurant settings routes never echo raw exception text', () => {
       routeContext(),
     );
 
-    const body = await expectSafeFailure(response, {
-      status: 404,
-      route: 'ops.restaurants.google-business-profile',
-    });
-    expect(body.code).toBe('GBP_LOCATION_NOT_FOUND');
+    const text = await response.text();
+    expect(response.status).toBe(500);
+    expect(text).not.toContain(SENTINEL);
+    expect((JSON.parse(text) as { code: string }).code).toBe('INTERNAL_ERROR');
   });
 
   it('GBP link returns a fixed 500 for unexpected failures', async () => {
@@ -417,27 +539,28 @@ describe('restaurant settings routes never echo raw exception text', () => {
       routeContext(),
     );
 
-    const body = await expectSafeFailure(response, {
-      status: 500,
-      route: 'ops.restaurants.google-business-profile',
-    });
-    expect(body.code).toBe('GBP_LINK_FAILED');
+    await expectGbpInternalFailure(response);
   });
 
   it.each([
-    [`${SENTINEL} Link a Google Business Profile location first`, 409, 'GBP_LOCATION_NOT_LINKED'],
-    [`${SENTINEL} please reconnect`, 409, 'GBP_REAUTH_REQUIRED'],
-    [`${SENTINEL} ${STAFF_EMAIL}`, 500, 'GBP_SYNC_FAILED'],
-  ] as const)('GBP sync keeps its status mapping for %s', async (message, status, code) => {
-    syncBusinessInfoMock.mockRejectedValue(new Error(message));
+    ['GBP_LOCATION_NOT_LINKED', 409],
+    ['GBP_REAUTH_REQUIRED', 409],
+  ] as const)('GBP sync maps a typed %s error by code', async (code, status) => {
+    syncBusinessInfoMock.mockRejectedValue(
+      new GoogleBusinessProfileError(`${SENTINEL} ${STAFF_EMAIL}`, { code, status }),
+    );
 
     const response = await gbpPOST(jsonRequest('POST', { password: 'pw' }), routeContext());
 
-    const body = await expectSafeFailure(response, {
-      status,
-      route: 'ops.restaurants.google-business-profile',
-    });
-    expect(body.code).toBe(code);
+    await expectSafeKnownFailure(response, { status, code });
+  });
+
+  it('GBP sync returns a fixed 500 for unexpected failures', async () => {
+    syncBusinessInfoMock.mockRejectedValue(new Error(`${SENTINEL} ${STAFF_EMAIL}`));
+
+    const response = await gbpPOST(jsonRequest('POST', { password: 'pw' }), routeContext());
+
+    await expectGbpInternalFailure(response);
   });
 
   it('GBP sync still returns password confirmation errors unchanged', async () => {
@@ -460,11 +583,7 @@ describe('restaurant settings routes never echo raw exception text', () => {
 
     const response = await gbpDELETE(jsonRequest('DELETE', { password: 'pw' }), routeContext());
 
-    const body = await expectSafeFailure(response, {
-      status: 500,
-      route: 'ops.restaurants.google-business-profile',
-    });
-    expect(body.code).toBe('GBP_DISCONNECT_FAILED');
+    await expectGbpInternalFailure(response);
   });
 
   it('GBP connect returns a fixed 500 when authorization cannot start', async () => {
