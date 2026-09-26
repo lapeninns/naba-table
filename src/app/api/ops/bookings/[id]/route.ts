@@ -34,7 +34,12 @@ import {
   buildBookingInstantFieldsFromLocalTimes,
   type BookingInstantFields,
 } from '@/server/bookings/instant-fields';
-import { beginBookingModificationFlow } from '@/server/bookings/modification-flow';
+import {
+  beginBookingModificationFlow,
+  bookingModificationConflictResponse,
+  isBookingModificationConflictError,
+} from '@/server/bookings/modification-flow';
+import { withOwnerBindingRevokedOnEmailChange } from '@/server/bookings/owner-binding';
 import {
   PastBookingError,
   assertBookingNotInPast,
@@ -60,6 +65,7 @@ import {
   isDbStrictConstraintMappingEnabled,
   isUnifiedBookingValidationEnabled,
 } from '@/server/runtime-policy';
+import { withCsrfProtectedMutation } from '@/server/security/csrf';
 import {
   getRouteHandlerSupabaseClient,
   getServiceSupabaseClient,
@@ -102,29 +108,15 @@ function readNotCancellable(
   return { currentStatus: status as Tables<'bookings'>['status'] | null };
 }
 
-const MODIFICATION_CONFLICT_MESSAGES = {
-  MODIFICATION_NO_TABLES: 'No table is free for that change. The booking has not been changed.',
-  MODIFICATION_TABLES_UNCONFIRMED:
-    'Tables for that change could not be confirmed. The booking has not been changed.',
-  BOOKING_STATE_CONFLICT:
-    'This booking changed while you were editing it. The booking has not been changed.',
-} as const;
-
-type ModificationConflictCode = keyof typeof MODIFICATION_CONFLICT_MESSAGES;
-
 /**
- * S2's BookingModificationConflictError (mw/handoffs/S2-modification-flow.md), matched
- * structurally so this route keeps compiling against the current modification-flow export.
+ * S2's BookingModificationConflictError (mw/handoffs/S2-modification-flow.md) as a C1 409,
+ * including MODIFICATION_UNAVAILABLE (swap RPC not deployed). Checked before the
+ * BookingValidationError branch, because the conflict error extends it.
  */
 function modificationConflictResponse(error: unknown) {
-  if (!error || typeof error !== 'object') return null;
-  const record = error as { status?: unknown; code?: unknown; retryable?: unknown };
-  if (record.status !== 409 || typeof record.code !== 'string') return null;
-  if (!(record.code in MODIFICATION_CONFLICT_MESSAGES)) return null;
-  const code = record.code as ModificationConflictCode;
-  return conflict(code, MODIFICATION_CONFLICT_MESSAGES[code], {
-    retryable: record.retryable === true,
-  });
+  return isBookingModificationConflictError(error)
+    ? bookingModificationConflictResponse(error)
+    : null;
 }
 
 function invalidDateValues() {
@@ -330,7 +322,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   });
 }
 
-export async function PATCH(req: NextRequest, { params }: RouteParams) {
+export async function PATCH(req: NextRequest, context: RouteParams) {
+  return withCsrfProtectedMutation(req, () => patchOpsBooking(req, context));
+}
+
+async function patchOpsBooking(req: NextRequest, { params }: RouteParams) {
   const timing = createOpsBookingApiTiming('ops.bookings.patch');
   const bookingId = await timing.measure('params', resolveBookingId(params));
 
@@ -741,14 +737,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             bookingId,
             existingBooking,
             source: 'ops',
-            payload: {
+            payload: withOwnerBindingRevokedOnEmailChange(existingBooking, {
               booking_date: bookingDate,
               start_time: startTime,
               end_time: endTime,
               ...instantFields,
               party_size: parsed.data.partySize,
               notes: normalizedNotes,
-            },
+            }),
           }),
         )
       : await timing.measure(
@@ -756,14 +752,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           updateBookingRecord(
             tenantClient,
             bookingId,
-            {
+            withOwnerBindingRevokedOnEmailChange(existingBooking, {
               booking_date: bookingDate,
               start_time: startTime,
               end_time: endTime,
               ...instantFields,
               party_size: parsed.data.partySize,
               notes: normalizedNotes,
-            },
+            }),
             { restaurantId: existingBooking.restaurant_id },
           ),
         );
@@ -992,14 +988,14 @@ async function handleUnifiedOpsUpdate(params: UnifiedOpsUpdateParams) {
           bookingId,
           existingBooking,
           source: 'ops',
-          payload: {
+          payload: withOwnerBindingRevokedOnEmailChange(existingBooking, {
             booking_date: bookingDate,
             start_time: startTime,
             end_time: endTime,
             ...instantFields,
             party_size: payload.partySize,
             notes: payload.notes ?? null,
-          },
+          }),
         }),
       );
       validationResponse = validation.response;
@@ -1190,7 +1186,11 @@ function bookingNotCancellable(currentStatus: Tables<'bookings'>['status'] | nul
   });
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, context: RouteParams) {
+  return withCsrfProtectedMutation(req, () => deleteOpsBooking(context));
+}
+
+async function deleteOpsBooking({ params }: RouteParams) {
   const bookingId = await resolveBookingId(params);
 
   if (!bookingId) {
