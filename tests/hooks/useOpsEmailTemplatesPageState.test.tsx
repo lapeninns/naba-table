@@ -10,7 +10,7 @@ import type {
   RestaurantEmailTemplatesSnapshot,
 } from '@/services/ops/restaurants';
 
-// Seams: the ops session context, the five template hooks (each covered by its
+// Seams: the ops session context, the five template hooks (the preview is a query hook) (each covered by its
 // own suite), and sonner toasts. Everything else (draft reducers, dirty
 // tracking, search, variant CRUD) runs for real.
 type SessionState = {
@@ -29,10 +29,12 @@ const templateHooks = vi.hoisted(() => ({
   templatesQuery: { data: undefined as RestaurantEmailTemplatesSnapshot | undefined },
   updateMutation: { mutateAsync: vi.fn(), isPending: false },
   resetMutation: { mutateAsync: vi.fn(), isPending: false },
-  previewMutation: {
-    mutate: vi.fn(),
+  previewRequests: [] as unknown[],
+  previewQuery: {
     data: undefined as { templateKey: string } | undefined,
-    isPending: false,
+    error: null as unknown,
+    isPreviewStale: false,
+    refetch: undefined as (() => Promise<unknown>) | undefined,
   },
   testSendMutation: { mutateAsync: vi.fn(), isPending: false },
 }));
@@ -51,7 +53,10 @@ vi.mock('@/hooks/ops/useOpsRestaurantEmailTemplates', () => ({
   },
   useOpsUpdateRestaurantEmailTemplate: () => templateHooks.updateMutation,
   useOpsResetRestaurantEmailTemplate: () => templateHooks.resetMutation,
-  useOpsPreviewRestaurantEmailTemplate: () => templateHooks.previewMutation,
+  useOpsRestaurantEmailTemplatePreview: (_restaurantId: string | null, request: unknown) => {
+    templateHooks.previewRequests.push(request);
+    return templateHooks.previewQuery;
+  },
   useOpsSendRestaurantEmailTemplateTest: () => templateHooks.testSendMutation,
 }));
 
@@ -155,7 +160,9 @@ describe('useOpsEmailTemplatesPageState', () => {
     session.activeMembership = { restaurantId: 'rest-1', restaurantName: 'Cafe One' };
     templateHooks.restaurantIds = [];
     templateHooks.templatesQuery = { data: makeSnapshot() };
-    templateHooks.previewMutation.data = undefined;
+    templateHooks.previewRequests = [];
+    templateHooks.previewQuery = { data: undefined, error: null, isPreviewStale: false };
+    templateHooks.testSendMutation.mutateAsync.mockReset();
     templateHooks.updateMutation.mutateAsync.mockResolvedValue({});
     templateHooks.resetMutation.mutateAsync.mockResolvedValue({});
     templateHooks.testSendMutation.mutateAsync.mockResolvedValue({ provider: 'resend' });
@@ -504,27 +511,21 @@ describe('useOpsEmailTemplatesPageState', () => {
     expect(result.current.isCurrentDirty).toBe(false);
   });
 
-  it('@contract handleResetTemplate only resets custom templates after confirmation', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+  it('@contract handleResetTemplate asks for confirmation and only resets custom templates', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
     const { result } = setup();
 
     // Default templates never prompt or reset.
-    await act(async () => {
-      await result.current.handleResetTemplate('confirmation');
-    });
-    expect(confirmSpy).not.toHaveBeenCalled();
+    act(() => result.current.handleResetTemplate('confirmation'));
+    expect(result.current.pendingResetTemplate).toBeNull();
+
+    // Cancelling the dialog keeps the custom template untouched.
+    act(() => result.current.handleResetTemplate('cancelled'));
+    expect(result.current.pendingResetTemplate?.title).toBe('Booking cancelled');
+    act(() => result.current.cancelResetTemplate());
+    expect(result.current.pendingResetTemplate).toBeNull();
     expect(templateHooks.resetMutation.mutateAsync).not.toHaveBeenCalled();
 
-    // Declining the prompt keeps the custom template untouched.
-    await act(async () => {
-      await result.current.handleResetTemplate('cancelled');
-    });
-    expect(confirmSpy).toHaveBeenCalledWith(
-      'Reset "Booking cancelled" back to the system default variants?',
-    );
-    expect(templateHooks.resetMutation.mutateAsync).not.toHaveBeenCalled();
-
-    confirmSpy.mockReturnValue(true);
     act(() => result.current.handleSelectTemplate('cancelled'));
     act(() =>
       result.current.updateCurrentVariant('cancelled-a', (variant) => ({
@@ -533,37 +534,42 @@ describe('useOpsEmailTemplatesPageState', () => {
       })),
     );
 
+    act(() => result.current.handleResetTemplate('cancelled'));
     await act(async () => {
-      await result.current.handleResetTemplate('cancelled');
+      await result.current.confirmResetTemplate();
     });
 
+    expect(confirmSpy).not.toHaveBeenCalled();
     expect(templateHooks.resetMutation.mutateAsync).toHaveBeenCalledWith({
       templateKey: 'cancelled',
     });
+    expect(result.current.pendingResetTemplate).toBeNull();
     expect(result.current.isCurrentDirty).toBe(false);
     expect(toast.success).toHaveBeenCalledWith('Template reset', {
       description: 'Booking cancelled is using the default copy again.',
     });
   });
 
-  it('@contract handleResetTemplate surfaces reset failures', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  it('@contract handleResetTemplate surfaces reset failures and keeps the dialog open', async () => {
     templateHooks.resetMutation.mutateAsync.mockRejectedValue(
       new HttpError({ status: 500, message: SENTINEL }),
     );
     const { result } = setup();
 
+    act(() => result.current.handleResetTemplate('cancelled'));
     await act(async () => {
-      await result.current.handleResetTemplate('cancelled');
+      await result.current.confirmResetTemplate();
     });
 
     expect(toast.error).toHaveBeenCalledWith('Reset failed', {
       description: 'The template could not be reset. Reason code: HTTP_500.',
     });
     expectNoSentinelInToasts();
+    expect(result.current.pendingResetTemplate?.title).toBe('Booking cancelled');
   });
 
   it('@contract handleSendTest validates the address then sends the current variants', async () => {
+    templateHooks.testSendMutation.mutateAsync.mockResolvedValue({ provider: 'resend' });
     const { result } = setup();
 
     await act(async () => {
@@ -584,37 +590,68 @@ describe('useOpsEmailTemplatesPageState', () => {
         preferredVariantId: 'confirmation-a',
         variants: [expect.objectContaining({ id: 'confirmation-a' })],
       },
+      idempotencyKey: expect.any(String),
     });
-    expect(toast.success).toHaveBeenCalledWith('Test email sent', {
-      description: 'Delivered to ops@example.com via resend.',
+  });
+
+  it('reuses the idempotency key when the same send is retried after a failure', async () => {
+    templateHooks.testSendMutation.mutateAsync
+      .mockRejectedValueOnce(new HttpError({ status: 502, message: 'x' }))
+      .mockResolvedValueOnce({ provider: 'resend' })
+      .mockResolvedValueOnce({ provider: 'resend' });
+    const { result } = setup();
+    act(() => result.current.setTestEmail('ops@example.com'));
+
+    await act(async () => {
+      await result.current.handleSendTest();
+    });
+    await act(async () => {
+      await result.current.handleSendTest();
+    });
+    await act(async () => {
+      await result.current.handleSendTest();
     });
 
+    const keys = templateHooks.testSendMutation.mutateAsync.mock.calls.map(
+      ([variables]) => (variables as { idempotencyKey: string }).idempotencyKey,
+    );
+    // Failed attempt and its retry share a key; a new send after success gets a new one.
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[1]);
+    // Feedback belongs to the mutation hook (meta.feedback), not the page.
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it('starts a new send intent when the draft changes', async () => {
     templateHooks.testSendMutation.mutateAsync.mockRejectedValue(
-      new HttpError({ status: 500, message: SENTINEL }),
+      new HttpError({ status: 502, message: 'x' }),
+    );
+    const { result } = setup();
+    act(() => result.current.setTestEmail('ops@example.com'));
+
+    await act(async () => {
+      await result.current.handleSendTest();
+    });
+    act(() =>
+      result.current.updateCurrentVariant('confirmation-a', (variant) => ({
+        ...variant,
+        intro: 'Edited',
+      })),
     );
     await act(async () => {
       await result.current.handleSendTest();
     });
-    expect(toast.error).toHaveBeenCalledWith('Test send failed', {
-      description: 'The test email could not be sent. Reason code: HTTP_500.',
-    });
-    expectNoSentinelInToasts();
+
+    const [first, second] = templateHooks.testSendMutation.mutateAsync.mock.calls.map(
+      ([variables]) => (variables as { idempotencyKey: string }).idempotencyKey,
+    );
+    expect(first).not.toBe(second);
   });
 
-  it('@contract debounces draft previews by 180ms and collapses rapid edits', () => {
-    vi.useFakeTimers();
+  it('@contract passes the current draft to the preview query', () => {
     const { result } = setup();
 
-    act(() => {
-      vi.advanceTimersByTime(179);
-    });
-    expect(templateHooks.previewMutation.mutate).not.toHaveBeenCalled();
-
-    act(() => {
-      vi.advanceTimersByTime(1);
-    });
-    expect(templateHooks.previewMutation.mutate).toHaveBeenCalledTimes(1);
-    expect(templateHooks.previewMutation.mutate).toHaveBeenCalledWith({
+    expect(templateHooks.previewRequests.at(-1)).toEqual({
       templateKey: 'confirmation',
       payload: {
         preferredVariantId: 'confirmation-a',
@@ -625,24 +662,11 @@ describe('useOpsEmailTemplatesPageState', () => {
     act(() =>
       result.current.updateCurrentVariant('confirmation-a', (variant) => ({
         ...variant,
-        intro: 'First edit',
-      })),
-    );
-    act(() => {
-      vi.advanceTimersByTime(100);
-    });
-    act(() =>
-      result.current.updateCurrentVariant('confirmation-a', (variant) => ({
-        ...variant,
         intro: 'Second edit',
       })),
     );
-    act(() => {
-      vi.advanceTimersByTime(180);
-    });
 
-    expect(templateHooks.previewMutation.mutate).toHaveBeenCalledTimes(2);
-    expect(templateHooks.previewMutation.mutate).toHaveBeenLastCalledWith({
+    expect(templateHooks.previewRequests.at(-1)).toEqual({
       templateKey: 'confirmation',
       payload: {
         preferredVariantId: 'confirmation-a',
@@ -651,8 +675,49 @@ describe('useOpsEmailTemplatesPageState', () => {
     });
   });
 
+  it('@contract shows a safe preview error and never the server text of a 5xx', () => {
+    templateHooks.previewQuery = {
+      data: undefined,
+      error: new HttpError({ status: 500, message: SENTINEL }),
+      isPreviewStale: false,
+    };
+    const { result } = setup();
+
+    expect(result.current.previewErrorMessage).toBeTruthy();
+    expect(result.current.previewErrorMessage).not.toContain('SECRET_DB_DETAIL');
+  });
+
+  it('@contract explains a rate-limited preview', () => {
+    templateHooks.previewQuery = {
+      data: undefined,
+      error: new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many' }),
+      isPreviewStale: false,
+    };
+    const { result } = setup();
+
+    expect(result.current.previewErrorMessage).toMatch(/paused/i);
+    expect(result.current.previewErrorMessage).not.toMatch(/refresh in a moment/i);
+  });
+
+  it('@contract retries the preview on demand', () => {
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    templateHooks.previewQuery = {
+      data: undefined,
+      error: new HttpError({ status: 429, code: 'RATE_LIMITED', message: 'Too many' }),
+      isPreviewStale: false,
+      refetch,
+    };
+    const { result } = setup();
+
+    act(() => {
+      result.current.retryPreview();
+    });
+
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
   it('@contract exposes the preview only when it matches the selected template', () => {
-    templateHooks.previewMutation.data = { templateKey: 'confirmation' };
+    templateHooks.previewQuery.data = { templateKey: 'confirmation' };
     const { result } = setup();
 
     expect(result.current.preview).toEqual({ templateKey: 'confirmation' });

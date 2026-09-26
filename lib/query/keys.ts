@@ -241,6 +241,15 @@ export const queryKeys = {
         params.simulateEmailDeliveryError ? 'forced-error' : '',
         ...emailDeliveryFilterParts(params),
       ] as const,
+    // --- wave 2 (S8 comms) ---
+    /** Every feed page of one restaurant, for invalidation after a resend. */
+    feedPrefix: (restaurantId: string) => ['ops', 'email-delivery', restaurantId] as const,
+    /** Every summary variant of one restaurant. */
+    summaryPrefix: (restaurantId: string) =>
+      ['ops', 'email-delivery-summary', restaurantId] as const,
+    /** Every page size of one booking's email log (prefix of `opsBookings.emailDeliveryLog`). */
+    bookingLogPrefix: (bookingId: string) =>
+      ['ops', 'bookings', bookingId, 'email-delivery'] as const,
   },
   opsEmailQueue: {
     feed: (params: {
@@ -259,6 +268,21 @@ export const queryKeys = {
         params.status ?? 'all',
         params.fixture?.trim() ?? '',
       ] as const,
+    // --- wave 2 (S8 comms) ---
+    /** Every queue page and status filter of one restaurant. */
+    feedPrefix: (restaurantId: string) => ['ops', 'email-queue', restaurantId] as const,
+  },
+  // --- wave 2 (S8 comms) ---
+  /** Mutation keys (for useMutationState / isMutating), not query keys. */
+  opsEmailDeliveryMutations: {
+    retry: () => ['ops', 'email-delivery-mutation', 'retry'] as const,
+    cancelQueueJob: () => ['ops', 'email-delivery-mutation', 'queue-cancel'] as const,
+    requeueQueueJob: () => ['ops', 'email-delivery-mutation', 'queue-requeue'] as const,
+  },
+  opsEmailTemplates: {
+    /** Rendered preview of one draft; `draftHash` identifies the draft content. */
+    preview: (restaurantId: string, templateKey: string, draftHash: string) =>
+      ['ops', 'email-template-preview', restaurantId, templateKey, draftHash] as const,
   },
   reservations: {
     /**
@@ -326,4 +350,10 @@ export type QueryKey =
   | ReturnType<(typeof queryKeys)['opsReviewGrowth']['summary']>
   | ReturnType<(typeof queryKeys)['opsEmailDelivery']['feed']>
   | ReturnType<(typeof queryKeys)['opsEmailDelivery']['summary']>
-  | ReturnType<(typeof queryKeys)['opsEmailQueue']['feed']>;
+  | ReturnType<(typeof queryKeys)['opsEmailQueue']['feed']>
+  // --- wave 2 (S8 comms) ---
+  | ReturnType<(typeof queryKeys)['opsEmailDelivery']['feedPrefix']>
+  | ReturnType<(typeof queryKeys)['opsEmailDelivery']['summaryPrefix']>
+  | ReturnType<(typeof queryKeys)['opsEmailDelivery']['bookingLogPrefix']>
+  | ReturnType<(typeof queryKeys)['opsEmailQueue']['feedPrefix']>
+  | ReturnType<(typeof queryKeys)['opsEmailTemplates']['preview']>;

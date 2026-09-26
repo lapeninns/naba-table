@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createHashedEmailIdempotencyKey } from '@/libs/resend';
 import { renderAnnotationScript } from '@/server/emails/base';
 import {
   buildBookingTemplateTestIdempotencyParts,
@@ -187,18 +188,61 @@ describe('restaurant email template server behavior', () => {
 
   it('uses a unique nonce when building template test idempotency parts', () => {
     const first = buildBookingTemplateTestIdempotencyParts({
+      restaurantId: 'restaurant-a',
       templateKey: 'review_request',
       recipientEmail: 'Guest@example.com',
     });
     const second = buildBookingTemplateTestIdempotencyParts({
+      restaurantId: 'restaurant-a',
       templateKey: 'review_request',
       recipientEmail: 'Guest@example.com',
     });
 
-    expect(first[0]).toBe('review_request');
-    expect(first[1]).toBe('guest@example.com');
-    expect(second[1]).toBe('guest@example.com');
-    expect(first[2]).not.toBe(second[2]);
+    expect(first.slice(0, 3)).toEqual(['restaurant-a', 'review_request', 'guest@example.com']);
+    expect(first[3]).not.toBe(second[3]);
+  });
+
+  it('keys a test send by tenant and client request key so a retried click is deduplicated', () => {
+    const first = buildBookingTemplateTestIdempotencyParts({
+      restaurantId: 'restaurant-a',
+      templateKey: 'review_request',
+      recipientEmail: 'Guest@example.com',
+      requestKey: 'click-1',
+    });
+    const retry = buildBookingTemplateTestIdempotencyParts({
+      restaurantId: 'restaurant-a',
+      templateKey: 'review_request',
+      recipientEmail: 'guest@example.com',
+      requestKey: 'click-1',
+    });
+    const otherTenant = buildBookingTemplateTestIdempotencyParts({
+      restaurantId: 'restaurant-b',
+      templateKey: 'review_request',
+      recipientEmail: 'guest@example.com',
+      requestKey: 'click-1',
+    });
+
+    expect(first).toEqual(['restaurant-a', 'review_request', 'guest@example.com', 'click-1']);
+    expect(retry).toEqual(first);
+    expect(otherTenant).not.toEqual(first);
+  });
+
+  it('hashes test-send keys so a long recipient never truncates the click key away', () => {
+    const longEmail = `${'a'.repeat(120)}@example.com`;
+    const key = (requestKey: string) =>
+      createHashedEmailIdempotencyKey({
+        scope: 'booking-email-template-test',
+        parts: buildBookingTemplateTestIdempotencyParts({
+          restaurantId: 'restaurant-a',
+          templateKey: 'review_request',
+          recipientEmail: longEmail,
+          requestKey,
+        }),
+      });
+
+    expect(key('click-1')).not.toBe(key('click-2'));
+    expect(key('click-1')).toBe(key('click-1'));
+    expect(key('click-1').length).toBeLessThan(100);
   });
 
   it('keeps the text/plain CTA aligned with the resolved template CTA', () => {

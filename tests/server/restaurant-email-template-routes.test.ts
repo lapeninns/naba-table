@@ -36,21 +36,14 @@ vi.mock('@/server/security/api-rate-limit', () => ({
   requireApiRateLimit: requireApiRateLimitMock,
 }));
 
-vi.mock('@/server/security/api-rate-limit', () => ({
-  requireApiRateLimit: requireApiRateLimitMock,
-}));
-
-vi.mock('@/server/security/api-rate-limit', () => ({
-  requireApiRateLimit: requireApiRateLimitMock,
-}));
-
-import { GET as getTemplates } from '@/src/app/api/ops/restaurants/[id]/email-templates/route';
+import { EmailRecipientSuppressedError } from '@/libs/resend';
+import { POST as previewTemplate } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/preview/route';
 import {
   PATCH as patchTemplate,
   DELETE as deleteTemplate,
 } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/route';
-import { POST as previewTemplate } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/preview/route';
 import { POST as testSendTemplate } from '@/src/app/api/ops/restaurants/[id]/email-templates/[templateKey]/test-send/route';
+import { GET as getTemplates } from '@/src/app/api/ops/restaurants/[id]/email-templates/route';
 
 function buildRouteParams() {
   return {
@@ -73,8 +66,6 @@ describe('restaurant email template routes', () => {
     resetRestaurantEmailTemplateMock.mockReset();
     renderRestaurantBookingEmailPreviewMock.mockReset();
     sendRestaurantBookingEmailTestMock.mockReset();
-    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
-    requireApiRateLimitMock.mockReset().mockResolvedValue(null);
     requireApiRateLimitMock.mockReset().mockResolvedValue(null);
 
     resolveRestaurantIdMock.mockResolvedValue('rest-1');
@@ -396,5 +387,118 @@ describe('restaurant email template routes', () => {
     );
 
     expect(response.status).toBe(403);
+  });
+
+  it('returns C1 field errors for an invalid template payload', async () => {
+    const response = await patchTemplate(
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation',
+        { method: 'PATCH', body: JSON.stringify({ variants: 'nope' }) },
+      ),
+      buildRouteParams(),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(payload.fields).toHaveProperty('variants');
+  });
+
+  it('does not leak renderer error text from a failed preview', async () => {
+    renderRestaurantBookingEmailPreviewMock.mockImplementation(() => {
+      throw new Error('Cannot read properties of undefined (reading secretField)');
+    });
+
+    const response = await previewTemplate(
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/preview',
+        { method: 'POST', body: JSON.stringify({}) },
+      ),
+      buildRouteParams(),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(payload.code).toBe('INTERNAL_ERROR');
+    expect(JSON.stringify(payload)).not.toContain('secretField');
+  });
+
+  it('keys the test send by the Idempotency-Key header', async () => {
+    sendRestaurantBookingEmailTestMock.mockResolvedValue({
+      provider: 'mock',
+      messageId: 'mock-1',
+      preview: {},
+    });
+
+    const response = await testSendTemplate(
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/test-send',
+        {
+          method: 'POST',
+          headers: { 'Idempotency-Key': 'click-123' },
+          body: JSON.stringify({ toEmail: 'preview@example.com' }),
+        },
+      ),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendRestaurantBookingEmailTestMock).toHaveBeenCalledWith(
+      expect.objectContaining({ requestKey: 'click-123' }),
+    );
+  });
+
+  it('rejects a malformed Idempotency-Key header', async () => {
+    const response = await testSendTemplate(
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/test-send',
+        {
+          method: 'POST',
+          headers: { 'Idempotency-Key': 'x'.repeat(300) },
+          body: JSON.stringify({ toEmail: 'preview@example.com' }),
+        },
+      ),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'INVALID_IDEMPOTENCY_KEY' });
+    expect(sendRestaurantBookingEmailTestMock).not.toHaveBeenCalled();
+  });
+
+  it('maps a suppressed test recipient to 409 without provider text', async () => {
+    sendRestaurantBookingEmailTestMock.mockRejectedValue(
+      new EmailRecipientSuppressedError(['preview@example.com']),
+    );
+
+    const response = await testSendTemplate(
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/test-send',
+        { method: 'POST', body: JSON.stringify({ toEmail: 'preview@example.com' }) },
+      ),
+      buildRouteParams(),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'RECIPIENT_SUPPRESSED' });
+  });
+
+  it('returns a retryable 502 without provider text when the provider fails', async () => {
+    sendRestaurantBookingEmailTestMock.mockRejectedValue(
+      new Error('Resend API error (application_error): internal provider detail'),
+    );
+
+    const response = await testSendTemplate(
+      new NextRequest(
+        'https://www.nabatable.com/api/ops/restaurants/rest-1/email-templates/confirmation/test-send',
+        { method: 'POST', body: JSON.stringify({ toEmail: 'preview@example.com' }) },
+      ),
+      buildRouteParams(),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload).toMatchObject({ code: 'SEND_FAILED', retryable: true });
+    expect(JSON.stringify(payload)).not.toContain('provider detail');
   });
 });

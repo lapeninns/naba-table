@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRef } from 'react';
 
+import { EmailTemplateResetDialog } from '@/components/features/email-templates/EmailTemplateResetDialog';
 import { EmailTemplatesEditorPane } from '@/components/features/email-templates/EmailTemplatesEditorPane';
 import { EmailTemplatesPreviewPane } from '@/components/features/email-templates/EmailTemplatesPreviewPane';
 import { EmailTemplatesSidebarPane } from '@/components/features/email-templates/EmailTemplatesSidebarPane';
@@ -60,8 +61,6 @@ export function OpsEmailTemplatesClient() {
   }
 
   const showSkeleton = state.templatesQuery.isLoading && !state.templatesQuery.data;
-  const previewErrorMessage =
-    state.previewMutation.error instanceof Error ? state.previewMutation.error.message : null;
 
   return (
     <OpsPageShell
@@ -149,14 +148,22 @@ export function OpsEmailTemplatesClient() {
                   previewDevice={state.previewDevice}
                   onPreviewDeviceChange={state.setPreviewDevice}
                   preview={state.preview}
-                  isLoading={state.previewMutation.isPending}
-                  errorMessage={previewErrorMessage}
+                  isLoading={state.isPreviewLoading}
+                  isRefreshing={state.previewQuery.isPreviewStale && Boolean(state.preview)}
+                  errorMessage={state.previewErrorMessage}
+                  onRetry={state.retryPreview}
                 />
               </div>
             </div>
           </div>
         </>
       )}
+      <EmailTemplateResetDialog
+        templateTitle={state.pendingResetTemplate?.title ?? null}
+        isPending={state.resetMutation.isPending}
+        onConfirm={state.confirmResetTemplate}
+        onCancel={state.cancelResetTemplate}
+      />
     </OpsPageShell>
   );
 }

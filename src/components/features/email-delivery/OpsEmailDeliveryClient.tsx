@@ -16,6 +16,7 @@ import { Text } from '@/components/ui/typography';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
+import { toUserMessage } from '@/lib/http/userMessage';
 import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +25,7 @@ import {
   OpsEmailDeliveryFilters,
   OpsEmailDeliveryHeaderMeta,
   OpsEmailDeliveryLog,
+  OpsEmailQueueCancelDialog,
   OpsEmailQueuePanel,
 } from './components';
 import { formatRefreshLabel, isRefreshOption } from './opsEmailDeliveryDomain';
@@ -257,7 +259,8 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             rows={dataState.rows}
             timezone={timezone}
             restaurantId={restaurantId ?? ''}
-            retryingAttemptKey={dataState.retryingAttemptKey}
+            retryingAttemptKeys={dataState.retryingAttemptKeys}
+            isConfirmingRetry={dataState.isConfirmingRetry}
             pendingRetryRow={dataState.pendingRetryRow}
             isRetryDialogOpen={dataState.pendingRetryAttemptKey !== null}
             onRetryAttempt={dataState.handleRetryAttempt}
@@ -286,7 +289,12 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             summary={dataState.queueQuery.summary}
             isLoading={dataState.queueQuery.isLoading || dataState.queueQuery.isFetching}
             errorMessage={
-              dataState.queueQuery.apiError?.error ?? dataState.queueQuery.error?.message ?? null
+              dataState.queueQuery.apiError?.error ??
+              (dataState.queueQuery.error
+                ? toUserMessage(dataState.queueQuery.error, {
+                    fallback: "The email queue couldn't be loaded.",
+                  })
+                : null)
             }
             timezone={timezone}
             restaurantId={restaurantId}
@@ -306,9 +314,16 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
             }
             onPrevPage={() => dataState.setQueuePage(Math.max(1, dataState.queuePage - 1))}
             onNextPage={() => dataState.setQueuePage(dataState.queuePage + 1)}
-            actionJobId={dataState.queueActionJobId}
+            pendingJobIds={dataState.pendingQueueJobIds}
             onCancelJob={dataState.handleCancelQueueJob}
             onRequeueJob={dataState.handleRequeueQueueJob}
+          />
+          <OpsEmailQueueCancelDialog
+            open={dataState.isCancelDialogOpen}
+            job={dataState.pendingCancelJob}
+            isPending={dataState.isConfirmingCancel}
+            onOpenChange={dataState.handleCancelDialogOpenChange}
+            onConfirm={dataState.handleConfirmCancelQueueJob}
           />
         </TabsContent>
 

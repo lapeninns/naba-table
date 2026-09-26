@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, forbidden, internalError, notFound, unauthenticated } from '@/lib/api/errors';
+import { captureServerException } from '@/lib/posthog/server';
 import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 import {
   EmailDeliveryLogUnavailableError,
@@ -14,24 +15,11 @@ import type { NextRequest } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+const ROUTE = '/api/ops/bookings/[id]/email-delivery';
+
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
-
-function jsonError(
-  status: number,
-  payload: Omit<Extract<BookingEmailDeliveryResponse, { ok: false }>, 'ok'> & { message?: string },
-) {
-  // Include `message` for fetchJson normalization and `error` for client rendering.
-  return NextResponse.json(
-    {
-      ok: false,
-      ...payload,
-      message: payload.message ?? payload.error,
-    } satisfies BookingEmailDeliveryResponse & { message: string },
-    { status },
-  );
-}
 
 function parseLimit(raw: string | null): { ok: true; value: number } | { ok: false } {
   if (raw === null) return { ok: true, value: 50 };
@@ -41,23 +29,24 @@ function parseLimit(raw: string | null): { ok: true; value: number } | { ok: fal
   return { ok: true, value: clamped };
 }
 
+class BookingLookupFailedError extends Error {
+  constructor(readonly dbCode: string | null) {
+    super('Booking lookup failed');
+    this.name = 'BookingLookupFailedError';
+  }
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const { id: bookingId } = await context.params;
 
   if (!bookingId || !z.string().uuid().safeParse(bookingId).success) {
-    return NextResponse.json(
-      { error: 'Invalid booking id', code: 'INVALID_BOOKING_ID', message: 'Invalid booking id' },
-      { status: 400 },
-    );
+    return apiError(400, 'INVALID_BOOKING_ID', 'Invalid booking id.');
   }
 
   const url = new URL(request.url);
   const limit = parseLimit(url.searchParams.get('limit'));
   if (!limit.ok) {
-    return NextResponse.json(
-      { error: 'Invalid limit', code: 'INVALID_LIMIT', message: 'Invalid limit' },
-      { status: 400 },
-    );
+    return apiError(400, 'INVALID_LIMIT', 'Invalid limit.');
   }
 
   try {
@@ -70,16 +59,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (bookingError) {
-      console.error('[ops][bookings][email-delivery] failed to load booking', {
-        bookingId,
-        code: bookingError.code ?? null,
-        message: bookingError.message,
-      });
-      return jsonError(500, { code: 'INTERNAL', error: 'Unable to load booking' });
+      throw new BookingLookupFailedError(bookingError.code ?? null);
     }
 
     if (!booking) {
-      return jsonError(404, { code: 'BOOKING_NOT_FOUND', error: 'Booking not found' });
+      return notFound('BOOKING_NOT_FOUND', 'Booking not found.');
     }
 
     await requireRestaurantMember({
@@ -102,34 +86,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   } catch (error) {
     if (error instanceof GuardError) {
-      const mapped =
-        error.code === 'UNAUTHENTICATED'
-          ? { status: 401 as const, code: 'UNAUTHENTICATED' as const, error: error.message }
-          : error.code === 'FORBIDDEN'
-            ? { status: 403 as const, code: 'FORBIDDEN' as const, error: error.message }
-            : {
-                status: error.status as 401 | 403 | 404 | 500,
-                code: 'INTERNAL' as const,
-                error: error.message,
-              };
-      return jsonError(mapped.status, { code: mapped.code, error: mapped.error });
+      if (error.code === 'UNAUTHENTICATED') return unauthenticated();
+      if (error.status === 404) return notFound('BOOKING_NOT_FOUND', 'Booking not found.');
+      return forbidden();
     }
 
     if (error instanceof EmailDeliveryLogUnavailableError) {
-      return jsonError(503, {
-        code: 'DELIVERY_LOG_UNAVAILABLE',
-        error: 'Delivery tracking is temporarily unavailable',
-      });
+      return apiError(
+        503,
+        'DELIVERY_LOG_UNAVAILABLE',
+        'Delivery tracking is temporarily unavailable. Try again shortly.',
+        { retryable: true },
+      );
     }
 
-    console.error('[ops][bookings][email-delivery] unexpected error', {
-      bookingId,
-      error: error instanceof Error ? error.message : String(error),
-    });
     captureServerException(error, {
       properties: { bookingId, source: 'ops', kind: 'ops-booking-email-delivery' },
     });
-
-    return jsonError(500, { code: 'INTERNAL', error: 'Internal error' });
+    return internalError(error, { route: ROUTE, bookingId });
   }
 }

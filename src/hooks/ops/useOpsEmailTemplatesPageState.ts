@@ -1,98 +1,41 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { getSafeSettingsErrorMessage } from '@/components/features/restaurant-settings/shared/settingsErrorCopy';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import {
-  useOpsPreviewRestaurantEmailTemplate,
   useOpsResetRestaurantEmailTemplate,
+  useOpsRestaurantEmailTemplatePreview,
   useOpsRestaurantEmailTemplates,
   useOpsSendRestaurantEmailTemplateTest,
   useOpsUpdateRestaurantEmailTemplate,
+  type EmailTemplatePreviewRequest,
 } from '@/hooks/ops/useOpsRestaurantEmailTemplates';
-import {
-  MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS,
-  type RestaurantBookingEmailTemplateKey,
-  type RestaurantEmailTemplateVariant,
-} from '@/lib/restaurants/email-templates';
+import { toUserMessage } from '@/lib/http/userMessage';
+import { generateIdempotencyKey } from '@/lib/utils/idempotency';
+import { hashEmailTemplatePreviewInput } from '@/services/ops/email-templates';
+import { useEmailTemplateDraftState } from '@src/hooks/ops/useEmailTemplateDraftState';
 
-import type { RestaurantEmailTemplatesSnapshot } from '@/services/ops/restaurants';
+import type { RestaurantBookingEmailTemplateKey } from '@/lib/restaurants/email-templates';
 
-export type EmailTemplatesActivePane = 'list' | 'editor' | 'preview';
-export type EmailTemplatesPreviewDevice = 'desktop' | 'mobile';
+export type {
+  EmailTemplatesActivePane,
+  EmailTemplatesPreviewDevice,
+} from '@src/hooks/ops/useEmailTemplateDraftState';
 
-function createVariantId(templateKey: RestaurantBookingEmailTemplateKey) {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${templateKey}-${crypto.randomUUID()}`;
-  }
-
-  return `${templateKey}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function normalizeVariantsForCompare(variants: RestaurantEmailTemplateVariant[]) {
-  return JSON.stringify(
-    [...variants]
-      .sort((left, right) => left.order - right.order)
-      .map((variant) => ({
-        id: variant.id,
-        name: variant.name,
-        subject: variant.subject,
-        preheader: variant.preheader,
-        headline: variant.headline,
-        intro: variant.intro,
-        cue: variant.cue,
-        ask: variant.ask,
-        ctaLabel: variant.ctaLabel,
-        isActive: variant.isActive,
-        order: variant.order,
-      })),
-  );
-}
+const PREVIEW_ERROR_COPY = {
+  RATE_LIMITED:
+    'The preview is paused after too many updates. Wait a moment, then retry the preview.',
+  VALIDATION_FAILED: 'The preview needs a valid draft. Check the highlighted fields.',
+};
 
 /**
- * The draft to keep once a save returns: null when nothing changed after the request was sent.
- * Otherwise the server's variants with every field edited since the send kept as the newer value;
- * variants added after the send are kept as typed, and removed ones stay removed.
+ * Email templates workspace: resolves the restaurant, composes the draft UI state
+ * (useEmailTemplateDraftState) with the template queries and mutations, and owns the save,
+ * reset (confirmed through a dialog) and test-send flows.
  */
-function rebaseVariantsOnSaved(
-  current: RestaurantEmailTemplateVariant[] | undefined,
-  sent: RestaurantEmailTemplateVariant[],
-  saved: RestaurantEmailTemplateVariant[],
-): RestaurantEmailTemplateVariant[] | null {
-  if (!current || current === sent) {
-    return null;
-  }
-  const sentById = new Map(sent.map((variant) => [variant.id, variant]));
-  const savedById = new Map(saved.map((variant) => [variant.id, variant]));
-  const rebased = current.map((variant) => {
-    const sentVariant = sentById.get(variant.id);
-    const savedVariant = savedById.get(variant.id);
-    if (!sentVariant || !savedVariant) {
-      return variant;
-    }
-    const next = { ...savedVariant };
-    for (const field of Object.keys(next) as Array<keyof RestaurantEmailTemplateVariant>) {
-      if (variant[field] !== sentVariant[field]) {
-        Object.assign(next, { [field]: variant[field] });
-      }
-    }
-    return next;
-  });
-  return normalizeVariantsForCompare(rebased) === normalizeVariantsForCompare(saved)
-    ? null
-    : rebased;
-}
-
-function buildTemplateMap(snapshot: RestaurantEmailTemplatesSnapshot | undefined) {
-  return new Map(
-    snapshot?.groups
-      .flatMap((group) => group.templates)
-      .map((template) => [template.key, template]) ?? [],
-  );
-}
-
 export function useOpsEmailTemplatesPageState() {
   const { memberships, activeRestaurantId, setActiveRestaurantId } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
@@ -104,23 +47,22 @@ export function useOpsEmailTemplatesPageState() {
   const templatesQuery = useOpsRestaurantEmailTemplates(restaurantId);
   const updateMutation = useOpsUpdateRestaurantEmailTemplate(restaurantId);
   const resetMutation = useOpsResetRestaurantEmailTemplate(restaurantId);
-  const previewMutation = useOpsPreviewRestaurantEmailTemplate(restaurantId);
   const testSendMutation = useOpsSendRestaurantEmailTemplateTest(restaurantId);
-  const previewDraft = previewMutation.mutate;
 
-  const [selectedTemplateKey, setSelectedTemplateKey] =
+  const draftState = useEmailTemplateDraftState(restaurantId, templatesQuery.data);
+  const {
+    templateMap,
+    selectedTemplateKey,
+    selectedVariantId,
+    currentVariants,
+    testEmail,
+    clearDraft,
+    rebaseDraftOnSaved,
+  } = draftState;
+
+  const [pendingResetTemplateKey, setPendingResetTemplateKey] =
     useState<RestaurantBookingEmailTemplateKey | null>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<
-    Partial<Record<RestaurantBookingEmailTemplateKey, RestaurantEmailTemplateVariant[]>>
-  >({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [previewDevice, setPreviewDevice] = useState<EmailTemplatesPreviewDevice>('desktop');
-  const [testEmail, setTestEmail] = useState('');
-  const [activePane, setActivePane] = useState<EmailTemplatesActivePane>('list');
-
-  const deferredSearch = useDeferredValue(searchQuery.trim().toLowerCase());
-  const previousRestaurantIdRef = useRef<string | null>(restaurantId);
+  const testSendIntentRef = useRef<{ intent: string; key: string } | null>(null);
 
   useEffect(() => {
     if (activeRestaurantId || !memberships[0]) {
@@ -130,234 +72,31 @@ export function useOpsEmailTemplatesPageState() {
     setActiveRestaurantId(memberships[0].restaurantId);
   }, [activeRestaurantId, memberships, setActiveRestaurantId]);
 
-  useEffect(() => {
-    if (previousRestaurantIdRef.current === restaurantId) {
-      return;
-    }
-
-    previousRestaurantIdRef.current = restaurantId;
-    setSelectedTemplateKey(null);
-    setSelectedVariantId(null);
-    setDrafts({});
-    setTestEmail('');
-    setActivePane('list');
-  }, [restaurantId]);
-
-  const templateMap = useMemo(() => buildTemplateMap(templatesQuery.data), [templatesQuery.data]);
-  const allTemplates = useMemo(
-    () => templatesQuery.data?.groups.flatMap((group) => group.templates) ?? [],
-    [templatesQuery.data],
-  );
-
-  useEffect(() => {
-    if (selectedTemplateKey && templateMap.has(selectedTemplateKey)) {
-      return;
-    }
-
-    const firstTemplate = allTemplates[0];
-    if (firstTemplate) {
-      setSelectedTemplateKey(firstTemplate.key);
-      return;
-    }
-
-    setSelectedTemplateKey(null);
-  }, [allTemplates, selectedTemplateKey, templateMap]);
-
-  const filteredGroups = useMemo(() => {
-    if (!templatesQuery.data) return [];
-    if (!deferredSearch) return templatesQuery.data.groups;
-
-    return templatesQuery.data.groups
-      .map((group) => ({
-        ...group,
-        templates: group.templates.filter((template) => {
-          const haystack = `${group.title} ${template.title} ${template.description}`.toLowerCase();
-          return haystack.includes(deferredSearch);
-        }),
-      }))
-      .filter((group) => group.templates.length > 0);
-  }, [deferredSearch, templatesQuery.data]);
-
-  const baseTemplate = selectedTemplateKey ? (templateMap.get(selectedTemplateKey) ?? null) : null;
-  const currentVariants = useMemo(() => {
-    if (!selectedTemplateKey || !baseTemplate) return [];
-    return drafts[selectedTemplateKey] ?? baseTemplate.variants;
-  }, [baseTemplate, drafts, selectedTemplateKey]);
-
-  const currentVariant = useMemo(
-    () =>
-      currentVariants.find((variant) => variant.id === selectedVariantId) ??
-      currentVariants[0] ??
-      null,
-    [currentVariants, selectedVariantId],
-  );
-
-  useEffect(() => {
-    if (!currentVariants.length) {
-      setSelectedVariantId(null);
-      return;
-    }
-
-    if (selectedVariantId && currentVariants.some((variant) => variant.id === selectedVariantId)) {
-      return;
-    }
-
-    setSelectedVariantId(currentVariants[0]!.id);
-  }, [currentVariants, selectedVariantId]);
-
-  const dirtyTemplateKeys = useMemo(() => {
-    const next = new Set<RestaurantBookingEmailTemplateKey>();
-
-    Object.entries(drafts).forEach(([key, variants]) => {
-      if (!variants) return;
-      const template = templateMap.get(key as RestaurantBookingEmailTemplateKey);
-      if (!template) return;
-
-      if (
-        normalizeVariantsForCompare(variants) !== normalizeVariantsForCompare(template.variants)
-      ) {
-        next.add(key as RestaurantBookingEmailTemplateKey);
-      }
-    });
-
-    return next;
-  }, [drafts, templateMap]);
-
-  const hasDirtyDrafts = dirtyTemplateKeys.size > 0;
-  const isCurrentDirty = Boolean(selectedTemplateKey && dirtyTemplateKeys.has(selectedTemplateKey));
-
-  useEffect(() => {
-    const handler = (event: BeforeUnloadEvent) => {
-      if (!hasDirtyDrafts) {
-        return;
-      }
-
-      event.preventDefault();
-      event.returnValue = '';
-    };
-
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [hasDirtyDrafts]);
-
-  useEffect(() => {
+  const previewRequest = useMemo<EmailTemplatePreviewRequest | null>(() => {
     if (!restaurantId || !selectedTemplateKey || !currentVariants.length) {
-      return;
+      return null;
     }
-
-    const timeoutId = window.setTimeout(() => {
-      previewDraft({
-        templateKey: selectedTemplateKey,
-        payload: {
-          preferredVariantId: selectedVariantId ?? undefined,
-          variants: currentVariants,
-        },
-      });
-    }, 180);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [currentVariants, previewDraft, restaurantId, selectedTemplateKey, selectedVariantId]);
-
-  const preview =
-    previewMutation.data?.templateKey === selectedTemplateKey ? previewMutation.data : null;
-  const activeVariantCount = currentVariants.filter((variant) => variant.isActive).length;
-
-  const updateCurrentVariants = (
-    updater: (variants: RestaurantEmailTemplateVariant[]) => RestaurantEmailTemplateVariant[],
-  ) => {
-    if (!selectedTemplateKey) return;
-
-    setDrafts((current) => {
-      const template = templateMap.get(selectedTemplateKey);
-      const baseline = current[selectedTemplateKey] ?? template?.variants ?? [];
-      return {
-        ...current,
-        [selectedTemplateKey]: updater(baseline),
-      };
-    });
-  };
-
-  const updateCurrentVariant = (
-    variantId: string,
-    updater: (variant: RestaurantEmailTemplateVariant) => RestaurantEmailTemplateVariant,
-  ) => {
-    updateCurrentVariants((variants) =>
-      variants.map((variant) => (variant.id === variantId ? updater(variant) : variant)),
-    );
-  };
-
-  const handleSelectTemplate = (templateKey: RestaurantBookingEmailTemplateKey) => {
-    setSelectedTemplateKey(templateKey);
-    setActivePane('editor');
-  };
-
-  const handleAddVariant = () => {
-    if (
-      !selectedTemplateKey ||
-      !baseTemplate ||
-      currentVariants.length >= MAX_RESTAURANT_EMAIL_TEMPLATE_VARIANTS
-    ) {
-      return;
-    }
-
-    const seed =
-      currentVariant ??
-      currentVariants[currentVariants.length - 1] ??
-      baseTemplate.defaultVariants[0];
-    const nextVariant: RestaurantEmailTemplateVariant = {
-      ...seed,
-      id: createVariantId(selectedTemplateKey),
-      name: `Variant ${String.fromCharCode(65 + currentVariants.length)}`,
-      order: currentVariants.length,
-      isActive: true,
+    return {
+      templateKey: selectedTemplateKey,
+      payload: {
+        preferredVariantId: selectedVariantId ?? undefined,
+        variants: currentVariants,
+      },
     };
+  }, [currentVariants, restaurantId, selectedTemplateKey, selectedVariantId]);
 
-    updateCurrentVariants((variants) => [...variants, nextVariant]);
-    setSelectedVariantId(nextVariant.id);
+  const previewQuery = useOpsRestaurantEmailTemplatePreview(restaurantId, previewRequest);
+  const preview = previewQuery.data?.templateKey === selectedTemplateKey ? previewQuery.data : null;
+  const previewErrorMessage = previewQuery.error
+    ? toUserMessage(previewQuery.error, {
+        copy: PREVIEW_ERROR_COPY,
+        fallback: "The preview couldn't be rendered. Keep editing or retry the preview.",
+      })
+    : null;
+  const retryPreview = () => {
+    void previewQuery.refetch();
   };
-
-  const handleMoveVariant = (variantId: string, direction: -1 | 1) => {
-    updateCurrentVariants((variants) => {
-      const ordered = [...variants].sort((left, right) => left.order - right.order);
-      const index = ordered.findIndex((variant) => variant.id === variantId);
-      const targetIndex = index + direction;
-      if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) {
-        return variants;
-      }
-
-      const swapped = [...ordered];
-      [swapped[index], swapped[targetIndex]] = [swapped[targetIndex]!, swapped[index]!];
-      return swapped.map((variant, nextIndex) => ({ ...variant, order: nextIndex }));
-    });
-  };
-
-  const handleDeleteVariant = (variantId: string) => {
-    if (currentVariants.length <= 1) {
-      toast.error('Each template needs at least one variant.');
-      return;
-    }
-
-    updateCurrentVariants((variants) =>
-      variants
-        .filter((variant) => variant.id !== variantId)
-        .map((variant, index) => ({ ...variant, order: index })),
-    );
-
-    if (selectedVariantId === variantId) {
-      const nextVariant = currentVariants.find((variant) => variant.id !== variantId);
-      setSelectedVariantId(nextVariant?.id ?? null);
-    }
-  };
-
-  const handleDiscardCurrent = () => {
-    if (!selectedTemplateKey) return;
-
-    setDrafts((current) => {
-      const next = { ...current };
-      delete next[selectedTemplateKey];
-      return next;
-    });
-  };
+  const isPreviewLoading = previewQuery.isPreviewStale && !preview;
 
   const handleSave = async () => {
     if (!selectedTemplateKey) return;
@@ -369,17 +108,7 @@ export function useOpsEmailTemplatesPageState() {
         variants: sent,
       });
 
-      // Anything typed while the request was in flight stays as the newer draft.
-      setDrafts((current) => {
-        const next = { ...current };
-        const rebased = rebaseVariantsOnSaved(current[selectedTemplateKey], sent, saved.variants);
-        if (rebased) {
-          next[selectedTemplateKey] = rebased;
-        } else {
-          delete next[selectedTemplateKey];
-        }
-        return next;
-      });
+      rebaseDraftOnSaved(selectedTemplateKey, sent, saved.variants);
 
       toast.success('Template saved', {
         description: 'Restaurant-specific copy variants are now live for future sends.',
@@ -391,25 +120,29 @@ export function useOpsEmailTemplatesPageState() {
     }
   };
 
-  const handleResetTemplate = async (templateKey: RestaurantBookingEmailTemplateKey) => {
+  /** Opens the reset confirmation for a customised template; default templates are ignored. */
+  const handleResetTemplate = (templateKey: RestaurantBookingEmailTemplateKey) => {
     const template = templateMap.get(templateKey);
     if (!template || template.status === 'default') {
       return;
     }
+    setPendingResetTemplateKey(templateKey);
+  };
 
-    const confirmed = window.confirm(
-      `Reset "${template.title}" back to the system default variants?`,
-    );
-    if (!confirmed) return;
+  const cancelResetTemplate = () => setPendingResetTemplateKey(null);
+
+  const confirmResetTemplate = async () => {
+    const templateKey = pendingResetTemplateKey;
+    const template = templateKey ? templateMap.get(templateKey) : undefined;
+    if (!templateKey || !template) {
+      setPendingResetTemplateKey(null);
+      return;
+    }
 
     try {
       await resetMutation.mutateAsync({ templateKey });
-
-      setDrafts((current) => {
-        const next = { ...current };
-        delete next[templateKey];
-        return next;
-      });
+      clearDraft(templateKey);
+      setPendingResetTemplateKey(null);
 
       toast.success('Template reset', {
         description: `${template.title} is using the default copy again.`,
@@ -421,30 +154,41 @@ export function useOpsEmailTemplatesPageState() {
     }
   };
 
+  const pendingResetTemplate = pendingResetTemplateKey
+    ? (templateMap.get(pendingResetTemplateKey) ?? null)
+    : null;
+
   const handleSendTest = async () => {
     if (!selectedTemplateKey) return;
-    if (!testEmail.trim()) {
+    const toEmail = testEmail.trim();
+    if (!toEmail) {
       toast.error('Enter a test email address first.');
       return;
     }
 
-    try {
-      const result = await testSendMutation.mutateAsync({
-        templateKey: selectedTemplateKey,
-        payload: {
-          toEmail: testEmail.trim(),
-          preferredVariantId: selectedVariantId ?? undefined,
-          variants: currentVariants,
-        },
-      });
+    const payload = {
+      toEmail,
+      preferredVariantId: selectedVariantId ?? undefined,
+      variants: currentVariants,
+    };
+    // One idempotency key per send intent (template, address and draft): clicking again after a
+    // failure retries the same intent, so the provider never sends it twice; a new draft, address
+    // or a completed send starts a new intent.
+    const intent = `${selectedTemplateKey}|${toEmail.toLowerCase()}|${hashEmailTemplatePreviewInput(payload)}`;
+    if (testSendIntentRef.current?.intent !== intent) {
+      testSendIntentRef.current = { intent, key: generateIdempotencyKey() };
+    }
+    const idempotencyKey = testSendIntentRef.current.key;
 
-      toast.success('Test email sent', {
-        description: `Delivered to ${testEmail.trim()} via ${result.provider}.`,
+    try {
+      await testSendMutation.mutateAsync({
+        templateKey: selectedTemplateKey,
+        payload,
+        idempotencyKey,
       });
-    } catch (error) {
-      toast.error('Test send failed', {
-        description: getSafeSettingsErrorMessage(error, 'The test email could not be sent.'),
-      });
+      testSendIntentRef.current = null;
+    } catch {
+      // Feedback is the hook's (meta.feedback); the key is kept so a retry is deduplicated.
     }
   };
 
@@ -457,36 +201,42 @@ export function useOpsEmailTemplatesPageState() {
     templatesQuery,
     updateMutation,
     resetMutation,
-    previewMutation,
+    previewQuery,
     testSendMutation,
     selectedTemplateKey,
     selectedVariantId,
     currentVariants,
-    currentVariant,
-    baseTemplate,
-    filteredGroups,
-    searchQuery,
-    setSearchQuery,
-    previewDevice,
-    setPreviewDevice,
+    currentVariant: draftState.currentVariant,
+    baseTemplate: draftState.baseTemplate,
+    filteredGroups: draftState.filteredGroups,
+    searchQuery: draftState.searchQuery,
+    setSearchQuery: draftState.setSearchQuery,
+    previewDevice: draftState.previewDevice,
+    setPreviewDevice: draftState.setPreviewDevice,
     testEmail,
-    setTestEmail,
-    activePane,
-    setActivePane,
-    dirtyTemplateKeys,
-    hasDirtyDrafts,
-    isCurrentDirty,
+    setTestEmail: draftState.setTestEmail,
+    activePane: draftState.activePane,
+    setActivePane: draftState.setActivePane,
+    dirtyTemplateKeys: draftState.dirtyTemplateKeys,
+    hasDirtyDrafts: draftState.hasDirtyDrafts,
+    isCurrentDirty: draftState.isCurrentDirty,
     preview,
-    activeVariantCount,
-    handleSelectTemplate,
-    handleAddVariant,
-    handleMoveVariant,
-    handleDeleteVariant,
-    handleDiscardCurrent,
+    isPreviewLoading,
+    previewErrorMessage,
+    retryPreview,
+    activeVariantCount: draftState.activeVariantCount,
+    handleSelectTemplate: draftState.handleSelectTemplate,
+    handleAddVariant: draftState.handleAddVariant,
+    handleMoveVariant: draftState.handleMoveVariant,
+    handleDeleteVariant: draftState.handleDeleteVariant,
+    handleDiscardCurrent: draftState.handleDiscardCurrent,
     handleSave,
     handleResetTemplate,
+    pendingResetTemplate,
+    confirmResetTemplate,
+    cancelResetTemplate,
     handleSendTest,
-    updateCurrentVariant,
-    setSelectedVariantId,
+    updateCurrentVariant: draftState.updateCurrentVariant,
+    setSelectedVariantId: draftState.setSelectedVariantId,
   };
 }

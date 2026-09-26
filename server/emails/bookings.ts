@@ -21,6 +21,7 @@ import { getTrustedAppOrigin, getTrustedSiteOrigin } from '@/lib/site-url';
 import { type VenueDetails } from '@/lib/venue';
 import {
   createEmailIdempotencyKey,
+  createHashedEmailIdempotencyKey,
   sendEmail,
   type EmailAttachment,
   isEmailRecipientSuppressedError,
@@ -44,6 +45,7 @@ import {
 } from '@/server/emails/booking-template-support';
 import { type EmailCategory } from '@/server/emails/email-categories';
 import {
+  EmailDeliveryRetryError,
   hasRecentEmailDelivery,
   recordEmailDeliveryLog,
   type EmailDeliveryLogEntry,
@@ -339,10 +341,12 @@ function buildBookingEmailIdempotencyKey(params: {
 }
 
 function buildBookingTemplateTestIdempotencyKey(params: {
+  restaurantId: string;
   templateKey: RestaurantBookingEmailTemplateKey;
   recipientEmail: string;
+  requestKey?: string | null;
 }) {
-  return createEmailIdempotencyKey({
+  return createHashedEmailIdempotencyKey({
     scope: 'booking-email-template-test',
     parts: buildBookingTemplateTestIdempotencyParts(params),
   });
@@ -622,6 +626,34 @@ function bookingEmailCategory(type: BookingEmailType): EmailCategory {
   }
 }
 
+/**
+ * Thrown only for queue sends that opt in with `reportSkips`: the email was deliberately not
+ * sent, so the queue must not record it as sent.
+ */
+export class BookingEmailSkippedError extends Error {
+  readonly reason: 'no_recipient' | 'recent_duplicate';
+
+  constructor(reason: 'no_recipient' | 'recent_duplicate') {
+    super(`Booking email not sent (${reason}).`);
+    this.name = 'BookingEmailSkippedError';
+    this.reason = reason;
+  }
+}
+
+export function isBookingEmailSkippedError(error: unknown): error is BookingEmailSkippedError {
+  return error instanceof BookingEmailSkippedError;
+}
+
+/** Queue-facing send options: report why nothing was sent instead of returning null. */
+export type BookingEmailSendOptions = {
+  /**
+   * A suppressed recipient rethrows EmailRecipientSuppressedError, and a missing address or a
+   * recent duplicate throws BookingEmailSkippedError. A resolved call then means the provider
+   * accepted the email (a null entry only means its delivery-log insert failed).
+   */
+  reportSkips?: boolean;
+};
+
 async function dispatchEmail(
   type: BookingEmailType,
   booking: BookingRecord,
@@ -629,7 +661,15 @@ async function dispatchEmail(
     reminderVariant?: 'short' | 'standard';
     reason?: string;
     skipRecentDeliveryCheck?: boolean;
-  },
+    /** Overrides the booking-state idempotency key (manual retries use a per-attempt key). */
+    idempotencyKey?: string;
+    /**
+     * Manual resends report why nothing was sent instead of returning null: a suppressed
+     * recipient rethrows EmailRecipientSuppressedError, a missing address throws
+     * EmailDeliveryRetryError('MISSING_RECIPIENT').
+     */
+    strict?: boolean;
+  } & BookingEmailSendOptions,
 ): Promise<EmailDeliveryLogEntry | null> {
   const venue = await resolveVenueDetails(booking.restaurant_id);
   const manageUrl = buildBookingManageUrl(booking);
@@ -806,6 +846,15 @@ async function dispatchEmail(
     console.warn(
       `[emails][bookings] No recipient email found for type ${type} (booking ${booking.id})`,
     );
+    if (options?.strict) {
+      throw new EmailDeliveryRetryError(
+        'MISSING_RECIPIENT',
+        'This booking has no email address to send to.',
+      );
+    }
+    if (options?.reportSkips) {
+      throw new BookingEmailSkippedError('no_recipient');
+    }
     return null;
   }
 
@@ -819,6 +868,9 @@ async function dispatchEmail(
       console.warn('[emails][bookings] review_request already sent recently; skipping', {
         bookingId: booking.id,
       });
+      if (options?.reportSkips) {
+        throw new BookingEmailSkippedError('recent_duplicate');
+      }
       return null;
     }
   }
@@ -839,6 +891,9 @@ async function dispatchEmail(
         bookingId: booking.id,
         templateType: deliveryTemplateType,
       });
+      if (options?.reportSkips) {
+        throw new BookingEmailSkippedError('recent_duplicate');
+      }
       return null;
     }
   }
@@ -866,14 +921,16 @@ async function dispatchEmail(
         { name: 'template_type', value: deliveryTemplateType },
         { name: 'restaurant_id', value: booking.restaurant_id },
       ],
-      idempotencyKey: buildBookingEmailIdempotencyKey({
-        booking,
-        templateType: deliveryTemplateType,
-        recipientEmail: toEmail,
-      }),
+      idempotencyKey:
+        options?.idempotencyKey ??
+        buildBookingEmailIdempotencyKey({
+          booking,
+          templateType: deliveryTemplateType,
+          recipientEmail: toEmail,
+        }),
     });
   } catch (error) {
-    if (isEmailRecipientSuppressedError(error)) {
+    if (isEmailRecipientSuppressedError(error) && !options?.strict && !options?.reportSkips) {
       console.warn('[emails][bookings] recipient suppressed; skipping send', {
         bookingId: booking.id,
         templateType: deliveryTemplateType,
@@ -1100,6 +1157,8 @@ export async function sendRestaurantBookingEmailTest(params: {
   toEmail: string;
   draftVariants?: RestaurantEmailTemplateVariant[];
   preferredVariantId?: string;
+  /** Client per-click key (Idempotency-Key header); a retried click is deduplicated. */
+  requestKey?: string | null;
 }): Promise<{
   provider: 'resend' | 'mock';
   messageId: string;
@@ -1130,8 +1189,10 @@ export async function sendRestaurantBookingEmailTest(params: {
       { name: 'restaurant_id', value: params.venue.id },
     ],
     idempotencyKey: buildBookingTemplateTestIdempotencyKey({
+      restaurantId: params.venue.id,
       templateKey: params.templateKey,
       recipientEmail: params.toEmail,
+      requestKey: params.requestKey,
     }),
   });
 
@@ -1146,58 +1207,64 @@ async function resendBookingEmailByDeliveryType(
   booking: BookingRecord,
   emailType: string | null,
   templateType: string | null,
+  resendOptions: { idempotencyKey?: string } = {},
 ): Promise<EmailDeliveryLogEntry | null> {
+  const manual = {
+    skipRecentDeliveryCheck: true,
+    strict: true,
+    idempotencyKey: resendOptions.idempotencyKey,
+  } as const;
   const normalizedEmailType = emailType?.trim() ?? null;
   const normalizedTemplateType = templateType?.trim() ?? null;
 
   if (normalizedTemplateType === 'reminder_short' || normalizedTemplateType === 'reminder_24h') {
     return dispatchEmail('reminder', booking, {
       reminderVariant: normalizedTemplateType === 'reminder_short' ? 'short' : 'standard',
-      skipRecentDeliveryCheck: true,
+      ...manual,
     });
   }
 
   if (normalizedTemplateType === 'request_received') {
     const pendingBooking = { ...booking, status: 'pending' } as BookingRecord;
-    return dispatchEmail('created', pendingBooking, { skipRecentDeliveryCheck: true });
+    return dispatchEmail('created', pendingBooking, manual);
   }
 
   if (normalizedTemplateType === 'confirmation') {
-    return dispatchEmail('created', booking, { skipRecentDeliveryCheck: true });
+    return dispatchEmail('created', booking, manual);
   }
 
   switch (normalizedEmailType) {
     case 'created':
-      return dispatchEmail('created', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('created', booking, manual);
     case 'updated':
     case 'modification_confirmed':
-      return dispatchEmail('modification_confirmed', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('modification_confirmed', booking, manual);
     case 'cancelled':
-      return dispatchEmail('cancelled', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('cancelled', booking, manual);
     case 'modification_pending':
-      return dispatchEmail('modification_pending', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('modification_pending', booking, manual);
     case 'booking_rejected':
-      return dispatchEmail('booking_rejected', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('booking_rejected', booking, manual);
     case 'restaurant_cancellation':
-      return dispatchEmail('restaurant_cancellation', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('restaurant_cancellation', booking, manual);
     case 'review_request':
-      return dispatchEmail('review_request', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('review_request', booking, manual);
     case 'reminder':
       return dispatchEmail('reminder', booking, {
         reminderVariant: normalizedTemplateType === 'reminder_short' ? 'short' : 'standard',
-        skipRecentDeliveryCheck: true,
+        ...manual,
       });
     case 'pending_attention':
       return dispatchEmail('pending_attention', booking, {
         reason: 'Retry requested from delivery log',
-        skipRecentDeliveryCheck: true,
+        ...manual,
       });
     default:
       if (normalizedTemplateType === 'review_request') {
-        return dispatchEmail('review_request', booking, { skipRecentDeliveryCheck: true });
+        return dispatchEmail('review_request', booking, manual);
       }
 
-      return dispatchEmail('created', booking, { skipRecentDeliveryCheck: true });
+      return dispatchEmail('created', booking, manual);
   }
 }
 
@@ -1205,29 +1272,49 @@ export async function resendBookingEmailFromDeliveryLog(params: {
   booking: BookingRecord;
   emailType: string | null;
   templateType: string | null;
+  /** Per-attempt provider key from the retry claim; never the original send's key. */
+  idempotencyKey?: string;
 }): Promise<EmailDeliveryLogEntry | null> {
-  return resendBookingEmailByDeliveryType(params.booking, params.emailType, params.templateType);
+  return resendBookingEmailByDeliveryType(params.booking, params.emailType, params.templateType, {
+    idempotencyKey: params.idempotencyKey,
+  });
 }
-export const sendBookingConfirmationEmail = (booking: BookingRecord) =>
-  dispatchEmail('created', booking);
-export const sendBookingUpdateEmail = (booking: BookingRecord) =>
-  dispatchEmail('modification_confirmed', booking);
-export const sendBookingCancellationEmail = (booking: BookingRecord) =>
-  dispatchEmail('cancelled', booking);
+export const sendBookingConfirmationEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('created', booking, sendOptions);
+export const sendBookingUpdateEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('modification_confirmed', booking, sendOptions);
+export const sendBookingCancellationEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('cancelled', booking, sendOptions);
 export const sendBookingModificationPendingEmail = (booking: BookingRecord) =>
   dispatchEmail('modification_pending', booking);
 export const sendBookingModificationConfirmedEmail = (booking: BookingRecord) =>
   dispatchEmail('modification_confirmed', booking);
-export const sendBookingRejectedEmail = (booking: BookingRecord) =>
-  dispatchEmail('booking_rejected', booking);
-export const sendRestaurantCancellationEmail = (booking: BookingRecord) =>
-  dispatchEmail('restaurant_cancellation', booking);
-export const sendBookingReviewRequestEmail = (booking: BookingRecord) =>
-  dispatchEmail('review_request', booking);
+export const sendBookingRejectedEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('booking_rejected', booking, sendOptions);
+export const sendRestaurantCancellationEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('restaurant_cancellation', booking, sendOptions);
+export const sendBookingReviewRequestEmail = (
+  booking: BookingRecord,
+  sendOptions?: BookingEmailSendOptions,
+) => dispatchEmail('review_request', booking, sendOptions);
 export const sendBookingReminderEmail = (
   booking: BookingRecord,
-  options: { variant: 'short' | 'standard' },
-) => dispatchEmail('reminder', booking, { reminderVariant: options.variant });
+  options: { variant: 'short' | 'standard' } & BookingEmailSendOptions,
+) =>
+  dispatchEmail('reminder', booking, {
+    reminderVariant: options.variant,
+    reportSkips: options.reportSkips,
+  });
 export const sendBookingPendingAttentionEmail = (
   booking: BookingRecord,
   options: { reason: string },

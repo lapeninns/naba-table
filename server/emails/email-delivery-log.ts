@@ -1,3 +1,8 @@
+import {
+  createHashedEmailIdempotencyKey,
+  isDefinitiveResendNotSent,
+  isEmailRecipientSuppressedError,
+} from '@/libs/resend';
 import { recordObservabilityEvent } from '@/server/observability';
 import { getServiceSupabaseClient } from '@/server/supabase';
 import {
@@ -40,11 +45,23 @@ export type EmailDeliveryLogEntry = {
   metadata: Json | null;
 };
 
-export class EmailDeliveryRetryError extends Error {
-  readonly code: 'NOT_FOUND' | 'NOT_RETRYABLE' | 'MISSING_BOOKING';
+export type EmailDeliveryRetryErrorCode =
+  | 'NOT_FOUND'
+  | 'NOT_RETRYABLE'
+  | 'MISSING_BOOKING'
+  | 'MISSING_RECIPIENT'
+  | 'RETRY_IN_PROGRESS'
+  | 'ALREADY_RETRIED'
+  | 'RECIPIENT_SUPPRESSED'
+  | 'SEND_FAILED'
+  /** The provider may have accepted the email; the next retry reuses the same provider key. */
+  | 'SEND_UNCONFIRMED';
 
-  constructor(code: 'NOT_FOUND' | 'NOT_RETRYABLE' | 'MISSING_BOOKING', message: string) {
-    super(message);
+export class EmailDeliveryRetryError extends Error {
+  readonly code: EmailDeliveryRetryErrorCode;
+
+  constructor(code: EmailDeliveryRetryErrorCode, message: string, options?: { cause?: unknown }) {
+    super(message, options?.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = 'EmailDeliveryRetryError';
     this.code = code;
   }
@@ -771,47 +788,224 @@ export async function getEmailDeliveryLogEntryById(
   return data ? toEntryDto(data as EmailDeliveryLogRow) : null;
 }
 
+export type EmailDeliveryResendFn = (
+  bookingId: string,
+  emailType: string | null,
+  templateType: string | null,
+  options: { idempotencyKey: string },
+) => Promise<EmailDeliveryLogEntry | null>;
+
+export type EmailDeliveryRetryResult = {
+  status: 'sent';
+  retryAttempt: number;
+  /** The new delivery-log row, or null when the email was sent but its log insert failed. */
+  deliveryLogEntry: EmailDeliveryLogEntry | null;
+};
+
+type RetryClaim = {
+  retryAttempt: number;
+  /** The event row that holds the claim; may be a sibling of the clicked row (same message). */
+  deliveryLogId: string;
+  messageId: string;
+  bookingId: string;
+  emailType: string | null;
+  templateType: string | null;
+};
+
+const RETRY_CLAIM_OUTCOME_ERRORS: Record<string, EmailDeliveryRetryError> = {
+  not_found: new EmailDeliveryRetryError('NOT_FOUND', 'Email delivery log entry not found.'),
+  not_retryable: new EmailDeliveryRetryError(
+    'NOT_RETRYABLE',
+    'Only failed or bounced emails can be retried.',
+  ),
+  missing_booking: new EmailDeliveryRetryError(
+    'MISSING_BOOKING',
+    'The original booking could not be determined for this email.',
+  ),
+  in_progress: new EmailDeliveryRetryError(
+    'RETRY_IN_PROGRESS',
+    'This email is already being resent.',
+  ),
+  already_retried: new EmailDeliveryRetryError('ALREADY_RETRIED', 'This email was already resent.'),
+};
+
+function readString(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+async function claimEmailDeliveryRetry(params: {
+  deliveryLogId: string;
+  restaurantId: string;
+}): Promise<RetryClaim> {
+  const supabase = getServiceSupabaseClient();
+  const { data, error } = await supabase.rpc('claim_email_delivery_retry_v1', {
+    p_delivery_log_id: params.deliveryLogId,
+    p_restaurant_id: params.restaurantId,
+  });
+
+  if (error) {
+    if (isDeliveryLogUnavailable(error)) {
+      throw new EmailDeliveryLogUnavailableError();
+    }
+    throw new Error(`Failed to claim email delivery retry (${error.code ?? 'unknown'}).`);
+  }
+
+  const claim = ensureObject<Record<string, unknown>>(data) ?? {};
+  const outcome = readString(claim, 'outcome');
+  if (outcome !== 'claimed') {
+    throw (
+      RETRY_CLAIM_OUTCOME_ERRORS[outcome ?? ''] ??
+      new Error('Unexpected email delivery retry claim outcome.')
+    );
+  }
+
+  const retryAttempt = claim.retryAttempt;
+  const bookingId = readString(claim, 'bookingId');
+  const deliveryLogId = readString(claim, 'deliveryLogId');
+  const messageId = readString(claim, 'messageId');
+  if (
+    typeof retryAttempt !== 'number' ||
+    !Number.isInteger(retryAttempt) ||
+    !bookingId ||
+    !deliveryLogId ||
+    !messageId
+  ) {
+    throw new Error('Malformed email delivery retry claim.');
+  }
+
+  return {
+    retryAttempt,
+    deliveryLogId,
+    messageId,
+    bookingId,
+    emailType: readString(claim, 'emailType'),
+    templateType: readString(claim, 'templateType'),
+  };
+}
+
+async function completeEmailDeliveryRetry(params: {
+  deliveryLogId: string;
+  restaurantId: string;
+  retryAttempt: number;
+  /** failed = definitively not sent; unknown = the provider may have accepted it. */
+  outcome: 'sent' | 'failed' | 'unknown';
+  retryDeliveryLogId: string | null;
+}): Promise<void> {
+  try {
+    const supabase = getServiceSupabaseClient();
+    const { error } = await supabase.rpc('complete_email_delivery_retry_v1', {
+      p_delivery_log_id: params.deliveryLogId,
+      p_restaurant_id: params.restaurantId,
+      p_retry_attempt: params.retryAttempt,
+      p_outcome: params.outcome,
+      p_retry_delivery_log_id: params.retryDeliveryLogId,
+    });
+    if (error) {
+      throw new Error(`complete_email_delivery_retry_v1 failed (${error.code ?? 'unknown'})`);
+    }
+  } catch (error) {
+    // The send outcome already happened; an unrecorded outcome only delays the next retry until
+    // the claim goes stale (the stale reclaim reuses the same provider idempotency key).
+    await recordObservabilityEvent({
+      source: 'email.delivery_log',
+      eventType: 'retry_completion_failed',
+      severity: 'warning',
+      context: {
+        deliveryLogId: params.deliveryLogId,
+        retryAttempt: params.retryAttempt,
+        outcome: params.outcome,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      restaurantId: params.restaurantId,
+    });
+  }
+}
+
+/**
+ * Provider idempotency key for one manual resend attempt of a MESSAGE. Attempt numbers are
+ * per message (across all its event rows), so the key differs from the original send's key (the
+ * provider would otherwise return the original, failed message) and from every other attempt,
+ * whichever event row was clicked. A resend with an unknown outcome is reclaimed with the same
+ * attempt, and therefore the same key, so the provider deduplicates it.
+ */
+export function buildEmailDeliveryRetryIdempotencyKey(params: {
+  restaurantId: string;
+  messageId: string;
+  retryAttempt: number;
+}): string {
+  return createHashedEmailIdempotencyKey({
+    scope: 'booking-email-retry',
+    parts: [params.restaurantId, params.messageId, params.retryAttempt],
+  });
+}
+
+/** True when the send callback failed before anything could have reached the provider. */
+function isDefinitivelyNotSent(error: unknown): boolean {
+  return (
+    error instanceof EmailDeliveryRetryError ||
+    isEmailRecipientSuppressedError(error) ||
+    isDefinitiveResendNotSent(error)
+  );
+}
+
+/**
+ * Manual resend of a failed or bounced email. The message is claimed atomically first, so a
+ * double click or a second tab gets RETRY_IN_PROGRESS / ALREADY_RETRIED instead of a second send.
+ * Only a definitive "not sent" failure moves the message to a new attempt (and provider key); an
+ * ambiguous one (timeout, network error, provider 5xx) is recorded as unknown, and the next retry
+ * reuses the same key so the provider cannot deliver a duplicate.
+ */
 export async function retryEmailDeliveryLogEntry(params: {
   deliveryLogId: string;
   restaurantId: string;
-  resendBookingEmail: (
-    bookingId: string,
-    emailType: string | null,
-    templateType: string | null,
-  ) => Promise<EmailDeliveryLogEntry | null>;
-}): Promise<EmailDeliveryLogEntry> {
-  const entry = await getEmailDeliveryLogEntryById(params.deliveryLogId, {
-    restaurantId: params.restaurantId,
-  });
+  resendBookingEmail: EmailDeliveryResendFn;
+}): Promise<EmailDeliveryRetryResult> {
+  const claim = await claimEmailDeliveryRetry(params);
+  const complete = (outcome: 'sent' | 'failed' | 'unknown', retryDeliveryLogId: string | null) =>
+    completeEmailDeliveryRetry({
+      deliveryLogId: claim.deliveryLogId,
+      restaurantId: params.restaurantId,
+      retryAttempt: claim.retryAttempt,
+      outcome,
+      retryDeliveryLogId,
+    });
 
-  if (!entry) {
-    throw new EmailDeliveryRetryError('NOT_FOUND', 'Email delivery log entry not found.');
+  let entry: EmailDeliveryLogEntry | null;
+  try {
+    entry = await params.resendBookingEmail(claim.bookingId, claim.emailType, claim.templateType, {
+      idempotencyKey: buildEmailDeliveryRetryIdempotencyKey({
+        restaurantId: params.restaurantId,
+        messageId: claim.messageId,
+        retryAttempt: claim.retryAttempt,
+      }),
+    });
+  } catch (error) {
+    if (!isDefinitivelyNotSent(error)) {
+      await complete('unknown', null);
+      throw new EmailDeliveryRetryError(
+        'SEND_UNCONFIRMED',
+        'The email provider did not confirm the send.',
+        { cause: error },
+      );
+    }
+    await complete('failed', null);
+    if (error instanceof EmailDeliveryRetryError) {
+      throw error;
+    }
+    if (isEmailRecipientSuppressedError(error)) {
+      throw new EmailDeliveryRetryError(
+        'RECIPIENT_SUPPRESSED',
+        'This address is blocked after a bounce or complaint, so the email was not sent.',
+      );
+    }
+    throw new EmailDeliveryRetryError('SEND_FAILED', 'The email could not be sent.', {
+      cause: error,
+    });
   }
 
-  if (entry.status !== 'failed' && entry.status !== 'bounced') {
-    throw new EmailDeliveryRetryError(
-      'NOT_RETRYABLE',
-      'Only failed or bounced emails can be retried.',
-    );
-  }
-
-  if (!entry.bookingId) {
-    throw new EmailDeliveryRetryError(
-      'MISSING_BOOKING',
-      'The original booking could not be determined for this delivery log entry.',
-    );
-  }
-
-  const resent = await params.resendBookingEmail(
-    entry.bookingId,
-    entry.emailType,
-    entry.templateType,
-  );
-  if (!resent) {
-    throw new Error('Retry email send did not create a delivery log entry.');
-  }
-
-  return resent;
+  await complete('sent', entry?.id ?? null);
+  return { status: 'sent', retryAttempt: claim.retryAttempt, deliveryLogEntry: entry };
 }
 
 async function countStuckInFlightEmailAttempts(params: {

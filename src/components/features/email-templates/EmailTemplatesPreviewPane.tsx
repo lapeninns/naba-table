@@ -24,7 +24,11 @@ type EmailTemplatesPreviewPaneProps = {
   onPreviewDeviceChange: (device: EmailTemplatesPreviewDevice) => void;
   preview: RestaurantEmailTemplatePreview | null;
   isLoading: boolean;
+  /** A newer draft is being rendered while the previous preview stays visible. */
+  isRefreshing?: boolean;
   errorMessage: string | null;
+  /** Re-renders the current draft after a preview error (for example a rate limit). */
+  onRetry?: () => void;
 };
 
 function DetailBlock({
@@ -53,7 +57,9 @@ export function EmailTemplatesPreviewPane({
   onPreviewDeviceChange,
   preview,
   isLoading,
+  isRefreshing = false,
   errorMessage,
+  onRetry,
 }: EmailTemplatesPreviewPaneProps) {
   const isMobile = previewDevice === 'mobile';
 
@@ -69,8 +75,8 @@ export function EmailTemplatesPreviewPane({
           <Mail className="size-4 text-muted-foreground" />
           <div className="min-w-0">
             <div className="text-sm font-bold text-foreground">Live Preview</div>
-            <div className="text-xs text-muted-foreground">
-              Rendered using the current draft variant.
+            <div className="text-xs text-muted-foreground" aria-live="polite">
+              {isRefreshing ? 'Updating preview…' : 'Rendered using the current draft variant.'}
             </div>
           </div>
         </div>
@@ -110,7 +116,14 @@ export function EmailTemplatesPreviewPane({
           {errorMessage ? (
             <Alert variant="destructive" className="w-full">
               <AlertTitle>Preview unavailable</AlertTitle>
-              <AlertDescription>{errorMessage}</AlertDescription>
+              <AlertDescription className="flex flex-col items-start gap-3">
+                <span>{errorMessage}</span>
+                {onRetry ? (
+                  <Button type="button" size="sm" variant="outline" onClick={onRetry}>
+                    Retry preview
+                  </Button>
+                ) : null}
+              </AlertDescription>
             </Alert>
           ) : isLoading && !preview ? (
             <>
@@ -125,9 +138,7 @@ export function EmailTemplatesPreviewPane({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-foreground">Delivery summary</div>
-                      <Text variant="caption">
-                        Exactly what the inbox and recipient will see.
-                      </Text>
+                      <Text variant="caption">Exactly what the inbox and recipient will see.</Text>
                     </div>
                     <Badge
                       variant="outline"

@@ -1,101 +1,42 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 
-import { captureServerException } from '@/lib/posthog/server';
-import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
+import { conflict } from '@/lib/api/errors';
 import { cancelRestaurantEmailQueueJob } from '@/server/queue/email';
-import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
+
+import { handleQueueJobMutation, queueJobNotFound, type QueueJobRouteContext } from '../_shared';
 
 import type { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const bodySchema = z.object({
-  restaurantId: z.string().uuid(),
-});
+const ROUTE = '/api/ops/email-queue/[jobId]/cancel';
 
-function jsonError(status: number, code: string, message: string) {
-  return NextResponse.json({ ok: false, code, error: message, message }, { status });
-}
-
-export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ jobId: string }> },
-) {
-  return withCsrfProtectedMutation(request, () => postCancel(request, context));
-}
-
-async function postCancel(
-  request: NextRequest,
-  context: { params: Promise<{ jobId: string }> },
-) {
-  const { jobId: rawJobId } = await context.params;
-  const jobId = rawJobId?.trim() ?? '';
-  if (!jobId) {
-    return jsonError(400, 'INVALID_REQUEST', 'Invalid job id.');
-  }
-
-  let restaurantId: string;
-  try {
-    const json = await request.json();
-    const parsed = bodySchema.safeParse(json);
-    if (!parsed.success) {
-      return jsonError(400, 'INVALID_REQUEST', 'Invalid request body.');
-    }
-    restaurantId = parsed.data.restaurantId;
-  } catch {
-    return jsonError(400, 'INVALID_REQUEST', 'Invalid request body.');
-  }
-
-  try {
-    const { supabase, user } = await requireSession();
-
-    const rateLimit = await requireApiRateLimit({
-      request,
-      scope: 'ops-email-queue:cancel',
-      userId: user.id,
-      parts: [restaurantId, jobId],
-      limit: 20,
-      windowMs: 60_000,
-      message: 'Too many queue cancel attempts. Please try again later.',
-    });
-    if (rateLimit) return rateLimit;
-
-    try {
-      await requireRestaurantMember({
-        supabase,
-        userId: user.id,
-        restaurantId,
-      });
-    } catch (error) {
-      if (error instanceof GuardError) {
-        if (error.code === 'UNAUTHENTICATED') {
-          return jsonError(401, 'UNAUTHENTICATED', error.message);
+export async function POST(request: NextRequest, context: QueueJobRouteContext) {
+  return withCsrfProtectedMutation(request, () =>
+    handleQueueJobMutation(request, context, {
+      route: ROUTE,
+      rateLimitScope: 'ops-email-queue:cancel',
+      rateLimit: 20,
+      rateLimitMessage: 'Too many cancel attempts. Wait a moment and try again.',
+      run: async ({ jobId, restaurantId }) => {
+        const result = await cancelRestaurantEmailQueueJob({ jobId, restaurantId });
+        switch (result) {
+          case 'cancelled':
+            return NextResponse.json({ ok: true, jobId, action: 'cancelled' }, { status: 200 });
+          case 'in_progress':
+            return conflict(
+              'JOB_IN_PROGRESS',
+              'This email is being sent right now, so it can no longer be cancelled.',
+            );
+          case 'not_cancellable':
+            return conflict('JOB_NOT_CANCELLABLE', 'Only scheduled emails can be cancelled.');
+          case 'not_found':
+          default:
+            return queueJobNotFound();
         }
-        return jsonError(404, 'NOT_FOUND', 'Queue job not found.');
-      }
-      throw error;
-    }
-
-    const result = await cancelRestaurantEmailQueueJob({ jobId, restaurantId });
-    if (result === 'not_found') {
-      return jsonError(404, 'NOT_FOUND', 'Queue job not found.');
-    }
-
-    return NextResponse.json({ ok: true, jobId, action: 'cancelled' }, { status: 200 });
-  } catch (error) {
-    if (error instanceof GuardError) {
-      if (error.code === 'UNAUTHENTICATED') {
-        return jsonError(401, 'UNAUTHENTICATED', error.message);
-      }
-      return jsonError(404, 'NOT_FOUND', 'Queue job not found.');
-    }
-
-    captureServerException(error, {
-      properties: { source: 'ops', path: '/api/ops/email-queue/[jobId]/cancel' },
-    });
-    return jsonError(500, 'INTERNAL', 'Internal error');
-  }
+      },
+    }),
+  );
 }
