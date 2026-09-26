@@ -8235,6 +8235,10 @@ export type Database = {
           table_id: string;
         }[];
       };
+      create_booking_occasion: {
+        Args: { p_actor_id: string | null; p_occasion: Json };
+        Returns: Json;
+      };
       create_booking_with_capacity_check: {
         Args: {
           p_auth_user_id?: string;
@@ -8472,6 +8476,21 @@ export type Database = {
         Returns: number;
       };
       require_restaurant_context: { Args: never; Returns: string };
+      restaurant_availability_revision: {
+        Args: { p_restaurant_id: string };
+        Returns: string;
+      };
+      save_restaurant_availability: {
+        Args: {
+          p_expected_revision?: string | null;
+          p_operating_hours?: Json | null;
+          p_restaurant_id: string;
+          p_rules?: Json | null;
+          p_service_periods?: Json | null;
+          p_turn_bands?: Json | null;
+        };
+        Returns: Json;
+      };
       set_hold_conflict_enforcement: {
         Args: { enabled: boolean };
         Returns: boolean;

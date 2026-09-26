@@ -15,7 +15,7 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database, 'public'>;
-type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
+export type OperatingHoursInsert = Database['public']['Tables']['restaurant_operating_hours']['Insert'];
 type ReplacementRpcClient = DbClient & {
   rpc(
     fn: 'replace_restaurant_operating_hours',
@@ -346,11 +346,15 @@ export async function getOperatingHours(
   };
 }
 
-export async function updateOperatingHours(
+/**
+ * Validates an hours payload and builds the rows `replace_restaurant_operating_hours` (and the
+ * availability command) replaces the restaurant's hours with. Throws a plain Error on invalid
+ * input; the message never carries database text.
+ */
+export function buildOperatingHoursReplacementRows(
   restaurantId: string,
   payload: UpdateOperatingHoursPayload,
-  client: DbClient = getServiceSupabaseClient(),
-): Promise<OperatingHoursSnapshot> {
+): OperatingHoursInsert[] {
   const validatedWeekly = payload.weekly.map((entry) => validateWeeklyEntry(entry));
 
   const uniqueDays = new Set<number>();
@@ -402,6 +406,16 @@ export async function updateOperatingHours(
       reservation_slot_times: entry.reservationSlotTimes,
     })),
   ];
+
+  return insertRows;
+}
+
+export async function updateOperatingHours(
+  restaurantId: string,
+  payload: UpdateOperatingHoursPayload,
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<OperatingHoursSnapshot> {
+  const insertRows = buildOperatingHoursReplacementRows(restaurantId, payload);
 
   const { error: replaceError } = await (client as ReplacementRpcClient).rpc(
     'replace_restaurant_operating_hours',

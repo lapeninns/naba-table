@@ -1,23 +1,25 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 
-import { logger } from '@/lib/logger';
+import { apiError, internalError, validationError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
-import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
-import { inferMealTypeFromTime } from '@/server/bookings';
-import { getVenuePolicy, type ServiceKey, type TurnBand } from '@/server/capacity/policy';
+import {
+  authorizeAvailabilityAdmin,
+  resolveAvailabilityRouteRestaurantId,
+} from '@/server/restaurants/availabilityRouteAuth';
+import { turnBandsPayloadSchema } from '@/server/restaurants/availabilitySchemas';
 import { getServicePeriods } from '@/server/restaurants/servicePeriods';
+import { buildTurnBandsSnapshot } from '@/server/restaurants/turnBandDefaults';
 import {
   getRestaurantTurnBands,
   replaceRestaurantTurnBands,
-  type TurnBandInput,
   type TurnBandsPayload,
 } from '@/server/restaurants/turnBands';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
-import { getRouteHandlerSupabaseClient } from '@/server/supabase';
-import { requireAdminMembership } from '@/server/team/access';
+import { getRouteHandlerSupabaseClient, getServiceSupabaseClient } from '@/server/supabase';
 
 import type { NextRequest } from 'next/server';
+
+const ROUTE = 'ops.restaurants.turn-bands';
 
 type RouteParams = {
   params: Promise<{
@@ -25,148 +27,40 @@ type RouteParams = {
   }>;
 };
 
-const bandSchema = z.object({
-  maxPartySize: z.number().int(),
-  durationMinutes: z.number().int(),
-});
-
-const payloadSchema = z.record(z.string(), z.array(bandSchema));
-
-function cloneBands(bands: TurnBand[]): TurnBandInput[] {
-  return bands.map((band) => ({
-    maxPartySize: band.maxPartySize,
-    durationMinutes: band.durationMinutes,
-  }));
+function missingRestaurantId() {
+  return apiError(400, 'RESTAURANT_ID_REQUIRED', 'Missing restaurant id.');
 }
 
-function resolveServiceKey(optionKey: string, startTime: string | null): ServiceKey {
-  if (optionKey === 'lunch' || optionKey === 'dinner') {
-    return optionKey;
-  }
-  return inferMealTypeFromTime(startTime ?? '18:00');
-}
-
-async function resolveRestaurantId(
-  paramsPromise: Promise<{ id: string | string[] }> | undefined,
-): Promise<string | null> {
-  if (!paramsPromise) return null;
-  const params = await paramsPromise;
-  const { id } = params;
-  if (typeof id === 'string') return id;
-  if (Array.isArray(id)) return id[0] ?? null;
-  return null;
-}
-
-async function ensureAuthorized(restaurantId: string): Promise<NextResponse | null> {
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
-
-  try {
-    await requireAdminMembership({
-      userId: user.id,
-      restaurantId,
-      client: supabase,
-    });
-  } catch (error) {
-    console.error('[ops][restaurants][turn-bands] admin permission required', error);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  return null;
-}
-
-function handleUnexpectedError(error: unknown, context: string, restaurantId: string) {
-  logger.error(`${context} failed`, {
-    route: 'ops.restaurants.turn-bands',
-    restaurantId,
-    errorName: error instanceof Error ? error.name : 'UnknownError',
-  });
+function handleFailure(error: unknown, method: string, restaurantId: string) {
   captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-turn-bands' } });
 
-  // Domain validation and database failures both arrive as plain Errors, so the 400 status is
-  // kept, but the message is never echoed: it can carry database internals.
-  if (error instanceof Error) {
-    return NextResponse.json(
-      { error: 'Unable to process these settings.', code: 'SETTINGS_REQUEST_FAILED' },
-      { status: 400 },
-    );
+  // Domain validation throws plain Errors before any write; their text is never echoed.
+  if (method !== 'GET' && error instanceof Error && error.name === 'Error') {
+    return apiError(400, 'SETTINGS_REQUEST_FAILED', 'Unable to process these settings.');
   }
-
-  return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
-}
-
-function deriveDefaultBands(
-  optionKeys: Set<string>,
-  startTimes: Map<string, string>,
-): TurnBandsPayload {
-  const policy = getVenuePolicy();
-  const defaults: TurnBandsPayload = {};
-
-  optionKeys.forEach((optionKey) => {
-    const serviceKey = resolveServiceKey(optionKey, startTimes.get(optionKey) ?? null);
-    const service = policy.services[serviceKey];
-    if (service?.turnBands?.length) {
-      defaults[optionKey] = cloneBands(service.turnBands);
-    }
-  });
-
-  return defaults;
+  return internalError(error, { route: ROUTE, method, restaurantId });
 }
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
-  const restaurantId = await resolveRestaurantId(params);
+  const restaurantId = await resolveAvailabilityRouteRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
+  }
+
+  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  if (actor instanceof NextResponse) {
+    return actor;
   }
 
   try {
-    const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse) {
-      return authResponse;
-    }
-
     const supabase = await getRouteHandlerSupabaseClient();
     const [bands, periods] = await Promise.all([
       getRestaurantTurnBands(restaurantId, supabase),
       getServicePeriods(restaurantId, supabase),
     ]);
-
-    const optionKeys = new Set<string>();
-    const optionStartTimes = new Map<string, string>();
-
-    periods.forEach((period) => {
-      const optionKey = period.bookingOption;
-      optionKeys.add(optionKey);
-      const existingStart = optionStartTimes.get(optionKey);
-      if (!existingStart || period.startTime < existingStart) {
-        optionStartTimes.set(optionKey, period.startTime);
-      }
-    });
-
-    Object.keys(bands).forEach((optionKey) => optionKeys.add(optionKey));
-    optionKeys.add('lunch');
-    optionKeys.add('dinner');
-
-    const defaults = deriveDefaultBands(optionKeys, optionStartTimes);
-
-    return NextResponse.json({ restaurantId, bands, defaults });
+    return NextResponse.json(buildTurnBandsSnapshot(restaurantId, bands, periods));
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][turn-bands][GET]', restaurantId);
+    return handleFailure(error, 'GET', restaurantId);
   }
 }
 
@@ -175,55 +69,38 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 }
 
 async function putTurnBands(req: NextRequest, { params }: RouteParams) {
-  const restaurantId = await resolveRestaurantId(params);
+  const restaurantId = await resolveAvailabilityRouteRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
   }
 
-  let payload: TurnBandsPayload;
-  try {
-    const json = await req.json();
-    payload = payloadSchema.parse(json ?? {}) as TurnBandsPayload;
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  // Authorise before reading the body.
+  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  if (actor instanceof NextResponse) {
+    return actor;
   }
 
+  let json: unknown;
   try {
-    const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse) {
-      return authResponse;
-    }
+    json = await req.json();
+  } catch {
+    return apiError(400, 'INVALID_JSON', 'The request body must be JSON.');
+  }
+  const parsed = turnBandsPayloadSchema.safeParse(json ?? {});
+  if (!parsed.success) {
+    return validationError(parsed.error);
+  }
+  const payload: TurnBandsPayload = parsed.data;
 
-    const supabase = await getRouteHandlerSupabaseClient();
-    const bands = await replaceRestaurantTurnBands(restaurantId, payload, supabase);
-    const periods = await getServicePeriods(restaurantId, supabase);
-
-    const optionKeys = new Set<string>();
-    const optionStartTimes = new Map<string, string>();
-
-    periods.forEach((period) => {
-      const optionKey = period.bookingOption;
-      optionKeys.add(optionKey);
-      const existingStart = optionStartTimes.get(optionKey);
-      if (!existingStart || period.startTime < existingStart) {
-        optionStartTimes.set(optionKey, period.startTime);
-      }
-    });
-
-    Object.keys(bands).forEach((optionKey) => optionKeys.add(optionKey));
-    optionKeys.add('lunch');
-    optionKeys.add('dinner');
-
-    const defaults = deriveDefaultBands(optionKeys, optionStartTimes);
-
-    return NextResponse.json({ restaurantId, bands, defaults });
+  try {
+    // replace_restaurant_turn_bands is granted to service_role only (the session client gets
+    // "permission denied for function"), so the write runs with the service client once the
+    // caller is authorised as an admin of this restaurant. Every statement is restaurant_id scoped.
+    const serviceClient = getServiceSupabaseClient();
+    const bands = await replaceRestaurantTurnBands(restaurantId, payload, serviceClient);
+    const periods = await getServicePeriods(restaurantId, serviceClient);
+    return NextResponse.json(buildTurnBandsSnapshot(restaurantId, bands, periods));
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][turn-bands][PUT]', restaurantId);
+    return handleFailure(error, 'PUT', restaurantId);
   }
 }

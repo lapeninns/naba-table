@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { getServiceSupabaseClient } from '@/server/supabase';
 
 import type { Database, Json } from '@/types/supabase';
@@ -88,8 +89,12 @@ export async function insertAudit(entry: AuditInsert, client = getServiceSupabas
   };
   const { error } = await client.from('booking_occasions_audit').insert(payload);
   if (error) {
-    // Log but do not block request flow.
-    console.warn('[ops/occasions] failed to insert audit log', error);
+    // Log but do not block request flow. The occasion key is catalog data, not PII.
+    logger.warn('ops.occasions.audit_insert_failed', {
+      occasionKey: entry.occasion_key,
+      action: entry.action,
+      errorKind: typeof error.code === 'string' ? error.code : 'unknown',
+    });
   }
 }
 
@@ -120,4 +125,59 @@ export async function countOccasionReferences(key: string, client: SupabaseClien
     servicePeriods: servicePeriods ?? 0,
     futureBookings: futureBookings ?? 0,
   };
+}
+
+export type CreateOccasionInput = {
+  key: string;
+  label: string;
+  shortLabel?: string;
+  description?: string | null;
+  availability?: unknown[];
+  defaultDurationMinutes?: number;
+  displayOrder?: number;
+  isActive?: boolean;
+};
+
+/** A create refused because an active booking type already uses the key. */
+export class OccasionAlreadyExistsError extends Error {
+  constructor() {
+    super('Occasion already exists');
+    this.name = 'OccasionAlreadyExistsError';
+  }
+}
+
+/**
+ * Creates a booking type, or revives a soft-deleted one with the same key, in one transaction
+ * (`create_booking_occasion`): the existence check, display-order choice, write and audit row
+ * cannot interleave with a concurrent create. Throws {@link OccasionAlreadyExistsError} when an
+ * active type already uses the key.
+ */
+export async function createOccasion(
+  input: CreateOccasionInput,
+  actorId: string,
+  client: SupabaseClient<Database> = getServiceSupabaseClient(),
+): Promise<AdminOccasion> {
+  const { data, error } = await client.rpc('create_booking_occasion', {
+    p_actor_id: actorId,
+    p_occasion: {
+      key: input.key,
+      label: input.label,
+      short_label: input.shortLabel ?? null,
+      description: input.description ?? null,
+      availability: (input.availability ?? []) as Json,
+      default_duration_minutes: input.defaultDurationMinutes ?? null,
+      display_order: input.displayOrder ?? null,
+      is_active: input.isActive ?? true,
+    },
+  });
+  if (error) {
+    if (error.code === '23505') {
+      throw new OccasionAlreadyExistsError();
+    }
+    throw error;
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('create_booking_occasion returned no row');
+  }
+  return toAdminOccasion(data as unknown as OccasionRow);
 }

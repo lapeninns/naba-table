@@ -21,6 +21,19 @@ const requireSessionMock = vi.hoisted(() => vi.fn());
 const listUserRestaurantMembershipsMock = vi.hoisted(() => vi.fn());
 const withPlatformAdminAuthorizationMock = vi.hoisted(() => vi.fn());
 const fetchAllOccasionsMock = vi.hoisted(() => vi.fn());
+const createOccasionMock = vi.hoisted(() => vi.fn());
+const fetchOccasionByKeyMock = vi.hoisted(() => vi.fn());
+const countOccasionReferencesMock = vi.hoisted(() => vi.fn());
+const clearOccasionCatalogCacheMock = vi.hoisted(() => vi.fn());
+const OccasionAlreadyExistsErrorMock = vi.hoisted(
+  () =>
+    class OccasionAlreadyExistsError extends Error {
+      constructor() {
+        super('Occasion already exists');
+        this.name = 'OccasionAlreadyExistsError';
+      }
+    },
+);
 
 vi.mock('@/server/auth/guards', () => ({
   GuardError: GuardErrorMock,
@@ -31,8 +44,16 @@ vi.mock('@/server/auth/guards', () => ({
 
 vi.mock('@/server/occasions/admin', () => ({
   fetchAllOccasions: fetchAllOccasionsMock,
+  createOccasion: createOccasionMock,
+  fetchOccasionByKey: fetchOccasionByKeyMock,
+  countOccasionReferences: countOccasionReferencesMock,
+  OccasionAlreadyExistsError: OccasionAlreadyExistsErrorMock,
   insertAudit: vi.fn(),
   toAdminOccasion: vi.fn((occasion) => occasion),
+}));
+
+vi.mock('@/server/occasions/catalog', () => ({
+  clearOccasionCatalogCache: clearOccasionCatalogCacheMock,
 }));
 
 vi.mock('@/server/auth/supabase-auth-errors', () => ({
@@ -44,14 +65,17 @@ vi.mock('@/server/supabase', () => ({
   getServiceSupabaseClient: vi.fn(),
 }));
 
+import { DELETE } from '@/src/app/api/ops/occasions/[key]/route';
 import { GET, POST } from '@/src/app/api/ops/occasions/route';
 
 describe('ops occasions route security', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     requireSessionMock.mockReset();
     listUserRestaurantMembershipsMock.mockReset();
     withPlatformAdminAuthorizationMock.mockReset();
     fetchAllOccasionsMock.mockReset();
+    createOccasionMock.mockReset();
   });
 
   it('lists the occasion catalog for authenticated restaurant members @api @security', async () => {
@@ -82,7 +106,7 @@ describe('ops occasions route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Forbidden', code: 'FORBIDDEN' });
+    expect(body).toMatchObject({ error: 'Forbidden', code: 'FORBIDDEN' });
     expect(fetchAllOccasionsMock).not.toHaveBeenCalled();
   });
 
@@ -99,7 +123,7 @@ describe('ops occasions route security', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       error: 'Authentication required',
       code: 'UNAUTHENTICATED',
     });
@@ -126,5 +150,92 @@ describe('ops occasions route security', () => {
       csrf: true,
     });
     expect(fetchAllOccasionsMock).not.toHaveBeenCalled();
+  });
+
+  describe('platform-admin writes', () => {
+    const adminUser = { id: '33333333-3333-4333-8333-333333333333', email: 'admin@example.com' };
+
+    function postRequest(body: unknown) {
+      return new NextRequest('https://app.nabatable.com/api/ops/occasions', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    }
+
+    beforeEach(() => {
+      withPlatformAdminAuthorizationMock.mockResolvedValue({
+        ok: true,
+        user: adminUser,
+        platformAdmin: true,
+      });
+    });
+
+    it('creates through the single atomic helper and clears the catalog cache', async () => {
+      createOccasionMock.mockResolvedValue({ key: 'brunch', label: 'Brunch' });
+
+      const response = await POST(postRequest({ key: 'brunch', label: 'Brunch' }));
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ occasion: { key: 'brunch', label: 'Brunch' } });
+      expect(createOccasionMock).toHaveBeenCalledTimes(1);
+      expect(createOccasionMock).toHaveBeenCalledWith(
+        { key: 'brunch', label: 'Brunch' },
+        adminUser.id,
+      );
+      expect(clearOccasionCatalogCacheMock).toHaveBeenCalledOnce();
+    });
+
+    it('answers a taken key with 409 OCCASION_ALREADY_EXISTS, not a generic conflict', async () => {
+      createOccasionMock.mockRejectedValue(new OccasionAlreadyExistsErrorMock());
+
+      const response = await POST(postRequest({ key: 'brunch', label: 'Brunch' }));
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body.code).toBe('OCCASION_ALREADY_EXISTS');
+      expect(clearOccasionCatalogCacheMock).not.toHaveBeenCalled();
+    });
+
+    it('validates the body at the boundary', async () => {
+      const response = await POST(
+        postRequest({ key: 'Bad Key', label: '', defaultDurationMinutes: 99999 }),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body.code).toBe('VALIDATION_FAILED');
+      expect(Object.keys(body.fields)).toEqual(
+        expect.arrayContaining(['key', 'label', 'defaultDurationMinutes']),
+      );
+      expect(createOccasionMock).not.toHaveBeenCalled();
+    });
+
+    it('never echoes database text from a failed create', async () => {
+      createOccasionMock.mockRejectedValue(new Error('SECRET_DB_DETAIL admin@example.com'));
+
+      const response = await POST(postRequest({ key: 'brunch', label: 'Brunch' }));
+      const text = await response.text();
+
+      expect(response.status).toBe(500);
+      expect(JSON.parse(text).code).toBe('INTERNAL_ERROR');
+      expect(text).not.toContain('SECRET_DB_DETAIL');
+    });
+
+    it('refuses to delete a type still used by upcoming bookings or meal times with OCCASION_IN_USE', async () => {
+      fetchOccasionByKeyMock.mockResolvedValue({ key: 'brunch', is_builtin: false, deleted_at: null });
+      countOccasionReferencesMock.mockResolvedValue({ futureBookings: 0, servicePeriods: 2 });
+
+      const response = await DELETE(
+        new NextRequest('https://app.nabatable.com/api/ops/occasions/brunch', { method: 'DELETE' }),
+        { params: Promise.resolve({ key: 'brunch' }) },
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(409);
+      expect(body).toMatchObject({
+        code: 'OCCASION_IN_USE',
+        details: { futureBookings: 0, servicePeriods: 2 },
+      });
+    });
   });
 });

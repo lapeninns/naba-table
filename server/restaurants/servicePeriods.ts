@@ -8,7 +8,7 @@ import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type DbClient = SupabaseClient<Database>;
-type ServicePeriodReplacementRow = {
+export type ServicePeriodReplacementRow = {
   id: string;
   restaurant_id: string;
   name: string;
@@ -162,18 +162,17 @@ export async function getServicePeriods(
   }));
 }
 
-export async function updateServicePeriods(
+/**
+ * Validates service periods and builds the rows `replace_restaurant_service_periods` (and the
+ * availability command) replaces the restaurant's periods with. `validOptions` is the set of
+ * booking-option keys a period may use; an empty set skips that check. Throws a plain Error on
+ * invalid input.
+ */
+export function buildServicePeriodReplacementRows(
   restaurantId: string,
   periods: UpdateServicePeriod[],
-  client: DbClient = getServiceSupabaseClient(),
-): Promise<ServicePeriod[]> {
-  const catalog = await getOccasionCatalog({ client });
-  const validOptions = new Set(
-    catalog.definitions
-      .map((definition) => definition.key.toLowerCase())
-      .filter((key) => key !== 'drinks'),
-  );
-
+  validOptions: Set<string>,
+): ServicePeriodReplacementRow[] {
   const validated = periods.map((entry) => validateServicePeriod(entry, validOptions));
   const uniqueIds = new Set<string>();
   validated.forEach((period) => {
@@ -186,7 +185,7 @@ export async function updateServicePeriods(
   // Prevent overlapping periods for the same day (including null day) unless an overlap-exempt period is involved.
   assertNoOverlappingPeriods(validated);
 
-  const rows: ServicePeriodReplacementRow[] = validated.map((period) => ({
+  return validated.map((period) => ({
     id: period.id,
     restaurant_id: restaurantId,
     name: period.name,
@@ -195,6 +194,20 @@ export async function updateServicePeriods(
     end_time: period.endTime,
     booking_option: period.bookingOption,
   }));
+}
+
+export async function updateServicePeriods(
+  restaurantId: string,
+  periods: UpdateServicePeriod[],
+  client: DbClient = getServiceSupabaseClient(),
+): Promise<ServicePeriod[]> {
+  const catalog = await getOccasionCatalog({ client });
+  const validOptions = new Set(
+    catalog.definitions
+      .map((definition) => definition.key.toLowerCase())
+      .filter((key) => key !== 'drinks'),
+  );
+  const rows = buildServicePeriodReplacementRows(restaurantId, periods, validOptions);
 
   const { error: replaceError } = await (client as ReplacementRpcClient).rpc(
     'replace_restaurant_service_periods',

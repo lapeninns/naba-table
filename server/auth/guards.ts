@@ -371,6 +371,26 @@ function readCsvEnv(name: string): Set<string> {
   );
 }
 
+/**
+ * True when the user is a Nabatable platform administrator: their id is listed in
+ * `PLATFORM_ADMIN_USER_IDS` or their email in `PLATFORM_ADMIN_EMAILS` (comma-separated,
+ * case-insensitive). Server-only: the lists never leave the server. Pages may pass the boolean to
+ * the client as a UI hint; `withPlatformAdminAuthorization` stays the authority for writes.
+ */
+export function isPlatformAdminUser(
+  user: { id: string; email?: string | null } | null | undefined,
+): boolean {
+  if (!user?.id) {
+    return false;
+  }
+  const adminUserIds = readCsvEnv('PLATFORM_ADMIN_USER_IDS');
+  const adminEmails = readCsvEnv('PLATFORM_ADMIN_EMAILS');
+  const userEmail = user.email?.trim().toLowerCase() ?? '';
+  return (
+    adminUserIds.has(user.id.toLowerCase()) || (userEmail.length > 0 && adminEmails.has(userEmail))
+  );
+}
+
 export async function withPlatformAdminAuthorization(
   req: NextRequest,
   options: { csrf?: boolean } = {},
@@ -380,14 +400,7 @@ export async function withPlatformAdminAuthorization(
     return guarded;
   }
 
-  const adminUserIds = readCsvEnv('PLATFORM_ADMIN_USER_IDS');
-  const adminEmails = readCsvEnv('PLATFORM_ADMIN_EMAILS');
-  const userEmail = guarded.user.email?.toLowerCase() ?? '';
-  const isPlatformAdmin =
-    adminUserIds.has(guarded.user.id.toLowerCase()) ||
-    (userEmail.length > 0 && adminEmails.has(userEmail));
-
-  if (!isPlatformAdmin) {
+  if (!isPlatformAdminUser(guarded.user)) {
     return {
       ok: false,
       response: errorResponse(

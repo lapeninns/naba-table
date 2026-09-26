@@ -1,92 +1,28 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { logger } from '@/lib/logger';
+import { apiError, internalError, validationError } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
-import {
-  RESERVATION_INTERVAL_MAX,
-  RESERVATION_INTERVAL_MIN,
-} from '@/lib/restaurants/reservation-interval';
 import {
   PasswordConfirmationError,
   verifyUserPasswordConfirmation,
 } from '@/server/auth/password-confirmation';
-import { mapSupabaseAuthError } from '@/server/auth/supabase-auth-errors';
 import { syncRestaurantOperatingHoursWithGoogleBusinessProfile } from '@/server/google-business-profile/service';
+import {
+  authorizeAvailabilityAdmin,
+  resolveAvailabilityRouteRestaurantId,
+} from '@/server/restaurants/availabilityRouteAuth';
+import { operatingHoursPayloadSchema } from '@/server/restaurants/availabilitySchemas';
 import {
   getOperatingHours,
   updateOperatingHours,
   type UpdateOperatingHoursPayload,
 } from '@/server/restaurants/operatingHours';
-import { TIME_REGEX, canonicalTime } from '@/server/restaurants/timeNormalization';
 import { withCsrfProtectedMutation } from '@/server/security/csrf';
-import { getRouteHandlerSupabaseClient } from '@/server/supabase';
-import { requireAdminMembership } from '@/server/team/access';
 
 import type { NextRequest } from 'next/server';
 
-const timeSchema = z
-  .string()
-  .trim()
-  .regex(TIME_REGEX)
-  .transform((value) => canonicalTime(value));
-const notesSchema = z.string().max(250);
-const intervalSchema = z.number().int().min(RESERVATION_INTERVAL_MIN).max(RESERVATION_INTERVAL_MAX);
-const slotTimesSchema = z.array(timeSchema);
-
-const weeklyEntrySchema = z
-  .object({
-    dayOfWeek: z.number().int().min(0).max(6),
-    opensAt: z.union([timeSchema, z.null()]).optional(),
-    closesAt: z.union([timeSchema, z.null()]).optional(),
-    isClosed: z.boolean().optional(),
-    notes: notesSchema.nullable().optional(),
-    reservationIntervalMinutes: z.union([intervalSchema, z.null()]).optional(),
-    reservationSlotTimes: z.union([slotTimesSchema, z.null()]).optional(),
-  })
-  .superRefine((data, ctx) => {
-    const isClosed = data.isClosed ?? false;
-    if (isClosed) {
-      return;
-    }
-
-    if (!data.opensAt || !data.closesAt) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'opensAt and closesAt are required when day is not closed',
-      });
-    }
-  });
-
-const overrideSchema = z
-  .object({
-    id: z.string().uuid().optional(),
-    effectiveDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    opensAt: z.union([timeSchema, z.null()]).optional(),
-    closesAt: z.union([timeSchema, z.null()]).optional(),
-    isClosed: z.boolean().optional(),
-    notes: notesSchema.nullable().optional(),
-    reservationIntervalMinutes: z.union([intervalSchema, z.null()]).optional(),
-    reservationSlotTimes: z.union([slotTimesSchema, z.null()]).optional(),
-  })
-  .superRefine((data, ctx) => {
-    const isClosed = data.isClosed ?? false;
-    if (isClosed) {
-      return;
-    }
-
-    if (!data.opensAt || !data.closesAt) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'opensAt and closesAt are required when override is not closed',
-      });
-    }
-  });
-
-const payloadSchema = z.object({
-  weekly: z.array(weeklyEntrySchema),
-  overrides: z.array(overrideSchema),
-});
+const ROUTE = 'ops.restaurants.hours';
 
 const syncSelectionSchema = z
   .object({
@@ -107,181 +43,127 @@ type RouteParams = {
   }>;
 };
 
-async function resolveRestaurantId(
-  paramsPromise: Promise<{ id: string | string[] }> | undefined,
-): Promise<string | null> {
-  if (!paramsPromise) return null;
-  const params = await paramsPromise;
-  const { id } = params;
-  if (typeof id === 'string') return id;
-  if (Array.isArray(id)) return id[0] ?? null;
-  return null;
+function missingRestaurantId() {
+  return apiError(400, 'RESTAURANT_ID_REQUIRED', 'Missing restaurant id.');
 }
 
-async function ensureAuthorized(
-  restaurantId: string,
-): Promise<NextResponse | { userEmail: string | null }> {
-  const supabase = await getRouteHandlerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) {
-    const mapped = mapSupabaseAuthError(authError);
-    return NextResponse.json(
-      { error: mapped.message, code: mapped.code },
-      { status: mapped.status },
-    );
-  }
-
-  if (!user) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
-
+async function readJson(req: NextRequest): Promise<{ ok: true; value: unknown } | { ok: false }> {
   try {
-    await requireAdminMembership({
-      userId: user.id,
-      restaurantId,
-      client: supabase,
-    });
-  } catch (error) {
-    console.error('[ops][restaurants][hours] admin permission required', error);
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return { ok: true, value: await req.json() };
+  } catch {
+    return { ok: false };
   }
-
-  return {
-    userEmail: user.email ?? null,
-  };
 }
 
-function handleUnexpectedError(error: unknown, context: string, restaurantId: string) {
-  logger.error(`${context} failed`, {
-    route: 'ops.restaurants.hours',
-    restaurantId,
-    errorName: error instanceof Error ? error.name : 'UnknownError',
-  });
+function invalidJson() {
+  return apiError(400, 'INVALID_JSON', 'The request body must be JSON.');
+}
 
-  if (!(error instanceof PasswordConfirmationError)) {
-    captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-hours' } });
-  }
-
+function handleFailure(error: unknown, method: string, restaurantId: string) {
   if (error instanceof PasswordConfirmationError) {
-    return NextResponse.json(
-      { message: error.message, code: error.code },
-      { status: error.status },
-    );
+    return apiError(error.status, error.code, error.message);
   }
 
-  // Domain validation and database failures both arrive as plain Errors, so the 400 status is
-  // kept, but the message is never echoed: it can carry database internals.
-  if (error instanceof Error) {
-    return NextResponse.json(
-      { error: 'Unable to process these settings.', code: 'SETTINGS_REQUEST_FAILED' },
-      { status: 400 },
-    );
-  }
+  captureServerException(error, { properties: { source: 'ops', kind: 'restaurant-hours' } });
 
-  return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
+  // Validation in the domain layer throws plain Errors before any write; database failures are
+  // also plain Errors. Neither message is echoed. A write that failed validation is a 400, and
+  // everything else a 500, both with fixed copy.
+  if (method !== 'GET' && error instanceof Error && error.name === 'Error') {
+    return apiError(400, 'SETTINGS_REQUEST_FAILED', 'Unable to process these settings.');
+  }
+  return internalError(error, { route: ROUTE, method, restaurantId });
 }
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
-  const restaurantId = await resolveRestaurantId(params);
+  const restaurantId = await resolveAvailabilityRouteRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
+  }
+
+  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  if (actor instanceof NextResponse) {
+    return actor;
   }
 
   try {
-    const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse instanceof NextResponse) {
-      return authResponse;
-    }
-
     const snapshot = await getOperatingHours(restaurantId);
     return NextResponse.json(snapshot);
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][hours][GET]', restaurantId);
+    return handleFailure(error, 'GET', restaurantId);
   }
 }
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
-  const restaurantId = await resolveRestaurantId(params);
+  const restaurantId = await resolveAvailabilityRouteRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
   }
 
   return withCsrfProtectedMutation(req, () => putOperatingHours(req, restaurantId));
 }
 
 async function putOperatingHours(req: NextRequest, restaurantId: string) {
-  let payload: UpdateOperatingHoursPayload;
-  try {
-    const json = await req.json();
-    payload = payloadSchema.parse(json);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  // Authorise before reading the body: an unauthorised caller learns nothing about validation.
+  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  if (actor instanceof NextResponse) {
+    return actor;
   }
 
-  try {
-    const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse instanceof NextResponse) {
-      return authResponse;
-    }
+  const json = await readJson(req);
+  if (!json.ok) {
+    return invalidJson();
+  }
+  const parsed = operatingHoursPayloadSchema.safeParse(json.value);
+  if (!parsed.success) {
+    return validationError(parsed.error);
+  }
+  const payload: UpdateOperatingHoursPayload = parsed.data;
 
+  try {
     const snapshot = await updateOperatingHours(restaurantId, payload);
     return NextResponse.json(snapshot);
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][hours][PUT]', restaurantId);
+    return handleFailure(error, 'PUT', restaurantId);
   }
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
-  const restaurantId = await resolveRestaurantId(params);
+  const restaurantId = await resolveAvailabilityRouteRestaurantId(params);
   if (!restaurantId) {
-    return NextResponse.json({ error: 'Missing restaurant id' }, { status: 400 });
+    return missingRestaurantId();
   }
 
   return withCsrfProtectedMutation(req, () => postOperatingHours(req, restaurantId));
 }
 
 async function postOperatingHours(req: NextRequest, restaurantId: string) {
-  let payload: z.infer<typeof syncSchema>;
-  try {
-    payload = syncSchema.parse(await req.json());
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid payload', details: error.flatten() },
-        { status: 400 },
-      );
-    }
-    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+  const actor = await authorizeAvailabilityAdmin(restaurantId, ROUTE);
+  if (actor instanceof NextResponse) {
+    return actor;
   }
 
+  const json = await readJson(req);
+  if (!json.ok) {
+    return invalidJson();
+  }
+  const parsed = syncSchema.safeParse(json.value);
+  if (!parsed.success) {
+    return validationError(parsed.error);
+  }
+  const payload = parsed.data;
+
   if (payload.direction === 'push_to_gbp') {
-    return NextResponse.json(
-      {
-        error: 'Legacy Google Business Profile writes are retired.',
-        code: 'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
-      },
-      { status: 410 },
+    return apiError(
+      410,
+      'GBP_LEGACY_GOOGLE_WRITE_RETIRED',
+      'Legacy Google Business Profile writes are retired.',
     );
   }
 
   try {
-    const authResponse = await ensureAuthorized(restaurantId);
-    if (authResponse instanceof NextResponse) {
-      return authResponse;
-    }
-
     await verifyUserPasswordConfirmation({
-      email: authResponse.userEmail,
+      email: actor.userEmail,
       password: payload.password,
     });
 
@@ -292,6 +174,6 @@ async function postOperatingHours(req: NextRequest, restaurantId: string) {
     });
     return NextResponse.json(snapshot);
   } catch (error) {
-    return handleUnexpectedError(error, '[ops][restaurants][hours][POST]', restaurantId);
+    return handleFailure(error, 'POST', restaurantId);
   }
 }
