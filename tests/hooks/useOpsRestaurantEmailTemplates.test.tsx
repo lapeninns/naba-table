@@ -42,7 +42,9 @@ function createWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: { children: ReactNode }) {
     return (
       <QueryClientProvider client={queryClient}>
-        <EmailTemplatesTransportProvider transport={transport}>{children}</EmailTemplatesTransportProvider>
+        <EmailTemplatesTransportProvider transport={transport}>
+          {children}
+        </EmailTemplatesTransportProvider>
       </QueryClientProvider>
     );
   };
@@ -358,7 +360,9 @@ describe('useOpsSendRestaurantEmailTemplateTest', () => {
 
   it('@contract declares success and error feedback through meta', async () => {
     transport.sendTestEmailTemplate.mockResolvedValue({ provider: 'resend' });
-    const { result, queryClient } = setup(() => useOpsSendRestaurantEmailTemplateTest(restaurantId));
+    const { result, queryClient } = setup(() =>
+      useOpsSendRestaurantEmailTemplateTest(restaurantId),
+    );
 
     await result.current.mutateAsync({
       templateKey: 'confirmation' as never,

@@ -85,7 +85,8 @@ async function fetchBooking(bookingId: string): Promise<BookingRecord | null> {
 
 // Resend rejects the request itself (bad recipient or payload): retrying the same job cannot
 // succeed. Outages, rate limits and configuration errors stay retryable.
-const TERMINAL_PROVIDER_ERROR = /^Resend API error \((validation_error|invalid_parameter|missing_required_field)\)/;
+const TERMINAL_PROVIDER_ERROR =
+  /^Resend API error \((validation_error|invalid_parameter|missing_required_field)\)/;
 
 function classifyJobFailure(error: unknown): { error: string; terminal: boolean } {
   if (error instanceof BookingLookupError) {

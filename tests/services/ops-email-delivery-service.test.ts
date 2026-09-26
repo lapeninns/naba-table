@@ -50,6 +50,11 @@ describe('email delivery transport', () => {
         restaurantId: 'r1',
         deliveryLogId: 'log-1',
       }),
-    ).resolves.toEqual({ ok: true, status: 'sent', retryAttempt: 1, deliveryLogEntry: { id: 'x' } });
+    ).resolves.toEqual({
+      ok: true,
+      status: 'sent',
+      retryAttempt: 1,
+      deliveryLogEntry: { id: 'x' },
+    });
   });
 });

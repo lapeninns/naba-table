@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-
 const sendEmail = vi.hoisted(() => vi.fn());
 const getServiceSupabaseClient = vi.hoisted(() => vi.fn());
 const recordEmailDeliveryLog = vi.hoisted(() => vi.fn());

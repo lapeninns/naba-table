@@ -19,7 +19,9 @@ function DevEmailTemplatesTransport({ children }: { children: ReactNode }) {
     [restaurantService],
   );
   return (
-    <EmailTemplatesTransportProvider transport={transport}>{children}</EmailTemplatesTransportProvider>
+    <EmailTemplatesTransportProvider transport={transport}>
+      {children}
+    </EmailTemplatesTransportProvider>
   );
 }
 

@@ -33,8 +33,7 @@ const RETRY_ERROR_COPY: Partial<Record<string, string>> = {
   RETRY_IN_PROGRESS: 'This email is already being resent. Refresh in a moment to see the result.',
   ALREADY_RETRIED: 'This email was already resent. Refresh to see the new attempt.',
   NOT_RETRYABLE: 'Only failed or bounced emails can be resent.',
-  RECIPIENT_SUPPRESSED:
-    'Not sent: this address is blocked after a bounce or complaint.',
+  RECIPIENT_SUPPRESSED: 'Not sent: this address is blocked after a bounce or complaint.',
   MISSING_RECIPIENT: 'Not sent: the booking has no email address.',
   MISSING_BOOKING: 'Not sent: the booking for this email no longer exists.',
   SEND_FAILED: "Failed: the email couldn't be sent. Try again in a moment.",
@@ -107,7 +106,11 @@ function useQueueJobMutation<TAction extends 'cancelled' | 'requeued'>(options: 
   run: (variables: EmailQueueJobVariables) => Promise<EmailQueueJobActionResponse<TAction>>;
   successMessage: string;
   fallback: string;
-}): UseMutationResult<EmailQueueJobActionResponse<TAction>, HttpError | Error, EmailQueueJobVariables> {
+}): UseMutationResult<
+  EmailQueueJobActionResponse<TAction>,
+  HttpError | Error,
+  EmailQueueJobVariables
+> {
   const queryClient = useQueryClient();
 
   return useMutation({

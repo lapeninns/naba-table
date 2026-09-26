@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { apiError, internalError, notFound, unauthenticated, validationError } from '@/lib/api/errors';
+import {
+  apiError,
+  internalError,
+  notFound,
+  unauthenticated,
+  validationError,
+} from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';

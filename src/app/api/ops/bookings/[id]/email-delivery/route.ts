@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  apiError,
-  forbidden,
-  internalError,
-  notFound,
-  unauthenticated,
-} from '@/lib/api/errors';
+import { apiError, forbidden, internalError, notFound, unauthenticated } from '@/lib/api/errors';
 import { captureServerException } from '@/lib/posthog/server';
 import { GuardError, requireRestaurantMember, requireSession } from '@/server/auth/guards';
 import {

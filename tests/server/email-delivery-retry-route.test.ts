@@ -20,8 +20,7 @@ const resendBookingEmailFromDeliveryLogMock = vi.hoisted(() => vi.fn());
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
-  const actual =
-    await vi.importActual<typeof GuardsModule>('@/server/auth/guards');
+  const actual = await vi.importActual<typeof GuardsModule>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: requireSessionMock,
@@ -50,7 +49,6 @@ vi.mock('@/server/emails/bookings', () => ({
 vi.mock('@/server/security/api-rate-limit', () => ({
   requireApiRateLimit: requireApiRateLimitMock,
 }));
-
 
 const CSRF_TOKEN = 'email-retry-csrf-token';
 const RESTAURANT_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';

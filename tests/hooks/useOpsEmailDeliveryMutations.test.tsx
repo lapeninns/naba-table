@@ -26,7 +26,9 @@ function setup<T>(hook: () => T) {
   const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <EmailDeliveryTransportProvider transport={transport}>{children}</EmailDeliveryTransportProvider>
+      <EmailDeliveryTransportProvider transport={transport}>
+        {children}
+      </EmailDeliveryTransportProvider>
     </QueryClientProvider>
   );
   return { queryClient, invalidateSpy, ...renderHook(hook, { wrapper }) };

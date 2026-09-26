@@ -32,12 +32,8 @@ export type EmailQueueJobActionResponse<TAction extends 'cancelled' | 'requeued'
 
 export type EmailDeliveryTransport = {
   retryEmailDelivery(input: EmailDeliveryRetryInput): Promise<EmailDeliveryRetryResponse>;
-  cancelEmailQueueJob(
-    input: EmailQueueJobInput,
-  ): Promise<EmailQueueJobActionResponse<'cancelled'>>;
-  requeueEmailQueueJob(
-    input: EmailQueueJobInput,
-  ): Promise<EmailQueueJobActionResponse<'requeued'>>;
+  cancelEmailQueueJob(input: EmailQueueJobInput): Promise<EmailQueueJobActionResponse<'cancelled'>>;
+  requeueEmailQueueJob(input: EmailQueueJobInput): Promise<EmailQueueJobActionResponse<'requeued'>>;
 };
 
 function postJson<T>(url: string, body: unknown): Promise<T> {
@@ -76,7 +72,12 @@ export function emailDeliveryTransportFromService(
   return {
     async retryEmailDelivery(input) {
       const response = await service.retryEmailDelivery(input);
-      return { ok: true, status: 'sent', retryAttempt: 1, deliveryLogEntry: response.deliveryLogEntry };
+      return {
+        ok: true,
+        status: 'sent',
+        retryAttempt: 1,
+        deliveryLogEntry: response.deliveryLogEntry,
+      };
     },
     cancelEmailQueueJob: (input) => service.cancelEmailQueueJob(input),
     requeueEmailQueueJob: (input) => service.requeueEmailQueueJob(input),

@@ -85,8 +85,7 @@ export function useOpsEmailTemplatesPageState() {
   }, [currentVariants, restaurantId, selectedTemplateKey, selectedVariantId]);
 
   const previewQuery = useOpsRestaurantEmailTemplatePreview(restaurantId, previewRequest);
-  const preview =
-    previewQuery.data?.templateKey === selectedTemplateKey ? previewQuery.data : null;
+  const preview = previewQuery.data?.templateKey === selectedTemplateKey ? previewQuery.data : null;
   const previewErrorMessage = previewQuery.error
     ? toUserMessage(previewQuery.error, {
         copy: PREVIEW_ERROR_COPY,

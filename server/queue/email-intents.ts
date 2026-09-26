@@ -557,7 +557,11 @@ export async function cancelEmailIntentByDedupeKey(dedupeKey: string): Promise<b
   return Boolean(data?.id);
 }
 
-export type RestaurantQueueCancelResult = 'cancelled' | 'not_found' | 'in_progress' | 'not_cancellable';
+export type RestaurantQueueCancelResult =
+  | 'cancelled'
+  | 'not_found'
+  | 'in_progress'
+  | 'not_cancellable';
 
 async function loadRestaurantIntentStatus(
   dedupeKey: string,

@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-
 const requireSessionMock = vi.hoisted(() => vi.fn());
 const requireRestaurantMemberMock = vi.hoisted(() => vi.fn());
 const cancelRestaurantEmailQueueJobMock = vi.hoisted(() => vi.fn());
@@ -9,8 +8,7 @@ const requeueRestaurantEmailQueueJobMock = vi.hoisted(() => vi.fn());
 const requireApiRateLimitMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/server/auth/guards', async () => {
-  const actual =
-    await vi.importActual<typeof GuardsModule>('@/server/auth/guards');
+  const actual = await vi.importActual<typeof GuardsModule>('@/server/auth/guards');
   return {
     ...actual,
     requireSession: requireSessionMock,

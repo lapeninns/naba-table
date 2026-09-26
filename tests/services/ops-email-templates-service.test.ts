@@ -79,9 +79,14 @@ describe('email templates transport', () => {
     const transport = emailTemplatesTransportFromService(service);
 
     await transport.previewEmailTemplate('r1', 'confirmation', {}, {});
-    await transport.sendTestEmailTemplate('r1', 'confirmation', { toEmail: 'a@b.c' }, {
-      idempotencyKey: 'k',
-    });
+    await transport.sendTestEmailTemplate(
+      'r1',
+      'confirmation',
+      { toEmail: 'a@b.c' },
+      {
+        idempotencyKey: 'k',
+      },
+    );
 
     expect(service.previewEmailTemplate).toHaveBeenCalledWith('r1', 'confirmation', {});
     expect(service.sendTestEmailTemplate).toHaveBeenCalledWith('r1', 'confirmation', {
