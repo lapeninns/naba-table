@@ -3,6 +3,11 @@ import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createRestaurant } from '@/server/restaurants/create';
+import {
+  RestaurantAccessExistsError,
+  RestaurantCreateValidationError,
+  RestaurantSlugUnavailableError,
+} from '@/server/restaurants/create-errors';
 
 function makeRestaurantRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -33,42 +38,37 @@ function makeRestaurantRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeClient(options: {
-  existingSlugRows?: Array<{ id: string } | null>;
-  rpcResult?: { data: unknown; error: { message: string } | null };
-}) {
-  const maybeSingle = vi.fn();
-  for (const row of options.existingSlugRows ?? [null]) {
-    maybeSingle.mockResolvedValueOnce({ data: row, error: null });
-  }
-  maybeSingle.mockResolvedValue({ data: null, error: null });
+type RpcResult = {
+  data: unknown;
+  error: { message: string; code?: string; details?: string } | null;
+};
 
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
+function makeClient(options: { rpcResults?: RpcResult[] } = {}) {
   const from = vi.fn((table: string) => {
-    if (table !== 'restaurants') {
-      throw new Error(`Unexpected table access: ${table}`);
-    }
-    return { select };
+    throw new Error(`Unexpected table access: ${table}`);
   });
-  const rpc = vi
-    .fn()
-    .mockResolvedValue(options.rpcResult ?? { data: makeRestaurantRow(), error: null });
+  const rpc = vi.fn();
+  for (const result of options.rpcResults ?? []) {
+    rpc.mockResolvedValueOnce(result);
+  }
+  rpc.mockResolvedValue({ data: makeRestaurantRow(), error: null });
 
-  return {
-    client: { from, rpc },
-    eq,
-    from,
-    maybeSingle,
-    rpc,
-    select,
-  };
+  return { client: { from, rpc }, from, rpc };
 }
+
+const SLUG_TAKEN = {
+  data: null,
+  error: {
+    code: '23505',
+    message: 'duplicate key value violates unique constraint "restaurants_slug_key"',
+    details: 'Key (slug)=(operator-local) already exists.',
+  },
+};
 
 describe('createRestaurant', () => {
   it('creates the restaurant and owner membership through one atomic RPC', async () => {
-    const { client, rpc } = makeClient({
-      rpcResult: { data: makeRestaurantRow({ slug: 'operator-local' }), error: null },
+    const { client, from, rpc } = makeClient({
+      rpcResults: [{ data: makeRestaurantRow({ slug: 'operator-local' }), error: null }],
     });
 
     const result = await createRestaurant(
@@ -108,30 +108,89 @@ describe('createRestaurant', () => {
     });
     expect(result.id).toBe('restaurant-1');
     expect(result.slug).toBe('operator-local');
+    // No SELECT probing: the unique index inside the RPC is the source of truth.
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the collision-resolved slug in the atomic creation call', async () => {
-    const { client, rpc } = makeClient({
-      existingSlugRows: [{ id: 'existing-1' }, null],
-      rpcResult: { data: makeRestaurantRow({ slug: 'operator-local-1' }), error: null },
+  it('retries with a suffixed slug when the RPC reports a slug unique violation', async () => {
+    const { client, from, rpc } = makeClient({
+      rpcResults: [
+        SLUG_TAKEN,
+        { data: makeRestaurantRow({ slug: 'operator-local-x1y2' }), error: null },
+      ],
     });
 
-    await createRestaurant(
+    const result = await createRestaurant(
       { name: 'Operator Local', timezone: 'Europe/London' },
       'user-1',
       client as never,
     );
 
-    expect(rpc).toHaveBeenCalledWith(
-      'create_restaurant_with_owner',
-      expect.objectContaining({ p_slug: 'operator-local-1' }),
-    );
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_slug: 'operator-local' });
+    expect(rpc.mock.calls[1]?.[1].p_slug).toMatch(/^operator-local-[a-z0-9]{4}$/);
+    expect(result.slug).toBe('operator-local-x1y2');
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('gives up with a typed error after the slug attempts are exhausted', async () => {
+    const { client, rpc } = makeClient({
+      rpcResults: [SLUG_TAKEN, SLUG_TAKEN, SLUG_TAKEN, SLUG_TAKEN],
+    });
+
+    await expect(
+      createRestaurant(
+        { name: 'Operator Local', timezone: 'Europe/London' },
+        'user-1',
+        client as never,
+      ),
+    ).rejects.toBeInstanceOf(RestaurantSlugUnavailableError);
+    expect(rpc).toHaveBeenCalledTimes(4);
+  });
+
+  it('maps the membership invariant to RestaurantAccessExistsError without retrying', async () => {
+    const { client, rpc } = makeClient({
+      rpcResults: [
+        { data: null, error: { code: '23505', message: 'User already has restaurant access' } },
+      ],
+    });
+
+    await expect(
+      createRestaurant(
+        { name: 'Operator Local', timezone: 'Europe/London' },
+        'user-1',
+        client as never,
+      ),
+    ).rejects.toBeInstanceOf(RestaurantAccessExistsError);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to a valid slug when the name has no slug characters', async () => {
+    const { client, rpc } = makeClient();
+
+    await createRestaurant({ name: '!!!', timezone: 'Europe/London' }, 'user-1', client as never);
+
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_slug: 'restaurant' });
+  });
+
+  it('throws typed validation errors for out-of-range settings', async () => {
+    const { client, rpc } = makeClient();
+
+    await expect(
+      createRestaurant(
+        { name: 'Operator Local', timezone: 'Europe/London', reservationIntervalMinutes: 0 },
+        'user-1',
+        client as never,
+      ),
+    ).rejects.toBeInstanceOf(RestaurantCreateValidationError);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('fails before any standalone membership write when atomic creation fails', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { client, from } = makeClient({
-      rpcResult: { data: null, error: { message: 'membership insert failed' } },
+      rpcResults: [{ data: null, error: { message: 'membership insert failed' } }],
     });
 
     try {
@@ -143,8 +202,7 @@ describe('createRestaurant', () => {
         ),
       ).rejects.toThrow('Failed to create restaurant: membership insert failed');
 
-      expect(from).toHaveBeenCalledTimes(1);
-      expect(from).toHaveBeenCalledWith('restaurants');
+      expect(from).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
     }

@@ -5,6 +5,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,9 +20,22 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Heading, Text } from '@/components/ui/typography';
-import { fetchJson } from '@/lib/http/fetchJson';
+import { toUserMessage } from '@/lib/http/userMessage';
+import { nextTableNumber } from '@/lib/onboarding/scheduleRules';
+import { writeBrowserOpsRestaurantCookie } from '@/lib/ops/session';
 
 import { useOnboarding } from './context/OnboardingContext';
+import { applyServerFieldErrors } from './formErrors';
+import {
+  toLayoutVariables,
+  useCompleteOnboarding,
+  useReplaceOnboardingLayout,
+} from './hooks/useOnboardingMutations';
+import {
+  getMissingRequirements,
+  navigateToOpsDashboard,
+  REQUIREMENT_STEPS,
+} from './onboardingLaunch';
 import {
   ONBOARDING_STEPS,
   tablesFormSchema,
@@ -29,10 +43,17 @@ import {
 } from './onboardingWizardDomain';
 import { OnboardingNavigation } from './ui/OnboardingNavigation';
 
-import type { Zone } from './types';
+import type { OnboardingRequirement, OnboardingStep, TableInventoryItem, Zone } from './types';
+
+const LAYOUT_ERROR_COPY = {
+  ONBOARDING_LAYOUT_LOCKED:
+    'This restaurant already has bookings, so change its tables from Tables in the dashboard.',
+  ONBOARDING_LAYOUT_INVALID: 'Check that zone names and table numbers are unique.',
+};
 
 export function TablesStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setZones, setTables, setStep, setError, setLoading } = useOnboarding();
+  const { state, setZones, setTables, setStep, setError } = useOnboarding();
+  const replaceLayout = useReplaceOnboardingLayout();
   const [zones, updateZones] = useState<Zone[]>(
     state.zones.length ? state.zones : [{ name: 'Main Dining', areaType: 'indoor' }],
   );
@@ -44,64 +65,62 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
   });
   const { fields, append, remove } = useFieldArray({ control: tablesForm.control, name: 'tables' });
 
-  const save = tablesForm.handleSubmit(async (values) => {
+  const save = tablesForm.handleSubmit((values) => {
     if (!state.restaurantId) {
       setError('Create your restaurant first');
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      const zonePayload = zones.map((zone, index) => ({
-        name: zone.name,
-        sortOrder: zone.sortOrder ?? index,
-        active: zone.active ?? true,
-      }));
-      const zoneResponse = await fetchJson<{ zones: Array<{ id: string; name: string }> }>(
-        `/api/onboarding/restaurant/${state.restaurantId}/zones`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ zones: zonePayload }),
-        },
-      );
-      setZones(zoneResponse.zones);
-
-      const tablesPayload = values.tables.map((table: TablesFormValues['tables'][number]) => ({
+    const draftTables: TableInventoryItem[] = values.tables.map(
+      (table: TablesFormValues['tables'][number]) => ({
         tableNumber: table.tableNumber,
         capacity: Number(table.capacity),
-        zoneId: table.zoneId ?? zoneResponse.zones[0]?.id,
-      }));
-      const tableResponse = await fetchJson<{ tables: Array<{ id: string }> }>(
-        `/api/onboarding/restaurant/${state.restaurantId}/tables`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tables: tablesPayload }),
-        },
-      );
-      setTables(
-        values.tables.map((table: TablesFormValues['tables'][number], index: number) => ({
-          ...table,
-          capacity: Number(table.capacity),
-          id: tableResponse.tables[index]?.id,
-        })),
-      );
-      setStep(6);
-      onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save tables';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+        zoneId: table.zoneId ?? null,
+      }),
+    );
+    // One idempotent PUT replaces zones and tables together, so Back/Next or a retry
+    // never duplicates rows.
+    replaceLayout.mutate(toLayoutVariables(state.restaurantId, zones, draftTables), {
+      onSuccess: (layout) => {
+        setZones(
+          layout.zones.map((zone) => ({
+            id: zone.id,
+            name: zone.name,
+            sortOrder: zone.sortOrder,
+            active: zone.active,
+          })),
+        );
+        setTables(
+          layout.tables.map((table) => ({
+            id: table.id,
+            tableNumber: table.tableNumber,
+            capacity: table.capacity,
+            zoneId: table.zoneId,
+          })),
+        );
+        setStep(6);
+        onComplete();
+      },
+      onError: (error) => {
+        // The PUT's field paths (`tables.2.tableNumber`) match the form's names.
+        applyServerFieldErrors(tablesForm, error, (name) => /^tables\.\d+\./.test(name));
+        setError(
+          toUserMessage(error, {
+            copy: LAYOUT_ERROR_COPY,
+            fallback: "We couldn't save your tables. Try again.",
+          }),
+        );
+      },
+    });
   });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <Heading variant="title" as="h3">Zones</Heading>
+          <Heading variant="title" as="h3">
+            Zones
+          </Heading>
           <Text variant="caption">Group tables by dining areas.</Text>
         </div>
         <Button
@@ -188,7 +207,12 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
           <Button
             type="button"
             variant="outline"
-            onClick={() => append({ tableNumber: `T${fields.length + 1}`, capacity: 2 })}
+            onClick={() =>
+              append({
+                tableNumber: nextTableNumber(tablesForm.getValues('tables')),
+                capacity: 2,
+              })
+            }
           >
             <Plus className="size-4" />
             Add table
@@ -199,7 +223,7 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
             totalSteps={ONBOARDING_STEPS.length}
             onBack={() => setStep(4)}
             onNext={save}
-            busy={state.loading}
+            busy={replaceLayout.isPending}
           />
         </FormRoot>
       </Form>
@@ -207,8 +231,46 @@ export function TablesStep({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+function MissingSetup({
+  missing,
+  onGoToStep,
+}: {
+  missing: OnboardingRequirement[];
+  onGoToStep: (step: OnboardingStep) => void;
+}) {
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>A few things are left before you can launch</AlertTitle>
+      <AlertDescription>
+        <ul className="mt-2 space-y-1">
+          {missing.map((requirement) => {
+            const target = REQUIREMENT_STEPS[requirement];
+            return (
+              <li key={requirement}>
+                <a
+                  href={target.href}
+                  className="font-medium underline underline-offset-4"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    onGoToStep(target.step);
+                  }}
+                >
+                  {target.label}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function ReviewStep() {
-  const { state, setStep, setError, setLoading } = useOnboarding();
+  const { state, setStep, setError, discardDraft } = useOnboarding();
+  const completeOnboarding = useCompleteOnboarding();
+  const [missing, setMissing] = useState<OnboardingRequirement[] | null>(null);
+  const [launching, setLaunching] = useState(false);
   const summary = useMemo(
     () => [
       { label: 'Restaurant', value: state.profile.name || 'Not set' },
@@ -219,23 +281,36 @@ export function ReviewStep() {
     [state.profile.name, state.profile.timezone, state.servicePeriods.length, state.tables.length],
   );
 
-  const complete = async () => {
-    if (!state.restaurantId) {
+  const complete = () => {
+    const restaurantId = state.restaurantId;
+    if (!restaurantId) {
       setError('Create your restaurant first');
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/complete`, {
-        method: 'POST',
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to finish onboarding';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    setMissing(null);
+    completeOnboarding.mutate(
+      { restaurantId },
+      {
+        onSuccess: () => {
+          setLaunching(true);
+          // Open the ops app on this restaurant and forget the wizard draft.
+          writeBrowserOpsRestaurantCookie(restaurantId);
+          discardDraft();
+          navigateToOpsDashboard();
+        },
+        onError: (error) => {
+          const missingRequirements = getMissingRequirements(error);
+          if (missingRequirements && missingRequirements.length > 0) {
+            setMissing(missingRequirements);
+            return;
+          }
+          setError(
+            toUserMessage(error, { fallback: "We couldn't launch your restaurant. Try again." }),
+          );
+        },
+      },
+    );
   };
 
   return (
@@ -251,12 +326,14 @@ export function ReviewStep() {
         ))}
       </div>
 
+      {missing ? <MissingSetup missing={missing} onGoToStep={(step) => setStep(step)} /> : null}
+
       <OnboardingNavigation
         step={6}
         totalSteps={ONBOARDING_STEPS.length}
         onBack={() => setStep(5)}
         onSubmit={complete}
-        busy={state.loading}
+        busy={completeOnboarding.isPending || launching}
         nextLabel="Launch"
         backLabel="Back"
       />

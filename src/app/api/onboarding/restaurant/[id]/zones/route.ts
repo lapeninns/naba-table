@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, validationError } from '@/lib/api/errors';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
+import { onboardingInternalError } from '@/server/onboarding/errors';
 import { createZone } from '@/server/ops/zones';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -52,15 +53,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   try {
@@ -70,13 +68,18 @@ export async function POST(req: NextRequest, context: RouteContext) {
       .eq('restaurant_id', restaurantId);
 
     if (countError) {
-      return NextResponse.json({ message: 'Unable to verify zone capacity' }, { status: 500 });
+      return onboardingInternalError(countError, {
+        route: 'onboarding.restaurant.zones',
+        restaurantId,
+        userId: authorization.user.id,
+      });
     }
 
     if ((count ?? 0) + parsed.data.zones.length > MAX_RESTAURANT_ZONES) {
-      return NextResponse.json(
-        { message: `Restaurants can have at most ${MAX_RESTAURANT_ZONES} zones.` },
-        { status: 400 },
+      return apiError(
+        400,
+        'ZONE_LIMIT_EXCEEDED',
+        `Restaurants can have at most ${MAX_RESTAURANT_ZONES} zones.`,
       );
     }
 
@@ -94,14 +97,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
     return NextResponse.json({ zones: created }, { status: 201 });
   } catch (creationError) {
-    console.error('[onboarding][zones][POST]', creationError);
-    captureServerException(creationError, {
-      distinctId: authorization.user.id,
-      groups: { restaurant: restaurantId },
-      properties: { restaurantId, source: 'api', kind: 'onboarding-zones' },
+    return onboardingInternalError(creationError, {
+      route: 'onboarding.restaurant.zones',
+      restaurantId,
+      userId: authorization.user.id,
     });
-    const message =
-      creationError instanceof Error ? creationError.message : 'Unable to create zones';
-    return NextResponse.json({ message }, { status: 500 });
   }
 }

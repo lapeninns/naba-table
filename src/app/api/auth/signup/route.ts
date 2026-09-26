@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import {
+  apiError,
+  fieldsFromIssues,
+  forbidden,
+  internalError,
+  rateLimited,
+} from '@/lib/api/errors';
 import { buildAuthCallbackUrl, parseHostname } from '@/lib/auth/redirects';
+import { logger } from '@/lib/logger';
+import { captureServerException } from '@/lib/posthog/server';
 import { validatePasswordStrength } from '@/lib/security/passwordPolicy';
 import { sanitizeLocalRedirectPath } from '@/lib/url/safe-local-path';
 import {
@@ -89,25 +97,55 @@ function setRateHeaders(
   return response;
 }
 
+function rateLimitedResponse(limitResult: Awaited<ReturnType<typeof consumeRateLimit>>) {
+  const retryAfter = Math.max(1, Math.ceil((limitResult.resetAt - Date.now()) / 1000));
+  return rateLimited(retryAfter, 'Too many attempts. Please try again later.');
+}
+
+type SignupProviderError = { message?: string | null; status?: number; code?: string };
+
+/** Maps a provider sign-up failure to safe copy; provider text never reaches the client. */
+function passwordSignupFailure(error: SignupProviderError) {
+  if (error.status === 429) {
+    return rateLimited(60, 'Too many attempts. Please try again later.');
+  }
+  if (error.code === 'weak_password') {
+    return apiError(400, 'WEAK_PASSWORD', 'Choose a stronger password.', {
+      fields: { password: ['Choose a stronger password.'] },
+    });
+  }
+  if (typeof error.status === 'number' && error.status >= 400 && error.status < 500) {
+    return apiError(
+      400,
+      'SIGNUP_FAILED',
+      "We couldn't create your account. Check your details and try again.",
+    );
+  }
+  return internalError(error, { route: 'auth.signup', mode: 'password' });
+}
+
 export async function POST(req: NextRequest) {
   if (!validateCsrfToken(req)) {
-    return NextResponse.json({ message: 'Invalid or missing CSRF token' }, { status: 403 });
+    return forbidden(
+      'CSRF_INVALID',
+      'Your session token is out of date. Refresh the page and try again.',
+    );
   }
 
   let parsedBody: unknown;
   try {
     parsedBody = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const validated = requestSchema.safeParse(parsedBody);
   if (!validated.success) {
     const issue = validated.error.issues[0];
-    return NextResponse.json(
-      { message: issue.message, details: { field: issue.path[0] ?? undefined } },
-      { status: 400 },
-    );
+    return apiError(400, 'VALIDATION_FAILED', issue?.message ?? 'Some fields need attention.', {
+      fields: fieldsFromIssues(validated.error.issues),
+      details: { field: issue?.path[0] ?? undefined },
+    });
   }
 
   const { email, password, mode } = validated.data;
@@ -120,13 +158,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (!aggregateRateResult.ok) {
-    const retryAfter = Math.max(1, Math.ceil((aggregateRateResult.resetAt - Date.now()) / 1000));
-    const response = NextResponse.json(
-      { message: 'Too many attempts. Please try again later.' },
-      { status: 429 },
-    );
-    response.headers.set('Retry-After', retryAfter.toString());
-    return setRateHeaders(response, aggregateRateResult);
+    return setRateHeaders(rateLimitedResponse(aggregateRateResult), aggregateRateResult);
   }
 
   const rateResult = await consumeRateLimit({
@@ -136,13 +168,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (!rateResult.ok) {
-    const retryAfter = Math.max(1, Math.ceil((rateResult.resetAt - Date.now()) / 1000));
-    const response = NextResponse.json(
-      { message: 'Too many attempts. Please try again later.' },
-      { status: 429 },
-    );
-    response.headers.set('Retry-After', retryAfter.toString());
-    return setRateHeaders(response, rateResult);
+    return setRateHeaders(rateLimitedResponse(rateResult), rateResult);
   }
 
   const supabase = await getRouteHandlerSupabaseClient();
@@ -163,10 +189,7 @@ export async function POST(req: NextRequest) {
             },
             { status: 201 },
           )
-        : NextResponse.json(
-            { message: error.message ?? 'Unable to create account' },
-            { status: error.status ?? 400 },
-          );
+        : passwordSignupFailure(error);
       return setRateHeaders(response, rateResult);
     }
 
@@ -186,9 +209,8 @@ export async function POST(req: NextRequest) {
       data: { intent: 'onboarding_signup' },
     });
   } catch (error) {
-    console.error('[Auth/signup] Magic link delivery failed', {
+    logger.warn('auth.signup.magic_link_failed', {
       status: isMagicLinkDeliveryError(error) ? error.status : undefined,
-      error: error instanceof Error ? error.message : String(error),
     });
     captureServerException(error, {
       properties: { source: 'auth', kind: 'signup' },
@@ -198,7 +220,10 @@ export async function POST(req: NextRequest) {
       error,
       'We could not send a magic link right now. Please try again.',
     );
-    const response = NextResponse.json({ message: failure.message }, { status: failure.status });
+    const response =
+      failure.status >= 500
+        ? apiError(502, 'MAGIC_LINK_FAILED', failure.message, { retryable: true })
+        : apiError(failure.status, 'MAGIC_LINK_FAILED', failure.message);
     return setRateHeaders(response, rateResult);
   }
 

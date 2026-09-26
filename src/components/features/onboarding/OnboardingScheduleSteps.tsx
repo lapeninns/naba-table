@@ -28,9 +28,15 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Heading, Text } from '@/components/ui/typography';
-import { fetchJson } from '@/lib/http/fetchJson';
+import { toUserMessage } from '@/lib/http/userMessage';
+import { findOperatingHourIssues } from '@/lib/onboarding/scheduleRules';
 
 import { useOnboarding } from './context/OnboardingContext';
+import { applyServerFieldErrors, serverFieldMessages } from './formErrors';
+import {
+  useSaveOnboardingHours,
+  useSaveOnboardingServicePeriods,
+} from './hooks/useOnboardingMutations';
 import {
   DEFAULT_BOOKING_OPTIONS,
   ONBOARDING_STEPS,
@@ -42,44 +48,73 @@ import { OnboardingNavigation } from './ui/OnboardingNavigation';
 import type { OperatingHour } from './types';
 import type { z } from 'zod';
 
+function HourFieldError({ message }: { message: string | undefined }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="text-destructive mt-1 text-xs">
+      {message}
+    </p>
+  );
+}
+
 export function HoursStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setOperatingHours, setStep, setError, setLoading } = useOnboarding();
+  const { state, setOperatingHours, setStep, setError } = useOnboarding();
+  const saveHours = useSaveOnboardingHours();
   const [hours, setHours] = useState<OperatingHour[]>(state.operatingHours);
+  // Messages keyed by `<index>.<field>`, from the local rules or the server's 400 fields.
+  const [hourErrors, setHourErrors] = useState<Record<string, string>>({});
 
   const updateHour = (day: number, patch: Partial<OperatingHour>) => {
     setHours((current) =>
       current.map((row) => (row.dayOfWeek === day ? { ...row, ...patch } : row)),
     );
+    const index = hours.findIndex((row) => row.dayOfWeek === day);
+    setHourErrors((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([key]) => !key.startsWith(`${index}.`)),
+      ),
+    );
   };
 
-  const save = async () => {
+  const save = () => {
     if (!state.restaurantId) {
       setError('Create your restaurant first');
       return;
     }
-    setLoading(true);
-    setError(null);
-    try {
-      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/hours`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operatingHours: hours }),
-      });
-      setOperatingHours(hours);
-      setStep(4);
-      onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save hours';
-      setError(message);
-    } finally {
-      setLoading(false);
+    const issues = findOperatingHourIssues(hours);
+    if (issues.length > 0) {
+      setHourErrors(
+        Object.fromEntries(issues.map((issue) => [issue.path.join('.'), issue.message])),
+      );
+      setError('Check the highlighted days.');
+      return;
     }
+    setHourErrors({});
+    setError(null);
+    saveHours.mutate(
+      { restaurantId: state.restaurantId, operatingHours: hours },
+      {
+        onSuccess: () => {
+          setOperatingHours(hours);
+          setStep(4);
+          onComplete();
+        },
+        onError: (error) => {
+          setHourErrors(serverFieldMessages(error, 'operatingHours'));
+          setError(
+            toUserMessage(error, {
+              fallback: "We couldn't save your opening hours. Check the times and try again.",
+            }),
+          );
+        },
+      },
+    );
   };
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2">
-        {hours.map((row) => (
+        {hours.map((row, index) => (
           <Card key={row.dayOfWeek} className="border-border/70">
             <CardContent className="space-y-3 pt-4">
               <div className="flex items-center justify-between">
@@ -102,20 +137,24 @@ export function HoursStep({ onComplete }: { onComplete: () => void }) {
                     <Input
                       placeholder={timeInputPlaceholder}
                       value={row.opensAt ?? ''}
+                      aria-invalid={Boolean(hourErrors[`${index}.opensAt`])}
                       onChange={(event) =>
                         updateHour(row.dayOfWeek, { opensAt: event.target.value })
                       }
                     />
+                    <HourFieldError message={hourErrors[`${index}.opensAt`]} />
                   </div>
                   <div>
                     <Label className="text-xs">Closes at</Label>
                     <Input
                       placeholder={timeInputPlaceholder}
                       value={row.closesAt ?? ''}
+                      aria-invalid={Boolean(hourErrors[`${index}.closesAt`])}
                       onChange={(event) =>
                         updateHour(row.dayOfWeek, { closesAt: event.target.value })
                       }
                     />
+                    <HourFieldError message={hourErrors[`${index}.closesAt`]} />
                   </div>
                 </div>
               )}
@@ -136,14 +175,15 @@ export function HoursStep({ onComplete }: { onComplete: () => void }) {
         totalSteps={ONBOARDING_STEPS.length}
         onBack={() => setStep(2)}
         onNext={save}
-        busy={state.loading}
+        busy={saveHours.isPending}
       />
     </div>
   );
 }
 
 export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
-  const { state, setServicePeriods, setStep, setError, setLoading } = useOnboarding();
+  const { state, setServicePeriods, setStep, setError } = useOnboarding();
+  const savePeriods = useSaveOnboardingServicePeriods();
   const form = useForm<z.infer<typeof servicePeriodsFormSchema>>({
     resolver: zodResolver(servicePeriodsFormSchema),
     defaultValues: { servicePeriods: state.servicePeriods.length ? state.servicePeriods : [] },
@@ -162,28 +202,30 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
       bookingOption: 'dinner',
     });
 
-  const save = form.handleSubmit(async (values) => {
+  const save = form.handleSubmit((values) => {
     if (!state.restaurantId) {
       setError('Create your restaurant first');
       return;
     }
-    setLoading(true);
     setError(null);
-    try {
-      await fetchJson(`/api/onboarding/restaurant/${state.restaurantId}/service-periods`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servicePeriods: values.servicePeriods }),
-      });
-      setServicePeriods(values.servicePeriods);
-      setStep(5);
-      onComplete();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to save service periods';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    savePeriods.mutate(
+      { restaurantId: state.restaurantId, servicePeriods: values.servicePeriods },
+      {
+        onSuccess: () => {
+          setServicePeriods(values.servicePeriods);
+          setStep(5);
+          onComplete();
+        },
+        onError: (error) => {
+          applyServerFieldErrors(form, error, (name) => name.startsWith('servicePeriods.'));
+          setError(
+            toUserMessage(error, {
+              fallback: "We couldn't save your service periods. Check the times and try again.",
+            }),
+          );
+        },
+      },
+    );
   });
 
   return (
@@ -296,6 +338,7 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
                           <FormControl>
                             <Input placeholder={timeInputPlaceholder} {...field} />
                           </FormControl>
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -308,6 +351,7 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
                           <FormControl>
                             <Input placeholder={timeInputPlaceholder} {...field} />
                           </FormControl>
+                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -332,7 +376,7 @@ export function ServicePeriodsStep({ onComplete }: { onComplete: () => void }) {
           totalSteps={ONBOARDING_STEPS.length}
           onBack={() => setStep(3)}
           onNext={save}
-          busy={state.loading}
+          busy={savePeriods.isPending}
         />
       </FormRoot>
     </Form>

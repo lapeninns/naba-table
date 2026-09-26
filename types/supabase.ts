@@ -8453,6 +8453,14 @@ export type Database = {
           total_capacity: number;
         }[];
       };
+      onboarding_replace_layout: {
+        Args: {
+          p_restaurant_id: string;
+          p_tables: Json;
+          p_zones: Json;
+        };
+        Returns: Json;
+      };
       ops_email_delivery_attempts_feed: {
         Args: {
           p_booking_ref?: string;

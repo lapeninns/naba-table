@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { captureServerException } from '@/lib/posthog/server';
 
+import { apiError, validationError } from '@/lib/api/errors';
 import { RESTAURANT_ADMIN_ROLES } from '@/lib/owner/auth/roles';
 import { withRestaurantAuthorization } from '@/server/auth/guards';
+import { onboardingInternalError } from '@/server/onboarding/errors';
 import { insertTable } from '@/server/ops/tables';
 import { requireApiRateLimit } from '@/server/security/api-rate-limit';
 import { getServiceSupabaseClient } from '@/server/supabase';
@@ -74,15 +75,12 @@ export async function POST(req: NextRequest, context: RouteContext) {
   try {
     payload = await req.json();
   } catch {
-    return NextResponse.json({ message: 'Invalid request body' }, { status: 400 });
+    return apiError(400, 'INVALID_JSON', 'The request body is not valid JSON.');
   }
 
   const parsed = requestSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: 'Validation failed', details: parsed.error.flatten() },
-      { status: 400 },
-    );
+    return validationError(parsed.error);
   }
 
   const tables = parsed.data.tables.map((table) => ({
@@ -90,10 +88,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     zoneId: table.zoneId ?? null,
   }));
   if (tables.some((table) => !table.zoneId)) {
-    return NextResponse.json(
-      { message: 'Each onboarding table must reference a zone' },
-      { status: 400 },
-    );
+    return apiError(400, 'TABLE_ZONE_REQUIRED', 'Each onboarding table must reference a zone');
   }
 
   try {
@@ -111,22 +106,21 @@ export async function POST(req: NextRequest, context: RouteContext) {
         .in('id', zoneIds);
 
       if (zoneError) {
-        console.error('[onboarding][tables][POST] Zone ownership lookup failed', zoneError);
-        captureServerException(zoneError, {
-          distinctId: authorization.user.id,
-          groups: { restaurant: restaurantId },
-          properties: { restaurantId, source: 'api', kind: 'onboarding-tables' },
+        return onboardingInternalError(zoneError, {
+          route: 'onboarding.restaurant.tables',
+          restaurantId,
+          userId: authorization.user.id,
         });
-        return NextResponse.json({ message: 'Unable to verify table zones' }, { status: 500 });
       }
 
       const validZoneIds = new Set(
         (zones ?? []).filter((zone) => zone.restaurant_id === restaurantId).map((zone) => zone.id),
       );
       if (validZoneIds.size !== zoneIds.length) {
-        return NextResponse.json(
-          { message: 'One or more zones do not belong to this restaurant' },
-          { status: 400 },
+        return apiError(
+          400,
+          'TABLE_ZONE_INVALID',
+          'One or more zones do not belong to this restaurant',
         );
       }
     }
@@ -154,14 +148,10 @@ export async function POST(req: NextRequest, context: RouteContext) {
     }
     return NextResponse.json({ tables: created }, { status: 201 });
   } catch (creationError) {
-    console.error('[onboarding][tables][POST]', creationError);
-    captureServerException(creationError, {
-      distinctId: authorization.user.id,
-      groups: { restaurant: restaurantId },
-      properties: { restaurantId, source: 'api', kind: 'onboarding-tables' },
+    return onboardingInternalError(creationError, {
+      route: 'onboarding.restaurant.tables',
+      restaurantId,
+      userId: authorization.user.id,
     });
-    const message =
-      creationError instanceof Error ? creationError.message : 'Unable to create tables';
-    return NextResponse.json({ message }, { status: 500 });
   }
 }

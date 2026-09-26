@@ -4,9 +4,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 import { OnboardingProvider, useOnboarding } from './context/OnboardingContext';
 import { AccountStep, ProfileStep } from './OnboardingAccountProfileSteps';
+import { navigateToOpsDashboard } from './onboardingLaunch';
 import { HoursStep, ServicePeriodsStep } from './OnboardingScheduleSteps';
 import { ReviewStep, TablesStep } from './OnboardingTablesReviewSteps';
 import {
@@ -17,7 +19,7 @@ import {
 } from './onboardingWizardDomain';
 import { OnboardingShell } from './ui/OnboardingShell';
 
-import type { OnboardingState } from './types';
+import type { OnboardingResume, OnboardingState } from './types';
 
 function StepError() {
   const { state } = useOnboarding();
@@ -26,6 +28,23 @@ function StepError() {
     <Alert variant="destructive">
       <AlertTitle>Something went wrong</AlertTitle>
       <AlertDescription>{state.error}</AlertDescription>
+    </Alert>
+  );
+}
+
+function AlreadyOnboarded() {
+  return (
+    <Alert>
+      <AlertTitle>Your restaurant is already set up</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>
+          This account already manages a restaurant. Change hours, services and tables from the
+          dashboard.
+        </p>
+        <Button type="button" onClick={() => navigateToOpsDashboard()}>
+          Go to dashboard
+        </Button>
+      </AlertDescription>
     </Alert>
   );
 }
@@ -65,19 +84,26 @@ function OnboardingContent() {
       title="Launch your restaurant in minutes"
     >
       <StepError />
+      {state.alreadyOnboarded && state.step > 1 ? <AlreadyOnboarded /> : null}
       {state.step === 1 && <AccountStep onComplete={noop} />}
-      {state.step === 2 && <ProfileStep onComplete={noop} />}
-      {state.step === 3 && <HoursStep onComplete={noop} />}
-      {state.step === 4 && <ServicePeriodsStep onComplete={noop} />}
-      {state.step === 5 && <TablesStep onComplete={noop} />}
-      {state.step === 6 && <ReviewStep />}
+      {!state.alreadyOnboarded && state.step === 2 && <ProfileStep onComplete={noop} />}
+      {!state.alreadyOnboarded && state.step === 3 && <HoursStep onComplete={noop} />}
+      {!state.alreadyOnboarded && state.step === 4 && <ServicePeriodsStep onComplete={noop} />}
+      {!state.alreadyOnboarded && state.step === 5 && <TablesStep onComplete={noop} />}
+      {!state.alreadyOnboarded && state.step === 6 && <ReviewStep />}
     </OnboardingShell>
   );
 }
 
-export function OnboardingWizard({ initialState }: { initialState?: Partial<OnboardingState> }) {
+export function OnboardingWizard({
+  initialState,
+  resume,
+}: {
+  initialState?: Partial<OnboardingState>;
+  resume?: OnboardingResume;
+}) {
   return (
-    <OnboardingProvider initialState={initialState}>
+    <OnboardingProvider initialState={initialState} resume={resume}>
       <OnboardingContent />
     </OnboardingProvider>
   );
