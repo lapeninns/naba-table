@@ -127,9 +127,11 @@ export type GoogleContentFence = {
 export async function resolveGoogleContentFence({
   client,
   restaurantId,
+  allowSyncError = false,
 }: {
   readonly client: DbClient;
   readonly restaurantId: string;
+  readonly allowSyncError?: boolean;
 }): Promise<GoogleContentFence> {
   const { data, error } = await client
     .from('restaurant_external_profiles')
@@ -138,7 +140,7 @@ export async function resolveGoogleContentFence({
     )
     .eq('restaurant_id', restaurantId)
     .eq('provider', DUAL_SYNC_PROVIDER)
-    .eq('connection_status', 'linked')
+    .in('connection_status', allowSyncError ? ['linked', 'sync_error'] : ['linked'])
     .maybeSingle();
   if (
     error ||

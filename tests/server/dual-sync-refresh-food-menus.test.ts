@@ -240,6 +240,11 @@ describe('refreshFromGoogle FoodMenus integration', () => {
       client,
       { runKind: 'manual' },
     );
+    expect(resolveGoogleContentFenceMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: RESTAURANT_ID,
+      allowSyncError: true,
+    });
     expect(prepareFoodMenusProjectionMock).toHaveBeenCalledWith(
       expect.objectContaining({
         client,
@@ -333,6 +338,11 @@ describe('refreshFromGoogle FoodMenus integration', () => {
     });
 
     expect(syncGoogleBusinessProfileBusinessInformationMock).not.toHaveBeenCalled();
+    expect(resolveGoogleContentFenceMock).toHaveBeenCalledWith({
+      client,
+      restaurantId: RESTAURANT_ID,
+      allowSyncError: false,
+    });
     expect(getGoogleBusinessProfileFoodMenusContextMock).not.toHaveBeenCalled();
     expect(prepareFoodMenusProjectionMock).not.toHaveBeenCalled();
     expect(refreshFoodMenusImportReviewFromGoogleMock).not.toHaveBeenCalled();
