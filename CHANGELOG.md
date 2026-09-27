@@ -12,6 +12,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Verify linked Google Business Profile access on demand without saving Google content. Show live listing details separately from saved comparison status and explain when storage readiness blocks comparison refreshes, while preserving import and publishing controls.
+
 - Allow Google Business Profile reconnects with a newly issued refresh token when the previous credential encryption key is unavailable; retain fail-closed decryption when the stored token is needed as a fallback.
 
 - Clear communication query placeholders at restaurant boundaries and refresh delivery/queue queries after ambiguous recovery actions. Fail visibly when the mobile delivery ledger is unavailable, scope booking enrichment by restaurant, and derive message summaries and stuck-only pagination from the same filtered attempts.

@@ -9,13 +9,14 @@ import { ensureExternalProfile, type DbClient, type ExternalProfileRow } from '.
 export async function getLinkedExternalProfileWithLocation(
   restaurantId: string,
   client: DbClient,
+  existingProfile?: ExternalProfileRow,
 ): Promise<{
   externalProfile: ExternalProfileRow;
   accessToken: string;
   locationResourceName: string;
   location: Awaited<ReturnType<typeof getGoogleBusinessProfileLocationProfile>>;
 }> {
-  const externalProfile = await ensureExternalProfile(restaurantId, client);
+  const externalProfile = existingProfile ?? (await ensureExternalProfile(restaurantId, client));
 
   const { accessToken } = await getUsableGoogleBusinessProfileAccessToken(externalProfile, client);
   const locationResourceName = resolveLinkedLocationResourceName(externalProfile);

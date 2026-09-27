@@ -24,6 +24,20 @@ import {
 const textSchema = z.object({ value: z.string() }).strict();
 
 describe('Wave 1C provider foundations', () => {
+  it('never caches authenticated Google provider content', async () => {
+    const fetch = vi.fn(async (request: RequestInfo | URL) => {
+      if (!(request instanceof Request)) throw new Error('Expected a Request');
+      expect(request.cache).toBe('no-store');
+      return Response.json({ value: 'live' });
+    });
+    const transport = createGoogleJsonTransport({
+      origin: 'https://mybusinessbusinessinformation.googleapis.com',
+      accessToken: 'test-token',
+      fetch,
+    });
+    await expect(transport.request('resource', textSchema)).resolves.toEqual({ value: 'live' });
+  });
+
   it('rejects a caller-supplied protected header before dispatch', async () => {
     const fetch = vi.fn();
     const transport = createGoogleJsonTransport({

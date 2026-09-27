@@ -19,6 +19,8 @@ export const GBP_SCENARIOS = {
   failstop: 'Publishing stopped: unknown Google updates',
   reauth: 'Reconnect needed',
   accesslost: 'Access to the listing lost, never checked',
+  liveonly: 'Live access works, saved comparison unavailable',
+  livefailure: 'Live access succeeds, then fails on retry',
   rollout: 'Writes not enabled (rollout off)',
   paused: 'Sync paused',
   opsdown: 'Write controls unavailable',
@@ -151,6 +153,7 @@ export function gbpConnectionFor(scenario: GbpScenario): GoogleBusinessProfileCo
     case 'reauth':
       return connection({ status: 'reauth_required' });
     case 'accesslost':
+    case 'liveonly':
       return connection({
         status: 'sync_error',
         lastError: 'Google Business Profile sync failed unexpectedly.',
@@ -263,11 +266,13 @@ export function gbpOperatorStateFor(scenario: GbpScenario): GbpOperatorStateFixt
         },
       };
     case 'accesslost':
+    case 'liveonly':
       return {
         ...base,
         connectionStatus: 'sync_error',
         writeState: 'blocked',
-        reasonCode: 'provider_access_lost_403',
+        reasonCode:
+          scenario === 'accesslost' ? 'provider_access_lost_403' : 'oauth_identity_completed',
         rollout: { eligible: false, reason: 'rollout_off', evaluatedAt: CHECKED_AT },
         refresh: {
           status: 'failed',

@@ -4,12 +4,14 @@ import { Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsGbpOperatorState } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 
 import { GbpAlerts } from './GbpAlerts';
 import { GbpLinkedLayout } from './GbpLinkedLayout';
-import { GbpOperationsPanel } from './GbpOperationsPanel';
+import { GbpLiveConnectionPanel } from './GbpLiveConnectionPanel';
+import { GbpOperationsPanel, type GbpOperatorQueries } from './GbpOperationsPanel';
 import { GbpOverviewCard } from './GbpOverviewCard';
 import { getGbpReconnectReason } from '../gbpPageModel';
 
@@ -43,15 +45,68 @@ export function GbpLinkedView({ restaurantId, section, canManageSettings }: GbpL
   const { summary, data, linkedLocation } = section;
   if (!data || !linkedLocation) return null;
 
-  if (summary.canReview) {
-    return (
-      <GbpSyncWorkspace
-        restaurantId={restaurantId}
-        section={section}
-        operator={canManageSettings ? operator : null}
-      />
-    );
-  }
+  const content = summary.canReview ? (
+    <GbpSyncWorkspace
+      restaurantId={restaurantId}
+      section={section}
+      operator={canManageSettings ? operator : null}
+    />
+  ) : (
+    <GbpUnavailableView
+      section={section}
+      canManageSettings={canManageSettings}
+      operator={operator}
+    />
+  );
+  const state = operator.connectionQuery.data ?? operator.setWriteAccessMutation.data;
+  if (!canManageSettings) return content;
+  return (
+    <GbpLiveConnectionPanel
+      restaurantId={restaurantId}
+      connectionKey={[
+        data.externalAccountId,
+        data.externalLocationId,
+        data.status,
+        state?.connectionGeneration,
+        state?.consentEpoch,
+        state?.connectionStatus,
+        state?.writeState,
+      ].join(':')}
+      connectionLoading={operator.connectionQuery.isLoading}
+      savedStatus={data.status}
+      onCheckFailed={section.refreshHandler}
+      operations={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={section.handleConnectGoogle}
+            disabled={section.startAuthorizationMutation.isPending}
+          >
+            Reconnect Google
+          </Button>
+          <GbpOperationsPanel
+            operator={operator}
+            sync={null}
+            diagnostics={null}
+            onRequestDisconnect={summary.canDisconnect ? section.handleRequestDisconnect : null}
+            isDisconnecting={section.disconnectMutation.isPending}
+          />
+        </>
+      }
+    >
+      {content}
+    </GbpLiveConnectionPanel>
+  );
+}
+
+function GbpUnavailableView({
+  section,
+  canManageSettings,
+  operator,
+}: Omit<GbpLinkedViewProps, 'restaurantId'> & { readonly operator: GbpOperatorQueries }) {
+  const { summary, data, linkedLocation } = section;
+  if (!data || !linkedLocation) return null;
 
   // Linked but not comparable right now (Google access expired, or comparison unavailable).
   const operatorState =

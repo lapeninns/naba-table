@@ -9,6 +9,7 @@ import {
 } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
 import { HttpError } from '@/lib/http/errors';
+import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
@@ -36,6 +37,10 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
     useQueryClient: () => queryClientMock,
   };
 });
+
+vi.mock('@/lib/http/fetchJson', () => ({
+  fetchJson: vi.fn(async () => ({ status: 'ready', reason: null })),
+}));
 
 vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
@@ -90,8 +95,8 @@ const startAuthorizationMutation = {
 const operatorStateResult = {
   connectionQuery: {
     data: undefined,
-    isLoading: true,
-    error: null,
+    isLoading: false,
+    error: null as Error | null,
   },
   terminalNoticesQuery: {
     data: undefined,
@@ -217,7 +222,7 @@ function linkedConnection(overrides: Partial<GoogleBusinessProfileConnection> = 
 
 /** The page intro shows while there is nothing else to explain the page (loading, errors). */
 async function openOperations(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('tab', { name: /operations/i }));
+  await user.click(await screen.findByRole('tab', { name: /operations/i }));
 }
 
 function expectSharedChrome() {
@@ -228,6 +233,8 @@ function expectSharedChrome() {
 }
 
 beforeEach(() => {
+  operatorStateResult.connectionQuery.isLoading = false;
+  operatorStateResult.connectionQuery.error = null;
   mockSearchParams = new URLSearchParams();
   mockCanManageSettings = true;
   connectionResult.data = undefined;
@@ -264,6 +271,40 @@ describe('GoogleBusinessProfileSection', () => {
     expectSharedChrome();
   });
 
+  it('waits for the initial operator state before live checks and remains usable after that query fails', async () => {
+    connectionResult.data = linkedConnection();
+    operatorStateResult.connectionQuery.isLoading = true;
+    const view = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+    expect(screen.getByRole('button', { name: 'Loading connection…' })).toBeDisabled();
+    operatorStateResult.connectionQuery.isLoading = false;
+    operatorStateResult.connectionQuery.error = new Error('operator unavailable');
+    view.rerender(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+    expect(screen.getByRole('button', { name: 'Check live connection' })).toBeEnabled();
+  });
+
+  it('refreshes connection, operator and comparison state after live access is denied', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = linkedConnection();
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+    await screen.findByTestId('gbp-sync-workspace');
+    vi.mocked(fetchJson).mockRejectedValueOnce(
+      new HttpError({ status: 409, code: 'GBP_REAUTH_REQUIRED', message: SENTINEL }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Check live connection' }));
+    await screen.findByRole('alert');
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile('rest-1'),
+      exact: true,
+    });
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['gbp-operator-v1', 'rest-1'],
+    });
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-state', 'rest-1'],
+    });
+    expectNoSentinelAnywhere();
+  });
+
   it('invalidates GBP and dual-sync workspace queries when checking Google again', async () => {
     const user = userEvent.setup();
     // "Check again" is the refresh while the listing is linked but not comparable.
@@ -271,7 +312,7 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    await user.click(screen.getByRole('button', { name: /check again/i }));
+    await user.click(await screen.findByRole('button', { name: /check again/i }));
 
     // Invalidation alone refetches the active queries; no extra refetch() doubles the requests.
     expect(connectionResult.refetch).not.toHaveBeenCalled();
@@ -345,7 +386,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(document.getElementById('gbp-location')).toBeInTheDocument();
   });
 
-  it('uses the brief wording for the waiting and reconnect states', () => {
+  it('uses the brief wording for the waiting and reconnect states', async () => {
     connectionResult.data = buildConnection({ status: 'pending_auth' });
     const { unmount } = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
@@ -356,7 +397,7 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = linkedConnection({ status: 'reauth_required' });
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getAllByText('Reconnect needed').length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Reconnect needed')).length).toBeGreaterThan(0);
     expect(screen.getByText('Reconnect Google to keep publishing')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reconnect Google' })).toBeInTheDocument();
     expect(

@@ -46,10 +46,43 @@ export function installGbpFetchMock(scenario: GbpScenario): () => void {
   let state = gbpDualSyncStateFor(scenario);
   let notifications = { enabled: true, refCount: 2 };
   let lastPreviewGroupIds: string[] = [];
+  let liveReadCount = 0;
+  const retention =
+    scenario === 'liveonly'
+      ? { status: 'blocked', reason: 'retention_not_ready' }
+      : { status: 'ready', reason: null };
 
   const route = async (path: string, method: string, init?: RequestInit): Promise<MockResponse> => {
     const body = await readBody(init);
     switch (`${method} ${path.replace(BASE, '')}`) {
+      case 'GET /google-business-profile/live/readiness':
+        return { body: retention };
+      case 'GET /google-business-profile/live':
+        liveReadCount += 1;
+        if (scenario === 'accesslost' || (scenario === 'livefailure' && liveReadCount > 1)) {
+          connection = gbpConnectionFor('accesslost');
+          operator = gbpOperatorStateFor('accesslost');
+          return {
+            status: 409,
+            body: {
+              error: 'Google did not allow access to this listing.',
+              code: 'GBP_REAUTH_REQUIRED',
+            },
+          };
+        }
+        return {
+          body: {
+            status: 'verified',
+            verifiedAt: new Date().toISOString(),
+            location: {
+              title: 'The White Horse',
+              address: '12 Example Road, Sampleton AB1 2CD',
+              phone: '+44 1223 555010',
+              website: 'https://example.com',
+            },
+            retention,
+          },
+        };
       case 'GET /google-business-profile/details':
         return { body: connection };
       case 'GET /google-business-profile/locations':

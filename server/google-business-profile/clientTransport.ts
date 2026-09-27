@@ -165,6 +165,7 @@ export function createGoogleJsonTransport(config: TransportConfig): GoogleJsonTr
               signal: controller.signal,
               throwHttpErrors: false,
               redirect: 'manual',
+              cache: 'no-store',
             });
             if (response.ok) {
               const parsed = schema.safeParse(
