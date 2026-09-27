@@ -17,12 +17,13 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 
 import { getDualSyncFieldActionAvailability } from '../../dual-sync/dualSyncFieldRowDomain';
-import { formatDualSyncFieldPreview } from '../../dual-sync/dualSyncFieldValuePreviewDomain';
+import { formatDualSyncFieldLabel } from '../../dual-sync/dualSyncFieldValuePreviewDomain';
 import {
   getDualSyncSectionBulkSummary,
   type DualSyncDecisionEntry,
 } from '../../dual-sync/dualSyncWorkspaceDecisionDomain';
 import { DUAL_SYNC_SECTION_LABEL } from '../../dual-sync/dualSyncWorkspaceDomain';
+import { GbpFieldValue } from '../../dual-sync/GbpFieldValue';
 import {
   SETTINGS_INLINE_LINK_CLASS,
   SETTINGS_SEGMENT_GROUP_CLASS,
@@ -86,10 +87,11 @@ function Value({ field, side }: { field: DualSyncFieldSummary; side: 'core' | 'g
       </span>
       {empty ? (
         <span className="italic text-muted-foreground">{emptyValueLabel(field, side)}</span>
-      ) : Array.isArray(value) ? (
-        value.map((item) => formatDualSyncFieldPreview(item)).join(', ')
       ) : (
-        formatDualSyncFieldPreview(value)
+        <GbpFieldValue
+          value={value}
+          context={`${side === 'core' ? 'Nabatable' : 'Google'} · ${formatDualSyncFieldLabel(field.label, field.sectionKey)}`}
+        />
       )}
     </div>
   );
@@ -137,7 +139,7 @@ function FieldRow({
         type="single"
         value={selected ?? ''}
         onValueChange={(next) => onSelect(next ? (next as DualSyncDecisionAction) : null)}
-        aria-label={`What to do with ${field.label}`}
+        aria-label={`What to do with ${formatDualSyncFieldLabel(field.label, field.sectionKey)}`}
         aria-describedby={reasonsId}
         className={SETTINGS_SEGMENT_GROUP_CLASS}
       >
@@ -169,7 +171,9 @@ function FieldRow({
       )}
     >
       <div className="min-w-0 @md:col-span-2 @4xl:col-span-1">
-        <span className="block text-sm font-medium">{field.label}</span>
+        <span className="block text-sm font-medium">
+          {formatDualSyncFieldLabel(field.label, field.sectionKey)}
+        </span>
         <span
           className={cn(
             'mt-0.5 flex items-center gap-1 text-xs text-muted-foreground',

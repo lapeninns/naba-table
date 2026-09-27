@@ -83,7 +83,10 @@ describe('GbpExactPublishDialog', () => {
     expect(screen.getByText('Full replacement')).toBeInTheDocument();
     expect(screen.getByText('POST')).toBeInTheDocument();
     expect(screen.getByText('menus')).toBeInTheDocument();
-    expect(screen.getByText('{"sections":1}')).toBeInTheDocument();
+    expect(screen.getByText('Sections: 1')).toBeVisible();
+    const source = screen.getByText('{ "sections": 1 }');
+    expect(source.closest('details')).not.toHaveAttribute('open');
+    expect(JSON.parse(source.textContent ?? '')).toEqual({ sections: 1 });
     expect(screen.getByText(/replaces the full google foodmenus resource/i)).toBeInTheDocument();
     const title = screen.getByRole('heading', { name: 'Confirm exact Google publish' });
     expect(title).toHaveAttribute('tabindex', '-1');

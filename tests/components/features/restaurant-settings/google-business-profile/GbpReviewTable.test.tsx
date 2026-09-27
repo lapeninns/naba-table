@@ -51,6 +51,26 @@ function Table({
 }
 
 describe('GbpReviewTable', () => {
+  it.each(['attributes/has_live_music', 'has_live_music'])(
+    'uses readable attribute labels for sighted and screen-reader users: %s',
+    (label) => {
+      const fields = [
+        {
+          ...linkedFields[0]!,
+          fieldKey: 'businessContext.attributes.has_live_music',
+          sectionKey: 'businessContext.attributes' as const,
+          label,
+          state: 'changed_on_google' as const,
+          coreValue: null,
+          gbpValue: { attributeKey: 'has_live_music', valueType: 'boolean', boolValue: false },
+        },
+      ];
+      render(<Table fields={fields} />);
+      expect(screen.getByText('Live music')).toBeVisible();
+      expect(screen.getByText('No')).toBeVisible();
+      expect(screen.getByRole('group', { name: 'What to do with Live music' })).toBeInTheDocument();
+    },
+  );
   it('lists only the differences, then every field when asked', async () => {
     const user = userEvent.setup();
     render(<Table />);
@@ -96,7 +116,7 @@ describe('GbpReviewTable', () => {
   it('shows list values as text and flags fields changed on both sides', () => {
     render(<Table />);
 
-    expect(screen.getByText('Nepalese restaurant, Restaurant')).toBeInTheDocument();
+    expect(screen.getByText('Nepalese restaurant; Restaurant')).toBeInTheDocument();
     expect(screen.getByText('Changed on both · High-risk')).toBeInTheDocument();
   });
 

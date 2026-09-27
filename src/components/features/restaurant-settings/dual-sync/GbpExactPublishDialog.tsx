@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
+import { GbpFieldValue } from './GbpFieldValue';
 import {
   SETTINGS_DIALOG_BODY_CLASS,
   SETTINGS_DIALOG_CONTENT_CLASS,
@@ -63,10 +64,6 @@ const RISK_VARIANT: Record<RiskLevel, 'secondary' | 'status-pending' | 'status-c
   high: 'status-pending',
   critical: 'status-cancelled',
 };
-
-function display(value: unknown): string {
-  return JSON.stringify(value) ?? 'null';
-}
 
 function formatPreviewTime(value: string): string {
   const parsed = new Date(value);
@@ -265,15 +262,17 @@ export function GbpExactPublishDialog({
                     <div key={fieldKey} className="grid min-w-0 gap-2 text-xs sm:grid-cols-2">
                       <div className="min-w-0">
                         <p className="mb-1 font-medium">Before Google · {fieldKey}</p>
-                        <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2">
-                          {display(group.beforeDisplay.google[fieldKey])}
-                        </pre>
+                        <GbpFieldValue
+                          value={group.beforeDisplay.google[fieldKey]}
+                          context={`Before Google · ${fieldKey}`}
+                        />
                       </div>
                       <div className="min-w-0">
                         <p className="mb-1 font-medium">After Google · {fieldKey}</p>
-                        <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2">
-                          {display(group.afterDisplay.google[fieldKey])}
-                        </pre>
+                        <GbpFieldValue
+                          value={group.afterDisplay.google[fieldKey]}
+                          context={`After Google · ${fieldKey}`}
+                        />
                       </div>
                     </div>
                   ))}

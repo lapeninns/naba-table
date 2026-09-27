@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 
 import { formatGbpDriftPreview } from './fieldDisplay';
 import { useOptionalGbpDrift } from './useGbpDrift';
+import { formatDualSyncFieldLabel } from '../dual-sync/dualSyncFieldValuePreviewDomain';
 import { openSettingsCompare } from '../gbp/openSettingsCompare';
 
 export type GbpDriftFieldBadgeProps = {
@@ -43,7 +44,7 @@ export function GbpDriftFieldBadge({ fieldKey, className }: GbpDriftFieldBadgePr
                 sectionKey: view.sectionKey,
               })
             }
-            aria-label={`${statusLabel}: compare ${view.label} with Google`}
+            aria-label={`${statusLabel}: compare ${formatDualSyncFieldLabel(view.label, view.sectionKey)} with Google`}
           >
             <Badge
               variant={isDrifted ? 'default' : 'secondary'}
