@@ -9,6 +9,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import { COMMS_CONTROL_HEIGHT_CLASS } from './communicationsDeliveryClasses';
+
 import type { CommunicationsDeliveryRestaurantOption } from '../communicationsDeliveryTypes';
 
 export type CommunicationsDeliveryHeaderProps = {
@@ -19,6 +21,10 @@ export type CommunicationsDeliveryHeaderProps = {
   onRestaurantChange: (restaurantId: string) => void;
 };
 
+/**
+ * Restaurant + timezone meta shared by every Communications Delivery screen.
+ * Several restaurants show the switcher; one shows a badge, as on Guests.
+ */
 export function CommunicationsDeliveryHeader({
   availableRestaurants,
   restaurantId,
@@ -27,10 +33,13 @@ export function CommunicationsDeliveryHeader({
   onRestaurantChange,
 }: CommunicationsDeliveryHeaderProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center gap-2">
       {availableRestaurants.length > 1 ? (
         <Select value={restaurantId ?? ''} onValueChange={onRestaurantChange}>
-          <SelectTrigger className="h-8 w-full sm:w-[240px]" aria-label="Restaurant switcher">
+          <SelectTrigger
+            className={`${COMMS_CONTROL_HEIGHT_CLASS} w-full sm:w-auto sm:min-w-[240px] max-w-full`}
+            aria-label="Restaurant switcher"
+          >
             <SelectValue placeholder="Select restaurant" />
           </SelectTrigger>
           <SelectContent>
@@ -42,11 +51,11 @@ export function CommunicationsDeliveryHeader({
           </SelectContent>
         </Select>
       ) : currentRestaurantName ? (
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="secondary" className="font-medium">
           {currentRestaurantName}
         </Badge>
       ) : null}
-      <Badge variant="outline" className="font-mono text-xs text-muted-foreground">
+      <Badge variant="outline" className="font-mono text-xs tabular-nums text-muted-foreground">
         {timezone}
       </Badge>
     </div>

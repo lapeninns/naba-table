@@ -531,6 +531,24 @@ All animations must defer to simple opacity fades (or no animation at all) when 
 
 ## Components
 
+### Communications Delivery
+
+The September 2026 communications HTML references define the four-section layout: Overview,
+Email, Messages and Reviews. Use the existing app shell and Inter typography, Zinc surfaces,
+cobalt actions, shared shadcn controls and existing semantic status tokens. The reference's
+44px phone controls become 36px at `sm`; metric cards use four columns at `lg`, two at `sm`
+and one below. Tables own horizontal scrolling; the page must never overflow. Reuse
+`CommunicationsDeliveryMetricGrid`, `CommunicationsDeliveryStatusFilter` and
+`CommunicationsDeliveryTableRegion` across the four routes.
+
+Retain visible labels, keyboard focus, text status labels, dark mode and 200% text scaling.
+Display unavailable values as an em dash with a reason; zero requires a successful response.
+Failed refreshes must identify stale data. Channel links carry only restaurant and date range,
+never guest searches or channel-specific filters. Operational channel cards include real status
+breakdowns and channel-specific actions. Metrics distinguish provider acceptance from delivery,
+and observed Google reviews from attributed conversions. See
+`docs/design/communications-redesign.md` for behavior and verification requirements.
+
 ### Buttons
 
 The button system follows Apple's button style hierarchy: use style — not size — to distinguish the preferred action. A single prominent (filled) button per view draws attention to the most likely action. Supporting actions use less prominent styles.

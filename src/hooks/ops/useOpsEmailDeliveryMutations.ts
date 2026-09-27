@@ -8,10 +8,10 @@ import {
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { HttpError } from '@/lib/http/errors';
 import { queryKeys } from '@/lib/query/keys';
 import { useEmailDeliveryTransport } from '@src/hooks/ops/emailDeliveryTransport';
 
+import type { HttpError } from '@/lib/http/errors';
 import type {
   EmailDeliveryRetryResponse,
   EmailQueueJobActionResponse,
@@ -49,11 +49,6 @@ const QUEUE_ERROR_COPY: Partial<Record<string, string>> = {
   NOT_FOUND: 'That email job no longer exists. Refresh the queue.',
 };
 
-/** A 404/409 means the list on screen is out of date: refetch it. */
-function isStaleViewError(error: unknown): boolean {
-  return error instanceof HttpError && (error.status === 404 || error.status === 409);
-}
-
 /**
  * Synchronous manual resend of a failed or bounced email. The server claims the entry
  * atomically, so a double click or a second tab gets RETRY_IN_PROGRESS instead of a second send.
@@ -68,10 +63,11 @@ export function useRetryEmailDelivery(): UseMutationResult<
 
   return useMutation({
     mutationKey: queryKeys.opsEmailDeliveryMutations.retry(),
+    retry: false,
     mutationFn: ({ restaurantId, deliveryLogId, simulateError }) =>
       transport.retryEmailDelivery({ restaurantId, deliveryLogId, simulateError }),
-    onSuccess: async (_data, variables) => {
-      // A new delivery-log row exists: the restaurant feed and summary and the booking's log.
+    onSettled: async (_data, _error, variables) => {
+      // A conflict or lost response can still mean a send happened. Reconcile every affected view.
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: queryKeys.opsEmailDelivery.feedPrefix(variables.restaurantId),
@@ -85,13 +81,6 @@ export function useRetryEmailDelivery(): UseMutationResult<
             })
           : Promise.resolve(),
       ]);
-    },
-    onError: async (error, variables) => {
-      if (isStaleViewError(error)) {
-        await queryClient.invalidateQueries({
-          queryKey: queryKeys.opsEmailDelivery.feedPrefix(variables.restaurantId),
-        });
-      }
     },
     meta: {
       feedback: {
@@ -118,9 +107,9 @@ function useQueueJobMutation<TAction extends 'cancelled' | 'requeued'>(options: 
   return useMutation({
     mutationKey: options.mutationKey,
     mutationFn: options.run,
+    retry: false,
     // Only this restaurant's queue changed (the delivery log gains rows only once it sends).
-    onSettled: async (_data, error, variables) => {
-      if (error && !isStaleViewError(error)) return;
+    onSettled: async (_data, _error, variables) => {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.opsEmailQueue.feedPrefix(variables.restaurantId),
       });

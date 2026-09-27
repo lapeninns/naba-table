@@ -19,6 +19,23 @@ function setup(params: Parameters<typeof useOpsEmailDeliverySummary>[0]) {
 }
 
 describe('useOpsEmailDeliverySummary', () => {
+  it('does not show another restaurant summary while switching restaurants', async () => {
+    bookingService.getRestaurantEmailDeliverySummary
+      .mockResolvedValueOnce({ ok: true, restaurantId: 'rest-1', summary: { total: 12 } })
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const { result, rerender } = renderHook(
+      ({ restaurantId }) => useOpsEmailDeliverySummary({ restaurantId }),
+      {
+        initialProps: { restaurantId: 'rest-1' },
+        wrapper: createQueryWrapper(createTestQueryClient()),
+      },
+    );
+    await waitFor(() => expect(result.current.summary).toEqual({ total: 12 }));
+    rerender({ restaurantId: 'rest-2' });
+    expect(result.current.summary).toBeNull();
+    expect(result.current.isLoading).toBe(true);
+  });
+
   it('@contract stays disabled without a restaurant id', () => {
     setup({ restaurantId: null });
 

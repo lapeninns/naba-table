@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import type { OpsStatusTone } from '@/lib/ops/status-tones';
 import type { EmailDeliveryStatus } from '@/types/emailDelivery';
 
 export const EMAIL_DELIVERY_STATUS_LABELS: Record<EmailDeliveryStatus, string> = {
@@ -16,6 +17,24 @@ export function formatEmailDeliveryOccurredAt(iso: string | null, timezone: stri
   const dt = DateTime.fromISO(iso, { zone: timezone });
   if (!dt.isValid) return null;
   return dt.toFormat('EEE, MMM d · HH:mm');
+}
+
+/** Semantic status tone for `OpsStatusBadge`. */
+export function getEmailDeliveryStatusTone(status: EmailDeliveryStatus): OpsStatusTone {
+  switch (status) {
+    case 'delivered':
+      return 'success';
+    case 'sent':
+      return 'info';
+    case 'delivery_delayed':
+      return 'warning';
+    case 'bounced':
+    case 'complained':
+    case 'failed':
+      return 'danger';
+    default:
+      return 'muted';
+  }
 }
 
 export function getEmailDeliveryStatusBadgeTone(status: EmailDeliveryStatus): {

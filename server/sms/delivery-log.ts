@@ -429,11 +429,11 @@ export async function listSmsDeliveryEventsForBooking(params: {
     .order('updated_at', { ascending: false })
     .limit(limit);
 
-  const mobileAttempts = mobileError
-    ? []
-    : ((mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []).map(
-        toMobileAttemptCandidate,
-      );
+  if (mobileError)
+    throw new SmsDeliveryLogUnavailableError('Mobile delivery history is unavailable');
+  const mobileAttempts = ((mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []).map(
+    toMobileAttemptCandidate,
+  );
   const events = aggregateSmsDeliveryAttempts({ mobileAttempts, smsLogEvents }).flatMap(
     (attempt) => attempt.events,
   );
@@ -459,6 +459,7 @@ type ListSmsDeliveryAttemptsForRestaurantParams = {
   pageSize?: number;
   statuses?: ReadonlyArray<SmsDeliveryStatus>;
   channel?: SmsDeliveryChannelFilter;
+  stuckOnly?: boolean;
 };
 
 function resolveChannelFilter(
@@ -576,11 +577,11 @@ async function fetchSmsAttemptAggregates(params: {
     .eq('mobile_notifications.restaurant_id', params.restaurantId)
     .gte('updated_at', params.sinceIso)
     .limit(10_000);
-  const mobileAttempts = mobileError
-    ? []
-    : ((mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []).map(
-        toMobileAttemptCandidate,
-      );
+  if (mobileError)
+    throw new SmsDeliveryLogUnavailableError('Mobile delivery history is unavailable');
+  const mobileAttempts = ((mobileRows as MobileAttemptReadRow[] | null | undefined) ?? []).map(
+    toMobileAttemptCandidate,
+  );
 
   return aggregateSmsDeliveryAttempts({ mobileAttempts, smsLogEvents });
 }
@@ -592,6 +593,7 @@ export async function listSmsDeliveryAttemptsForRestaurant(
   hasNext: boolean;
   page: number;
   pageSize: number;
+  summary: OpsSmsDeliverySummary;
 }> {
   const page = normalizePage(params.page);
   const pageSize = normalizePageSize(params.pageSize);
@@ -606,9 +608,13 @@ export async function listSmsDeliveryAttemptsForRestaurant(
     sinceIso,
   });
 
+  const now = Date.now();
   const aggregates = rawAggregates
     .filter((attempt) => (statusFilter ? statusFilter.has(attempt.currentStatus) : true))
     .filter((attempt) => (channelFilter ? attempt.channel === channelFilter : true))
+    .filter(
+      (attempt) => !params.stuckOnly || computeSmsAttemptStaleness({ ...attempt, now }).isStale,
+    )
     .sort((a, b) => parseIsoMs(b.currentOccurredAt) - parseIsoMs(a.currentOccurredAt));
 
   const pageSlice = aggregates.slice(start, start + pageSize + 1);
@@ -623,6 +629,7 @@ export async function listSmsDeliveryAttemptsForRestaurant(
     const { data: bookings, error: bookingsError } = await supabase
       .from('bookings')
       .select('id, reference, booking_date, start_time, end_time, customer_name, party_size')
+      .eq('restaurant_id', params.restaurantId)
       .in('id', bookingIds);
     if (!bookingsError) {
       bookingById = new Map(
@@ -634,7 +641,6 @@ export async function listSmsDeliveryAttemptsForRestaurant(
     }
   }
 
-  const now = Date.now();
   const attempts: OpsSmsDeliveryAttemptDTO[] = selected.map((attempt) =>
     decorateSmsAttemptWithStaleness(
       {
@@ -661,7 +667,13 @@ export async function listSmsDeliveryAttemptsForRestaurant(
     ),
   );
 
-  return { attempts, hasNext, page, pageSize };
+  return {
+    attempts,
+    hasNext,
+    page,
+    pageSize,
+    summary: summarizeSmsDeliveryAttempts(aggregates, now),
+  };
 }
 
 export async function getSmsDeliveryAttemptsSummary(params: {
@@ -683,6 +695,13 @@ export async function getSmsDeliveryAttemptsSummary(params: {
     .filter((attempt) => (statusFilter ? statusFilter.has(attempt.currentStatus) : true))
     .filter((attempt) => (channelFilter ? attempt.channel === channelFilter : true));
 
+  return summarizeSmsDeliveryAttempts(finalAttempts, Date.now());
+}
+
+function summarizeSmsDeliveryAttempts(
+  finalAttempts: readonly SmsDeliveryAttemptAggregate[],
+  nowMs: number,
+): OpsSmsDeliverySummary {
   const total = finalAttempts.length;
   const queued = finalAttempts.filter((attempt) => attempt.currentStatus === 'queued').length;
   const sent = finalAttempts.filter((attempt) => attempt.currentStatus === 'sent').length;
@@ -704,7 +723,6 @@ export async function getSmsDeliveryAttemptsSummary(params: {
     Boolean(attempt.fallbackForAttemptId),
   ).length;
 
-  const nowMs = Date.now();
   const stuckInFlight = finalAttempts.reduce((count, attempt) => {
     const { isStale } = computeSmsAttemptStaleness({
       currentStatus: attempt.currentStatus,

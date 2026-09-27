@@ -1,16 +1,10 @@
 'use client';
 
-import {
-  OPS_CARD_CLASS,
-  OPS_CARD_CONTENT_CLASS,
-} from '@/components/features/ops-shell/patterns/opsDensityClasses';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/typography';
-import { cn } from '@/lib/utils';
+import { CommunicationsDeliveryMetricGrid } from '@/components/features/communications-delivery/components/CommunicationsDeliveryMetricGrid';
 
 import { getSmsDeliveryFailureCount, getSmsDeliveryRatePercent } from '../opsSmsDeliveryDomain';
 
+import type { CommunicationsDeliveryOverviewMetric } from '@/components/features/communications-delivery/communicationsDeliveryTypes';
 import type { OpsSmsDeliverySummary } from '@/types/smsDelivery';
 
 export type OpsSmsDeliverySummaryCardsProps = {
@@ -18,47 +12,48 @@ export type OpsSmsDeliverySummaryCardsProps = {
   summary: OpsSmsDeliverySummary | null;
 };
 
-function formatChannelSplit(summary: OpsSmsDeliverySummary): string {
-  const whatsapp = summary.whatsappCount ?? 0;
-  const sms = summary.smsCount ?? 0;
-  const fallback = summary.fallbackCount ?? 0;
-  const fallbackSuffix = fallback > 0 ? ` (${fallback} fallback)` : '';
-  return `${whatsapp} WA · ${sms} SMS${fallbackSuffix}`;
+/**
+ * Same four-card pattern as the Overview. Every summary count stays visible: unique recipients
+ * sits under total attempts, stuck-in-flight under failures, fallbacks under the channel split.
+ */
+export function buildSmsDeliverySummaryMetrics(
+  summary: OpsSmsDeliverySummary | null,
+): CommunicationsDeliveryOverviewMetric[] {
+  const total = summary?.total ?? 0;
+  return [
+    {
+      label: 'Delivered rate',
+      value: `${summary && total ? getSmsDeliveryRatePercent(summary.delivered / total) : 0}%`,
+      hint: `${summary?.delivered ?? 0}/${total} attempts`,
+    },
+    {
+      label: 'Total attempts',
+      value: String(total),
+      hint: `${summary?.uniqueRecipients ?? 0} unique recipients`,
+    },
+    {
+      label: 'Failures',
+      value: String(summary ? getSmsDeliveryFailureCount(summary) : 0),
+      hint: `${summary?.stuckInFlight ?? 0} stuck in flight`,
+    },
+    {
+      label: 'WhatsApp / SMS',
+      value: `${summary?.whatsappCount ?? 0} / ${summary?.smsCount ?? 0}`,
+      hint: `${summary?.fallbackCount ?? 0} fallbacks`,
+    },
+  ];
 }
 
 export function OpsSmsDeliverySummaryCards({
   isLoading,
   summary,
 }: OpsSmsDeliverySummaryCardsProps) {
-  const metrics = summary
-    ? [
-        { label: 'Total attempts', value: String(summary.total) },
-        { label: 'Channel split', value: formatChannelSplit(summary) },
-        { label: 'Delivered rate', value: `${getSmsDeliveryRatePercent(summary.deliveredRate)}%` },
-        { label: 'Failures', value: String(getSmsDeliveryFailureCount(summary)) },
-        { label: 'Unique recipients', value: String(summary.uniqueRecipients) },
-      ]
-    : null;
-
   return (
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      {isLoading || !metrics
-        ? Array.from({ length: 5 }).map((_, index) => (
-            <Card key={index} className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-          ))
-        : metrics.map((metric) => (
-            <Card key={metric.label} className={OPS_CARD_CLASS}>
-              <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pt-4')}>
-                <Text variant="caption">{metric.label}</Text>
-                <p className="text-2xl font-semibold">{metric.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-    </section>
+    <CommunicationsDeliveryMetricGrid
+      label="Message delivery summary"
+      isLoading={isLoading}
+      metrics={buildSmsDeliverySummaryMetrics(summary)}
+    />
   );
 }
 

@@ -11,7 +11,6 @@ import {
   requireSession,
 } from '@/server/auth/guards';
 import {
-  getSmsDeliveryAttemptsSummary,
   listSmsDeliveryAttemptsForRestaurant,
   SmsDeliveryLogUnavailableError,
 } from '@/server/sms/delivery-log';
@@ -37,6 +36,10 @@ const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
   channel: z.enum(OPS_SMS_DELIVERY_CHANNEL_VALUES).default('all'),
+  stuckOnly: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((value) => value === 'true'),
 });
 
 function jsonError(
@@ -105,13 +108,7 @@ export async function GET(request: NextRequest) {
       pageSize: parsedQuery.data.pageSize,
       statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
       channel: parsedQuery.data.channel,
-    });
-
-    const summary = await getSmsDeliveryAttemptsSummary({
-      restaurantId,
-      range: parsedQuery.data.range,
-      statuses: statuses.statuses.length > 0 ? statuses.statuses : undefined,
-      channel: parsedQuery.data.channel,
+      stuckOnly: parsedQuery.data.stuckOnly,
     });
 
     return NextResponse.json(
@@ -125,7 +122,7 @@ export async function GET(request: NextRequest) {
           hasNext: listResult.hasNext,
         },
         attempts: sanitizeOpsSmsDeliveryAttempts(listResult.attempts),
-        summary,
+        summary: listResult.summary,
       } satisfies Extract<OpsSmsDeliveryFeedResponse, { ok: true }>,
       { status: 200 },
     );

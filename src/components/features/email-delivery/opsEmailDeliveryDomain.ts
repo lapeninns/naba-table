@@ -7,6 +7,7 @@ import {
 import { EMAIL_DELIVERY_STATUS_VALUES, type EmailDeliveryStatus } from '@/types/emailDelivery';
 
 import type { OpsEmailDeliveryRefreshOption, OpsEmailDeliverySearchField } from './opsEmailDeliveryTypes';
+import type { OpsStatusTone } from '@/lib/ops/status-tones';
 import type { OpsEmailDeliveryAttemptDTO, OpsEmailDeliveryRange, OpsEmailDeliverySummary } from '@/types/emailDelivery';
 import type { OpsEmailQueueJobStatus, OpsEmailQueueSummary } from '@/types/emailQueue';
 
@@ -144,6 +145,21 @@ export function formatOpsEmailQueueDateTime(value: string | null, timezone: stri
   const dt = DateTime.fromISO(value, { zone: 'utc' }).setZone(timezone);
   if (!dt.isValid) return value;
   return dt.toFormat('EEE, MMM d · HH:mm');
+}
+
+/** Semantic tone for a queue job status, for `OpsStatusBadge`. */
+export function getOpsEmailQueueStatusTone(status: OpsEmailQueueJobStatus): OpsStatusTone {
+  switch (status) {
+    case 'dlq':
+      return 'danger';
+    case 'active':
+      return 'info';
+    case 'delayed':
+      return 'muted';
+    case 'waiting':
+    default:
+      return 'neutral';
+  }
 }
 
 export function getOpsEmailQueueStatusLabel(status: OpsEmailQueueJobStatus): string {

@@ -171,6 +171,7 @@ export const queryKeys = {
       pageSize: number;
       statuses: readonly SmsDeliveryStatus[];
       channel?: SmsDeliveryChannelFilter;
+      stuckOnly?: boolean;
     }) =>
       [
         'ops',
@@ -182,6 +183,7 @@ export const queryKeys = {
         params.pageSize,
         params.statuses.join(','),
         params.channel ?? 'all',
+        params.stuckOnly ?? false,
       ] as const,
     bookingLog: (bookingId: string, limit: number) =>
       ['ops', 'sms-delivery', 'booking-log', bookingId, limit] as const,

@@ -526,6 +526,7 @@ export interface BookingService {
     pageSize?: number;
     status?: SmsDeliveryStatus[];
     channel?: SmsDeliveryChannelFilter;
+    stuckOnly?: boolean;
   }): Promise<OpsSmsDeliveryFeedResponse>;
   getRestaurantEmailDeliveryFeed(params: {
     restaurantId?: string;
@@ -835,6 +836,7 @@ export function createBrowserBookingService(): BookingService {
       if (params.channel && params.channel !== 'all') {
         search.set('channel', params.channel);
       }
+      if (params.stuckOnly) search.set('stuckOnly', 'true');
 
       const url = `/api/ops/sms-delivery?${search.toString()}`;
       try {

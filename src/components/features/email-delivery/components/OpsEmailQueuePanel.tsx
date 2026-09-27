@@ -2,15 +2,27 @@
 
 import Link from 'next/link';
 
+import { COMMS_CONTROL_HEIGHT_CLASS } from '@/components/features/communications-delivery/components/communicationsDeliveryClasses';
+import { CommunicationsDeliveryTableRegion } from '@/components/features/communications-delivery/components/CommunicationsDeliveryTableRegion';
 import {
   OPS_CARD_CLASS,
   OPS_CARD_CONTENT_CLASS,
   OPS_CARD_HEADER_CLASS,
 } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsStatusBadge } from '@/components/features/ops-shell/patterns/OpsStatusBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -27,10 +39,15 @@ import {
   buildOpsEmailQueueMetrics,
   formatOpsEmailQueueDateTime,
   getOpsEmailQueueStatusLabel,
+  getOpsEmailQueueStatusTone,
   getOpsEmailQueueTypeLabel,
 } from '../opsEmailDeliveryDomain';
 
-import type { OpsEmailQueueJobDTO, OpsEmailQueueJobStatus, OpsEmailQueueSummary } from '@/types/emailQueue';
+import type {
+  OpsEmailQueueJobDTO,
+  OpsEmailQueueJobStatus,
+  OpsEmailQueueSummary,
+} from '@/types/emailQueue';
 
 export type OpsEmailQueuePanelProps = {
   jobs: OpsEmailQueueJobDTO[];
@@ -93,59 +110,69 @@ export function OpsEmailQueuePanel({
             {timestamp ? (
               <Badge
                 variant="outline"
-                className="w-fit border-border bg-muted/40 font-mono text-[11px] text-muted-foreground"
+                className="w-fit font-mono text-xs tabular-nums text-muted-foreground"
               >
                 {formatOpsEmailQueueDateTime(timestamp, timezone)}
               </Badge>
             ) : null}
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3 lg:grid-cols-5">
             {metrics.map((item) => (
-              <div
-                key={item.label}
-                className="rounded-xl border border-border bg-muted/40 px-4 py-3 shadow-sm"
-              >
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <div key={item.label} className="flex flex-col gap-1 bg-background px-3 py-2.5">
+                <Text as="dt" variant="eyebrow">
                   {item.label}
-                </div>
-                <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {item.value}
-                </div>
+                </Text>
+                <dd className="text-lg font-semibold tabular-nums text-foreground">{item.value}</dd>
               </div>
             ))}
-          </div>
+          </dl>
 
-          <div className="flex flex-wrap gap-2">
-            {OPS_EMAIL_QUEUE_STATUS_OPTIONS.map((option) => (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={status === option.value ? 'default' : 'outline'}
-                className="rounded-full px-3.5 text-xs font-semibold"
-                onClick={() => onStatusChange(option.value)}
-              >
-                {option.label}
-              </Button>
-            ))}
-          </div>
+          <Select
+            value={status}
+            onValueChange={(value) => onStatusChange(value as OpsEmailQueueJobStatus | 'all')}
+          >
+            <SelectTrigger
+              className={cn(COMMS_CONTROL_HEIGHT_CLASS, 'w-full sm:w-auto sm:min-w-[200px] max-w-full')}
+              aria-label="Filter queue by status"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OPS_EMAIL_QUEUE_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.value === 'all' ? 'All queue statuses' : option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </CardHeader>
 
-        <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'flex flex-col gap-4 pt-4')}>
+        <CardContent
+          className={cn(
+            OPS_CARD_CONTENT_CLASS,
+            'flex flex-col gap-4 pb-[var(--pg-density-card-py)] pt-4',
+          )}
+        >
           {errorMessage ? (
-            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {errorMessage}
-            </div>
+            <Alert variant="destructive">
+              <AlertDescription>{errorMessage}</AlertDescription>
+            </Alert>
           ) : isLoading && jobs.length === 0 ? (
-            <div className="rounded-lg border border-border p-6 text-sm text-muted-foreground" aria-label="Loading email queue">
-              Loading email queue…
+            <div
+              className="flex flex-col gap-2 rounded-lg border border-border p-3"
+              aria-busy="true"
+              aria-label="Loading email queue"
+            >
+              {Array.from({ length: 3 }, (_, index) => (
+                <Skeleton key={index} className="h-10 w-full" />
+              ))}
             </div>
           ) : jobs.length === 0 ? (
             <OpsEmptyState
               title="No queued emails right now"
               description="No booking emails are currently queued for this restaurant. Scheduled reminders and confirmations will appear here as soon as jobs are waiting to send."
-              className="min-h-[180px] bg-muted/40"
+              size="compact"
             />
           ) : (
             <>
@@ -153,18 +180,22 @@ export function OpsEmailQueuePanel({
                 {jobs.map((job) => (
                   <article
                     key={job.id}
-                    className="rounded-xl border border-border bg-background p-4 shadow-sm"
+                    className="rounded-lg border border-border bg-background p-3"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold">{getOpsEmailQueueTypeLabel(job.type)}</div>
-                        <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                        <div className="text-sm font-semibold">
+                          {getOpsEmailQueueTypeLabel(job.type)}
+                        </div>
+                        <div className="mt-1 break-all font-mono text-xs text-muted-foreground">
                           {job.id}
                         </div>
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-[10px] font-bold uppercase">
-                        {getOpsEmailQueueStatusLabel(job.status)}
-                      </Badge>
+                      <OpsStatusBadge
+                        className="shrink-0"
+                        label={getOpsEmailQueueStatusLabel(job.status)}
+                        tone={getOpsEmailQueueStatusTone(job.status)}
+                      />
                     </div>
                     <dl className="mt-3 space-y-2 text-sm">
                       <div className="flex justify-between gap-3">
@@ -181,7 +212,7 @@ export function OpsEmailQueuePanel({
                       </div>
                       <div className="flex justify-between gap-3">
                         <dt className="text-muted-foreground">Send time</dt>
-                        <dd className="text-right text-sm">
+                        <dd className="text-right font-mono text-xs tabular-nums">
                           {formatOpsEmailQueueDateTime(job.scheduledFor, timezone)}
                         </dd>
                       </div>
@@ -190,7 +221,7 @@ export function OpsEmailQueuePanel({
                       <Link
                         href={`/app/bookings?restaurantId=${restaurantId ?? ''}&focus=${job.bookingId}`}
                         prefetch={false}
-                        className="mt-3 inline-block text-xs font-medium underline underline-offset-2"
+                        className="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline sm:min-h-9"
                       >
                         Open booking
                       </Link>
@@ -201,6 +232,7 @@ export function OpsEmailQueuePanel({
                           type="button"
                           size="sm"
                           variant="outline"
+                          className={cn(COMMS_CONTROL_HEIGHT_CLASS, 'flex-1 sm:flex-none')}
                           disabled={pendingJobIds.has(job.id)}
                           onClick={() => onCancelJob(job.id)}
                         >
@@ -212,6 +244,7 @@ export function OpsEmailQueuePanel({
                           type="button"
                           size="sm"
                           variant="outline"
+                          className={cn(COMMS_CONTROL_HEIGHT_CLASS, 'flex-1 sm:flex-none')}
                           disabled={pendingJobIds.has(job.id)}
                           onClick={() => onRequeueJob(job.id)}
                         >
@@ -223,60 +256,56 @@ export function OpsEmailQueuePanel({
                 ))}
               </div>
 
-              <div className="hidden overflow-hidden rounded-xl border border-border bg-background lg:block">
+              <CommunicationsDeliveryTableRegion
+                label="Scheduled email queue"
+                hintBelow="none"
+                className="hidden lg:flex"
+              >
                 <Table>
                   <TableHeader>
-                    <TableRow className="border-border bg-muted/40 hover:bg-muted/40">
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Queue Status
-                      </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Email
-                      </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Reservation
-                      </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Guest
-                      </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Send Time
-                      </TableHead>
-                      <TableHead className="h-11 px-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                        Actions
-                      </TableHead>
+                    <TableRow>
+                      <TableHead>Queue status</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Reservation</TableHead>
+                      <TableHead>Guest</TableHead>
+                      <TableHead>Send time</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {jobs.map((job) => (
-                      <TableRow key={job.id} className="border-border hover:bg-muted/40">
-                        <TableCell className="px-4 py-4 align-top">
-                          <Badge variant="outline" className="text-[10px] font-bold uppercase">
-                            {getOpsEmailQueueStatusLabel(job.status)}
-                          </Badge>
+                      <TableRow key={job.id}>
+                        <TableCell className="align-top">
+                          <OpsStatusBadge
+                            label={getOpsEmailQueueStatusLabel(job.status)}
+                            tone={getOpsEmailQueueStatusTone(job.status)}
+                          />
                         </TableCell>
-                        <TableCell className="px-4 py-4 align-top">
+                        <TableCell className="align-top">
                           <div className="text-sm font-semibold">
                             {getOpsEmailQueueTypeLabel(job.type)}
                           </div>
-                          <div className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
+                          <div
+                            className="mt-1 max-w-[16rem] truncate font-mono text-xs text-muted-foreground"
+                            title={job.id}
+                          >
                             {job.id}
                           </div>
                         </TableCell>
-                        <TableCell className="px-4 py-4 align-top">
+                        <TableCell className="align-top">
                           {job.booking ? (
                             <div className="space-y-1.5">
                               <div className="font-mono text-xs font-semibold">
                                 {job.booking.reference}
                               </div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="font-mono text-xs tabular-nums text-muted-foreground">
                                 {formatOpsEmailQueueDateTime(job.booking.startAt, timezone)}
                               </div>
                               {job.bookingId ? (
                                 <Link
                                   href={`/app/bookings?restaurantId=${restaurantId ?? ''}&focus=${job.bookingId}`}
                                   prefetch={false}
-                                  className="text-xs font-medium underline underline-offset-2"
+                                  className="text-xs font-medium text-primary underline-offset-4 hover:underline"
                                 >
                                   Open booking
                                 </Link>
@@ -288,7 +317,7 @@ export function OpsEmailQueuePanel({
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="px-4 py-4 align-top">
+                        <TableCell className="align-top">
                           <div className="text-sm font-medium">
                             {job.booking?.customerName ?? 'Unknown guest'}
                           </div>
@@ -301,23 +330,24 @@ export function OpsEmailQueuePanel({
                             </div>
                           ) : null}
                         </TableCell>
-                        <TableCell className="px-4 py-4 align-top">
-                          <div className="text-sm font-medium">
+                        <TableCell className="align-top">
+                          <div className="whitespace-nowrap font-mono text-xs tabular-nums">
                             {formatOpsEmailQueueDateTime(job.scheduledFor, timezone)}
                           </div>
                           {job.attemptsMade !== null ? (
-                            <div className="mt-1 text-xs text-muted-foreground">
+                            <div className="mt-1 text-xs tabular-nums text-muted-foreground">
                               Attempts: {job.attemptsMade}
                             </div>
                           ) : null}
                         </TableCell>
-                        <TableCell className="px-4 py-4 align-top">
+                        <TableCell className="align-top">
                           <div className="flex flex-col gap-2">
                             {job.status !== 'dlq' && job.status !== 'active' && onCancelJob ? (
                               <Button
                                 type="button"
                                 size="sm"
                                 variant="outline"
+                                className="h-9"
                                 disabled={pendingJobIds.has(job.id)}
                                 onClick={() => onCancelJob(job.id)}
                               >
@@ -329,6 +359,7 @@ export function OpsEmailQueuePanel({
                                 type="button"
                                 size="sm"
                                 variant="outline"
+                                className="h-9"
                                 disabled={pendingJobIds.has(job.id)}
                                 onClick={() => onRequeueJob(job.id)}
                               >
@@ -341,10 +372,13 @@ export function OpsEmailQueuePanel({
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+              </CommunicationsDeliveryTableRegion>
 
-              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-xs font-medium text-muted-foreground">
+              <nav
+                aria-label="Email queue pagination"
+                className="flex items-center justify-between gap-3"
+              >
+                <div className="text-xs font-medium tabular-nums text-muted-foreground">
                   Page {page}
                   {total > 0 ? ` · ${total} job${total === 1 ? '' : 's'}` : ''}
                 </div>
@@ -353,6 +387,7 @@ export function OpsEmailQueuePanel({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className={COMMS_CONTROL_HEIGHT_CLASS}
                     onClick={onPrevPage}
                     disabled={page <= 1}
                   >
@@ -362,13 +397,14 @@ export function OpsEmailQueuePanel({
                     type="button"
                     variant="outline"
                     size="sm"
+                    className={COMMS_CONTROL_HEIGHT_CLASS}
                     onClick={onNextPage}
                     disabled={!hasNext}
                   >
                     Next
                   </Button>
                 </div>
-              </div>
+              </nav>
             </>
           )}
         </CardContent>

@@ -6,9 +6,13 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Redesign Communications Delivery overview, email, messages and review growth with shared responsive navigation, metric cards, channel breakdowns, filters and explicit unavailable-data states. Preserve restaurant and date-range context across channels.
+
 - Align the design-token layer with the Radix Luma brand spec: fluid display/headline type with inverse tracking, 14px/600 buttons with tactile press and 30% focus rings, tinted (never filled) destructive buttons, shadow-free resting cards, pill badges and status pills, plus new spacing, hero-rhythm and layout tokens. Retire the dead `--guest-*` and dark-only legacy aliases, regenerate `docs/tokens.json` from the stylesheet, and rewrite the token reference.
 
 ### Fixed
+
+- Clear communication query placeholders at restaurant boundaries and refresh delivery/queue queries after ambiguous recovery actions. Fail visibly when the mobile delivery ledger is unavailable, scope booking enrichment by restaurant, and derive message summaries and stuck-only pagination from the same filtered attempts.
 
 - Skip impossible email-pattern matches when Worker evidence strings contain no ASCII `@`, preserving redaction behavior and the existing oversized-evidence size limit and test timeout.
 - Recover confirmed bookings without table assignments after inline assignment timeouts. Keep retries alive after the booking response, recheck tenant-scoped allocation and lifecycle state before each attempt, share creation idempotency across retries, preserve winning allocations on ambiguous confirmation failures, and record the interrupted assignment stage.

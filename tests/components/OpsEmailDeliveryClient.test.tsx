@@ -94,9 +94,9 @@ function makeSuccessResponse(
 
 function createRestaurantService() {
   return {
-    listRestaurants: vi.fn().mockResolvedValue([
-      { id: 'rest-1', name: 'Test Restaurant', timezone: 'UTC' },
-    ]),
+    listRestaurants: vi
+      .fn()
+      .mockResolvedValue([{ id: 'rest-1', name: 'Test Restaurant', timezone: 'UTC' }]),
     getRestaurant: vi.fn().mockResolvedValue({
       id: 'rest-1',
       name: 'Test Restaurant',
@@ -129,7 +129,9 @@ function renderClient(options?: {
 
   const getRestaurantEmailDeliveryFeed =
     options?.getRestaurantEmailDeliveryFeed ??
-    vi.fn<BookingService['getRestaurantEmailDeliveryFeed']>().mockResolvedValue(makeSuccessResponse());
+    vi
+      .fn<BookingService['getRestaurantEmailDeliveryFeed']>()
+      .mockResolvedValue(makeSuccessResponse());
   const getRestaurantEmailDeliverySummary =
     options?.getRestaurantEmailDeliverySummary ??
     vi.fn<BookingService['getRestaurantEmailDeliverySummary']>().mockResolvedValue({
@@ -270,7 +272,7 @@ describe('OpsEmailDeliveryClient', () => {
     expect(await screen.findByRole('heading', { name: 'Email Delivery' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /message delivery/i })).toHaveAttribute(
       'href',
-      '/app/communications-delivery/messages',
+      '/app/communications-delivery/messages?restaurantId=rest-1&range=7d',
     );
     expect(await screen.findByText('Booking confirmed')).toBeInTheDocument();
 
@@ -292,7 +294,6 @@ describe('OpsEmailDeliveryClient', () => {
     });
     expect(await screen.findByText('Scheduled email queue')).toBeInTheDocument();
   });
-
 });
 
 function installMatchMedia() {
@@ -455,12 +456,17 @@ describe('OpsEmailDeliveryClient mutations', () => {
   it('asks for confirmation before cancelling a scheduled email', async () => {
     const user = userEvent.setup();
     searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
-    const cancelEmailQueueJob = vi.fn<EmailDeliveryTransport['cancelEmailQueueJob']>().mockResolvedValue({
-      ok: true,
-      jobId: 'email__reminder_24h__booking-1',
-      action: 'cancelled',
+    const cancelEmailQueueJob = vi
+      .fn<EmailDeliveryTransport['cancelEmailQueueJob']>()
+      .mockResolvedValue({
+        ok: true,
+        jobId: 'email__reminder_24h__booking-1',
+        action: 'cancelled',
+      });
+    renderClient({
+      getRestaurantEmailQueue: queueFeed('delayed'),
+      transport: { cancelEmailQueueJob },
     });
-    renderClient({ getRestaurantEmailQueue: queueFeed('delayed'), transport: { cancelEmailQueueJob } });
 
     await user.click(screen.getByRole('tab', { name: /queue/i }));
     const [cancelButton] = await screen.findAllByRole('button', { name: 'Cancel' });
@@ -481,7 +487,9 @@ describe('OpsEmailDeliveryClient mutations', () => {
         jobId: 'email__reminder_24h__booking-1',
       }),
     );
-    await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledWith('Scheduled email cancelled.'));
+    await waitFor(() =>
+      expect(toastSuccessMock).toHaveBeenCalledWith('Scheduled email cancelled.'),
+    );
   });
 
   it('explains a cancel refused because the email is already sending', async () => {
@@ -490,9 +498,9 @@ describe('OpsEmailDeliveryClient mutations', () => {
     renderClient({
       getRestaurantEmailQueue: queueFeed('delayed'),
       transport: {
-        cancelEmailQueueJob: vi.fn().mockRejectedValue(
-          new HttpError({ status: 409, code: 'JOB_IN_PROGRESS', message: 'x' }),
-        ),
+        cancelEmailQueueJob: vi
+          .fn()
+          .mockRejectedValue(new HttpError({ status: 409, code: 'JOB_IN_PROGRESS', message: 'x' })),
       },
     });
 
@@ -510,12 +518,17 @@ describe('OpsEmailDeliveryClient mutations', () => {
   it('requeues a failed job without a dialog', async () => {
     const user = userEvent.setup();
     searchParamsMock.mockReturnValue(new URLSearchParams('restaurantId=rest-1&tab=queue'));
-    const requeueEmailQueueJob = vi.fn<EmailDeliveryTransport['requeueEmailQueueJob']>().mockResolvedValue({
-      ok: true,
-      jobId: 'email__reminder_24h__booking-1',
-      action: 'requeued',
+    const requeueEmailQueueJob = vi
+      .fn<EmailDeliveryTransport['requeueEmailQueueJob']>()
+      .mockResolvedValue({
+        ok: true,
+        jobId: 'email__reminder_24h__booking-1',
+        action: 'requeued',
+      });
+    renderClient({
+      getRestaurantEmailQueue: queueFeed('dlq'),
+      transport: { requeueEmailQueueJob },
     });
-    renderClient({ getRestaurantEmailQueue: queueFeed('dlq'), transport: { requeueEmailQueueJob } });
 
     await user.click(screen.getByRole('tab', { name: /queue/i }));
     await user.click((await screen.findAllByRole('button', { name: 'Requeue' }))[0]!);
@@ -527,7 +540,9 @@ describe('OpsEmailDeliveryClient mutations', () => {
       }),
     );
     await waitFor(() =>
-      expect(toastSuccessMock).toHaveBeenCalledWith('Email requeued. It sends on the next queue run.'),
+      expect(toastSuccessMock).toHaveBeenCalledWith(
+        'Email requeued. It sends on the next queue run.',
+      ),
     );
   });
 });
@@ -541,12 +556,14 @@ describe('OpsEmailDeliveryClient (legacy retry contract)', () => {
 
   it('retries a failed row with restaurantId and deliveryLogId', async () => {
     const user = userEvent.setup();
-    const retryEmailDelivery = vi.fn<EmailDeliveryTransport['retryEmailDelivery']>().mockResolvedValue({
-      ok: true,
-      status: 'sent',
-      retryAttempt: 1,
-      deliveryLogEntry: {},
-    });
+    const retryEmailDelivery = vi
+      .fn<EmailDeliveryTransport['retryEmailDelivery']>()
+      .mockResolvedValue({
+        ok: true,
+        status: 'sent',
+        retryAttempt: 1,
+        deliveryLogEntry: {},
+      });
 
     renderClient({
       transport: { retryEmailDelivery },

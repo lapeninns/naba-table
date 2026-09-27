@@ -19,6 +19,23 @@ function setup(params: Parameters<typeof useOpsEmailDeliveryFeed>[0]) {
 }
 
 describe('useOpsEmailDeliveryFeed', () => {
+  it('clears previous guest attempts when changing restaurant', async () => {
+    bookingService.getRestaurantEmailDeliveryFeed
+      .mockResolvedValueOnce({ ok: true, restaurantId: 'rest-1', attempts: [{ id: 'private-1' }] })
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const { result, rerender } = renderHook(
+      ({ restaurantId }) => useOpsEmailDeliveryFeed({ restaurantId }),
+      {
+        initialProps: { restaurantId: 'rest-1' },
+        wrapper: createQueryWrapper(createTestQueryClient()),
+      },
+    );
+    await waitFor(() => expect(result.current.attempts).toEqual([{ id: 'private-1' }]));
+    rerender({ restaurantId: 'rest-2' });
+    expect(result.current.attempts).toBeNull();
+    expect(result.current.isLoading).toBe(true);
+  });
+
   it('@contract stays disabled without a restaurant id', () => {
     setup({ restaurantId: null });
 

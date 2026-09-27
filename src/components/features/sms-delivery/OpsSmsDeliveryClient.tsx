@@ -4,6 +4,11 @@ import { MailCheck, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 
+import {
+  COMMS_CONTROL_HEIGHT_CLASS,
+  CommunicationsDeliveryChannelTabs,
+} from '@/components/features/communications-delivery/components';
+import { useCommunicationsDeliveryQueryState } from '@/components/features/communications-delivery/useCommunicationsDeliveryQueryState';
 import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
@@ -54,24 +59,28 @@ export function OpsSmsDeliveryClient({
     [memberships],
   );
 
-  const [restaurantId, setRestaurantId] = useState<string | null>(() => {
-    if (initialRestaurantId && membershipIds.has(initialRestaurantId)) return initialRestaurantId;
-    return activeRestaurantId ?? memberships[0]?.restaurantId ?? null;
-  });
-  const [range, setRange] = useState<OpsSmsDeliveryRange>(initialRange);
+  const queryState = useCommunicationsDeliveryQueryState(initialRestaurantId, initialRange);
+  const restaurantId =
+    queryState.restaurantId && membershipIds.has(queryState.restaurantId)
+      ? queryState.restaurantId
+      : activeRestaurantId && membershipIds.has(activeRestaurantId)
+        ? activeRestaurantId
+        : (memberships[0]?.restaurantId ?? null);
+  const { range, setRange, setRestaurantId } = queryState;
   const [page, setPage] = useState<number>(Math.max(1, initialPage));
   const [pageSize, setPageSize] = useState<number>(Math.max(1, Math.min(200, initialPageSize)));
   const [selectedStatuses, setSelectedStatuses] = useState<SmsDeliveryStatus[]>(initialStatuses);
   const [channel, setChannel] = useState<SmsDeliveryChannelFilter>(initialChannel);
+  const [stuckOnly, setStuckOnly] = useState(false);
   const [availableRestaurants, setAvailableRestaurants] = useState<
     Array<{ id: string; name: string; timezone?: string | null }>
   >([]);
 
   useEffect(() => {
-    if (!restaurantId && memberships.length > 0) {
-      setRestaurantId(memberships[0]?.restaurantId ?? null);
+    if (restaurantId && queryState.restaurantId !== restaurantId) {
+      setRestaurantId(restaurantId);
     }
-  }, [memberships, restaurantId]);
+  }, [queryState.restaurantId, restaurantId, setRestaurantId]);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -121,6 +130,7 @@ export function OpsSmsDeliveryClient({
     pageSize,
     statuses: selectedStatuses,
     channel,
+    stuckOnly,
   });
 
   const { feed, unavailable, apiError } = feedQuery;
@@ -165,8 +175,11 @@ export function OpsSmsDeliveryClient({
         }
         secondaryActions={
           <>
-            <Button asChild variant="outline" size="sm">
-              <Link href={opsHref('/communications-delivery/email')} prefetch={false}>
+            <Button asChild variant="outline" size="sm" className={COMMS_CONTROL_HEIGHT_CLASS}>
+              <Link
+                href={`${opsHref('/communications-delivery/email')}?${new URLSearchParams({ restaurantId: restaurantId ?? '', range })}`}
+                prefetch={false}
+              >
                 <MailCheck data-icon="inline-start" aria-hidden />
                 Email Delivery
               </Link>
@@ -175,6 +188,7 @@ export function OpsSmsDeliveryClient({
               type="button"
               variant="outline"
               size="sm"
+              className={COMMS_CONTROL_HEIGHT_CLASS}
               onClick={() => {
                 void feedQuery.refetch();
               }}
@@ -191,9 +205,24 @@ export function OpsSmsDeliveryClient({
         }
       />
 
-      <OpsSmsDeliveryStaleAlert stuckInFlight={feed?.summary.stuckInFlight ?? 0} />
+      <CommunicationsDeliveryChannelTabs active="messages" />
 
-      <OpsSmsDeliverySummaryCards isLoading={feedQuery.isLoading} summary={feed?.summary ?? null} />
+      <OpsSmsDeliveryStaleAlert
+        stuckInFlight={feed?.summary.stuckInFlight ?? 0}
+        stuckOnly={stuckOnly}
+        onToggleStuckOnly={() => {
+          setStuckOnly((current) => !current);
+          setPage(1);
+        }}
+      />
+
+      {/* Unavailable or failed feeds show their alert in the log, not a row of zeros. */}
+      {feedQuery.isLoading || feed ? (
+        <OpsSmsDeliverySummaryCards
+          isLoading={feedQuery.isLoading}
+          summary={feed?.summary ?? null}
+        />
+      ) : null}
 
       <OpsSmsDeliveryFilters
         range={range}

@@ -14,15 +14,15 @@ test.describe('ops email delivery dev harness', () => {
     await expect(page.getByRole('tab', { name: 'Delivery Log' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Queue' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Analytics' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Go to bookings' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Message Delivery', exact: true })).toHaveAttribute(
       'href',
-      '/app/bookings',
+      '/app/communications-delivery/messages?restaurantId=11111111-1111-4111-8111-111111111111&range=7d',
     );
 
     const firstDataRow = page.getByRole('row').nth(1);
     await firstDataRow.click();
 
-    await expect(page.getByText('Event Timeline')).toBeVisible();
+    await expect(page.getByText('Event timeline', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: /copy message id/i })).toBeVisible();
     await page.getByRole('tab', { name: 'Queue' }).click();
     await expect(page.getByText('Scheduled email queue')).toBeVisible();
