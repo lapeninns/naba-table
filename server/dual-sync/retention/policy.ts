@@ -8,7 +8,8 @@ const EVIDENCE_HASH = /^[a-f0-9]{64}$/;
 export type RetentionReadinessEvidence = {
   readonly backupWindowDays: number;
   readonly liveContentTtlDays: number;
-  readonly backupRestoreVerifiedAt: string;
+  readonly backupRetentionVerifiedAt: string;
+  readonly backupRestoreVerifiedAt: string | null;
   readonly pitrVerifiedAt: string;
   readonly policyApprovedAt: string;
   readonly transformedContentApprovedAt: string | null;
@@ -75,13 +76,13 @@ export function retentionReadiness(
     throw error;
   }
   const proofTimes = [
-    evidence.backupRestoreVerifiedAt,
+    evidence.backupRetentionVerifiedAt,
     evidence.pitrVerifiedAt,
     evidence.policyApprovedAt,
     evidence.transformedContentApprovedAt,
     evidence.validUntil,
   ];
-  const backupProofs = [evidence.backupRestoreVerifiedAt, evidence.pitrVerifiedAt].map((value) =>
+  const backupProofs = [evidence.backupRetentionVerifiedAt, evidence.pitrVerifiedAt].map((value) =>
     timestampMs(value),
   );
   const nowMs = now.getTime();
@@ -91,6 +92,9 @@ export function retentionReadiness(
     !EVIDENCE_HASH.test(evidence.evidenceHash) ||
     !proofTimes.every(isTimestamp) ||
     backupProofs.some((proof) => proof > nowMs || proof < oldestCurrentProofMs) ||
+    backupProofs.some(
+      (proof) => timestampMs(evidence.validUntil) > proof + RECOVERY_ENVELOPE_DAYS * 86_400_000,
+    ) ||
     timestampMs(evidence.policyApprovedAt) > nowMs ||
     timestampMs(evidence.transformedContentApprovedAt) > nowMs
   ) {

@@ -141,6 +141,7 @@ describe('live GBP panel', () => {
     view.rerender(panel('restaurant', 'generation-1:epoch-1:eligible', <SavedDecisions />));
     expect(screen.getByRole('textbox', { name: 'Saved decision' })).toHaveValue('Keep ours');
     expect(fetchJson).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByText('Connection diagnostics'));
     await user.click(screen.getByRole('button', { name: 'Check live connection' }));
     await screen.findByText('Live restaurant');
     view.rerender(panel('restaurant', 'generation-1:epoch-2:blocked', <SavedDecisions />));
@@ -161,6 +162,7 @@ describe('live GBP panel', () => {
     );
     const view = render(panel('restaurant', 'before', <SavedDecisions />));
     await user.type(await screen.findByRole('textbox', { name: 'Saved decision' }), 'Keep ours');
+    await user.click(screen.getByText('Connection diagnostics'));
     await user.click(screen.getByRole('button', { name: 'Check live connection' }));
     const oldSignal = fetchJson.mock.calls.at(-1)?.[1].signal;
     view.rerender(panel('restaurant', 'after', <SavedDecisions />));
@@ -187,5 +189,6 @@ describe('live GBP panel', () => {
     render(panel());
     expect(await screen.findByText('Saved comparison workspace')).toBeInTheDocument();
     expect(screen.queryByText('Live connection verified')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check live connection' })).not.toBeVisible();
   });
 });

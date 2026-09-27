@@ -37,13 +37,14 @@ const OUTER_RERAISE =
   /EXCEPTION\s*\n\s*WHEN OTHERS THEN\s*\n\s*RAISE NOTICE[^\n]*FAILED[^\n]*\n\s*RAISE;\s*\nEND;\s*\n\$regression\$;\s*\n\s*ROLLBACK;\s*$/;
 
 describe('SQL regression files', () => {
-  it('registers exactly the twenty reviewed regression files', () => {
+  it('registers exactly the reviewed regression files', () => {
     expect(SQL_REGRESSION_FILES).toEqual([
       'tests/db/terminal-booking-table-release.sql',
       'tests/db/manual-table-unassignment.sql',
       'tests/db/atomic-table-hold-enforcement.sql',
       'tests/db/review-scheduling-recovery.sql',
       'tests/db/gbp-oauth-terminal-state.sql',
+      'tests/db/gbp-retention-readiness.sql',
       'tests/db/booking-create-idempotency.sql',
       'tests/db/booking-cancel-guard-and-undo-no-show.sql',
       'tests/db/atomic-booking-table-move.sql',
@@ -119,8 +120,21 @@ describe('SQL regression files', () => {
   });
 
   it.each(regressionSources)(
-    '$file scopes every fixture write to a synthetic restaurant',
-    ({ source }) => {
+    '$file scopes writes to synthetic restaurants or the isolated provider-policy transaction',
+    ({ file, source }) => {
+      if (file === 'tests/db/gbp-retention-readiness.sql') {
+        const mutationTables = Array.from(
+          source.matchAll(/(?:INSERT INTO|UPDATE) public\.([a-z0-9_]+)/g),
+          (match) => match[1],
+        );
+        expect(new Set(mutationTables)).toEqual(
+          new Set(['gbp_write_policy_config_v1', 'gbp_write_readiness_evidence_v1']),
+        );
+        expect(source).toContain("'synthetic-retention-v2'");
+        expect(TRACKED_TABLES).toContain('gbp_write_policy_config_v1');
+        expect(TRACKED_TABLES).toContain('gbp_write_readiness_evidence_v1');
+        return;
+      }
       const restaurantScoped = source.match(
         /restaurant_id = v_restaurant_id|v_restaurant_id,|v_other_restaurant_id/g,
       );

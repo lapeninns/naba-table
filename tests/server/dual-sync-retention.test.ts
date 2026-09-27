@@ -23,6 +23,7 @@ describe('GBP content retention', () => {
         {
           backupWindowDays: 1,
           liveContentTtlDays: 28,
+          backupRetentionVerifiedAt: '2026-08-01T00:00:00.000Z',
           backupRestoreVerifiedAt: '2026-08-01T00:00:00.000Z',
           pitrVerifiedAt: '2026-08-01T00:00:00.000Z',
           policyApprovedAt: '2026-08-01T00:00:00.000Z',
@@ -33,6 +34,48 @@ describe('GBP content retention', () => {
         now,
       ),
     ).toEqual({ eligible: false, reason: 'transformed_content_policy_missing' });
+  });
+
+  const retentionEvidence = {
+    backupWindowDays: 7,
+    liveContentTtlDays: 22,
+    backupRetentionVerifiedAt: '2026-09-27T05:00:00.000Z',
+    backupRestoreVerifiedAt: null,
+    pitrVerifiedAt: '2026-09-27T05:00:00.000Z',
+    policyApprovedAt: '2026-09-27T05:00:00.000Z',
+    transformedContentApprovedAt: '2026-09-27T05:00:00.000Z',
+    validUntil: '2026-10-01T00:00:00.000Z',
+    evidenceHash: 'a'.repeat(64),
+  };
+
+  it('allows verified retention with an explicitly unverified restore drill', () => {
+    expect(retentionReadiness(retentionEvidence, new Date('2026-09-27T12:00:00Z'))).toEqual({
+      eligible: true,
+      ttlDays: 22,
+      evidenceHash: retentionEvidence.evidenceHash,
+    });
+    expect(retentionEvidence.backupRestoreVerifiedAt).toBeNull();
+  });
+
+  it.each(['invalid', '2026-08-01T00:00:00Z', '2026-09-28T00:00:00Z'])(
+    'rejects invalid, stale or future retention verification: %s',
+    (backupRetentionVerifiedAt) => {
+      expect(
+        retentionReadiness(
+          { ...retentionEvidence, backupRetentionVerifiedAt },
+          new Date('2026-09-27T12:00:00Z'),
+        ),
+      ).toEqual({ eligible: false, reason: 'evidence_invalid' });
+    },
+  );
+
+  it('rejects evidence whose expiry exceeds the lifetime of retention verification', () => {
+    expect(
+      retentionReadiness(
+        { ...retentionEvidence, validUntil: '2026-11-01T00:00:00Z' },
+        new Date('2026-09-27T12:00:00Z'),
+      ),
+    ).toEqual({ eligible: false, reason: 'evidence_invalid' });
   });
 
   it('inherits the original observation and expiry when content is copied', () => {

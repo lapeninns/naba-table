@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { GooglePubsubPersistOutcome, GooglePubsubPersistencePort } from './types';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -74,7 +76,9 @@ export async function persistGooglePubsubDelivery(
         : 'ignored',
     externalAccountId: supported ? input.delivery.externalAccountId : null,
     externalLocationId: supported ? input.delivery.externalLocationId : null,
-    idempotencyKey: `pubsub:${input.subscription}:${input.delivery.messageId}`,
+    idempotencyKey: `pubsub:${createHash('sha256')
+      .update(JSON.stringify([input.subscription, input.delivery.messageId]))
+      .digest('hex')}`,
     receivedAt: (dependencies.clock ?? (() => new Date()))().toISOString(),
   });
   switch (result.processingResult) {
@@ -98,10 +102,7 @@ export function createSupabaseGooglePubsubPersistence(
 ): GooglePubsubPersistencePort {
   return {
     async persist(input) {
-      if (
-        input.delivery.kind === 'supported' &&
-        input.delivery.eventType !== 'GOOGLE_UPDATE'
-      ) {
+      if (input.delivery.kind === 'supported' && input.delivery.eventType !== 'GOOGLE_UPDATE') {
         const result = await client.rpc('record_google_review_notification_v1', {
           p_external_account_id: input.delivery.externalAccountId,
           p_external_location_id: input.delivery.externalLocationId,

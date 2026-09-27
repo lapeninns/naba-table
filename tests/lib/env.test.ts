@@ -138,7 +138,7 @@ describe('Google Business Profile environment aliases', () => {
     });
   });
 
-  it('uses fail-closed defaults for dual-sync runtime controls', () => {
+  it('makes GBP management available by default while requiring configured push ingress', () => {
     for (const name of [
       'GBP_IMPORT_ENABLED',
       'GBP_EXPORT_ENABLED',
@@ -156,15 +156,15 @@ describe('Google Business Profile environment aliases', () => {
     resetEnvCache();
 
     expect(getEnv()).toMatchObject({
-      GBP_IMPORT_ENABLED: false,
-      GBP_EXPORT_ENABLED: false,
+      GBP_IMPORT_ENABLED: true,
+      GBP_EXPORT_ENABLED: true,
       GBP_AUTO_CANDIDATES_ENABLED: true,
-      GBP_HIGH_RISK_EXPORTS_ENABLED: false,
-      GBP_MENU_SYNC_ENABLED: false,
-      GBP_ATTRIBUTES_SYNC_ENABLED: false,
-      GBP_SCHEDULED_REFRESH_ENABLED: false,
+      GBP_HIGH_RISK_EXPORTS_ENABLED: true,
+      GBP_MENU_SYNC_ENABLED: true,
+      GBP_ATTRIBUTES_SYNC_ENABLED: true,
+      GBP_SCHEDULED_REFRESH_ENABLED: true,
       GBP_PUBSUB_INGEST_ENABLED: false,
-      GBP_WRITE_ROLLOUT_MODE: 'off',
+      GBP_WRITE_ROLLOUT_MODE: 'on',
     });
   });
 

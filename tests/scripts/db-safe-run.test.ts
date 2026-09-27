@@ -761,6 +761,7 @@ describe('database promotion safety workflows', () => {
       'tests/db/atomic-table-hold-enforcement.sql',
       'tests/db/review-scheduling-recovery.sql',
       'tests/db/gbp-oauth-terminal-state.sql',
+      'tests/db/gbp-retention-readiness.sql',
       'tests/db/booking-create-idempotency.sql',
       'tests/db/booking-cancel-guard-and-undo-no-show.sql',
       'tests/db/atomic-booking-table-move.sql',

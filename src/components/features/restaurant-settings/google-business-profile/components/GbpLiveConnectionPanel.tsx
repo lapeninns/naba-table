@@ -65,20 +65,30 @@ function LiveConnectionPanel({
     setRetention(next);
   }, []);
 
+  const liveCard = (
+    <LiveConnectionCard
+      key={connectionKey}
+      endpoint={endpoint}
+      connectionLoading={connectionLoading}
+      savedStatus={savedStatus}
+      onCheckFailed={onCheckFailed}
+      onRetention={onRetention}
+    />
+  );
+
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <LiveConnectionCard
-        key={connectionKey}
-        endpoint={endpoint}
-        connectionLoading={connectionLoading}
-        savedStatus={savedStatus}
-        onCheckFailed={onCheckFailed}
-        onRetention={onRetention}
-      />
       {retention?.status === 'ready' ? (
-        children
+        <>
+          {children}
+          <details className="rounded-lg border p-4">
+            <summary className="cursor-pointer text-sm font-medium">Connection diagnostics</summary>
+            <div className="mt-4">{liveCard}</div>
+          </details>
+        </>
       ) : (
         <>
+          {liveCard}
           <SettingsCard
             title={
               retention ? 'Saved comparison unavailable' : 'Checking saved comparison readiness'

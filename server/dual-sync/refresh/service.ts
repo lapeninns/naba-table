@@ -273,7 +273,11 @@ async function refreshFromGoogleUnlocked({
   runKind,
   skipPull,
 }: Required<Pick<RefreshFromGoogleInput, 'restaurantId' | 'client' | 'runKind' | 'skipPull'>>) {
-  const googleFence = await resolveGoogleContentFence({ client, restaurantId });
+  const googleFence = await resolveGoogleContentFence({
+    client,
+    restaurantId,
+    allowSyncError: !skipPull,
+  });
   const snapshotRun = skipPull
     ? await readLatestSucceededRun({ client, googleFence, runKind })
     : await openSnapshotRun({ client, restaurantId, runKind, googleFence });

@@ -23,6 +23,7 @@ export const SQL_REGRESSION_FILES: readonly string[] = [
   'tests/db/atomic-table-hold-enforcement.sql',
   'tests/db/review-scheduling-recovery.sql',
   'tests/db/gbp-oauth-terminal-state.sql',
+  'tests/db/gbp-retention-readiness.sql',
   'tests/db/booking-create-idempotency.sql',
   'tests/db/booking-cancel-guard-and-undo-no-show.sql',
   'tests/db/atomic-booking-table-move.sql',
@@ -88,4 +89,6 @@ export const TRACKED_TABLES: readonly string[] = [
   'restaurant_external_profile_oauth_states',
   'booking_table_moves',
   'restaurant_business_context_revisions',
+  'gbp_write_readiness_evidence_v1',
+  'gbp_write_policy_config_v1',
 ];

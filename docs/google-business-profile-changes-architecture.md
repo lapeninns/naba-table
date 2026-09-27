@@ -370,6 +370,14 @@ publish failures.
 
 ## Operator UI
 
+Linked listings automatically request an initial comparison when none exists or the last
+comparison is at least 30 minutes old. This happens once per mounted listing after controls
+load, and waits while paused, reconnecting, publishing or reviewing unsaved decisions. A failed
+automatic pull has an explicit retry; rerenders do not retry indefinitely. Current saved
+comparisons lead the page, with live connection checks and technical evidence collapsed under
+diagnostics. Imports and approved exports are available by default; emergency containment,
+exact-plan approval and provider/retention checks remain enforced server-side.
+
 `DualSyncShell` mounts on each settings page filtered by section:
 
 | Page                    | Sections                           |

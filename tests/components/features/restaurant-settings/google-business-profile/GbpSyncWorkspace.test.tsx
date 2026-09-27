@@ -577,7 +577,8 @@ describe('GbpSyncWorkspace', () => {
 
   it('@contract asks to reconnect, not to retry, when Google has refused access to the listing', async () => {
     const user = userEvent.setup();
-    mocks.useOpsDualSync.mockReturnValue(dualSync());
+    const refresh = vi.fn(async () => ({}));
+    mocks.useOpsDualSync.mockReturnValue(dualSync({ refreshMutation: mutation(refresh) }));
 
     renderWorkspace({
       operator: operator('blocked', 'provider_access_lost_403'),
@@ -592,6 +593,7 @@ describe('GbpSyncWorkspace', () => {
     expect(alert).toHaveTextContent('owner or manager');
     expect(screen.queryByTestId('gbp-alert-sync-error')).toBeNull();
     expect(screen.getByText('Access lost')).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
     // The alert explains the problem; the generic sync error would contradict it.
     expect(screen.queryByText(/Last error:/)).toBeNull();
     // Getting the latest can only repeat Google's refusal, so reconnecting is the one way on.

@@ -26,6 +26,7 @@ import {
   summarizeGbpReview,
 } from '../gbpPageModel';
 import { GBP_REVIEW_SECTIONS } from '../googleBusinessProfileWorkflow';
+import { useGbpInitialRefresh } from '../useGbpInitialRefresh';
 
 import type { GoogleBusinessProfileSectionState } from '../useGoogleBusinessProfileSectionState';
 
@@ -52,11 +53,31 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
   });
   const [showMatching, setShowMatching] = useState(false);
   const { data, summary, linkedLocation } = section;
-  if (!data || !linkedLocation) return null;
-
   const operatorState = operator
     ? (operator.connectionQuery.data ?? operator.setWriteAccessMutation.data ?? null)
     : null;
+  const reconnectReason = shellActions.needsReauth
+    ? 'expired'
+    : getGbpReconnectReason({
+        connectionStatus: data?.status ?? 'unlinked',
+        operator: operatorState,
+      });
+  useGbpInitialRefresh({
+    connectionKey: `${restaurantId}:${data?.externalLocationName ?? ''}`,
+    enabled:
+      Boolean(data && linkedLocation && operator && workspace.stateQuery.data) &&
+      !operator?.connectionQuery.isLoading &&
+      !operator?.connectionQuery.error &&
+      !view.syncPaused &&
+      !view.writeBlocked &&
+      reconnectReason === null &&
+      !workspace.refreshMutation.isPending &&
+      Object.keys(workspace.decisions).length === 0,
+    checkedAt: view.lastSnapshotAt,
+    refresh: shellActions.onClickRefresh,
+  });
+  if (!data || !linkedLocation) return null;
+
   const operatorUnavailable = Boolean(operator?.connectionQuery.error) && !operatorState;
   const exact = shellActions.exactPublishActions;
   const exactPublishPending = Boolean(workspace.exactPublishMutation?.isPending);
@@ -84,9 +105,6 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
     connectionStatus: data.status,
     syncPaused: view.syncPaused,
   });
-  const reconnectReason = shellActions.needsReauth
-    ? 'expired'
-    : getGbpReconnectReason({ connectionStatus: data.status, operator: operatorState });
   const reconnect = {
     label: shellActions.isReconnectPending ? 'Reconnecting…' : 'Reconnect Google',
     onClick: shellActions.handleReconnect,
