@@ -18,7 +18,6 @@ type BookingWhatsAppActionContent = {
 const BOOKING_SHORT_LINK_ORIGIN = 'https://go.nabatable.com';
 const BOOKING_SHORT_LINK_PATH = /^\/m\/[A-Za-z0-9_-]+$/;
 const REVIEW_SHORT_LINK_PATH = /^\/r\/[A-Za-z0-9_-]+$/;
-const REVIEW_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 class ReviewShortLinkInfrastructureError extends Error {
   constructor() {
@@ -111,7 +110,6 @@ export async function dispatchBookingReviewWhatsApp(
     bookingId: booking.id,
     restaurantId,
     destinationUrl,
-    expiresAt: new Date(Date.now() + REVIEW_LINK_TTL_MS).toISOString(),
   });
   const actionPath = shortUrl ? resolveShortLinkActionPath(shortUrl, REVIEW_SHORT_LINK_PATH) : null;
   if (!actionPath) {

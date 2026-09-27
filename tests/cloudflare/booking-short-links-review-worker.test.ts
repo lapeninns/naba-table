@@ -71,6 +71,33 @@ function reviewRequest(destinationUrl = 'https://g.page/demo-venue/review', auth
 }
 
 describe('review short-link Worker HTTP surface', () => {
+  it('redirects an expired legacy review link @contract', async () => {
+    const { env, rows } = makeWorkerEnv();
+    rows.set('BhxEbXsiuB87', {
+      token: 'BhxEbXsiuB87',
+      destination_url: 'https://search.google.com/local/writereview?placeid=venue-1',
+      destination_host: 'search.google.com',
+      purpose: 'review',
+      booking_id: 'booking-1',
+      restaurant_id: null,
+      created_at: '2026-09-06T13:10:41.949Z',
+      expires_at: '2026-09-13T13:10:41.455Z',
+      revoked_at: null,
+      last_accessed_at: null,
+      created_by: 'guest_review_whatsapp',
+    });
+
+    const response = await bookingShortLinkWorker.fetch(
+      new Request('https://go.nabatable.test/r/BhxEbXsiuB87'),
+      env,
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get('location')).toBe(
+      'https://search.google.com/local/writereview?placeid=venue-1',
+    );
+  });
+
   it('creates and resolves an authenticated review link @contract', async () => {
     const { env } = makeWorkerEnv();
     const createResponse = await bookingShortLinkWorker.fetch(reviewRequest(), env);

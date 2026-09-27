@@ -14,6 +14,7 @@ The review growth engine measures the post-visit journey without storing review 
 - Send at most two review asks per journey.
 - Suppress a guest for 90 days after a prior non-suppressed review journey at the same restaurant.
 - Never use SMS for a routine review request.
+- Review short links have no time expiry. Previously expired review links become usable when the Worker is updated. Revoked links and unsafe Google destinations remain blocked; booking-management links still expire with their access tokens.
 
 ## Metric definitions
 

@@ -21,6 +21,7 @@ export function createShortLinkRepository(params: {
 }): ShortLinkRepository {
   return {
     async findReusableLink({ bookingId, purpose, createdBy, destinationUrl, nowIso }) {
+      const expiryFilter = purpose === 'review' ? '' : 'AND expires_at > ?';
       const row = await params.db
         .prepare(
           `
@@ -32,12 +33,16 @@ export function createShortLinkRepository(params: {
               AND created_by = ?
               AND destination_url = ?
               AND revoked_at IS NULL
-              AND expires_at > ?
+              ${expiryFilter}
             ORDER BY created_at DESC
             LIMIT 1
           `,
         )
-        .bind(bookingId, purpose, createdBy, destinationUrl, nowIso)
+        .bind(
+          ...(purpose === 'review'
+            ? [bookingId, purpose, createdBy, destinationUrl]
+            : [bookingId, purpose, createdBy, destinationUrl, nowIso]),
+        )
         .first<Record<string, unknown>>();
 
       return row ? mapShortLinkRow(row) : null;

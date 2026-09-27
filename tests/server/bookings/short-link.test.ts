@@ -109,7 +109,6 @@ describe('createReviewShortUrl', () => {
       bookingId: 'booking-1',
       restaurantId: 'rest-1',
       destinationUrl: ' HTTPS://G.PAGE/demo-venue/review ',
-      expiresAt: '2099-01-01T00:00:00.000Z',
       fetchImpl,
     });
 
@@ -122,7 +121,7 @@ describe('createReviewShortUrl', () => {
           destinationUrl: 'https://g.page/demo-venue/review',
           bookingId: 'booking-1',
           restaurantId: 'rest-1',
-          expiresAt: '2099-01-01T00:00:00.000Z',
+          expiresAt: '9999-12-31T23:59:59.999Z',
           createdBy: 'guest_review_whatsapp',
         }),
       }),
@@ -136,7 +135,6 @@ describe('createReviewShortUrl', () => {
       bookingId: 'booking-1',
       restaurantId: 'rest-1',
       destinationUrl: 'https://search.google.com/search?q=demo',
-      expiresAt: '2099-01-01T00:00:00.000Z',
       fetchImpl,
     });
 
@@ -149,7 +147,6 @@ describe('createReviewShortUrl', () => {
       bookingId: 'booking-1',
       restaurantId: 'rest-1',
       destinationUrl: 'https://g.page/demo-venue/review',
-      expiresAt: '2099-01-01T00:00:00.000Z',
       fetchImpl: vi
         .fn()
         .mockResolvedValue(Response.json({ shortUrl: 'https://go.nabatable.com/m/Booking12345' })),

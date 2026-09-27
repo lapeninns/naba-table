@@ -71,9 +71,9 @@ describe('booking short-link storage', () => {
     expect(first).toHaveBeenCalled();
   });
 
-  it('queries reusable review links by purpose, source, destination, and active TTL @contract', async () => {
+  it('queries reusable review links without an expiry filter @contract', async () => {
     const destinationUrl = 'https://g.page/demo-venue/review';
-    const { db, bind } = makeDb({
+    const { db, bind, prepare } = makeDb({
       token: 'Review123456',
       destination_url: destinationUrl,
       destination_host: 'g.page',
@@ -101,8 +101,8 @@ describe('booking short-link storage', () => {
       'review',
       'guest_review_whatsapp',
       destinationUrl,
-      '2026-07-12T20:00:00.000Z',
     );
+    expect(prepare).toHaveBeenCalledWith(expect.not.stringContaining('expires_at > ?'));
     expect(record).toMatchObject({
       purpose: 'review',
       createdBy: 'guest_review_whatsapp',
