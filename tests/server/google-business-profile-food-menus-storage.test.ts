@@ -177,6 +177,33 @@ function makePublishAttemptRow(overrides: Record<string, unknown> = {}) {
 }
 
 describe('GBP FoodMenus storage helpers', () => {
+  it('records local projections through the restricted projection RPC', async () => {
+    const { client, fromMock, rpcMock } = makeClient([]);
+    rpcMock.mockResolvedValueOnce({
+      data: makeSnapshotRow({ snapshot_kind: 'nabatable_projection' }),
+      error: null,
+    });
+    await recordFoodMenusSnapshot({
+      client,
+      restaurantId: 'rest-1',
+      externalProfileId: 'profile-row-1',
+      snapshotKind: 'nabatable_projection',
+      source: 'manual',
+      rawFoodMenus: { menus: [] },
+      snapshotHash: 'a'.repeat(64),
+    });
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(rpcMock).toHaveBeenCalledWith(
+      'persist_gbp_food_menu_projection_v1',
+      expect.objectContaining({
+        p_restaurant_id: 'rest-1',
+        p_external_profile_row_id: 'profile-row-1',
+        p_raw_food_menus: { menus: [] },
+        p_snapshot_hash: 'a'.repeat(64),
+      }),
+    );
+  });
+
   it('records exact raw FoodMenus without a canonical or content-bearing metadata copy', async () => {
     const profileChain = makeChain(makeExternalProfileRow());
     const { client, fromMock, rpcMock } = makeClient([profileChain]);
@@ -228,10 +255,9 @@ describe('GBP FoodMenus storage helpers', () => {
       message:
         'duplicate key value violates unique constraint "restaurant_gbp_food_menu_snapshots_hash_idx"',
     };
-    const insertChain = makeChain(makeSnapshotRow());
-    insertChain.single.mockResolvedValueOnce({ data: null, error: duplicateError });
     const existingChain = makeChain(makeSnapshotRow({ id: 'snapshot-existing' }));
-    const { client } = makeClient([insertChain, existingChain]);
+    const { client, rpcMock } = makeClient([existingChain]);
+    rpcMock.mockResolvedValueOnce({ data: null, error: duplicateError });
 
     const snapshot = await recordFoodMenusSnapshot({
       client,
@@ -319,9 +345,12 @@ describe('GBP FoodMenus storage helpers', () => {
   });
 
   it('records projection snapshots and identity rows together', async () => {
-    const snapshotChain = makeChain(makeSnapshotRow({ snapshot_kind: 'nabatable_projection' }));
     const identityChain = makeChain([makeIdentityRow()]);
-    const { client } = makeClient([snapshotChain, identityChain]);
+    const { client, rpcMock } = makeClient([identityChain]);
+    rpcMock.mockResolvedValueOnce({
+      data: makeSnapshotRow({ snapshot_kind: 'nabatable_projection' }),
+      error: null,
+    });
     const projection: GoogleFoodMenusProjection = {
       foodMenus: { name: 'accounts/123/locations/456/foodMenus', menus: [] },
       skippedItems: [],
@@ -346,15 +375,15 @@ describe('GBP FoodMenus storage helpers', () => {
       snapshotHash: 'projection-hash',
     });
 
-    expect(snapshotChain.insert).toHaveBeenCalledWith(
+    expect(rpcMock).toHaveBeenCalledWith(
+      'persist_gbp_food_menu_projection_v1',
       expect.objectContaining({
-        snapshot_kind: 'nabatable_projection',
-        projection_metadata: {},
-        snapshot_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_snapshot_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
       }),
     );
-    expect(snapshotChain.insert).not.toHaveBeenCalledWith(
-      expect.objectContaining({ snapshot_hash: 'projection-hash' }),
+    expect(rpcMock).not.toHaveBeenCalledWith(
+      'persist_gbp_food_menu_projection_v1',
+      expect.objectContaining({ p_snapshot_hash: 'projection-hash' }),
     );
     expect(identityChain.upsert).toHaveBeenCalledTimes(1);
     expect(result.identities).toHaveLength(1);

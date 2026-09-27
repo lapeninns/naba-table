@@ -7693,6 +7693,18 @@ export type Database = {
         };
         Returns: GbpFoodMenuSnapshotV1Row;
       };
+      persist_gbp_food_menu_projection_v1: {
+        Args: {
+          p_restaurant_id: string;
+          p_external_profile_row_id: string | null;
+          p_source: string;
+          p_food_menus_name: string | null;
+          p_raw_food_menus: Json;
+          p_snapshot_hash: string;
+          p_created_by_user_id: string | null;
+        };
+        Returns: GbpFoodMenuSnapshotV1Row;
+      };
       refresh_gbp_credential_v1: {
         Args: {
           p_connection_generation: number;
