@@ -32,6 +32,17 @@ function makeView(over: Record<string, unknown> = {}): GbpDriftFieldView {
 }
 
 describe('GbpCompareFieldRow', () => {
+  it('preserves exact structured values before an inline import', async () => {
+    const value = { displayName: 'Restaurant', categoryCode: 'gcid:restaurant', isPrimary: true };
+    const { container } = render(<GbpCompareFieldRow view={makeView({ gbpValue: value })} />);
+    expect(screen.getByText('Restaurant · Primary category')).toBeVisible();
+    expect(container.querySelector('summary')).toHaveAccessibleName(
+      'View source details: Google · Business name',
+    );
+    await userEvent.click(screen.getByText('View source details'));
+    expect(container.querySelector('details')).toHaveAttribute('open');
+    expect(JSON.parse(container.querySelector('pre')?.textContent ?? '')).toEqual(value);
+  });
   beforeEach(() => {
     driftState.applyFieldFromGoogle = vi.fn();
     driftState.isApplying = false;

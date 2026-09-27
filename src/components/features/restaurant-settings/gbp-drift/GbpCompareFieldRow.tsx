@@ -9,9 +9,10 @@ import { Separator } from '@/components/ui/separator';
 import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
-import { formatGbpDriftPreview } from './fieldDisplay';
 import { GBP_DRIFT_SECTION_ROUTES } from './sectionRoutes';
 import { useGbpDrift } from './useGbpDrift';
+import { formatDualSyncFieldLabel } from '../dual-sync/dualSyncFieldValuePreviewDomain';
+import { GbpFieldValue } from '../dual-sync/GbpFieldValue';
 
 import type { GbpDriftFieldView } from './types';
 
@@ -22,6 +23,7 @@ export type GbpCompareFieldRowProps = {
 export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
   const { applyFieldFromGoogle, isApplying } = useGbpDrift();
   const isDrifted = view.effectiveStatus === 'drifted';
+  const label = formatDualSyncFieldLabel(view.label, view.sectionKey);
 
   return (
     <div
@@ -34,7 +36,7 @@ export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-foreground">{view.label}</p>
+            <p className="text-sm font-semibold text-foreground">{label}</p>
             <Badge variant={isDrifted ? 'default' : 'secondary'} className="gap-1 text-xs">
               {isDrifted ? (
                 <GitCompareArrows data-icon="inline-start" aria-hidden />
@@ -78,15 +80,15 @@ export function GbpCompareFieldRow({ view }: GbpCompareFieldRowProps) {
       <div className="grid gap-3 md:grid-cols-2">
         <div className="min-w-0">
           <p className="text-xs font-medium leading-4 text-muted-foreground">Nabatable</p>
-          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono text-xs leading-5 text-foreground">
-            {formatGbpDriftPreview(view.localValue)}
-          </pre>
+          <div className="mt-1 max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-xs leading-5 text-foreground">
+            <GbpFieldValue value={view.localValue} context={`Nabatable · ${label}`} />
+          </div>
         </div>
         <div className="min-w-0">
           <p className="text-xs font-medium leading-4 text-muted-foreground">Google</p>
-          <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted/50 p-2 font-mono text-xs leading-5 text-foreground">
-            {formatGbpDriftPreview(view.gbpValue)}
-          </pre>
+          <div className="mt-1 max-h-32 overflow-auto rounded-md bg-muted/50 p-2 text-xs leading-5 text-foreground">
+            <GbpFieldValue value={view.gbpValue} context={`Google · ${label}`} />
+          </div>
         </div>
       </div>
 

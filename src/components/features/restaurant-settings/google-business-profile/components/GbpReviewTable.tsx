@@ -88,7 +88,10 @@ function Value({ field, side }: { field: DualSyncFieldSummary; side: 'core' | 'g
       {empty ? (
         <span className="italic text-muted-foreground">{emptyValueLabel(field, side)}</span>
       ) : (
-        <GbpFieldValue value={value} />
+        <GbpFieldValue
+          value={value}
+          context={`${side === 'core' ? 'Nabatable' : 'Google'} · ${formatDualSyncFieldLabel(field.label, field.sectionKey)}`}
+        />
       )}
     </div>
   );
@@ -136,7 +139,7 @@ function FieldRow({
         type="single"
         value={selected ?? ''}
         onValueChange={(next) => onSelect(next ? (next as DualSyncDecisionAction) : null)}
-        aria-label={`What to do with ${formatDualSyncFieldLabel(field.label)}`}
+        aria-label={`What to do with ${formatDualSyncFieldLabel(field.label, field.sectionKey)}`}
         aria-describedby={reasonsId}
         className={SETTINGS_SEGMENT_GROUP_CLASS}
       >
@@ -168,7 +171,9 @@ function FieldRow({
       )}
     >
       <div className="min-w-0 @md:col-span-2 @4xl:col-span-1">
-        <span className="block text-sm font-medium">{formatDualSyncFieldLabel(field.label)}</span>
+        <span className="block text-sm font-medium">
+          {formatDualSyncFieldLabel(field.label, field.sectionKey)}
+        </span>
         <span
           className={cn(
             'mt-0.5 flex items-center gap-1 text-xs text-muted-foreground',

@@ -262,11 +262,17 @@ export function GbpExactPublishDialog({
                     <div key={fieldKey} className="grid min-w-0 gap-2 text-xs sm:grid-cols-2">
                       <div className="min-w-0">
                         <p className="mb-1 font-medium">Before Google · {fieldKey}</p>
-                        <GbpFieldValue value={group.beforeDisplay.google[fieldKey]} />
+                        <GbpFieldValue
+                          value={group.beforeDisplay.google[fieldKey]}
+                          context={`Before Google · ${fieldKey}`}
+                        />
                       </div>
                       <div className="min-w-0">
                         <p className="mb-1 font-medium">After Google · {fieldKey}</p>
-                        <GbpFieldValue value={group.afterDisplay.google[fieldKey]} />
+                        <GbpFieldValue
+                          value={group.afterDisplay.google[fieldKey]}
+                          context={`After Google · ${fieldKey}`}
+                        />
                       </div>
                     </div>
                   ))}

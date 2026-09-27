@@ -10,9 +10,14 @@ function words(value: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function formatDualSyncFieldLabel(label: string): string {
-  if (!label.startsWith('attributes/')) return label;
-  return words(label.slice('attributes/'.length).replace(/^has_/, '').replace(/^pay_/, 'accepts_'));
+export function formatDualSyncFieldLabel(label: string, sectionKey?: string): string {
+  if (!label.startsWith('attributes/') && sectionKey !== 'businessContext.attributes') return label;
+  return words(
+    label
+      .replace(/^attributes\//, '')
+      .replace(/^has_/, '')
+      .replace(/^pay_/, 'accepts_'),
+  );
 }
 
 function text(value: unknown): string {

@@ -134,6 +134,11 @@ describe('dualSyncFieldValuePreviewDomain', () => {
     expect(formatDualSyncFieldLabel('attributes/has_live_music')).toBe('Live music');
     expect(formatDualSyncFieldLabel('attributes/pay_credit_card')).toBe('Accepts credit card');
     expect(formatDualSyncFieldLabel('attributes/wi_fi')).toBe('Wi-Fi');
+    expect(formatDualSyncFieldLabel('has_live_music', 'businessContext.attributes')).toBe(
+      'Live music',
+    );
+    expect(formatDualSyncFieldLabel('wi_fi', 'businessContext.attributes')).toBe('Wi-Fi');
+    expect(formatDualSyncFieldLabel('has_live_music', 'profile')).toBe('has_live_music');
     expect(formatDualSyncFieldLabel('Old Crown Girton')).toBe('Old Crown Girton');
   });
 });
