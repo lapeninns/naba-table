@@ -344,10 +344,14 @@ type FieldSeed = {
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 function hours(day: string, which: 'core' | 'gbp') {
-  if (day === 'Monday') return 'Closed';
-  if (day === 'Sunday') return which === 'core' ? '12:00–21:00' : '12:00–22:30';
-  if (day === 'Friday' || day === 'Saturday') return '12:00–23:00';
-  return '12:00–22:30';
+  const isClosed = day === 'Monday';
+  const closesAt =
+    day === 'Sunday' && which === 'core'
+      ? '21:00'
+      : day === 'Friday' || day === 'Saturday'
+        ? '23:00'
+        : '22:30';
+  return { opensAt: isClosed ? null : '12:00', closesAt: isClosed ? null : closesAt, isClosed };
 }
 
 const FIELD_SEEDS: FieldSeed[] = [
@@ -409,7 +413,14 @@ const FIELD_SEEDS: FieldSeed[] = [
     key: 'servicePeriods.sundayLunch',
     section: 'servicePeriods',
     label: 'Sunday lunch',
-    core: '12:00–16:00',
+    core: {
+      stableKey: 'sunday-lunch',
+      name: 'Sunday lunch',
+      dayOfWeek: 0,
+      startTime: '12:00',
+      endTime: '16:00',
+      bookingOption: 'lunch',
+    },
     gbp: null,
     state: 'core_dirty',
     comparator: 'service_period',
@@ -446,8 +457,16 @@ const FIELD_SEEDS: FieldSeed[] = [
   {
     key: 'businessContext.attributes.serves_vegetarian',
     section: 'businessContext.attributes',
-    label: 'Serves vegetarian dishes',
-    core: 'Yes',
+    label: 'attributes/serves_vegetarian',
+    core: {
+      attributeKey: 'serves_vegetarian',
+      valueType: 'boolean',
+      boolValue: true,
+      textValue: null,
+      uriValues: [],
+      enumValues: [],
+      unsetEnumValues: [],
+    },
     gbp: null,
     state: 'core_dirty',
     comparator: 'attribute',
@@ -619,6 +638,10 @@ export function gbpExactPreview(fieldKeys: readonly string[]) {
   const hash = (char: string) => char.repeat(64);
   const profileKeys = fieldKeys.filter((key) => !key.startsWith('foodMenus.'));
   const menuKeys = fieldKeys.filter((key) => key.startsWith('foodMenus.'));
+  const values = (keys: readonly string[], side: 'core' | 'gbp') =>
+    Object.fromEntries(
+      keys.map((key) => [key, FIELD_SEEDS.find((seed) => seed.key === key)?.[side] ?? null]),
+    );
   const group = (
     groupId: string,
     writeGroup: string,
@@ -635,12 +658,12 @@ export function gbpExactPreview(fieldKeys: readonly string[]) {
     resource,
     updateMasks,
     beforeDisplay: {
-      core: Object.fromEntries(keys.map((key) => [key, 'Nabatable value'])),
-      google: Object.fromEntries(keys.map((key) => [key, 'Google value'])),
+      core: values(keys, 'core'),
+      google: values(keys, 'gbp'),
     },
     afterDisplay: {
-      core: Object.fromEntries(keys.map((key) => [key, 'Nabatable value'])),
-      google: Object.fromEntries(keys.map((key) => [key, 'Nabatable value'])),
+      core: values(keys, 'core'),
+      google: values(keys, 'core'),
     },
     beforeHashes: {
       core: Object.fromEntries(keys.map((key) => [key, hash('a')])),
