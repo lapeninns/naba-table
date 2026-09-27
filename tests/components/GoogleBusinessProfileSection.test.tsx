@@ -37,6 +37,10 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/http/fetchJson', () => ({
+  fetchJson: vi.fn(async () => ({ status: 'ready', reason: null })),
+}));
+
 vi.mock('next/navigation', () => ({
   useSearchParams: () => mockSearchParams,
 }));
@@ -217,7 +221,7 @@ function linkedConnection(overrides: Partial<GoogleBusinessProfileConnection> = 
 
 /** The page intro shows while there is nothing else to explain the page (loading, errors). */
 async function openOperations(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('tab', { name: /operations/i }));
+  await user.click(await screen.findByRole('tab', { name: /operations/i }));
 }
 
 function expectSharedChrome() {
@@ -271,7 +275,7 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    await user.click(screen.getByRole('button', { name: /check again/i }));
+    await user.click(await screen.findByRole('button', { name: /check again/i }));
 
     // Invalidation alone refetches the active queries; no extra refetch() doubles the requests.
     expect(connectionResult.refetch).not.toHaveBeenCalled();
@@ -345,7 +349,7 @@ describe('GoogleBusinessProfileSection', () => {
     expect(document.getElementById('gbp-location')).toBeInTheDocument();
   });
 
-  it('uses the brief wording for the waiting and reconnect states', () => {
+  it('uses the brief wording for the waiting and reconnect states', async () => {
     connectionResult.data = buildConnection({ status: 'pending_auth' });
     const { unmount } = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
@@ -356,7 +360,7 @@ describe('GoogleBusinessProfileSection', () => {
     connectionResult.data = linkedConnection({ status: 'reauth_required' });
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getAllByText('Reconnect needed').length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Reconnect needed')).length).toBeGreaterThan(0);
     expect(screen.getByText('Reconnect Google to keep publishing')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reconnect Google' })).toBeInTheDocument();
     expect(

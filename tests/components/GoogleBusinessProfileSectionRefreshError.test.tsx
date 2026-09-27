@@ -16,6 +16,10 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
   };
 });
 
+vi.mock('@/lib/http/fetchJson', () => ({
+  fetchJson: vi.fn(async () => ({ status: 'ready', reason: null })),
+}));
+
 vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
