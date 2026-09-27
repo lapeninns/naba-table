@@ -518,7 +518,7 @@ describe('google business profile business info mapping', () => {
     expect(calls).toEqual([]);
   });
 
-  it('reads only GBP-owned provider rows for business information snapshots', async () => {
+  it('scopes the connection and core comparisons to the restaurant without reading retired mirrors', async () => {
     const eqCalls: Array<{ table: string; column: string; value: unknown }> = [];
     class Query {
       constructor(private readonly table: string) {}
@@ -562,23 +562,22 @@ describe('google business profile business info mapping', () => {
     );
 
     for (const table of [
-      'restaurant_business_details',
-      'restaurant_addresses',
-      'restaurant_phone_numbers',
-      'restaurant_links',
-      'restaurant_categories',
-      'restaurant_service_areas',
-      'restaurant_hours',
-      'restaurant_attributes',
-      'restaurant_service_items',
+      'restaurant_external_profiles',
+      'restaurant_operating_hours',
+      'restaurant_service_periods',
     ]) {
       expect(eqCalls).toEqual(
-        expect.arrayContaining([
-          { table, column: 'source', value: 'gbp' },
-          { table, column: 'managed_by', value: 'gbp' },
-        ]),
+        expect.arrayContaining([{ table, column: 'restaurant_id', value: 'rest-1' }]),
       );
     }
+    expect(eqCalls).toContainEqual({
+      table: 'restaurant_external_profiles',
+      column: 'provider',
+      value: 'google_business_profile',
+    });
+    expect(eqCalls).not.toContainEqual(
+      expect.objectContaining({ table: 'restaurant_business_details' }),
+    );
   });
 
   it('keeps provider and Nabatable primary rows separated in the foundation migration', () => {

@@ -16,6 +16,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Read Google Business Profile comparisons from current, unexpired connection snapshots instead of retired provider mirrors. Preserve observed profile values, hours and native attribute values, and reject missing snapshots before offering imports or publishing plans.
+
 - Persist Nabatable menu projections through a restricted database operation, and retain separate observations when consecutive Google menu refreshes return identical content.
 
 - Use bounded, database-safe Google notification delivery keys so signed updates can be saved and duplicate deliveries remain idempotent.

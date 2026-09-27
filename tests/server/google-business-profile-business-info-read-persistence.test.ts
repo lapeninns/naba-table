@@ -46,7 +46,7 @@ function createClient(errors: Record<string, unknown> = {}) {
 }
 
 describe('google business profile business info read persistence', () => {
-  it('treats a missing field-sync-status table as optional during reads', async () => {
+  it('does not depend on the retired field-sync-status table during onboarding', async () => {
     const result = await readGoogleBusinessProfileBusinessInfo(
       'rest-1',
       createClient({
@@ -71,33 +71,33 @@ describe('google business profile business info read persistence', () => {
     });
   });
 
-  it('throws non-optional field-sync-status errors', async () => {
+  it('throws connection query errors instead of silently treating them as unlinked', async () => {
     const error = {
       code: '42501',
-      message: 'permission denied for table restaurant_field_sync_statuses',
+      message: 'permission denied for table restaurant_external_profiles',
     };
 
     await expect(
       readGoogleBusinessProfileBusinessInfo(
         'rest-1',
         createClient({
-          restaurant_field_sync_statuses: error,
+          restaurant_external_profiles: error,
         }) as never,
       ),
     ).rejects.toBe(error);
   });
 
-  it('throws provider table query errors', async () => {
+  it('throws core hours query errors', async () => {
     const error = {
       code: '42501',
-      message: 'permission denied for table restaurant_addresses',
+      message: 'permission denied for table restaurant_operating_hours',
     };
 
     await expect(
       readGoogleBusinessProfileBusinessInfo(
         'rest-1',
         createClient({
-          restaurant_addresses: error,
+          restaurant_operating_hours: error,
         }) as never,
       ),
     ).rejects.toBe(error);
