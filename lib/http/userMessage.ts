@@ -8,6 +8,7 @@ export const DEFAULT_ERROR_COPY = {
   rateLimited: 'Too many attempts. Wait a moment and try again.',
   server: 'Something went wrong on our side. Try again.',
   network: "Couldn't reach the server. Check your connection and try again.",
+  upstreamUnavailable: 'We couldn’t reach the server just now. Try again in a moment.',
   fallback: 'Something went wrong. Try again.',
 } as const;
 
@@ -55,6 +56,8 @@ export function toUserMessage(error: unknown, opts: ToUserMessageOptions = {}): 
   if (error instanceof HttpError) {
     const override = opts.copy?.[error.code];
     if (override) return override;
+    // The server could not reach its database; the request is safe to retry.
+    if (error.code === 'UPSTREAM_UNAVAILABLE') return DEFAULT_ERROR_COPY.upstreamUnavailable;
     if (isPresentableServerMessage(error)) return error.message.trim();
     return statusCopy(error.status) ?? fallback;
   }

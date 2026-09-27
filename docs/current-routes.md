@@ -87,33 +87,42 @@ All routes under `/app/(app)/*` require authentication. Unauthenticated users ar
 
 ##### Team Management
 
-| Route                  | Description         | File Path                                    |
-| ---------------------- | ------------------- | -------------------------------------------- |
-| `/app/management`      | Management overview | `src/app/app/(app)/management/page.tsx`      |
-| `/app/management/team` | Team management     | `src/app/app/(app)/management/team/page.tsx` |
+| Route                  | Description                                           | File Path                                    |
+| ---------------------- | ----------------------------------------------------- | -------------------------------------------- |
+| `/app/management`      | Management overview                                   | `src/app/app/(app)/management/page.tsx`      |
+| `/app/management/team` | Retired; redirects to `/app/settings/restaurant/team` | `src/app/app/(app)/management/team/page.tsx` |
 
 ##### Settings
 
-| Route                                              | Description                                                                 | File Path                                                                |
-| -------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `/app/settings`                                    | Settings overview                                                           | `src/app/app/(app)/settings/page.tsx`                                    |
-| `/app/settings/restaurant`                         | Restaurant setup overview (progress and links)                              | `src/app/app/(app)/settings/restaurant/page.tsx`                         |
-| `/app/settings/restaurant/profile`                 | Restaurant profile: public details and booking page link                    | `src/app/app/(app)/settings/restaurant/profile/page.tsx`                 |
-| `/app/settings/restaurant/availability`            | Availability and booking types, including table times                       | `src/app/app/(app)/settings/restaurant/availability/page.tsx`            |
-| `/app/settings/restaurant/operating-hours`         | Former route; renders Availability at Weekly hours                          | `src/app/app/(app)/settings/restaurant/operating-hours/page.tsx`         |
-| `/app/settings/restaurant/service-periods`         | Former route; renders Availability at Weekly hours                          | `src/app/app/(app)/settings/restaurant/service-periods/page.tsx`         |
-| `/app/settings/restaurant/occasions`               | Former route; renders Availability at Booking types                         | `src/app/app/(app)/settings/restaurant/occasions/page.tsx`               |
-| `/app/settings/restaurant/turn-durations`          | Former route; renders Availability at Booking types                         | `src/app/app/(app)/settings/restaurant/turn-durations/page.tsx`          |
-| `/app/settings/restaurant/tables`                  | Tables and zones                                                            | `src/app/app/(app)/settings/restaurant/tables/page.tsx`                  |
-| `/app/settings/restaurant/discovery`               | Discovery details (categories, links, amenities, services, where you serve) | `src/app/app/(app)/settings/restaurant/discovery/page.tsx`               |
-| `/app/settings/restaurant/menu`                    | Menu                                                                        | `src/app/app/(app)/settings/restaurant/menu/page.tsx`                    |
-| `/app/settings/restaurant/team`                    | Team invitations                                                            | `src/app/app/(app)/settings/restaurant/team/page.tsx`                    |
-| `/app/settings/restaurant/staff-communications`    | Staff communications: manager alerts and daily booking summary              | `src/app/app/(app)/settings/restaurant/staff-communications/page.tsx`    |
-| `/app/settings/restaurant/google-business-profile` | Google Business Profile link, compare and publish                           | `src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx` |
-| `/app/settings/restaurant/table-layout`            | Floor layout: arrange where tables sit on the floor plan (admin only)       | `src/app/app/(app)/settings/restaurant/table-layout/page.tsx`            |
-| `/app/settings/restaurant/email-templates`         | Email templates: write, test and A/B test guest emails (admin only)         | `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`         |
-| `/app/email-templates`                             | Redirects to `/app/settings/restaurant/email-templates`                     | `src/app/app/(app)/email-templates/page.tsx`                             |
-| `/app/settings/tables`                             | Table configuration                                                         | `src/app/app/(app)/settings/tables/page.tsx`                             |
+Every settings page lives at `/app/settings/restaurant/<slug>`, and its name (sidebar, heading, browser tab, setup card) is the slug in words. The list is `RESTAURANT_SETTINGS_ROUTES` in `src/components/features/restaurant-settings/routes.ts`; the main sidebar's Settings link opens Restaurant setup.
+
+| Route                                              | Name                    | What it's for                                                   | File Path                                                                |
+| -------------------------------------------------- | ----------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `/app/settings/restaurant`                         | Restaurant setup        | What's needed before guests can book (progress and links)       | `src/app/app/(app)/settings/restaurant/page.tsx`                         |
+| `/app/settings/restaurant/profile`                 | Profile                 | Public details and booking page link                            | `src/app/app/(app)/settings/restaurant/profile/page.tsx`                 |
+| `/app/settings/restaurant/discovery`               | Discovery               | Categories, links, amenities, services, where you serve         | `src/app/app/(app)/settings/restaurant/discovery/page.tsx`               |
+| `/app/settings/restaurant/google-business-profile` | Google Business Profile | Link, compare and publish                                       | `src/app/app/(app)/settings/restaurant/google-business-profile/page.tsx` |
+| `/app/settings/restaurant/availability`            | Availability            | Hours, meal times, booking rules, booking types and table times | `src/app/app/(app)/settings/restaurant/availability/page.tsx`            |
+| `/app/settings/restaurant/menu`                    | Menu                    | Food and drinks guests can see                                  | `src/app/app/(app)/settings/restaurant/menu/page.tsx`                    |
+| `/app/settings/restaurant/tables`                  | Tables                  | Tables and zones                                                | `src/app/app/(app)/settings/restaurant/tables/page.tsx`                  |
+| `/app/settings/restaurant/team`                    | Team                    | Team invitations                                                | `src/app/app/(app)/settings/restaurant/team/page.tsx`                    |
+| `/app/settings/restaurant/staff-communications`    | Staff communications    | Manager alerts and daily booking summary                        | `src/app/app/(app)/settings/restaurant/staff-communications/page.tsx`    |
+| `/app/settings/restaurant/floor-layout`            | Floor layout            | Where tables sit on the floor plan (admin only)                 | `src/app/app/(app)/settings/restaurant/floor-layout/page.tsx`            |
+| `/app/settings/restaurant/email-templates`         | Email templates         | Write, test and A/B test guest emails (admin only)              | `src/app/app/(app)/settings/restaurant/email-templates/page.tsx`         |
+
+Retired settings URLs redirect to their page (a server redirect in each retired page), listed in `RESTAURANT_SETTINGS_RETIRED_ROUTES`. Links in the app must use the live URLs; `tests/components/RestaurantSettingsRoutePages.test.tsx` fails if source code points at a retired one.
+
+| Retired route                              | Redirects to                                              | File Path                                                        |
+| ------------------------------------------ | --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `/app/settings`                            | `/app/settings/restaurant`                                | `src/app/app/(app)/settings/page.tsx`                            |
+| `/app/settings/tables`                     | `/app/settings/restaurant/tables`                         | `src/app/app/(app)/settings/tables/page.tsx`                     |
+| `/app/management/team`                     | `/app/settings/restaurant/team`                           | `src/app/app/(app)/management/team/page.tsx`                     |
+| `/app/email-templates`                     | `/app/settings/restaurant/email-templates`                | `src/app/app/(app)/email-templates/page.tsx`                     |
+| `/app/settings/restaurant/table-layout`    | `/app/settings/restaurant/floor-layout`                   | `src/app/app/(app)/settings/restaurant/table-layout/page.tsx`    |
+| `/app/settings/restaurant/operating-hours` | `/app/settings/restaurant/availability#weekly-hours`      | `src/app/app/(app)/settings/restaurant/operating-hours/page.tsx` |
+| `/app/settings/restaurant/service-periods` | `/app/settings/restaurant/availability#service-windows`   | `src/app/app/(app)/settings/restaurant/service-periods/page.tsx` |
+| `/app/settings/restaurant/turn-durations`  | `/app/settings/restaurant/availability#booking-occasions` | `src/app/app/(app)/settings/restaurant/turn-durations/page.tsx`  |
+| `/app/settings/restaurant/occasions`       | `/app/settings/restaurant/availability#booking-occasions` | `src/app/app/(app)/settings/restaurant/occasions/page.tsx`       |
 
 ---
 
@@ -196,7 +205,7 @@ All ops APIs require restaurant staff authentication.
 
 ## Mutation API contracts (September 2026)
 
-Every route below returns C1 error bodies (`lib/api/errors.ts`): `{ error, code, message, fields?, retryable?, retryAfter?, details? }`. `error` repeats `message` for older readers. Messages are safe to show and never contain raw database or provider text. Every mutation is CSRF-protected (`withCsrfProtectedMutation`) unless the row says otherwise. A 429 is `RATE_LIMITED` with a `Retry-After` header and `retryable: true`.
+Every route below returns C1 error bodies (`lib/api/errors.ts`): `{ error, code, message, fields?, retryable?, retryAfter?, details? }`. `error` repeats `message` for older readers. Messages are safe to show and never contain raw database or provider text. Every mutation is CSRF-protected (`withCsrfProtectedMutation`) unless the row says otherwise. A 429 is `RATE_LIMITED` with a `Retry-After` header and `retryable: true`. A 503 `UPSTREAM_UNAVAILABLE` (also with `Retry-After` and `retryable: true`) means the server could not reach the database (connection reset, DNS or timeout) and nothing was written; any route's generic 500 becomes this when the cause is a network failure rather than a database error.
 
 ### Guest booking access
 

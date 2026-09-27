@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 const loggerErrorMock = vi.hoisted(() => vi.fn());
+const loggerWarnMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/logger', async (importOriginal) => {
   const actual = await importOriginal<typeof LoggerModule>();
-  return { ...actual, logger: { error: loggerErrorMock } };
+  return { ...actual, logger: { error: loggerErrorMock, warn: loggerWarnMock } };
 });
 
 import {
@@ -215,5 +216,57 @@ describe('validationError root issues', () => {
       fields: Record<string, string[]>;
     };
     expect(Object.keys(body.fields)).toEqual(['_root']);
+  });
+});
+
+describe('internalError when the database cannot be reached', () => {
+  beforeEach(() => {
+    loggerErrorMock.mockReset();
+    loggerWarnMock.mockReset();
+  });
+
+  it.each([
+    [
+      'supabase-js fetch failure',
+      {
+        message: 'TypeError: fetch failed',
+        code: '',
+        details: 'TypeError: fetch failed\n    at node:internal',
+        hint: '',
+      },
+    ],
+    [
+      'undici socket reset',
+      Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } }),
+    ],
+    ['DNS failure', { message: 'getaddrinfo ENOTFOUND example.supabase.co', code: '' }],
+    ['connect timeout', { message: 'Connect Timeout Error', code: 'UND_ERR_CONNECT_TIMEOUT' }],
+  ])('returns a retryable 503 for a %s', async (_label, error) => {
+    const response = internalError(error, { route: 'ops/tables/[id]', method: 'PATCH' });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get('Retry-After')).toBe('2');
+    expect(await response.json()).toEqual({
+      error: 'We couldn’t reach the server just now. Try again in a moment.',
+      code: 'UPSTREAM_UNAVAILABLE',
+      message: 'We couldn’t reach the server just now. Try again in a moment.',
+      retryable: true,
+      retryAfter: 2,
+    });
+    // A transient network failure is a warning, not an internal error.
+    expect(loggerErrorMock).not.toHaveBeenCalled();
+    expect(loggerWarnMock).toHaveBeenCalledWith(
+      'api.upstream_unavailable',
+      expect.objectContaining({ route: 'ops/tables/[id]', method: 'PATCH' }),
+    );
+  });
+
+  it('keeps real database errors as a 500 even when the message mentions fetch', async () => {
+    const response = internalError(
+      { message: 'function fetch failed does not exist', code: '42883' },
+      { route: 'ops/tables/[id]' },
+    );
+    expect(response.status).toBe(500);
+    expect(loggerErrorMock).toHaveBeenCalledTimes(1);
   });
 });

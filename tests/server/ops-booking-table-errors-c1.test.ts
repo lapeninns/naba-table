@@ -169,14 +169,17 @@ describe('DELETE /api/ops/bookings/[id]/tables/[tableId]', () => {
   });
 
   it('maps an unexpected failure to a generic 500', async () => {
-    unassignTableFromBookingMock.mockRejectedValue(new TypeError('fetch failed: ECONNRESET'));
+    // Network failures become a retryable 503 (lib/api/errors); this is any other surprise.
+    unassignTableFromBookingMock.mockRejectedValue(
+      new TypeError("Cannot read properties of undefined (reading 'table_ids')"),
+    );
 
     const response = await deleteTable(request(), context);
     const body = await response.json();
 
     expect(response.status).toBe(500);
     expect(body.code).toBe('INTERNAL_ERROR');
-    expectNoDbText(body, 'ECONNRESET');
+    expectNoDbText(body, 'table_ids');
   });
 });
 

@@ -64,6 +64,16 @@ describe('toUserMessage (C2)', () => {
     }
   });
 
+  it('explains an unreachable database and invites a retry', () => {
+    const error = normalizeError({
+      status: 503,
+      body: { code: 'UPSTREAM_UNAVAILABLE', message: 'raw', retryable: true },
+    });
+    expect(toUserMessage(error)).toBe(
+      'We couldn’t reach the server just now. Try again in a moment.',
+    );
+  });
+
   it('still honours caller copy for 5xx codes', () => {
     const error = normalizeError({ status: 503, body: { code: 'PROVIDER_DOWN' } });
     expect(toUserMessage(error, { copy: { PROVIDER_DOWN: 'Google is unavailable.' } })).toBe(
