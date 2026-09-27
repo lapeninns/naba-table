@@ -16,6 +16,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Persist Nabatable menu projections through a restricted database operation, and retain separate observations when consecutive Google menu refreshes return identical content.
+
 - Use bounded, database-safe Google notification delivery keys so signed updates can be saved and duplicate deliveries remain idempotent.
 
 - Allow a live Google refresh to recover from a previous sync error without bypassing restaurant, connection-generation or consent checks. Disconnected and revoked connections still require reconnecting.

@@ -18,7 +18,6 @@ import { rowToFoodMenuSettings, rowToIdentity, rowToSnapshot } from './food-menu
 import {
   buildFoodMenuSettingsUpsertPayload,
   buildFoodMenusProjectionSnapshotMetadata,
-  buildFoodMenusSnapshotInsertPayload,
   buildProjectedFoodMenusIdentityUpsertPayloads,
 } from './food-menus-storage-payloads';
 
@@ -331,12 +330,8 @@ export async function recordFoodMenusSnapshot({
   status = 'succeeded',
   foodMenusName = null,
   rawFoodMenus,
-  canonicalFoodMenus,
-  projectionMetadata = {},
   snapshotHash = null,
   googleEtag = null,
-  errorCode = null,
-  errorMessage = null,
   pulledAt = null,
   createdByUserId = null,
 }: RecordFoodMenusSnapshotInput): Promise<FoodMenusSnapshot> {
@@ -357,30 +352,23 @@ export async function recordFoodMenusSnapshot({
     });
     return rowToSnapshot(normalizePersistedFoodMenusSnapshotRow(row));
   }
-  const db = getFoodMenusSyncDbClient(client);
-  const { data, error } = await db
-    .from('restaurant_gbp_food_menu_snapshots')
-    .insert(
-      buildFoodMenusSnapshotInsertPayload({
-        restaurantId,
-        externalProfileId,
-        snapshotKind,
-        source,
-        status,
-        foodMenusName,
-        rawFoodMenus,
-        canonicalFoodMenus,
-        projectionMetadata,
-        snapshotHash,
-        googleEtag,
-        errorCode,
-        errorMessage,
-        pulledAt,
-        createdByUserId,
-      }) as never,
-    )
-    .select('*')
-    .single<FoodMenusSnapshotRow>();
+  if (
+    snapshotKind !== 'nabatable_projection' ||
+    status !== 'succeeded' ||
+    !rawFoodMenus ||
+    !snapshotHash
+  ) {
+    throw new Error('A successful local FoodMenus projection requires a payload and hash');
+  }
+  const { data, error } = await client.rpc('persist_gbp_food_menu_projection_v1', {
+    p_restaurant_id: restaurantId,
+    p_external_profile_row_id: externalProfileId,
+    p_source: source,
+    p_food_menus_name: foodMenusName,
+    p_raw_food_menus: toJson(rawFoodMenus),
+    p_snapshot_hash: snapshotHash,
+    p_created_by_user_id: createdByUserId,
+  });
 
   if (error) {
     if (snapshotHash && isFoodMenusSnapshotHashConflict(error)) {
@@ -400,7 +388,7 @@ export async function recordFoodMenusSnapshot({
   if (!data) {
     throw new Error('restaurant_gbp_food_menu_snapshots insert returned no row');
   }
-  return rowToSnapshot(data);
+  return rowToSnapshot(normalizePersistedFoodMenusSnapshotRow(data));
 }
 
 export async function readLatestFoodMenusSnapshot({
