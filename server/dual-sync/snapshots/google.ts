@@ -11,6 +11,7 @@
 
 import { safeGoogleMapsUrl, safeGoogleReviewUrl } from '@/lib/security/safe-url';
 import { readGoogleBusinessProfileBusinessInfo } from '@/server/google-business-profile/business-info';
+import { GoogleBusinessProfileError } from '@/server/google-business-profile/errors';
 
 import { readStoredGoogleFoodMenusSection } from './food-menus';
 
@@ -42,6 +43,15 @@ export async function readGoogleSnapshot({
     readGoogleBusinessProfileBusinessInfo(restaurantId, client),
     readStoredGoogleFoodMenusSection({ client, restaurantId }),
   ]);
+  if (!info.details?.businessName) {
+    throw new GoogleBusinessProfileError(
+      'Get the latest from Google before comparing this listing.',
+      {
+        code: 'GBP_SNAPSHOT_UNAVAILABLE',
+        status: 409,
+      },
+    );
+  }
   return {
     profile: extractProfile(info),
     operatingHours: extractOperatingHours(info),
@@ -127,6 +137,7 @@ function extractProfile(info: GoogleBusinessProfileBusinessInfo): DualSyncProfil
 function extractOperatingHours(
   info: GoogleBusinessProfileBusinessInfo,
 ): DualSyncOperatingHoursSectionValue {
+  if (info.coreNormalization.operatingHours.source === 'unavailable') return { weekly: [] };
   const weekly: DualSyncOperatingHoursDay[] = info.coreNormalization.operatingHours.weekly.map(
     (entry) => ({
       dayOfWeek: entry.dayOfWeek,
