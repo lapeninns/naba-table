@@ -12,7 +12,7 @@ export function menuErrorReasonCode(error: unknown): string | null {
 
 export function withReasonCode(message: string, error: unknown) {
   const code = menuErrorReasonCode(error);
-  return code ? `${message} Reason code ${code}.` : message;
+  return code ? `${message} Reason code ${code}` : message;
 }
 
 /**

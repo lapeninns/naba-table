@@ -82,6 +82,10 @@ describe('MenuSectionList', () => {
     const props = renderSections({ menu: makeMenu({ sections: [] }) });
 
     expect(screen.getByText('No sections yet')).toBeInTheDocument();
+    // RR10: inside the menu card the empty state is compact, so it never outranks the card title.
+    expect(
+      screen.getByText('No sections yet').closest('[data-slot="ops-empty-state"]'),
+    ).toHaveAttribute('data-size', 'compact');
     await user.click(screen.getByRole('button', { name: 'Add section' }));
     expect(props.onCreateSection).toHaveBeenCalledTimes(1);
   });
@@ -173,5 +177,25 @@ describe('MenuSectionList', () => {
 
     expect(screen.getByText('No items match')).toBeInTheDocument();
     expect(screen.getByText('Try another search or filter.')).toBeInTheDocument();
+  });
+
+  it('@contract keeps section actions end-aligned when the header wraps on narrow widths', () => {
+    renderSections();
+
+    const starters = screen.getByRole('region', { name: /Starters/ });
+    const actions = within(starters).getByRole('button', {
+      name: 'Add item to Starters',
+    }).parentElement;
+    expect(actions).toHaveClass('ms-auto', 'justify-end', 'flex-wrap');
+  });
+
+  it('@contract sizes item rows by the list container, not the viewport', () => {
+    renderSections();
+
+    const list = screen.getByRole('list', { name: 'Items in Starters' });
+    expect(list).toHaveClass('@container');
+    const row = within(list).getAllByRole('listitem')[0];
+    expect(row?.className).toContain('@lg:grid-cols-');
+    expect(row?.className).not.toMatch(/(^|\s)(sm|xl):grid-cols-/);
   });
 });

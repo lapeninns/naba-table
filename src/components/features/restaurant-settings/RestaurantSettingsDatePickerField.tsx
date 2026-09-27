@@ -82,9 +82,7 @@ export function RestaurantSettingsDatePickerField({
   return (
     <div className={className}>
       <div className="flex items-center gap-1">
-        <Label htmlFor={fieldId} className="text-xs uppercase tracking-wide text-muted-foreground">
-          {label}
-        </Label>
+        <Label htmlFor={fieldId}>{label}</Label>
         <CalendarIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
       </div>
       <Popover open={open} onOpenChange={setOpen}>
@@ -95,7 +93,7 @@ export function RestaurantSettingsDatePickerField({
             variant="outline"
             disabled={disabled}
             className={cn(
-              'mt-1 h-9 w-full justify-between px-3 text-left text-sm font-normal',
+              'mt-2 h-9 w-full justify-between px-3 text-left text-sm font-normal',
               !selectedDate && 'text-muted-foreground',
               error && 'border-destructive focus-visible:ring-destructive',
             )}
@@ -106,7 +104,11 @@ export function RestaurantSettingsDatePickerField({
             <ChevronDownIcon data-icon="inline-end" className="shrink-0 opacity-50" aria-hidden />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+        <PopoverContent
+          className="w-auto max-w-[calc(100vw-2rem)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain p-0"
+          align="start"
+          collisionPadding={16}
+        >
           <Calendar
             mode="single"
             selected={selectedDate}

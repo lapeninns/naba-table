@@ -233,7 +233,7 @@ test.describe('authenticated ops app-host shipped routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
-    await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
     await expect(
       page.locator('main').getByRole('textbox', { name: /^Restaurant name/ }),
     ).toHaveValue('QA App Host Restaurant');
@@ -270,7 +270,9 @@ test.describe('authenticated ops app-host shipped routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/discovery/);
-    await expect(page.locator('main').getByText('Discovery details').first()).toBeVisible();
+    await expect(
+      page.locator('main').getByText('Discovery', { exact: true }).first(),
+    ).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'Categories' })).toBeVisible();
 
     await page.screenshot({

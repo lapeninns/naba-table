@@ -58,6 +58,22 @@ describe('RestaurantLogoUploader', () => {
     });
   });
 
+  it('keeps the hidden file input a 1px box so it never sits over the Upload button', () => {
+    render(
+      <RestaurantLogoUploader
+        restaurantId="rest-1"
+        restaurantName="Demo Restaurant"
+        logoUrl={null}
+      />,
+    );
+
+    const input = screen.getByLabelText(/upload restaurant logo/i);
+    expect(input).toHaveClass('sr-only', 'size-px', 'p-0', 'border-0');
+    // The Input primitive's padding would otherwise widen sr-only's 1px box to 25×9.
+    expect(input).not.toHaveClass('px-3');
+    expect(input).not.toHaveClass('py-1');
+  });
+
   it('publishes a local logo preview while upload is pending', async () => {
     const user = userEvent.setup();
     const onPreviewChange = vi.fn();

@@ -65,9 +65,28 @@ describe('CategoriesPanel', () => {
     expect(screen.getAllByLabelText('Category code')[0]).toHaveValue('gastropub');
   });
 
-  it('@smoke shows an empty state', () => {
+  it('@smoke shows a compact empty state that never outranks the card title', () => {
     renderPanel();
 
-    expect(screen.getByText('No categories yet.')).toBeInTheDocument();
+    const emptyState = screen.getByText('No categories yet').closest('[data-slot=ops-empty-state]');
+    expect(emptyState).toHaveAttribute('data-size', 'compact');
+  });
+
+  it('@responsive keeps Add the same height as the category input on a mouse and on touch', () => {
+    renderPanel();
+
+    const add = screen.getByRole('button', { name: 'Add' });
+    // Lifts the base 44px button floor so it matches the 36px input on fine pointers; both
+    // grow to 44px on coarse pointers.
+    expect(add).toHaveClass('min-h-0', '[@media(pointer:coarse)]:min-h-11');
+    expect(screen.getByLabelText('New category')).toHaveClass('[@media(pointer:coarse)]:min-h-11');
+  });
+
+  it('@responsive keeps a long category name on one chip line with its full name as a title', () => {
+    const longName = 'Traditional British gastropub with rooms and a riverside garden';
+    renderPanel({ categories: [makeCategoryRow({ id: 'long', displayName: longName })] });
+
+    const name = screen.getByTitle(longName);
+    expect(name).toHaveClass('truncate');
   });
 });

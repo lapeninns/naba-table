@@ -1,7 +1,6 @@
 import { getRestaurantSettingsRouteCopy } from './routes';
 
-const DEFAULT_DESCRIPTION =
-  'Configure the restaurant profile, availability, dining durations, menu, tables, and team access.';
+const DEFAULT_DESCRIPTION = 'Configure the profile, availability, menu, tables, and team access.';
 
 export type RestaurantSettingsHeadingContext = {
   route: ReturnType<typeof getRestaurantSettingsRouteCopy>;

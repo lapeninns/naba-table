@@ -32,6 +32,7 @@ import {
   ServiceItemsPanel,
 } from './panels';
 import { getDiscoveryDisplayDirtyState } from './serviceLocation';
+import { SETTINGS_INLINE_LINK_CLASS, SETTINGS_SAVE_COPY } from '../shared/compactSettingsClasses';
 import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
 import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
 import {
@@ -71,13 +72,15 @@ function isDiscoveryFamily(value: string): value is FamilyKey {
 type DiscoveryEditorProps = {
   restaurantId: string;
   editor: RestaurantBusinessContextEditor;
+  /** Shown above the sections, e.g. a failed background refresh. */
+  notice?: ReactNode;
 };
 
 /**
  * Discovery details as one scrolling page: a jump bar, six sections in order, and one save bar
  * that sends each section with changes through the existing endpoint, one after another.
  */
-export function DiscoveryEditor({ restaurantId, editor }: DiscoveryEditorProps) {
+export function DiscoveryEditor({ restaurantId, editor, notice }: DiscoveryEditorProps) {
   const [showAllIssues, setShowAllIssues] = useState(false);
   const issues = useMemo(
     () => collectDiscoveryIssues(editor.drafts, editor.dirty),
@@ -89,6 +92,7 @@ export function DiscoveryEditor({ restaurantId, editor }: DiscoveryEditorProps) 
       <DiscoveryEditorPage
         restaurantId={restaurantId}
         editor={editor}
+        notice={notice}
         issues={issues}
         showAllIssues={showAllIssues}
         onShowAllIssuesChange={setShowAllIssues}
@@ -100,6 +104,7 @@ export function DiscoveryEditor({ restaurantId, editor }: DiscoveryEditorProps) 
 function DiscoveryEditorPage({
   restaurantId,
   editor,
+  notice,
   issues,
   showAllIssues,
   onShowAllIssuesChange,
@@ -183,7 +188,7 @@ function DiscoveryEditorPage({
   const handleDiscard = useCallback(() => {
     editor.discardAll();
     onShowAllIssuesChange(false);
-    toast.info('Changes discarded.');
+    toast(SETTINGS_SAVE_COPY.discarded);
   }, [editor, onShowAllIssuesChange]);
 
   const changeGroups = useMemo(
@@ -210,11 +215,8 @@ function DiscoveryEditorPage({
     links: (
       <>
         {DISCOVERY_SECTION_DESCRIPTIONS.links} Google Maps and review links live on{' '}
-        <Link
-          href={PROFILE_CONTACT_HREF}
-          className="font-medium text-foreground underline underline-offset-2"
-        >
-          Restaurant profile
+        <Link href={PROFILE_CONTACT_HREF} className={SETTINGS_INLINE_LINK_CLASS}>
+          Profile
         </Link>
         .
       </>
@@ -243,6 +245,7 @@ function DiscoveryEditorPage({
         badge: section.badge,
       }))}
     >
+      {notice}
       {sections.map((section) => (
         <DiscoverySectionCard
           key={section.family}

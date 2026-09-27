@@ -23,6 +23,9 @@ describe('ProfileSectionPane', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Manager alerts' })).toBeVisible();
     expect(screen.getByText('Staff only')).toBeInTheDocument();
     expect(screen.getByText('Section body')).toBeVisible();
+    // The shared settings card anatomy, not a bespoke card.
+    expect(region).toHaveAttribute('data-slot', 'settings-card');
+    expect(region).toHaveClass('scroll-mt-28');
   });
 
   it('@contract marks edited sections, and issues take precedence', () => {

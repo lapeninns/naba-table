@@ -3,13 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  SelectedMenuHeader,
+  SelectedMenuCard,
   menuSummaryLine,
 } from '@/components/features/menu/menuHierarchySelectedMenuHeader';
 
 import { makeItem, makeMenu, makeSection } from './__fixtures__/menuHierarchy';
 
-function renderHeader(overrides: Partial<Parameters<typeof SelectedMenuHeader>[0]> = {}) {
+function renderHeader(overrides: Partial<Parameters<typeof SelectedMenuCard>[0]> = {}) {
   const props = {
     onCreateSection: vi.fn(),
     onDeleteMenu: vi.fn(),
@@ -17,11 +17,15 @@ function renderHeader(overrides: Partial<Parameters<typeof SelectedMenuHeader>[0
     selectedMenu: makeMenu(),
     ...overrides,
   };
-  render(<SelectedMenuHeader {...props} />);
+  render(
+    <SelectedMenuCard {...props} subheader={<p>Filter strip</p>}>
+      <p>Sections</p>
+    </SelectedMenuCard>,
+  );
   return props;
 }
 
-describe('SelectedMenuHeader', () => {
+describe('SelectedMenuCard', () => {
   it('@smoke shows the menu name, Shown to guests badge and counts', () => {
     renderHeader({
       selectedMenu: makeMenu({
@@ -29,7 +33,14 @@ describe('SelectedMenuHeader', () => {
       }),
     });
 
-    expect(screen.getByRole('heading', { name: 'Dinner Menu' })).toBeInTheDocument();
+    const heading = screen.getByRole('heading', { level: 2, name: 'Dinner Menu' });
+    expect(heading).toBeInTheDocument();
+    // The menu is one settings card, exposed as a region named by its title.
+    const card = screen.getByRole('region', { name: 'Dinner Menu' });
+    expect(card).toHaveAttribute('data-slot', 'settings-card');
+    expect(card).toHaveAttribute('data-testid', 'menu-card');
+    expect(card).toHaveTextContent('Filter strip');
+    expect(card).toHaveTextContent('Sections');
     expect(screen.getByText('Shown to guests')).toBeInTheDocument();
     expect(screen.getByText('1 section · 2 items')).toBeInTheDocument();
     expect(screen.getByText('Seasonal food menu')).toBeInTheDocument();
@@ -51,7 +62,8 @@ describe('SelectedMenuHeader', () => {
       }),
     });
 
-    expect(screen.getByText('Hidden')).toBeInTheDocument();
+    // A status Badge (status-completed), not a hand-rolled outline pill.
+    expect(screen.getByText('Hidden')).toHaveClass('bg-secondary');
     expect(screen.getByText('2 sections · 2 items · 1 need attention')).toBeInTheDocument();
   });
 

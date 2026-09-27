@@ -17,6 +17,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+
+import {
+  SETTINGS_DIALOG_BODY_CLASS,
+  SETTINGS_DIALOG_CONTENT_CLASS,
+  SETTINGS_DIALOG_HEADER_CLASS,
+} from '../shared/SettingsDialog';
 
 import type { GbpExactPreviewResponseV1 } from '@/services/ops/dual-sync';
 
@@ -112,8 +119,13 @@ export function GbpExactPublishDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/*
+        The SettingsDialog frame (full-height sheet below sm, pinned header and footer), built on
+        the raw Dialog because this plan moves initial focus to its title and returns focus to
+        the publish trigger, which SettingsDialog does not expose.
+      */}
       <DialogContent
-        className="max-h-[86dvh] max-w-3xl overflow-y-auto"
+        className={cn(SETTINGS_DIALOG_CONTENT_CLASS, 'sm:max-w-5xl')}
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           previouslyFocusedRef.current =
@@ -126,8 +138,8 @@ export function GbpExactPublishDialog({
           previouslyFocusedRef.current?.focus();
         }}
       >
-        <DialogHeader className="pr-12 sm:pr-14">
-          <DialogTitle ref={titleRef} tabIndex={-1}>
+        <DialogHeader className={SETTINGS_DIALOG_HEADER_CLASS}>
+          <DialogTitle ref={titleRef} tabIndex={-1} className="text-base leading-6">
             Confirm exact Google publish
           </DialogTitle>
           <DialogDescription>
@@ -136,168 +148,176 @@ export function GbpExactPublishDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {!preview ? (
-          <Alert>
-            <Info className="size-4" aria-hidden />
-            <AlertTitle>No exact preview loaded</AlertTitle>
-            <AlertDescription>Close this dialog and create a new preview.</AlertDescription>
-          </Alert>
-        ) : (
-          <div className="flex flex-col gap-4">
-            {expired ? (
-              <Alert variant="destructive">
-                <Clock className="size-4" aria-hidden />
-                <AlertTitle>This preview has expired</AlertTitle>
-                <AlertDescription className="flex flex-col gap-2">
-                  <span>
-                    Previews are valid for up to 15 minutes. Create a new one so it matches Google
-                    now. This plan can’t be published.
+        <div data-slot="gbp-exact-publish-body" className={SETTINGS_DIALOG_BODY_CLASS}>
+          {!preview ? (
+            <Alert>
+              <Info className="size-4" aria-hidden />
+              <AlertTitle>No exact preview loaded</AlertTitle>
+              <AlertDescription>Close this dialog and create a new preview.</AlertDescription>
+            </Alert>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {expired ? (
+                <Alert variant="destructive">
+                  <Clock className="size-4" aria-hidden />
+                  <AlertTitle>This preview has expired</AlertTitle>
+                  <AlertDescription className="flex flex-col gap-2">
+                    <span>
+                      Previews are valid for up to 15 minutes. Create a new one so it matches Google
+                      now. This plan can’t be published.
+                    </span>
+                    {onRefreshExpired ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="self-start"
+                        onClick={onRefreshExpired}
+                      >
+                        <RefreshCw data-icon="inline-start" aria-hidden />
+                        Refresh and create a new preview
+                      </Button>
+                    ) : null}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[max-content_minmax(0,1fr)]">
+                <dt className="text-muted-foreground">Listing</dt>
+                <dd className="flex min-w-0 flex-col">
+                  <span className="break-all font-mono text-xs">{preview.listing.locationId}</span>
+                  <span className="break-all font-mono text-xs text-muted-foreground">
+                    {preview.listing.accountId} / {preview.listing.profileId}
                   </span>
-                  {onRefreshExpired ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="self-start"
-                      onClick={onRefreshExpired}
-                    >
-                      <RefreshCw data-icon="inline-start" aria-hidden />
-                      Refresh and create a new preview
-                    </Button>
-                  ) : null}
-                </AlertDescription>
-              </Alert>
-            ) : null}
+                </dd>
+                <dt className="text-muted-foreground">Connection</dt>
+                <dd>
+                  Generation{' '}
+                  <span className="font-mono text-xs">{preview.listing.connectionGeneration}</span>{' '}
+                  · consent epoch{' '}
+                  <span className="font-mono text-xs">{preview.listing.consentEpoch}</span>
+                </dd>
+                <dt className="text-muted-foreground">Plan fingerprint</dt>
+                <dd className="break-all font-mono text-xs">{preview.planFingerprint}</dd>
+                <dt className="text-muted-foreground">Versions</dt>
+                <dd className="flex flex-col font-mono text-xs">
+                  <span>{preview.confirmationVersion}</span>
+                  <span>{preview.policyVersion}</span>
+                  <span>{preview.rendererVersion}</span>
+                </dd>
+                <dt className="text-muted-foreground">Issued</dt>
+                <dd className="tabular-nums">{formatPreviewTime(preview.issuedAt)}</dd>
+                <dt className="text-muted-foreground">Valid until</dt>
+                <dd className="tabular-nums">
+                  {expired ? (
+                    <span className="font-medium text-destructive">Expired</span>
+                  ) : (
+                    formatPreviewTime(preview.expiresAt)
+                  )}{' '}
+                  · valid for at most 15 minutes
+                </dd>
+              </dl>
 
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[max-content_minmax(0,1fr)]">
-              <dt className="text-muted-foreground">Listing</dt>
-              <dd className="flex min-w-0 flex-col">
-                <span className="font-mono text-xs">{preview.listing.locationId}</span>
-                <span className="break-all font-mono text-xs text-muted-foreground">
-                  {preview.listing.accountId} / {preview.listing.profileId}
-                </span>
-              </dd>
-              <dt className="text-muted-foreground">Connection</dt>
-              <dd>
-                Generation{' '}
-                <span className="font-mono text-xs">{preview.listing.connectionGeneration}</span> ·
-                consent epoch{' '}
-                <span className="font-mono text-xs">{preview.listing.consentEpoch}</span>
-              </dd>
-              <dt className="text-muted-foreground">Plan fingerprint</dt>
-              <dd className="break-all font-mono text-xs">{preview.planFingerprint}</dd>
-              <dt className="text-muted-foreground">Versions</dt>
-              <dd className="flex flex-col font-mono text-xs">
-                <span>{preview.confirmationVersion}</span>
-                <span>{preview.policyVersion}</span>
-                <span>{preview.rendererVersion}</span>
-              </dd>
-              <dt className="text-muted-foreground">Issued</dt>
-              <dd className="tabular-nums">{formatPreviewTime(preview.issuedAt)}</dd>
-              <dt className="text-muted-foreground">Valid until</dt>
-              <dd className="tabular-nums">
-                {expired ? (
-                  <span className="font-medium text-destructive">Expired</span>
-                ) : (
-                  formatPreviewTime(preview.expiresAt)
-                )}{' '}
-                · valid for at most 15 minutes
-              </dd>
-            </dl>
+              <Separator />
 
-            <Separator />
-
-            {preview.groups.map((group) => (
-              <section
-                key={group.groupId}
-                aria-label={`Write group ${group.writeGroup}`}
-                className="flex min-w-0 flex-col gap-3 rounded-md border border-border/70 p-3"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-xs font-medium">{group.writeGroup}</span>
-                  <Badge variant="outline" className="font-mono">
-                    {group.method}
-                  </Badge>
-                  <Badge variant={RISK_VARIANT[group.riskLevel]}>
-                    {RISK_LABEL[group.riskLevel]}
-                  </Badge>
-                  {group.fullReplacement ? (
-                    <Badge variant="status-cancelled">Full replacement</Badge>
-                  ) : null}
-                </div>
-                <p className="break-all font-mono text-xs text-muted-foreground">
-                  {group.resource}
-                </p>
-                <div className="flex flex-wrap items-center gap-1">
-                  <span className="text-xs text-muted-foreground">Update mask</span>
-                  {group.updateMasks.map((mask) => (
-                    <Badge key={mask} variant="outline" className="font-mono font-normal">
-                      {mask}
+              {preview.groups.map((group) => (
+                <section
+                  key={group.groupId}
+                  aria-label={`Write group ${group.writeGroup}`}
+                  className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-0 break-all font-mono text-xs font-medium">
+                      {group.writeGroup}
+                    </span>
+                    <Badge variant="outline" className="font-mono">
+                      {group.method}
                     </Badge>
-                  ))}
-                </div>
-                {group.fullReplacement ? (
-                  <p className="text-sm">
-                    <span className="font-medium">Food menus are replaced in full.</span> Menu items
-                    on Google that aren’t in this plan will be removed.
-                  </p>
-                ) : null}
-                {group.fieldKeys.map((fieldKey) => (
-                  <div key={fieldKey} className="grid min-w-0 gap-2 text-xs sm:grid-cols-2">
-                    <div className="min-w-0">
-                      <p className="mb-1 font-medium">Before Google · {fieldKey}</p>
-                      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2">
-                        {display(group.beforeDisplay.google[fieldKey])}
-                      </pre>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="mb-1 font-medium">After Google · {fieldKey}</p>
-                      <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2">
-                        {display(group.afterDisplay.google[fieldKey])}
-                      </pre>
-                    </div>
+                    <Badge variant={RISK_VARIANT[group.riskLevel]}>
+                      {RISK_LABEL[group.riskLevel]}
+                    </Badge>
+                    {group.fullReplacement ? (
+                      <Badge variant="status-cancelled">Full replacement</Badge>
+                    ) : null}
                   </div>
-                ))}
-                {group.warnings.map((warning) => (
-                  <Alert key={warning} variant="warning">
-                    <AlertTriangle className="size-4" aria-hidden />
-                    <AlertTitle>Google publish warning</AlertTitle>
-                    <AlertDescription>{warning}</AlertDescription>
-                  </Alert>
-                ))}
-              </section>
-            ))}
+                  <p className="break-all font-mono text-xs text-muted-foreground">
+                    {group.resource}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-xs text-muted-foreground">Update mask</span>
+                    {group.updateMasks.map((mask) => (
+                      <Badge
+                        key={mask}
+                        variant="outline"
+                        className="max-w-full font-mono font-normal [overflow-wrap:anywhere]"
+                      >
+                        {mask}
+                      </Badge>
+                    ))}
+                  </div>
+                  {group.fullReplacement ? (
+                    <p className="text-sm">
+                      <span className="font-medium">Food menus are replaced in full.</span> Menu
+                      items on Google that aren’t in this plan will be removed.
+                    </p>
+                  ) : null}
+                  {group.fieldKeys.map((fieldKey) => (
+                    <div key={fieldKey} className="grid min-w-0 gap-2 text-xs sm:grid-cols-2">
+                      <div className="min-w-0">
+                        <p className="mb-1 font-medium">Before Google · {fieldKey}</p>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2">
+                          {display(group.beforeDisplay.google[fieldKey])}
+                        </pre>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="mb-1 font-medium">After Google · {fieldKey}</p>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-md bg-muted p-2">
+                          {display(group.afterDisplay.google[fieldKey])}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                  {group.warnings.map((warning) => (
+                    <Alert key={warning} variant="warning">
+                      <AlertTriangle className="size-4" aria-hidden />
+                      <AlertTitle>Google publish warning</AlertTitle>
+                      <AlertDescription>{warning}</AlertDescription>
+                    </Alert>
+                  ))}
+                </section>
+              ))}
 
-            <div className="flex items-start gap-3 rounded-md border border-border p-3">
-              <Checkbox
-                id="gbp-external-write-ack"
-                checked={externalAcknowledged}
-                disabled={expired}
-                onCheckedChange={(checked) => setExternalAcknowledged(checked === true)}
-              />
-              <Label htmlFor="gbp-external-write-ack" className="leading-5">
-                I understand this changes public Google Business Profile data, and Google’s result
-                may be unknown or only partly applied.
-              </Label>
-            </div>
-            {hasFullReplacement ? (
-              <div className="flex items-start gap-3 rounded-md border border-destructive/50 p-3">
+              <div className="flex items-start gap-3 rounded-lg border border-border/60 p-3">
                 <Checkbox
-                  id="gbp-foodmenus-replacement-ack"
-                  checked={replacementAcknowledged}
+                  id="gbp-external-write-ack"
+                  checked={externalAcknowledged}
                   disabled={expired}
-                  onCheckedChange={(checked) => setReplacementAcknowledged(checked === true)}
+                  onCheckedChange={(checked) => setExternalAcknowledged(checked === true)}
                 />
-                <Label htmlFor="gbp-foodmenus-replacement-ack" className="leading-5">
-                  I understand Google receives a full replacement of your food menus, including
-                  anything not in this plan.
+                <Label htmlFor="gbp-external-write-ack" className="leading-5">
+                  I understand this changes public Google Business Profile data, and Google’s result
+                  may be unknown or only partly applied.
                 </Label>
               </div>
-            ) : null}
-          </div>
-        )}
+              {hasFullReplacement ? (
+                <div className="flex items-start gap-3 rounded-lg border border-destructive/50 p-3">
+                  <Checkbox
+                    id="gbp-foodmenus-replacement-ack"
+                    checked={replacementAcknowledged}
+                    disabled={expired}
+                    onCheckedChange={(checked) => setReplacementAcknowledged(checked === true)}
+                  />
+                  <Label htmlFor="gbp-foodmenus-replacement-ack" className="leading-5">
+                    I understand Google receives a full replacement of your food menus, including
+                    anything not in this plan.
+                  </Label>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="shrink-0 gap-2 border-t border-border/60 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPublishing}>
             Cancel
           </Button>

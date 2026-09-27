@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/table';
 
 import { buildDualSyncOperationGroupViewModels } from './dualSyncPublishJobDetailDomain';
+import { SettingsOverflowFrame } from '../../../shared/SettingsOverflowFrame';
 
 import type { DualSyncPublishOperationGroup } from '@/server/dual-sync';
 
@@ -24,7 +25,7 @@ export function DualSyncPublishOperationGroupsTable({
   const rows = buildDualSyncOperationGroupViewModels(groups);
 
   return (
-    <div className="rounded-md border bg-background">
+    <SettingsOverflowFrame className="overflow-hidden rounded-md border bg-background">
       <Table>
         <TableHeader>
           <TableRow>
@@ -39,28 +40,24 @@ export function DualSyncPublishOperationGroupsTable({
           {rows.map((group) => (
             <TableRow key={group.id} className="text-xs">
               <TableCell>
-                <Badge variant={group.statusVariant} className="font-mono text-[10px]">
+                <Badge variant={group.statusVariant} className="font-mono text-xs">
                   {group.status}
                 </Badge>
                 {group.errorCode ? (
-                  <div className="mt-1 font-mono text-[10px] text-destructive">
-                    {group.errorCode}
-                  </div>
+                  <div className="mt-1 font-mono text-xs text-destructive">{group.errorCode}</div>
                 ) : null}
               </TableCell>
               <TableCell>
-                <div className="font-mono text-[10px]">{group.writeGroup}</div>
-                <div className="mt-0.5 text-[10px] text-muted-foreground">{group.sectionLabel}</div>
+                <div className="font-mono text-xs">{group.writeGroup}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{group.sectionLabel}</div>
               </TableCell>
-              <TableCell className="font-mono text-[10px]">{group.preflightLabel}</TableCell>
-              <TableCell className="text-right font-mono text-[10px]">
-                {group.decisionCount}
-              </TableCell>
-              <TableCell className="font-mono text-[10px]">{group.masksLabel}</TableCell>
+              <TableCell className="font-mono text-xs">{group.preflightLabel}</TableCell>
+              <TableCell className="text-right font-mono text-xs">{group.decisionCount}</TableCell>
+              <TableCell className="font-mono text-xs">{group.masksLabel}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-    </div>
+    </SettingsOverflowFrame>
   );
 }

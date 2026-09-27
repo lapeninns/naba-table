@@ -31,8 +31,13 @@ describe('PersistentGbpErrorAlert', () => {
     expect(onAction).toHaveBeenCalledTimes(1);
 
     rerender(
-      <PersistentGbpErrorAlert error={error} actionLabel="Reconnect" onAction={onAction} isActionPending />,
+      <PersistentGbpErrorAlert
+        error={error}
+        actionLabel="Reconnect"
+        onAction={onAction}
+        isActionPending
+      />,
     );
-    expect(screen.getByRole('button', { name: 'Reconnect...' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Reconnect…' })).toBeDisabled();
   });
 });

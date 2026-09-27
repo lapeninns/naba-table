@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
+import { SETTINGS_CARD_CLASS } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { opsHref } from '@/lib/url/opsHref';
@@ -19,10 +20,11 @@ export function SetupProgressPanel({ readiness }: SetupProgressPanelProps) {
       role="region"
       aria-labelledby="setup-readiness-heading"
       data-testid="setup-readiness-summary"
-      className="flex flex-col gap-3 p-4 sm:p-5"
+      variant="compact"
+      className={cn(SETTINGS_CARD_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-0.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-[1_1_16rem] flex-col gap-0.5">
           <h2
             id="setup-readiness-heading"
             className="flex items-center gap-2 text-base font-semibold leading-6 text-foreground"
@@ -42,7 +44,7 @@ export function SetupProgressPanel({ readiness }: SetupProgressPanelProps) {
             asChild
             variant="outline"
             size="sm"
-            className="w-fit shrink-0 [@media(pointer:coarse)]:min-h-11"
+            className="ms-auto w-fit shrink-0 [@media(pointer:coarse)]:min-h-11"
           >
             <Link href={opsHref('/settings/restaurant/availability')}>Preview guest times</Link>
           </Button>
@@ -54,7 +56,7 @@ export function SetupProgressPanel({ readiness }: SetupProgressPanelProps) {
           <span
             key={index}
             data-state={done ? 'complete' : 'incomplete'}
-            className={cn('h-1.5 flex-1 rounded-full', done ? 'bg-success' : 'bg-muted')}
+            className={cn('h-1.5 flex-1 rounded-full', done ? 'bg-primary' : 'bg-muted')}
           />
         ))}
       </div>

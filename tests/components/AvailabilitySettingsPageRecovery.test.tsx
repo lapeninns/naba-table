@@ -7,6 +7,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const pageState = vi.hoisted(() => ({
@@ -31,7 +32,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/app/settings/restaurant/availability',
 }));
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({ useGlobalShortcuts: vi.fn() }));
 
@@ -288,6 +289,7 @@ describe('AvailabilitySettingsPage recovery from newer saved settings', () => {
 
     await waitFor(() => expect(mondayCloses()).toHaveValue('23:00'));
     expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
+    expect(toast).toHaveBeenCalledWith('Changes discarded.');
   });
 
   it('re-seeds a clean page when the snapshot is invalidated elsewhere (e.g. a Google import)', async () => {

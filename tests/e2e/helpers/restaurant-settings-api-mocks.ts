@@ -97,6 +97,40 @@ const servicePeriods = Array.from({ length: 7 }).flatMap((_, dayOfWeek) => [
   },
 ]);
 
+const turnBands = {
+  lunch: [
+    { maxPartySize: 2, durationMinutes: 75 },
+    { maxPartySize: 6, durationMinutes: 105 },
+  ],
+  dinner: [
+    { maxPartySize: 2, durationMinutes: 90 },
+    { maxPartySize: 6, durationMinutes: 120 },
+  ],
+};
+
+/** GET /availability: the Availability page's single snapshot read. */
+export const availabilitySnapshot = {
+  restaurantId,
+  revision: 'qa-availability-r1',
+  revisions: {
+    hours: 'qa-hours-r1',
+    servicePeriods: 'qa-periods-r1',
+    turnBands: 'qa-bands-r1',
+    rules: 'qa-rules-r1',
+  },
+  hours: operatingHours,
+  servicePeriods,
+  turnBands: { restaurantId, bands: turnBands, defaults: turnBands },
+  rules: {
+    reservationIntervalMinutes: 15,
+    reservationDefaultDurationMinutes: 90,
+    reservationLastSeatingBufferMinutes: 15,
+    reservationLifecycleGraceMinutes: 30,
+    bookingPolicy: 'QA browser fixtures only.',
+    updatedAt: '2026-05-16T00:00:00.000Z',
+  },
+};
+
 const occasions = [
   {
     key: 'lunch',
@@ -205,6 +239,11 @@ export async function installCommandCenterApiMocks(page: Page) {
 
     if (pathname === `/api/ops/restaurants/${restaurantId}/hours`) {
       await route.fulfill({ json: operatingHours });
+      return;
+    }
+
+    if (pathname === `/api/ops/restaurants/${restaurantId}/availability`) {
+      await route.fulfill({ json: { data: availabilitySnapshot } });
       return;
     }
 

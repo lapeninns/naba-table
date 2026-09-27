@@ -8,11 +8,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Text } from '@/components/ui/typography';
+import { cn } from '@/lib/utils';
 
 import { BUSINESS_DETAILS_SERVICE_AREA_FIELD } from './businessDetailsPanelDomain';
 import { DISCOVERY_CHIP_BUTTON_CLASS, DISCOVERY_CHIP_CLASS } from './CategoriesPanel';
 import { ServiceAreaAdvancedRow } from './ServiceAreaAdvancedRow';
 import { getServiceAreaChipLabel } from './serviceAreasPanelDomain';
+import { SETTINGS_TOUCH_CONTROL_CLASS } from '../../shared/compactSettingsClasses';
 import { DiscoveryDisclosure, useDiscoveryForm } from '../DiscoveryFormContext';
 import { DISCOVERY_DISCLOSURE_IDS, DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
@@ -86,7 +88,9 @@ export const ServiceAreasPanel = memo(function ServiceAreasPanel({
             const label = getServiceAreaChipLabel(row);
             return (
               <li key={row.id} className={DISCOVERY_CHIP_CLASS}>
-                <span className="min-w-0 truncate">{label}</span>
+                <span className="min-w-0 truncate" title={label}>
+                  {label}
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -133,7 +137,12 @@ export const ServiceAreasPanel = memo(function ServiceAreasPanel({
               }
             }}
           />
-          <Button type="button" variant="outline" onClick={addArea}>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn('min-h-0', SETTINGS_TOUCH_CONTROL_CLASS)}
+            onClick={addArea}
+          >
             <Plus data-icon="inline-start" aria-hidden />
             Add
           </Button>

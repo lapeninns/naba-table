@@ -140,10 +140,15 @@ function resetState() {
 describe('OpsTeamManagementClient', () => {
   beforeEach(resetState);
 
-  it('shows a no-access state when the operator has no restaurant memberships', () => {
+  it('asks for a restaurant when none is selected', () => {
     renderTeamClient([]);
 
-    expect(screen.getByText('No restaurant access')).toBeInTheDocument();
+    expect(screen.getByText('Select a restaurant')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose a restaurant with the sidebar switcher to invite people and manage their invitations.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Invite someone')).not.toBeInTheDocument();
   });
 
@@ -155,6 +160,11 @@ describe('OpsTeamManagementClient', () => {
         'You’re signed in as an Owner, so you can invite people and revoke invitations.',
       ),
     ).toBeInTheDocument();
+    expect(
+      screen
+        .getByText('You’re signed in as an Owner, so you can invite people and revoke invitations.')
+        .closest('[data-slot="settings-status-facts"]'),
+    ).toHaveClass('text-xs', 'text-muted-foreground');
     expect(screen.getByRole('form', { name: 'Invite someone' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Filter invitations' })).toBeInTheDocument();
     expect(screen.queryByText('Team workflow')).not.toBeInTheDocument();
@@ -178,7 +188,7 @@ describe('OpsTeamManagementClient', () => {
     expect(
       screen.getByText('Only owners and managers can see the invitations for this restaurant.'),
     ).toBeInTheDocument();
-    expect(screen.queryByText('Invitations couldn’t be loaded')).not.toBeInTheDocument();
+    expect(screen.queryByText('Couldn’t load invitations')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
@@ -214,6 +224,20 @@ describe('TeamInviteForm', () => {
     expect(result).toHaveTextContent('It expires on 2 Oct 2026.');
     expect(screen.getByLabelText('Email')).toHaveValue('');
     expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
+  });
+
+  it('lays the form out by the card width with touch-sized controls (RR1, RR3)', () => {
+    render(<TeamInviteForm restaurantId="rest-1" existingInvites={[]} />);
+
+    const form = screen.getByRole('form', { name: 'Invite someone' });
+    expect(form).toHaveClass('grid', '@xl:grid-cols-2');
+    expect(form.parentElement).toHaveClass('@container');
+    expect(screen.getByLabelText('Email')).toHaveClass('[@media(pointer:coarse)]:min-h-11');
+    expect(screen.getByRole('combobox')).toHaveClass('[@media(pointer:coarse)]:min-h-11');
+    expect(screen.getByRole('button', { name: 'Send invitation' })).toHaveClass(
+      'w-full',
+      '@xl:col-span-2',
+    );
   });
 
   it('says when the invitation was created but its email was not sent', async () => {
@@ -352,9 +376,31 @@ describe('TeamInvitesTable', () => {
 
     renderTable();
 
-    expect(screen.getByText('Invitations couldn’t be loaded')).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Couldn’t load invitations');
+    expect(alert).toHaveTextContent('Nothing has changed. Reason code HTTP_500');
     expect(screen.getByText('HTTP_500')).toHaveClass('font-mono');
     expect(screen.queryByText('Server error')).not.toBeInTheDocument();
+    // With nothing loaded there is nothing to filter.
+    expect(screen.queryByRole('group', { name: 'Filter invitations' })).not.toBeInTheDocument();
+    await actor.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(teamHooksState.invitations.refetch).toHaveBeenCalled();
+  });
+
+  it('keeps the loaded invitations when a background refresh fails', async () => {
+    const actor = userEvent.setup();
+    teamHooksState.invitations.data = [
+      makeInvite({ id: 'kept', email: 'kept@example.com', expiresAt: FUTURE }),
+    ];
+    teamHooksState.invitations.error = new HttpError({ message: 'Server error', status: 500 });
+    teamHooksState.invitations.isError = true;
+
+    renderTable();
+
+    expect(screen.getByText('Couldn’t refresh saved settings')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByTestId('team-invite-kept')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Waiting 1' })).toBeInTheDocument();
     await actor.click(screen.getByRole('button', { name: 'Try again' }));
     expect(teamHooksState.invitations.refetch).toHaveBeenCalled();
   });
@@ -381,21 +427,21 @@ describe('TeamInvitesTable', () => {
     renderTable();
 
     const filters = screen.getByRole('group', { name: 'Filter invitations' });
-    expect(within(filters).getByRole('button', { name: 'Waiting 1' })).toHaveAttribute(
-      'aria-pressed',
+    expect(within(filters).getByRole('radio', { name: 'Waiting 1' })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
-    expect(within(filters).getByRole('button', { name: 'Expired 1' })).toBeInTheDocument();
-    expect(within(filters).getByRole('button', { name: 'Accepted 1' })).toBeInTheDocument();
-    expect(within(filters).getByRole('button', { name: 'Revoked 1' })).toBeInTheDocument();
-    expect(within(filters).getByRole('button', { name: 'All 4' })).toBeInTheDocument();
+    expect(within(filters).getByRole('radio', { name: 'Expired 1' })).toBeInTheDocument();
+    expect(within(filters).getByRole('radio', { name: 'Accepted 1' })).toBeInTheDocument();
+    expect(within(filters).getByRole('radio', { name: 'Revoked 1' })).toBeInTheDocument();
+    expect(within(filters).getByRole('radio', { name: 'All 4' })).toBeInTheDocument();
 
     const waitingRow = screen.getByTestId('team-invite-waiting');
     expect(waitingRow).toHaveTextContent('Waiting to be accepted');
     expect(waitingRow).toHaveTextContent('Sent 23 Sep 2026 · Expires 30 Sep 2099');
     expect(screen.queryByTestId('team-invite-overdue')).not.toBeInTheDocument();
 
-    await actor.click(within(filters).getByRole('button', { name: 'Expired 1' }));
+    await actor.click(within(filters).getByRole('radio', { name: 'Expired 1' }));
 
     const overdueRow = screen.getByTestId('team-invite-overdue');
     expect(overdueRow).toHaveTextContent('Expired');
@@ -404,18 +450,49 @@ describe('TeamInvitesTable', () => {
     expect(overdueRow).toHaveTextContent('Sent 15 Sep 2020 · Expired 22 Sep 2020');
     expect(within(overdueRow).queryByRole('button', { name: /Revoke/ })).not.toBeInTheDocument();
 
-    await actor.click(within(filters).getByRole('button', { name: 'Revoked 1' }));
+    await actor.click(within(filters).getByRole('radio', { name: 'Revoked 1' }));
     expect(screen.getByTestId('team-invite-revoked')).toBeInTheDocument();
 
-    await actor.click(within(filters).getByRole('button', { name: 'Accepted 1' }));
+    await actor.click(within(filters).getByRole('radio', { name: 'Accepted 1' }));
     expect(screen.getByTestId('team-invite-accepted')).toBeInTheDocument();
+  });
+
+  it('keeps every filter visible and the empty state compact inside the card (RR2, RR10)', () => {
+    renderTable();
+
+    const filters = screen.getByRole('group', { name: 'Filter invitations' });
+    // The track hugs its segments and wraps rather than stretching or scrolling.
+    expect(filters).toHaveClass('self-start', 'flex-wrap');
+    expect(filters).not.toHaveClass('overflow-x-auto');
+
+    const empty = document.querySelector('[data-slot="ops-empty-state"]');
+    expect(empty).toHaveAttribute('data-size', 'compact');
+    expect(screen.getByText('No invitations waiting')).toHaveClass('text-sm', 'font-medium');
+  });
+
+  it('stacks invitation rows by the list width and keeps row actions touch-sized (RR1, RR3, RR9)', () => {
+    teamHooksState.invitations.data = [
+      makeInvite({ id: 'pending-invite', email: 'a-very-long-address@example.com' }),
+    ];
+
+    renderTable();
+
+    const list = screen.getByRole('list', { name: 'Invitations' });
+    expect(list).toHaveClass('@container');
+    const row = screen.getByTestId('team-invite-pending-invite');
+    expect(row).toHaveClass('grid', 'grid-cols-[minmax(0,1fr)_auto]');
+    expect(row.className).toContain('@3xl:grid-cols-');
+    expect(within(row).getByText('a-very-long-address@example.com')).toHaveClass('break-all');
+    expect(
+      screen.getByRole('button', { name: 'Resend invitation for a-very-long-address@example.com' }),
+    ).toHaveClass('[@media(pointer:coarse)]:min-h-11');
   });
 
   it('shows the no-match empty state for other filters', async () => {
     const actor = userEvent.setup();
     renderTable();
 
-    await actor.click(screen.getByRole('button', { name: 'Revoked 0' }));
+    await actor.click(screen.getByRole('radio', { name: 'Revoked 0' }));
 
     expect(screen.getByText('Nothing here')).toBeInTheDocument();
     expect(screen.getByText('No invitations match this filter.')).toBeInTheDocument();
@@ -448,6 +525,8 @@ describe('TeamInvitesTable', () => {
     });
     // Feedback toasts come from the hook's mutation meta, not the table.
     expect(toastMocks.success).not.toHaveBeenCalled();
+    // The revoked row leaves the Waiting list, so focus returns to the active filter.
+    await waitFor(() => expect(screen.getByRole('radio', { name: 'Waiting 1' })).toHaveFocus());
   });
 
   it('keeps the pending state per row while one invitation is being revoked', async () => {
@@ -463,7 +542,9 @@ describe('TeamInvitesTable', () => {
 
     renderTable();
 
-    await actor.click(screen.getByRole('button', { name: 'Revoke invitation for first@example.com' }));
+    await actor.click(
+      screen.getByRole('button', { name: 'Revoke invitation for first@example.com' }),
+    );
     await actor.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', {
         name: 'Revoke invitation',
@@ -477,7 +558,9 @@ describe('TeamInvitesTable', () => {
         within(firstRow).getByRole('button', { name: /Revoking… invitation for first/ }),
       ).toBeDisabled(),
     );
-    expect(within(firstRow).getByRole('button', { name: /Resend invitation for first/ })).toBeDisabled();
+    expect(
+      within(firstRow).getByRole('button', { name: /Resend invitation for first/ }),
+    ).toBeDisabled();
     expect(
       within(secondRow).getByRole('button', { name: 'Revoke invitation for second@example.com' }),
     ).toBeEnabled();
@@ -506,7 +589,9 @@ describe('TeamInvitesTable', () => {
 
     renderTable();
 
-    await actor.click(screen.getByRole('button', { name: 'Resend invitation for first@example.com' }));
+    await actor.click(
+      screen.getByRole('button', { name: 'Resend invitation for first@example.com' }),
+    );
 
     expect(teamHooksState.resendInvite.mutateAsync).toHaveBeenCalledWith({
       restaurantId: 'rest-1',
@@ -536,7 +621,9 @@ describe('TeamInvitesTable', () => {
     );
 
     renderTable();
-    await actor.click(screen.getByRole('button', { name: 'Resend invitation for first@example.com' }));
+    await actor.click(
+      screen.getByRole('button', { name: 'Resend invitation for first@example.com' }),
+    );
 
     await waitFor(() =>
       expect(

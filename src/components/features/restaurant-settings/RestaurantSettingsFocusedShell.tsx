@@ -18,7 +18,7 @@ import {
 } from './RestaurantSettingsSaveBarSlot';
 import { RestaurantSettingsSectionNavSlotContext } from './RestaurantSettingsSectionNavSlot';
 import { RestaurantSettingsSidebar } from './RestaurantSettingsSidebar';
-import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS } from './shared';
+import { SETTINGS_COMPACT_PAGE_CONTENT_CLASS, SETTINGS_TOUCH_CONTROL_SCOPE_CLASS } from './shared';
 
 export type RestaurantSettingsFocusedShellProps = {
   children: ReactNode;
@@ -102,20 +102,25 @@ export function RestaurantSettingsFocusedShell({
               padding keeps keyboard focus clear of sticky rails and bottom save bars. It is also
               the containing block (`relative`), so absolutely positioned content such as
               sr-only labels stays inside it; otherwise the frame gains hidden overflow and
-              scrollIntoView scrolls the frame, pushing the header off screen. */}
+              scrollIntoView scrolls the frame, pushing the header off screen. On coarse pointers it
+              also lifts every settings input and select to a 44px touch target (RR3). */}
             <div
               id="ops-content"
               tabIndex={-1}
               data-layout={workspace ? 'workspace' : 'page'}
               className={
                 workspace
-                  ? 'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+                  ? cn(
+                      'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden',
+                      SETTINGS_TOUCH_CONTROL_SCOPE_CLASS,
+                    )
                   : cn(
                       'relative min-h-0 min-w-0 flex-1 scroll-pb-28 scroll-pt-14 overflow-x-hidden overflow-y-auto overscroll-contain',
                       'pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:pb-8',
                       sectionNavSlot.hasDockedSectionNav ? 'pt-4' : 'pt-4 sm:pt-6',
                       OPS_SHELL_GUTTER_X_CLASS,
                       SETTINGS_COMPACT_PAGE_CONTENT_CLASS,
+                      SETTINGS_TOUCH_CONTROL_SCOPE_CLASS,
                     )
               }
             >

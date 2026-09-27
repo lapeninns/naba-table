@@ -1,11 +1,8 @@
-import { AlertCircle } from 'lucide-react';
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-
-import { getSafeSettingsErrorMessage } from '../../shared/settingsErrorCopy';
+import { SettingsLoadErrorAlert } from '../../shared/SettingsLoadErrorAlert';
+import { SettingsNoRestaurantState } from '../../shared/SettingsNoRestaurantState';
+import { SettingsSectionSkeleton } from '../../shared/SettingsSectionSkeleton';
 
 type GbpErrorSectionProps = {
   error: Error;
@@ -13,59 +10,28 @@ type GbpErrorSectionProps = {
 };
 
 export function NoRestaurantGbpSection() {
-  return (
-    <Card variant="compact" className="border-border/70 shadow-none">
-      <CardContent className="py-8 text-center text-sm text-muted-foreground">
-        Select a restaurant using the sidebar switcher to manage its Google Business Profile
-        connection.
-      </CardContent>
-    </Card>
-  );
+  return <SettingsNoRestaurantState task="manage its Google Business Profile connection" />;
 }
 
 export function LoadingGbpSection() {
-  return (
-    <Card variant="compact" className="border-border/70 shadow-none">
-      <CardContent className="flex flex-col gap-3 p-5" aria-busy="true" role="status">
-        <Skeleton className="h-5 w-40" />
-        <Skeleton className="h-10 w-full" />
-        <Skeleton className="h-10 w-3/4" />
-      </CardContent>
-    </Card>
-  );
+  return <SettingsSectionSkeleton label="Loading Google Business Profile" purposeLine={false} />;
 }
 
 export function ErrorGbpSection({ error, onRetry }: GbpErrorSectionProps) {
   return (
-    <Card variant="compact" className="border-border/70 shadow-none">
-      <CardContent className="py-6">
-        <Alert variant="destructive">
-          <AlertCircle className="size-4" aria-hidden />
-          <AlertTitle>Unable to load Google Business Profile</AlertTitle>
-          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              <span>
-                {getSafeSettingsErrorMessage(error, 'Google Business Profile could not be loaded.')}
-              </span>{' '}
-              Your saved settings are unchanged.
-            </span>
-            <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-              Try again
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </CardContent>
-    </Card>
+    <SettingsLoadErrorAlert
+      title="Couldn’t load Google Business Profile"
+      error={error}
+      onRetry={onRetry}
+    />
   );
 }
 
 export function EmptyGbpConnectionSection() {
   return (
-    <Card variant="compact" className="border-border/70 shadow-none">
-      <CardContent className="py-6 text-sm text-muted-foreground">
-        Google Business Profile connection details are not available for this restaurant yet. Reload
-        the page to try again.
-      </CardContent>
-    </Card>
+    <OpsEmptyState
+      title="Connection details unavailable"
+      description="Google Business Profile connection details are not available for this restaurant yet. Reload the page to try again."
+    />
   );
 }

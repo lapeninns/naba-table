@@ -2,6 +2,7 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { cn } from '@/lib/utils';
 
 import { DualSyncQueueJobRow } from './DualSyncQueueJobRow';
+import { SettingsOverflowFrame } from '../../../shared/SettingsOverflowFrame';
 
 import type { DualSyncJob } from '@/server/dual-sync';
 
@@ -19,7 +20,7 @@ export function DualSyncQueueJobsContent({
   readonly retryingJobId?: string;
 }) {
   return (
-    <div className={cn('rounded-md border', className)}>
+    <SettingsOverflowFrame className={cn('overflow-hidden rounded-md border', className)}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -43,6 +44,6 @@ export function DualSyncQueueJobsContent({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </SettingsOverflowFrame>
   );
 }

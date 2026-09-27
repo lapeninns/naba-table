@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/table';
 
 import { buildDualSyncPublishOperationTableRows } from './dualSyncPublishResultDomain';
+import { SettingsOverflowFrame } from '../shared/SettingsOverflowFrame';
 
 import type { DualSyncPublishResponse } from '@/services/ops/dual-sync';
 
@@ -30,7 +31,7 @@ export function DualSyncPublishOperationsTable({
   const rows = buildDualSyncPublishOperationTableRows(operations);
 
   return (
-    <div className="rounded-md border">
+    <SettingsOverflowFrame className="overflow-hidden rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -45,25 +46,23 @@ export function DualSyncPublishOperationsTable({
           {rows.map((row) => (
             <TableRow key={row.id} className="text-xs">
               <TableCell>
-                <Badge variant={row.statusVariant} className="font-mono text-[10px]">
+                <Badge variant={row.statusVariant} className="font-mono text-xs">
                   {row.status}
                 </Badge>
               </TableCell>
               <TableCell>
-                <div className="font-mono text-[10px]">{row.fieldKey}</div>
+                <div className="font-mono text-xs">{row.fieldKey}</div>
                 {row.errorCode ? (
-                  <div className="mt-0.5 font-mono text-[10px] text-destructive">
-                    {row.errorCode}
-                  </div>
+                  <div className="mt-0.5 font-mono text-xs text-destructive">{row.errorCode}</div>
                 ) : null}
               </TableCell>
-              <TableCell className="font-mono text-[10px]">{row.direction}</TableCell>
-              <TableCell className="font-mono text-[10px]">{row.maskLabel}</TableCell>
-              <TableCell className="font-mono text-[10px]">{row.finishedAtLabel}</TableCell>
+              <TableCell className="font-mono text-xs">{row.direction}</TableCell>
+              <TableCell className="font-mono text-xs">{row.maskLabel}</TableCell>
+              <TableCell className="font-mono text-xs">{row.finishedAtLabel}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-    </div>
+    </SettingsOverflowFrame>
   );
 }

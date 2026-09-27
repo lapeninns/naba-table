@@ -140,7 +140,7 @@ describe('menuHierarchyFormControls', () => {
       />,
     );
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Not saved. Your edits are still in this dialog. Reason code RATE_LIMITED.',
+      'Not saved. Your edits are still in this dialog. Reason code RATE_LIMITED',
     );
     expect(screen.queryByText(/Jane/)).not.toBeInTheDocument();
   });

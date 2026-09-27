@@ -64,7 +64,7 @@ export function AvailabilityRuleEditor({
           <SelectTrigger aria-label={`Rule ${index + 1} type`}>
             <SelectValue placeholder="Choose a rule type" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
             <SelectGroup>
               <SelectItem value="anytime">Always available</SelectItem>
               <SelectItem value="time_window">Only during a time window</SelectItem>
@@ -115,6 +115,7 @@ export function AvailabilityRuleEditor({
                   type="button"
                   variant={selected ? 'default' : 'outline'}
                   size="sm"
+                  aria-pressed={selected}
                   onClick={() => onToggleMonth(rule.id, month.value)}
                 >
                   {month.label}
@@ -147,7 +148,7 @@ export function AvailabilityRuleEditor({
               label="Add date"
               value={rule.pendingDate}
               onChange={(pendingDate) => onUpdate(rule.id, { pendingDate })}
-              className="min-w-[180px] flex-1"
+              className="min-w-0 flex-[1_1_11rem]"
             />
             <Button type="button" variant="outline" onClick={() => onAddSpecificDate(rule.id)}>
               Add date

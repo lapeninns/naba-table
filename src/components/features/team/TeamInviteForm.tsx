@@ -5,6 +5,7 @@ import { AlertCircle, CheckCircle2, ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 
+import { SETTINGS_TOUCH_CONTROL_CLASS } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
 import { useSettingsDiscardGuard } from '@/components/features/restaurant-settings/shared/useSettingsDiscardGuard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -47,7 +48,13 @@ import {
 
 import type { TeamInvite } from '@/services/ops/team';
 
-const COARSE_TARGET_CLASS = '[@media(pointer:coarse)]:min-h-11';
+const COARSE_TARGET_CLASS = SETTINGS_TOUCH_CONTROL_CLASS;
+
+/**
+ * Role options sit clear of the selected check (the primitive's item padding lets the check
+ * overlap the label) and are 44px tall on a coarse pointer.
+ */
+const ROLE_OPTION_CLASS = `pl-8 ${COARSE_TARGET_CLASS}`;
 
 type TeamInviteFormProps = {
   restaurantId: string;
@@ -91,7 +98,7 @@ function RoleGuide() {
       <CollapsibleContent>
         <ul className="mt-2 grid gap-2">
           {TEAM_ROLE_ORDER.map((role) => (
-            <li key={role} className="grid gap-0.5 rounded-md border border-border/70 px-3 py-2">
+            <li key={role} className="grid gap-0.5 rounded-lg border border-border/60 px-3 py-2">
               <span className="text-sm font-medium text-foreground">{formatTeamRole(role)}</span>
               <span className="text-xs leading-5 text-muted-foreground">
                 {TEAM_ROLE_DESCRIPTIONS[role]}
@@ -172,14 +179,16 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
     <SettingsCard
       title="Invite someone"
       description="They get an email link that works for 7 days. Access is for this restaurant only."
-      contentClassName="flex flex-col gap-4"
+      // A container, so the form lays out by the card's width: one column in the xl aside or
+      // on a phone, email and role side by side when the card spans a wide content column.
+      contentClassName="@container flex flex-col gap-4"
     >
       <Form {...form}>
         <FormRoot
           onSubmit={form.handleSubmit(onSubmit)}
           noValidate
           aria-label="Invite someone"
-          className="grid gap-4"
+          className="grid gap-4 @xl:grid-cols-2 @xl:items-start"
         >
           <FormField
             control={form.control}
@@ -195,6 +204,7 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
                     autoComplete="off"
                     placeholder="name@example.com"
                     disabled={isSending}
+                    className={COARSE_TARGET_CLASS}
                   />
                 </FormControl>
                 <FieldError show={Boolean(fieldState.error)} />
@@ -214,10 +224,17 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                   </FormControl>
-                  <SelectContent>
+                  <SelectContent
+                    collisionPadding={16}
+                    className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)]"
+                  >
                     <SelectGroup>
                       {TEAM_INVITE_ROLE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className={ROLE_OPTION_CLASS}
+                        >
                           {option.label}
                         </SelectItem>
                       ))}
@@ -226,7 +243,7 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
                 </Select>
                 <FormDescription
                   aria-live="polite"
-                  className="rounded-md bg-muted/50 px-3 py-2 text-xs leading-5"
+                  className="rounded-lg bg-muted/50 px-3 py-2 text-xs leading-5"
                 >
                   {TEAM_ROLE_DESCRIPTIONS[selectedRole]}
                 </FormDescription>
@@ -237,7 +254,7 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
 
           {result ? (
             result.ok && !result.emailSent ? (
-              <Alert variant="warning" role="status">
+              <Alert variant="warning" role="status" className="@xl:col-span-2">
                 <AlertCircle className="size-4" aria-hidden />
                 <AlertTitle className="break-all">
                   Invitation created for {result.email}, but the email wasn’t sent
@@ -247,7 +264,7 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
                 </AlertDescription>
               </Alert>
             ) : result.ok ? (
-              <Alert variant="success" role="status">
+              <Alert variant="success" role="status" className="@xl:col-span-2">
                 <CheckCircle2 className="size-4" aria-hidden />
                 <AlertTitle className="break-all">Invitation sent to {result.email}</AlertTitle>
                 <AlertDescription className="text-muted-foreground">
@@ -259,7 +276,7 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
                 </AlertDescription>
               </Alert>
             ) : (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="@xl:col-span-2">
                 <AlertCircle className="size-4" aria-hidden />
                 <AlertTitle>Invitation wasn’t sent</AlertTitle>
                 <AlertDescription className="text-foreground">
@@ -270,7 +287,11 @@ export function TeamInviteForm({ restaurantId, existingInvites }: TeamInviteForm
             )
           ) : null}
 
-          <Button type="submit" className={`w-full ${COARSE_TARGET_CLASS}`} disabled={isSending}>
+          <Button
+            type="submit"
+            className={`w-full @xl:col-span-2 @xl:w-fit @xl:min-w-40 ${COARSE_TARGET_CLASS}`}
+            disabled={isSending}
+          >
             {isSending ? (
               <>
                 <Loader2

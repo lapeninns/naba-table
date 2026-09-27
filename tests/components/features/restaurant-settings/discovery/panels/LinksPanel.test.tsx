@@ -22,7 +22,10 @@ describe('LinksPanel', () => {
     const user = userEvent.setup();
     const editor = renderPanel();
 
-    expect(screen.getByText('No links yet.')).toBeInTheDocument();
+    expect(screen.getByText('No links yet').closest('[data-slot=ops-empty-state]')).toHaveAttribute(
+      'data-size',
+      'compact',
+    );
     await user.click(screen.getByRole('button', { name: 'Add link' }));
     expect(editor.addLink).toHaveBeenCalledTimes(1);
   });

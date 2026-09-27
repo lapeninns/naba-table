@@ -323,7 +323,7 @@ describe('ItemDialog', () => {
     renderDialog();
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Not saved. Your edits are still in this dialog. Reason code HTTP_500.',
+      'Not saved. Your edits are still in this dialog. Reason code HTTP_500',
     );
     expect(screen.queryByText(/Save failed hard/)).not.toBeInTheDocument();
   });

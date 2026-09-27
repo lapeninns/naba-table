@@ -4,10 +4,10 @@ import { Plus } from 'lucide-react';
 import { memo } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Text } from '@/components/ui/typography';
 
 import { LinkRow } from './LinkRow';
 import { makeFieldId } from '../../businessContextModel';
+import { SettingsCardEmptyState } from '../../shared/SettingsCardEmptyState';
 import { useDiscoveryForm } from '../DiscoveryFormContext';
 import { DISCOVERY_FIELD_IDS } from '../discoveryValidation';
 
@@ -39,7 +39,10 @@ export const LinksPanel = memo(function LinksPanel({ editor }: { editor: LinksPa
           ))}
         </div>
       ) : (
-        <Text variant="caption">No links yet.</Text>
+        <SettingsCardEmptyState
+          title="No links yet"
+          description="Add your website or social profiles below."
+        />
       )}
       <div>
         <Button

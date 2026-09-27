@@ -22,21 +22,21 @@ export function DualSyncPendingCandidateRow({
       <TableCell>
         <Badge
           variant={row.statusVariant}
-          className="inline-flex items-center gap-1 font-mono text-[10px]"
+          className="inline-flex items-center gap-1 font-mono text-xs"
         >
           <Clock className="size-3" />
           {row.statusLabel}
         </Badge>
       </TableCell>
       <TableCell>
-        <div className="max-w-[280px] truncate font-mono text-[10px]">{row.fieldKey}</div>
-        <div className="mt-0.5 max-w-[280px] truncate text-[10px] text-muted-foreground">
+        <div className="max-w-[280px] truncate font-mono text-xs">{row.fieldKey}</div>
+        <div className="mt-0.5 max-w-[280px] truncate text-xs text-muted-foreground">
           {row.sectionKey}
         </div>
       </TableCell>
-      <TableCell className="font-mono text-[10px]">{row.source}</TableCell>
-      <TableCell className="font-mono text-[10px]">{row.baselineHashLabel}</TableCell>
-      <TableCell className="font-mono text-[10px]">{row.updatedAtLabel}</TableCell>
+      <TableCell className="font-mono text-xs">{row.source}</TableCell>
+      <TableCell className="font-mono text-xs">{row.baselineHashLabel}</TableCell>
+      <TableCell className="font-mono text-xs">{row.updatedAtLabel}</TableCell>
       <TableCell className="text-right">
         {row.canCancel ? (
           <Button

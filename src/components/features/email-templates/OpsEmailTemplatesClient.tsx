@@ -1,11 +1,11 @@
 'use client';
 
-import { RefreshCw, TriangleAlert } from 'lucide-react';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react';
 
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { SettingsLoadErrorAlert } from '@/components/features/restaurant-settings/shared/SettingsLoadErrorAlert';
+import { SettingsNoRestaurantState } from '@/components/features/restaurant-settings/shared/SettingsNoRestaurantState';
+import { SettingsRefreshErrorAlert } from '@/components/features/restaurant-settings/shared/SettingsRefreshErrorAlert';
+import { SettingsSectionSkeleton } from '@/components/features/restaurant-settings/shared/SettingsSectionSkeleton';
 import { useOpsEmailTemplatesEditor } from '@/hooks/ops/useOpsEmailTemplatesEditor';
 import { cn } from '@/lib/utils';
 
@@ -34,24 +34,11 @@ function focusBlocker(blocker: SaveBlocker) {
   requestAnimationFrame(() => document.getElementById(id)?.focus());
 }
 
-function LoadingWorkspace() {
+/** Workspace states (no restaurant, load failure) sit centred in the canvas. */
+function CenteredWorkspaceState({ children }: { children: ReactNode }) {
   return (
-    <div className="grid h-full min-h-0 gap-0 md:grid-cols-[252px_minmax(0,1fr)]" aria-busy="true">
-      <div className="hidden space-y-3 border-r p-3 md:block">
-        <Skeleton className="h-9" />
-        {Array.from({ length: 7 }, (_, index) => (
-          <Skeleton key={index} className="h-12" />
-        ))}
-      </div>
-      <div className="space-y-3 bg-muted/40 p-4">
-        <Skeleton className="h-10" />
-        <Skeleton className="h-32" />
-        <Skeleton className="h-44" />
-        <Skeleton className="h-64" />
-      </div>
-      <span className="sr-only" role="status">
-        Loading email templates…
-      </span>
+    <div className="grid h-full min-h-0 place-items-center px-[var(--ops-shell-gutter)] py-6">
+      <div className="w-full max-w-md">{children}</div>
     </div>
   );
 }
@@ -100,34 +87,34 @@ export function OpsEmailTemplatesClient() {
     if (editorScrollRef.current) editorScrollRef.current.scrollTop = 0;
   }, [openedKey, pane]);
 
-  if (editor.memberships.length === 0) {
+  const { templatesQuery } = editor;
+  const retryLoad = () => void templatesQuery.refetch();
+
+  if (!editor.restaurantId) {
     return (
-      <OpsEmptyState
-        title="No restaurant access"
-        description="You need access to at least one restaurant to manage guest-facing email templates."
-      />
+      <CenteredWorkspaceState>
+        <SettingsNoRestaurantState task="manage its guest emails" />
+      </CenteredWorkspaceState>
     );
   }
 
-  if (editor.templatesQuery.isError && !editor.templatesQuery.data) {
+  if (templatesQuery.isError && !templatesQuery.data) {
     return (
-      <div className="grid h-full place-items-center p-6">
-        <div className="max-w-md space-y-3 text-center">
-          <TriangleAlert className="mx-auto size-5" aria-hidden />
-          <h2 className="text-lg font-semibold">Email templates didn’t load</h2>
-          <p className="text-sm text-muted-foreground">
-            Nothing has changed for guests. Try again in a moment.
-          </p>
-          <Button type="button" onClick={() => void editor.templatesQuery.refetch()}>
-            <RefreshCw aria-hidden />
-            Try again
-          </Button>
-        </div>
-      </div>
+      <CenteredWorkspaceState>
+        <SettingsLoadErrorAlert
+          title="Couldn’t load email templates"
+          message="Nothing has changed for guests."
+          error={templatesQuery.error}
+          onRetry={retryLoad}
+          retrying={templatesQuery.isFetching}
+        />
+      </CenteredWorkspaceState>
     );
   }
 
-  if (!editor.template) return <LoadingWorkspace />;
+  if (!editor.template) {
+    return <SettingsSectionSkeleton label="Loading email templates" variant="workspace" />;
+  }
 
   // One column (narrow): the list or the email; the email shows Edit or Preview.
   // Two columns: list beside the email, Edit or Preview. Three columns: everything at once.
@@ -136,10 +123,15 @@ export function OpsEmailTemplatesClient() {
   const singleColumnEmail = onList ? 'hidden' : 'block';
 
   return (
-    <div className="@container h-full min-h-0 min-w-0">
+    <div className="@container flex h-full min-h-0 min-w-0 flex-col">
+      {templatesQuery.isError ? (
+        <div className="shrink-0 border-b border-border/60 px-[var(--ops-shell-gutter)] py-3">
+          <SettingsRefreshErrorAlert error={templatesQuery.error} onRetry={retryLoad} />
+        </div>
+      ) : null}
       <div
         className={cn(
-          'grid h-full min-h-0 min-w-0 grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]',
+          'grid min-h-0 min-w-0 flex-1 grid-cols-1 grid-rows-[auto_minmax(0,1fr)_auto]',
           "[grid-template-areas:'head''ed''bar']",
           "@2xl:grid-cols-[252px_minmax(0,1fr)] @2xl:[grid-template-areas:'list_head''list_ed''list_bar']",
           "@6xl:grid-cols-[272px_minmax(0,1fr)_minmax(380px,42%)] @6xl:[grid-template-areas:'list_head_head''list_ed_pv''list_bar_pv']",

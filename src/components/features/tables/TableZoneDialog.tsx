@@ -22,7 +22,12 @@ import {
   type ZoneFormPayload,
 } from './tableInventoryFormDomain';
 import { getZoneSuccessorId } from './tableRoomDomain';
-import { describedBy, TableFieldError } from './TableRoomParts';
+import {
+  describedBy,
+  TABLE_SELECT_COLLISION_PADDING,
+  TABLE_SELECT_CONTENT_CLASS,
+  TableFieldError,
+} from './TableRoomParts';
 
 import type { TableZone } from './tableInventoryModel';
 
@@ -104,9 +109,7 @@ export function TableZoneDialog({
     >
       <FormRoot id={ZONE_FORM_ID} onSubmit={handleSubmit} noValidate className="grid gap-4">
         <div className="grid gap-1">
-          <Label htmlFor="zoneName" className="text-[13px]">
-            Zone name
-          </Label>
+          <Label htmlFor="zoneName">Zone name</Label>
           <Input
             id="zoneName"
             name="zoneName"
@@ -121,14 +124,15 @@ export function TableZoneDialog({
           <TableFieldError id="zoneName-error" message={errors.zoneName} />
         </div>
         <div className="grid gap-1">
-          <Label htmlFor="zonePosition" className="text-[13px]">
-            Position on this page
-          </Label>
+          <Label htmlFor="zonePosition">Position on this page</Label>
           <Select value={position} onValueChange={setPosition}>
             <SelectTrigger id="zonePosition" className="w-full">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              collisionPadding={TABLE_SELECT_COLLISION_PADDING}
+              className={TABLE_SELECT_CONTENT_CLASS}
+            >
               {others.map((zone) => (
                 <SelectItem key={zone.id} value={zone.id}>
                   Before {zone.name}

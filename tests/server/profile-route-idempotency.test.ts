@@ -89,7 +89,8 @@ describe('PUT /api/profile idempotency', () => {
   it('logs an unexpected failure without the submitted name or phone', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     getServiceSupabaseClientMock.mockReturnValue({
-      rpc: vi.fn().mockRejectedValue(new Error('socket hang up')),
+      // Network failures become a retryable 503; this is any other surprise.
+      rpc: vi.fn().mockRejectedValue(new Error('unexpected profile write result')),
     });
 
     try {
@@ -98,7 +99,7 @@ describe('PUT /api/profile idempotency', () => {
 
       expect(response.status).toBe(500);
       expect(body.code).toBe('INTERNAL_ERROR');
-      expect(JSON.stringify(body)).not.toContain('socket hang up');
+      expect(JSON.stringify(body)).not.toContain('unexpected profile write result');
       expect(loggerMock.error).toHaveBeenCalledWith(
         'api.internal_error',
         expect.objectContaining({ route: 'profile.put', fieldNames: ['name', 'phone'] }),

@@ -87,10 +87,15 @@ export function ContactLocationSubform({
                   error: Boolean(errors.timezone),
                 })}
                 className={cn('min-w-0 [&>span]:truncate', PROFILE_CONTROL_CLASS)}
+                // The long "City (GMT±N) · Region/City" label truncates on a 320px phone; the
+                // full value stays available on hover.
+                title={state.timezone ? buildTimezoneOptionLabel(state.timezone) : undefined}
               >
                 <SelectValue placeholder="Select a timezone" />
               </SelectTrigger>
-              <SelectContent className="max-h-80">{timezoneOptions}</SelectContent>
+              <SelectContent collisionPadding={16} className="max-h-80 max-w-[calc(100vw-2rem)]">
+                {timezoneOptions}
+              </SelectContent>
             </Select>
           </ProfileField>
 

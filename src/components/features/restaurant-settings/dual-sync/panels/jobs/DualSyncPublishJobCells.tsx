@@ -18,7 +18,7 @@ export function DualSyncPublishJobStatusCell({ viewModel }: DualSyncPublishJobCe
       {viewModel.hasErrorCodes ? (
         <div className="mt-1 flex flex-wrap gap-1">
           {viewModel.errorCodes.map((code) => (
-            <span key={code} className="font-mono text-[10px] text-destructive">
+            <span key={code} className="font-mono text-xs text-destructive">
               {code}
             </span>
           ))}
@@ -31,10 +31,10 @@ export function DualSyncPublishJobStatusCell({ viewModel }: DualSyncPublishJobCe
 export function DualSyncPublishJobIdentityCell({ viewModel }: DualSyncPublishJobCellProps) {
   return (
     <TableCell>
-      <span className="font-mono text-[10px]" title={viewModel.id}>
+      <span className="font-mono text-xs" title={viewModel.id}>
         {viewModel.shortId}
       </span>
-      <div className="mt-0.5 flex gap-2 text-[10px] text-muted-foreground">
+      <div className="mt-0.5 flex gap-2 text-xs text-muted-foreground">
         {viewModel.hasImportCount ? (
           <span className="inline-flex items-center gap-0.5">
             <ArrowDownToLine className="size-3" />
@@ -54,7 +54,7 @@ export function DualSyncPublishJobIdentityCell({ viewModel }: DualSyncPublishJob
 
 export function DualSyncPublishJobCountsCell({ viewModel }: DualSyncPublishJobCellProps) {
   return (
-    <TableCell className="text-right font-mono text-[10px]">
+    <TableCell className="text-right font-mono text-xs">
       <span className="text-primary">{viewModel.succeededCount}✓</span>
       {' / '}
       <span className="text-destructive">{viewModel.failedCount}✗</span>
@@ -73,7 +73,7 @@ export function DualSyncPublishJobSectionsCell({ viewModel }: DualSyncPublishJob
     <TableCell>
       <div className="flex flex-wrap gap-1">
         {viewModel.sectionLabels.map((section) => (
-          <Badge key={section.key} variant="outline" className="font-mono text-[10px]">
+          <Badge key={section.key} variant="outline" className="font-mono text-xs">
             {section.label}
           </Badge>
         ))}

@@ -26,6 +26,8 @@ import {
   type OccasionFormState,
 } from './availabilityOccasionsModel';
 import { ConfirmDialog } from './ConfirmDialog';
+import { SettingsCardEmptyState } from './shared/SettingsCardEmptyState';
+import { SettingsDirtyBadge } from './shared/SettingsDirtyBadge';
 import { useSettingsDiscardGuard } from './shared/useSettingsDiscardGuard';
 import { validateTurnBandRows, type TurnBandRowError } from './turnBandsDomain';
 
@@ -233,11 +235,11 @@ export function AvailabilityOccasionsEditor({
         </p>
       )}
       {sortedOccasions.length === 0 ? (
-        <div className="flex flex-col gap-1 border-t border-border/60 px-4 py-6 sm:px-5">
-          <p className="font-medium text-foreground">No booking types</p>
-          <p className="text-sm text-muted-foreground">
-            Create Lunch and Dinner to start offering meal times.
-          </p>
+        <div className="border-t border-border/60 px-4 py-4 sm:px-5">
+          <SettingsCardEmptyState
+            title="No booking types"
+            description="Create Lunch and Dinner to start offering meal times."
+          />
         </div>
       ) : (
         <ul className="divide-y divide-border/60 border-t border-border/60">
@@ -254,16 +256,16 @@ export function AvailabilityOccasionsEditor({
             return (
               <li
                 key={occasion.key}
-                className="grid gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:px-5"
+                className="grid gap-x-4 gap-y-2 px-4 py-3 @lg:grid-cols-[minmax(0,1fr)_auto_auto] @lg:items-center sm:px-5"
               >
                 <div className="flex min-w-0 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-foreground">
-                    <span>{occasion.label}</span>
+                    <span className="min-w-0 break-words">{occasion.label}</span>
                     {isServiceWindowOccasion(occasion.key) ? (
                       <Badge variant="secondary">Required for meal times</Badge>
                     ) : null}
                     {occasion.isActive ? null : <Badge variant="outline">Off</Badge>}
-                    {state ? <Badge variant="status-pending">{state}</Badge> : null}
+                    {state ? <SettingsDirtyBadge label={state} /> : null}
                   </div>
                   <p className="text-xs">
                     <span className="text-muted-foreground">Table time:</span>{' '}

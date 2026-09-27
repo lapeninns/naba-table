@@ -190,7 +190,7 @@ export function QuickEditItemDialog({
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent collisionPadding={16}>
               <SelectItem value={NONE_VALUE}>Not set</SelectItem>
               <SelectItem value="available">Available</SelectItem>
               <SelectItem value="unavailable">Unavailable</SelectItem>

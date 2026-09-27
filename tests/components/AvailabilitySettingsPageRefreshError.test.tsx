@@ -44,7 +44,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/app/settings/restaurant/availability',
 }));
 
-vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }) }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({ useGlobalShortcuts: vi.fn() }));
 
@@ -235,7 +235,7 @@ describe('AvailabilitySettingsPage load errors', () => {
     expect(await screen.findByText('Couldn’t refresh saved settings')).toBeInTheDocument();
     expect(screen.getByText('HTTP_503')).toBeInTheDocument();
     expect(screen.queryByText('Service Unavailable')).not.toBeInTheDocument();
-    expect(screen.queryByText('Availability settings couldn’t load')).not.toBeInTheDocument();
+    expect(screen.queryByText('Couldn’t load availability settings')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Booking rules' })).toBeInTheDocument();
     expect(
       within(screen.getByRole('region', { name: 'Unsaved changes' })).getByText('1 unsaved change'),
@@ -251,7 +251,7 @@ describe('AvailabilitySettingsPage load errors', () => {
     state.availability.error = refreshFailure;
     renderPage();
 
-    expect(await screen.findByText('Availability settings couldn’t load')).toBeInTheDocument();
+    expect(await screen.findByText('Couldn’t load availability settings')).toBeInTheDocument();
     expect(screen.getByText('HTTP_503')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Booking rules' })).not.toBeInTheDocument();

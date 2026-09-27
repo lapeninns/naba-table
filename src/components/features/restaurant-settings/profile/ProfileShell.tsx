@@ -1,7 +1,7 @@
 'use client';
 
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
-import { RestaurantSettingsCommandCenter } from '../shared';
+import { RestaurantSettingsCommandCenter, SETTINGS_ASIDE_GRID_CLASS } from '../shared';
 
 import type { RestaurantSettingsCommandRailItem } from '../shared';
 import type { ReactNode } from 'react';
@@ -32,8 +32,7 @@ export function ProfileShell({ railItems, status, children }: ProfileShellProps)
 }
 
 /**
- * One column below `xl`; from `xl` the readiness panel is a sticky ~320px column beside
- * the sections.
+ * One column below `xl`; from `xl` the readiness panel is a sticky 20rem column beside
+ * the sections (the shared settings aside grid).
  */
-export const PROFILE_LAYOUT_GRID_CLASS =
-  'grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]';
+export const PROFILE_LAYOUT_GRID_CLASS = SETTINGS_ASIDE_GRID_CLASS;

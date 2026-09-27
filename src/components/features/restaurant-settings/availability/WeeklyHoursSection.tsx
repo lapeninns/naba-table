@@ -4,13 +4,14 @@ import { AlertTriangle, ChevronRight, Copy, Undo2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 import { toComparableTime } from '../availabilityScheduleTime';
+import { SettingsCard } from '../shared/SettingsCard';
+import { SettingsDirtyBadge } from '../shared/SettingsDirtyBadge';
 import { pluralise } from '../shared/settingsSaveSequence';
 import { DAYS_OF_WEEK, type WeeklyRow } from '../types';
 import { AvailabilityTimeField, FieldErrorText, TOUCH_TARGET_CLASS } from './AvailabilityFields';
@@ -77,6 +78,9 @@ export function describeWeekday(
   return parts.join(' · ');
 }
 
+/** Day actions carry the weekday name, so they wrap instead of overflowing a 320px screen. */
+const DAY_ACTION_CLASS = 'h-auto max-w-full whitespace-normal py-1.5 text-left';
+
 function WeekdayTimeline({
   row,
   day,
@@ -123,7 +127,7 @@ function WeekdayTimeline({
           <span
             key={meal}
             className={cn(
-              'absolute inset-y-1 overflow-hidden whitespace-nowrap rounded px-1.5 text-[11px] font-semibold leading-5',
+              'absolute inset-y-1 overflow-hidden whitespace-nowrap rounded px-1.5 text-xs font-semibold leading-5',
               meal === 'lunch' ? 'bg-chart-1 text-overlay' : 'bg-chart-5 text-primary-foreground',
             )}
             style={{ left: `${pct(start)}%`, width: `${pct(end) - pct(start)}%` }}
@@ -178,62 +182,54 @@ export function WeeklyHoursSection(props: WeeklyHoursSectionProps) {
   const { weekdays, openDays, onToggleDay } = props;
   const editedDays = weekdays.filter((view) => view.edited).length;
   return (
-    <Card
+    <SettingsCard
       id={WEEKLY_HOURS_SECTION_ID}
-      aria-labelledby="availability-weekly-heading"
-      className="scroll-mt-4 overflow-hidden border-border/70 shadow-none"
-    >
-      <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-border/60 px-4 py-4 sm:px-5">
-        <div className="flex min-w-0 flex-col gap-1">
-          <CardTitle
-            id="availability-weekly-heading"
-            role="heading"
-            aria-level={2}
-            className="text-base leading-6"
-          >
-            Weekly hours and meal times
-          </CardTitle>
-          <CardDescription>
-            Your regular week. Select a day to change its hours or meal times.
-          </CardDescription>
+      region
+      titleId="availability-weekly-heading"
+      title="Weekly hours and meal times"
+      description="Your regular week. Select a day to change its hours or meal times."
+      badges={
+        editedDays > 0 ? (
+          <SettingsDirtyBadge label={`${pluralise(editedDays, 'day')} edited`} />
+        ) : null
+      }
+      contentClassName="p-0 @container sm:p-0"
+      subheader={
+        <div
+          className="flex flex-wrap gap-x-4 gap-y-1.5 border-b border-border/60 px-4 py-2.5 text-xs text-muted-foreground sm:px-5"
+          aria-label="Timeline key"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <i
+              className="inline-block h-2.5 w-4 rounded-sm border border-border bg-muted"
+              aria-hidden
+            />
+            Open
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2.5 w-4 rounded-sm bg-chart-1" aria-hidden />
+            Lunch
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2.5 w-4 rounded-sm bg-chart-5" aria-hidden />
+            Dinner
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <i
+              className="inline-block h-3.5 w-[3px] bg-[repeating-linear-gradient(180deg,var(--color-foreground)_0_3px,var(--color-background)_3px_5px)]"
+              aria-hidden
+            />
+            Last seating
+          </span>
         </div>
-        {editedDays > 0 ? (
-          <Badge variant="status-pending">{pluralise(editedDays, 'day')} edited</Badge>
-        ) : null}
-      </CardHeader>
+      }
+    >
       <div
-        className="flex flex-wrap gap-x-4 gap-y-1.5 border-b border-border/60 px-4 py-2.5 text-xs text-muted-foreground sm:px-5"
-        aria-label="Timeline key"
-      >
-        <span className="inline-flex items-center gap-1.5">
-          <i
-            className="inline-block h-2.5 w-4 rounded-sm border border-border bg-muted"
-            aria-hidden
-          />
-          Open
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-4 rounded-sm bg-chart-1" aria-hidden />
-          Lunch
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <i className="inline-block h-2.5 w-4 rounded-sm bg-chart-5" aria-hidden />
-          Dinner
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <i
-            className="inline-block h-3.5 w-[3px] bg-[repeating-linear-gradient(180deg,var(--color-foreground)_0_3px,var(--color-background)_3px_5px)]"
-            aria-hidden
-          />
-          Last seating
-        </span>
-      </div>
-      <div
-        className="hidden grid-cols-[8.25rem_minmax(0,1fr)_1rem] gap-3 px-4 pt-2 sm:px-5 md:grid"
+        className="hidden grid-cols-[8.25rem_minmax(0,1fr)_1rem] gap-3 px-4 pt-2 @xl:grid sm:px-5"
         aria-hidden
       >
         <span />
-        <span className="relative h-4 font-mono text-[11px] text-muted-foreground">
+        <span className="relative h-4 text-xs tabular-nums text-muted-foreground">
           {SCALE_TICKS.map((hour, index) => (
             <span
               key={hour}
@@ -268,7 +264,7 @@ export function WeeklyHoursSection(props: WeeklyHoursSectionProps) {
                 aria-expanded={expanded}
                 aria-controls={panelId}
                 onClick={() => onToggleDay(dayOfWeek)}
-                className="grid h-auto w-full grid-cols-[minmax(0,1fr)_auto] items-center justify-stretch gap-x-3 gap-y-2 whitespace-normal rounded-none px-4 py-3 text-left font-normal tracking-normal hover:bg-muted/50 focus-visible:ring-inset active:translate-y-0 active:scale-100 motion-reduce:transition-none sm:px-5 md:grid-cols-[8.25rem_minmax(0,1fr)_1rem]"
+                className="grid h-auto w-full grid-cols-[minmax(0,1fr)_auto] items-center justify-stretch gap-x-3 gap-y-2 whitespace-normal rounded-none px-4 py-3 text-left font-normal tracking-normal hover:bg-muted/50 focus-visible:ring-inset active:translate-y-0 active:scale-100 motion-reduce:transition-none sm:px-5 @xl:grid-cols-[8.25rem_minmax(0,1fr)_1rem]"
               >
                 <span className="flex min-w-0 flex-wrap items-center gap-1.5 font-semibold text-foreground">
                   <span>{dayName}</span>
@@ -278,10 +274,10 @@ export function WeeklyHoursSection(props: WeeklyHoursSectionProps) {
                       {pluralise(view.issueCount, 'issue')}
                     </Badge>
                   ) : null}
-                  {view.edited ? <Badge variant="status-pending">Edited</Badge> : null}
+                  {view.edited ? <SettingsDirtyBadge /> : null}
                   {view.googleDiffers ? <Badge variant="outline">Google differs</Badge> : null}
                 </span>
-                <span className="col-start-2 row-start-1 text-muted-foreground md:col-start-3">
+                <span className="col-start-2 row-start-1 text-muted-foreground @xl:col-start-3">
                   <ChevronRight
                     className={cn(
                       'size-4 transition-transform motion-reduce:transition-none',
@@ -290,7 +286,7 @@ export function WeeklyHoursSection(props: WeeklyHoursSectionProps) {
                     aria-hidden
                   />
                 </span>
-                <span className="col-span-full flex min-w-0 flex-col gap-1.5 md:col-span-1 md:col-start-2 md:row-start-1">
+                <span className="col-span-full flex min-w-0 flex-col gap-1.5 @xl:col-span-1 @xl:col-start-2 @xl:row-start-1">
                   <WeekdayTimeline
                     row={view.row}
                     day={view.day}
@@ -308,7 +304,7 @@ export function WeeklyHoursSection(props: WeeklyHoursSectionProps) {
               <div
                 id={panelId}
                 hidden={!expanded}
-                className="px-4 pb-4 pt-1 sm:px-5 md:pl-[10.5rem]"
+                className="px-4 pb-4 pt-1 @container/day sm:px-5 @xl:pl-[10.5rem]"
               >
                 {expanded ? <WeekdayPanel {...props} view={view} /> : null}
               </div>
@@ -316,7 +312,7 @@ export function WeeklyHoursSection(props: WeeklyHoursSectionProps) {
           );
         })}
       </ul>
-    </Card>
+    </SettingsCard>
   );
 }
 
@@ -343,7 +339,7 @@ function WeekdayPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Switch
           id={openSwitchId}
           checked={!row.isClosed}
@@ -365,7 +361,7 @@ function WeekdayPanel({
         </p>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 @md/day:grid-cols-2">
             <AvailabilityTimeField
               errorKey={key('opens')}
               label="Opens"
@@ -395,7 +391,7 @@ function WeekdayPanel({
               id={`${availabilityFieldId(key('meals'))}-error`}
               message={errors[TYPES_REQUIRED_KEY]}
             />
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 @2xl/day:grid-cols-2">
               {MEAL_KEYS.map((meal) => {
                 const typeExists = hasType(meal);
                 const switchId = availabilityFieldId(key(`${meal}-on`));
@@ -403,10 +399,10 @@ function WeekdayPanel({
                 return (
                   <fieldset
                     key={meal}
-                    className="flex flex-col gap-2 rounded-md border border-border/70 p-3"
+                    className="flex flex-col gap-2 rounded-lg border border-border/60 p-3"
                   >
                     <legend className="sr-only">{MEAL_LABEL[meal]}</legend>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <Switch
                         id={switchId}
                         checked={on}
@@ -421,7 +417,7 @@ function WeekdayPanel({
                         {!typeExists ? 'Needs booking type' : on ? 'On' : 'Off — no times offered'}
                       </span>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 @sm/day:grid-cols-2">
                       <AvailabilityTimeField
                         errorKey={key(`${meal}-start`)}
                         label="First booking from"
@@ -459,7 +455,7 @@ function WeekdayPanel({
               />
               More options for {dayName}s
             </summary>
-            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+            <div className="mt-2 grid gap-3 @md/day:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor={availabilityFieldId(key('interval'))}>
                   Time between booking slots
@@ -514,7 +510,7 @@ function WeekdayPanel({
                   message={errors[key('slots')]}
                 />
               </div>
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <div className="flex flex-col gap-1.5 @md/day:col-span-2">
                 <Label htmlFor={availabilityFieldId(key('notes'))}>Note for the team</Label>
                 <Input
                   id={availabilityFieldId(key('notes'))}
@@ -534,7 +530,7 @@ function WeekdayPanel({
           type="button"
           variant="outline"
           size="sm"
-          className={TOUCH_TARGET_CLASS}
+          className={cn(DAY_ACTION_CLASS, TOUCH_TARGET_CLASS)}
           onClick={() => onCopyDay(dayOfWeek)}
         >
           <Copy data-icon="inline-start" aria-hidden />
@@ -545,7 +541,7 @@ function WeekdayPanel({
             type="button"
             variant="ghost"
             size="sm"
-            className={TOUCH_TARGET_CLASS}
+            className={cn(DAY_ACTION_CLASS, TOUCH_TARGET_CLASS)}
             onClick={() => onUndoDay(dayOfWeek)}
           >
             <Undo2 data-icon="inline-start" aria-hidden />

@@ -1,14 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
   AdvancedIdentitySubform,
@@ -21,6 +14,8 @@ import { RestaurantLogoUploader } from '../RestaurantLogoUploader';
 import { deriveReadiness, type ReadinessItemKey } from '../restaurantProfileModel';
 import { RESTAURANT_SETTINGS_ROUTE_MAP, RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
 import {
+  SETTINGS_ASIDE_CLASS,
+  SETTINGS_INLINE_LINK_CLASS,
   SettingsReviewChangesDialog,
   SettingsSaveBar,
   SettingsStatusLine,
@@ -258,7 +253,7 @@ export function ProfileLoadedView({
             and the daily booking summary are on{' '}
             <Link
               href={RESTAURANT_SETTINGS_ROUTE_MAP['staff-communications'].href}
-              className="underline underline-offset-2"
+              className={SETTINGS_INLINE_LINK_CLASS}
             >
               Staff communications
             </Link>
@@ -266,10 +261,7 @@ export function ProfileLoadedView({
           </p>
         </div>
 
-        <aside
-          aria-label="Profile readiness and Google"
-          className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4"
-        >
+        <aside aria-label="Profile readiness and Google" className={SETTINGS_ASIDE_CLASS}>
           <ProfileReadinessPanel
             className="hidden xl:block"
             items={readiness.items}

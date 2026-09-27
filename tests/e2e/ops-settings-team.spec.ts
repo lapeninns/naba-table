@@ -165,6 +165,40 @@ async function installSettingsApiMocks(page: Page) {
       return;
     }
 
+    if (pathname === `/api/ops/restaurants/${restaurantId}/availability`) {
+      // The Availability page reads one snapshot of hours, meal times, table times and rules.
+      const bands = {
+        dinner: [{ maxPartySize: 6, durationMinutes: 120 }],
+        lunch: [{ maxPartySize: 6, durationMinutes: 90 }],
+      };
+      await route.fulfill({
+        json: {
+          data: {
+            restaurantId,
+            revision: 'qa-availability-r1',
+            revisions: {
+              hours: 'qa-hours-r1',
+              servicePeriods: 'qa-periods-r1',
+              turnBands: 'qa-bands-r1',
+              rules: 'qa-rules-r1',
+            },
+            hours: operatingHours,
+            servicePeriods,
+            turnBands: { restaurantId, bands, defaults: bands },
+            rules: {
+              reservationIntervalMinutes: 15,
+              reservationDefaultDurationMinutes: 90,
+              reservationLastSeatingBufferMinutes: 15,
+              reservationLifecycleGraceMinutes: 30,
+              bookingPolicy: 'QA browser fixtures only.',
+              updatedAt: '2026-05-16T00:00:00.000Z',
+            },
+          },
+        },
+      });
+      return;
+    }
+
     if (pathname === `/api/ops/restaurants/${restaurantId}/turn-bands`) {
       await route.fulfill({
         json: {
@@ -296,11 +330,11 @@ test.describe('ops restaurant settings and team shipped routes', () => {
       page.locator('main').getByText(/signed in as an Owner, so you can invite people/),
     ).toBeVisible();
     await expect(page.getByRole('form', { name: 'Invite someone' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Send invitation' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send invitation', exact: true })).toBeVisible();
 
     const filters = page.getByRole('group', { name: 'Filter invitations' });
-    await expect(filters.getByRole('button', { name: 'Waiting 1' })).toHaveAttribute(
-      'aria-pressed',
+    await expect(filters.getByRole('radio', { name: 'Waiting 1' })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
     const inviteRow = page.getByTestId('team-invite-33333333-3333-4333-8333-333333333333');
@@ -320,24 +354,24 @@ test.describe('ops restaurant settings and team shipped routes', () => {
   test('availability settings routes load shipped schedule and booking type surfaces @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
-    for (const { routePath, formerName } of [
-      { routePath: '/settings/restaurant/availability', formerName: null },
-      { routePath: '/settings/restaurant/operating-hours', formerName: 'Operating hours' },
-      { routePath: '/settings/restaurant/service-periods', formerName: 'Service periods' },
-      { routePath: '/settings/restaurant/turn-durations', formerName: 'Dining durations' },
-      { routePath: '/settings/restaurant/occasions', formerName: 'Booking types' },
+    // Former availability URLs redirect to their section of the one page.
+    for (const { routePath, landsOn } of [
+      { routePath: '/settings/restaurant/availability', landsOn: '' },
+      { routePath: '/settings/restaurant/operating-hours', landsOn: '#weekly-hours' },
+      { routePath: '/settings/restaurant/service-periods', landsOn: '#service-windows' },
+      { routePath: '/settings/restaurant/turn-durations', landsOn: '#booking-occasions' },
+      { routePath: '/settings/restaurant/occasions', landsOn: '#booking-occasions' },
     ] as const) {
       await page.goto(routePath, { waitUntil: 'domcontentloaded' });
       await waitForSettled(page);
 
-      await expect(page).toHaveURL(new RegExp(`app\\.localhost:\\d+${routePath}`));
+      await expect(page).toHaveURL(
+        new RegExp(`app\\.localhost:\\d+/settings/restaurant/availability${landsOn}$`),
+      );
       await expect(
-        page.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
+        page.getByRole('heading', { level: 1, name: 'Availability', exact: true }),
       ).toBeVisible();
       await expect(page.getByRole('navigation', { name: 'Sections on this page' })).toBeVisible();
-      if (formerName) {
-        await expect(page.getByText(`${formerName} is part of Availability.`)).toBeVisible();
-      }
       await expect(
         page.getByRole('heading', { name: 'Weekly hours and meal times' }),
       ).toBeVisible();
@@ -345,14 +379,11 @@ test.describe('ops restaurant settings and team shipped routes', () => {
       await expect(
         page.getByRole('heading', { name: 'Booking types and table times' }),
       ).toBeVisible();
-      await expect(
-        page.locator('#booking-occasions').getByRole('switch', { name: 'Lunch available to book' }),
-      ).toBeVisible();
-      await expect(
-        page
-          .locator('#booking-occasions')
-          .getByRole('switch', { name: 'Dinner available to book' }),
-      ).toBeVisible();
+      // Restaurant admins see each booking type's state; only platform admins get the switch.
+      const bookingTypes = page.locator('#booking-occasions');
+      await expect(bookingTypes.getByText('Lunch', { exact: true }).first()).toBeVisible();
+      await expect(bookingTypes.getByText('Dinner', { exact: true }).first()).toBeVisible();
+      await expect(bookingTypes.getByText('Available to book').first()).toBeVisible();
     }
 
     await page.screenshot({
@@ -379,23 +410,50 @@ test.describe('ops restaurant settings and team shipped routes', () => {
     });
   });
 
+  test('former settings URLs redirect to their one settings page @p1 @browser @smoke @local-only', async ({
+    page,
+  }) => {
+    for (const { from, to, heading } of [
+      { from: '/settings/tables', to: '/settings/restaurant/tables', heading: 'Tables' },
+      { from: '/management/team', to: '/settings/restaurant/team', heading: 'Team' },
+      {
+        from: '/settings/restaurant/table-layout',
+        to: '/settings/restaurant/floor-layout',
+        heading: 'Floor layout',
+      },
+    ] as const) {
+      await page.goto(from, { waitUntil: 'domcontentloaded' });
+      await waitForSettled(page);
+      await expect(page).toHaveURL(new RegExp(`app\\.localhost:\\d+${to}$`));
+      await expect(
+        page.getByRole('heading', { level: 1, name: heading, exact: true }),
+      ).toBeVisible();
+    }
+  });
+
   test('dirty availability settings block sidebar breadcrumb and exit navigation @p1 @browser @smoke @local-only', async ({
     page,
   }) => {
-    await page.goto('/settings/restaurant/service-periods', { waitUntil: 'domcontentloaded' });
+    await page.goto('/settings/restaurant/availability', { waitUntil: 'domcontentloaded' });
     await waitForSettled(page);
 
-    await page.getByLabel('Opens').first().fill('12:30');
+    // Days are collapsed until selected; open Monday to edit its hours.
+    const monday = page.locator('#availability-day-1-panel');
+    await expect(async () => {
+      if (await monday.isHidden()) await page.locator('#availability-day-1 > button').click();
+      await expect(monday).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000 });
+    await monday.getByLabel('Opens').first().fill('12:30');
     await expect(page.getByText('Unsaved changes').first()).toBeVisible();
 
     await expectDirtyNavigationBlocked(page, () =>
-      page.getByRole('link', { name: 'Restaurant profile' }).click(),
+      page.getByRole('link', { name: 'Profile', exact: true }).click(),
     );
-    await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
+    await expect(page).toHaveURL(/\/settings\/restaurant\/availability/);
 
     // The sidebar marks the page with unsaved edits in text, not just a dot.
     await expect(
-      page.getByRole('link', { name: /Availability & Booking types/ }).getByText('Unsaved'),
+      page.getByRole('link', { name: /^Availability/ }).getByText('Unsaved'),
     ).toBeVisible();
 
     await expectDirtyNavigationBlocked(page, () =>
@@ -404,11 +462,11 @@ test.describe('ops restaurant settings and team shipped routes', () => {
         .getByRole('link', { name: 'Settings' })
         .click(),
     );
-    await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
+    await expect(page).toHaveURL(/\/settings\/restaurant\/availability/);
 
     await expectDirtyNavigationBlocked(page, () =>
       page.getByRole('link', { name: 'Close restaurant settings' }).click(),
     );
-    await expect(page).toHaveURL(/\/settings\/restaurant\/service-periods/);
+    await expect(page).toHaveURL(/\/settings\/restaurant\/availability/);
   });
 });

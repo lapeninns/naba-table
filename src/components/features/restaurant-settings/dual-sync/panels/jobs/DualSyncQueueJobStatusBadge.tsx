@@ -28,7 +28,7 @@ export function DualSyncQueueJobStatusBadge({ status }: DualSyncQueueJobStatusBa
   return (
     <Badge
       variant={DUAL_SYNC_QUEUE_JOB_STATUS_VARIANT[status]}
-      className="inline-flex items-center gap-1 font-mono text-[10px]"
+      className="inline-flex items-center gap-1 font-mono text-xs"
     >
       <Icon className="size-3" />
       {DUAL_SYNC_QUEUE_JOB_STATUS_LABEL[status]}

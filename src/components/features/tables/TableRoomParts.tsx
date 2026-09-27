@@ -2,7 +2,7 @@
 
 import { AlertCircle } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+import { SETTINGS_INLINE_LINK_CLASS } from '@/components/features/restaurant-settings/shared';
 import { cn } from '@/lib/utils';
 
 import type { SVGProps } from 'react';
@@ -10,24 +10,28 @@ import type { SVGProps } from 'react';
 /** Resets the shared Button to a plain surface for tiles, rows and inline links. */
 export const BARE_BUTTON_CLASS =
   'min-h-0 min-w-0 h-auto justify-start gap-0 whitespace-normal p-0 font-normal tracking-normal shadow-none active:scale-100 active:translate-y-0 has-[>svg]:px-0';
-/** Underlined inline action, like the prototype's link buttons. */
-export const LINK_BUTTON_CLASS = `${BARE_BUTTON_CLASS} min-h-6 font-medium text-primary underline underline-offset-2 hover:bg-transparent`;
-
-/** The global base style makes every button 44px; switches keep their own size. */
-export const SWITCH_SIZE_CLASS = 'min-h-0 min-w-0 data-[state=checked]:bg-foreground';
+/** Inline text action styled as the shared settings link. */
+export const LINK_BUTTON_CLASS = `${BARE_BUTTON_CLASS} min-h-6 ${SETTINGS_INLINE_LINK_CLASS} hover:bg-transparent`;
 
 /** Touch targets grow to 44px on coarse pointers; desktop keeps the compact size. */
 export const TABLE_TOUCH_TARGET_CLASS = '[@media(pointer:coarse)]:min-h-11';
 
-/** Hatching for seats and tables that can't be booked: never colour alone. */
+/** Select lists stay inside a phone viewport and clear of its edges (RR6). */
+export const TABLE_SELECT_COLLISION_PADDING = 16;
+export const TABLE_SELECT_CONTENT_CLASS = 'max-w-[calc(100vw-2rem)]';
+
+/** Hatching for seats and tables that can't be booked: never colour alone. Muted, low opacity. */
 export const HATCH_BAR_CLASS =
-  'bg-[repeating-linear-gradient(135deg,var(--color-border)_0_3px,var(--color-muted)_3px_6px)]';
+  'bg-[repeating-linear-gradient(135deg,color-mix(in_oklab,var(--color-muted-foreground)_35%,transparent)_0_3px,var(--color-muted)_3px_6px)]';
 export const HATCH_TILE_CLASS =
-  'bg-[repeating-linear-gradient(135deg,var(--color-background)_0_6px,var(--color-muted)_6px_12px)]';
+  'bg-[repeating-linear-gradient(135deg,var(--color-background)_0_6px,color-mix(in_oklab,var(--color-muted-foreground)_12%,transparent)_6px_12px)]';
 export const HATCH_MINI_CLASS =
-  'bg-[repeating-linear-gradient(135deg,var(--color-background)_0_4px,var(--color-muted)_4px_8px)]';
+  'bg-[repeating-linear-gradient(135deg,var(--color-background)_0_4px,color-mix(in_oklab,var(--color-muted-foreground)_20%,transparent)_4px_8px)]';
+/** Party sizes reached only by joining tables: primary stripes beside the solid primary bars. */
 export const JOIN_BAR_CLASS =
-  'border border-foreground bg-[repeating-linear-gradient(135deg,var(--color-foreground)_0_2px,var(--color-background)_2px_5px)]';
+  'border border-primary bg-[repeating-linear-gradient(135deg,var(--color-primary)_0_2px,var(--color-background)_2px_5px)]';
+/** Tables that can join the selected one: a dashed primary outline, beside the solid selection. */
+export const JOIN_OUTLINE_CLASS = 'outline-2 outline-offset-1 outline-dashed outline-primary';
 
 function SmallIcon({ children, className, ...props }: SVGProps<SVGSVGElement>) {
   return (
@@ -83,7 +87,7 @@ export function SeatDots({
   return (
     <span
       aria-hidden
-      className={cn('flex min-w-0 max-w-[58px] flex-wrap content-start justify-end gap-[3px]', className)}
+      className={cn('flex min-w-0 max-w-14 flex-wrap content-start justify-end gap-0.5', className)}
     >
       {dots.map((filled, index) => (
         <i
@@ -123,19 +127,21 @@ export function CapacityBar({
       className={cn('flex h-2.5 overflow-hidden rounded-full bg-muted', className)}
       {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >
-      <i className="block h-full bg-foreground" style={{ width: `${okWidth}%` }} />
+      <i className="block h-full bg-primary" style={{ width: `${okWidth}%` }} />
       <i className={cn('block h-full', HATCH_BAR_CLASS)} style={{ width: `${noWidth}%` }} />
     </span>
   );
 }
 
-export function LegendSwatch({ kind }: { kind: 'ok' | 'no' }) {
+export function LegendSwatch({ kind }: { kind: 'ok' | 'no' | 'join' }) {
   return (
     <i
       aria-hidden
       className={cn(
-        'inline-block h-2 w-3 rounded-[2px]',
-        kind === 'ok' ? 'bg-foreground' : cn('border border-border', HATCH_BAR_CLASS),
+        'inline-block h-2 w-3 shrink-0 rounded-xs',
+        kind === 'ok' && 'bg-primary',
+        kind === 'no' && cn('border border-border', HATCH_BAR_CLASS),
+        kind === 'join' && JOIN_BAR_CLASS,
       )}
     />
   );
@@ -147,51 +153,13 @@ export function MiniTile({ variant }: { variant: 'ok' | 'no' | 'join' }) {
     <i
       aria-hidden
       className={cn(
-        'inline-block h-3.5 w-[18px] shrink-0 rounded border border-border',
+        'inline-block h-3.5 w-4.5 shrink-0 rounded border border-border',
         variant === 'no' && HATCH_MINI_CLASS,
-        variant === 'join' && 'outline-2 outline-offset-1 outline-dashed outline-foreground',
+        // The dashed outline sits 3px outside the swatch; the margin keeps it off the gutter and
+        // clear of its label.
+        variant === 'join' && cn(JOIN_OUTLINE_CLASS, 'm-0.75'),
       )}
     />
-  );
-}
-
-export function SegmentedButtons<TValue extends string>({
-  label,
-  value,
-  options,
-  onChange,
-  idPrefix,
-}: {
-  label: string;
-  value: TValue;
-  options: ReadonlyArray<{ value: TValue; label: string }>;
-  onChange: (value: TValue) => void;
-  idPrefix: string;
-}) {
-  return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-1">
-      {options.map((option) => {
-        const pressed = option.value === value;
-        return (
-          <Button
-            key={option.value}
-            id={`${idPrefix}-${option.value}`}
-            type="button"
-            variant="ghost"
-            aria-pressed={pressed}
-            onClick={() => onChange(option.value)}
-            className={cn(
-              'h-9 min-h-0 min-w-0 rounded-md border px-3 text-[13px] font-medium tracking-normal motion-reduce:transition-none [@media(pointer:coarse)]:h-11',
-              pressed
-                ? 'border-foreground bg-foreground text-background hover:bg-foreground hover:text-background'
-                : 'border-border bg-background hover:bg-muted',
-            )}
-          >
-            {option.label}
-          </Button>
-        );
-      })}
-    </div>
   );
 }
 

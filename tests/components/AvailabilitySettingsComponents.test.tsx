@@ -176,7 +176,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
 vi.mock('@/hooks/useGlobalShortcuts', () => ({
@@ -854,27 +854,15 @@ describe('AvailabilitySettingsPage', () => {
     expect(recordedWrites()).toEqual(['occasion:update']);
   });
 
-  it('explains when a former route opens Availability on a section', async () => {
-    navigationState.pathname = '/app/settings/restaurant/operating-hours';
-    renderPage();
-
-    expect(await screen.findByText('Operating hours is part of Availability.')).toBeInTheDocument();
-    expect(screen.getByText('/app/settings/restaurant/operating-hours')).toBeInTheDocument();
-  });
-
-  it.each([
-    ['service-periods', 'Service periods'],
-    ['operating-hours', 'Operating hours'],
-    ['occasions', 'Booking types'],
-    ['turn-durations', 'Dining durations'],
-  ])('opens Availability from the former %s route with a dismissible note', async (slug, title) => {
-    const user = userEvent.setup();
-    navigationState.pathname = `/app/settings/restaurant/${slug}`;
-    renderPage();
-
-    expect(await screen.findByText(`${title} is part of Availability.`)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
-    expect(screen.queryByText(`${title} is part of Availability.`)).not.toBeInTheDocument();
+  it('opens the first open day when a link lands on #service-windows', async () => {
+    // Former /service-periods links redirect here with this anchor.
+    window.history.replaceState(null, '', '/app/settings/restaurant/availability#service-windows');
+    try {
+      renderPage();
+      await waitFor(() => expect(document.activeElement?.id ?? '').toMatch(/lunch-on$/));
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
   });
 
   it('shows a retryable error when settings cannot load', async () => {
@@ -886,14 +874,14 @@ describe('AvailabilitySettingsPage', () => {
     });
     renderPage();
 
-    expect(await screen.findByText('Availability settings couldn’t load')).toBeInTheDocument();
+    expect(await screen.findByText('Couldn’t load availability settings')).toBeInTheDocument();
     expect(screen.getByText('HTTP_503')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
   it('asks for a restaurant when none is selected', () => {
     renderPage(null);
-    expect(screen.getByText('No restaurant selected')).toBeInTheDocument();
+    expect(screen.getByText('Select a restaurant')).toBeInTheDocument();
   });
 });
 

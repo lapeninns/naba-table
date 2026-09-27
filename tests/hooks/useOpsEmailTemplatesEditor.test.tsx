@@ -34,7 +34,10 @@ const data = vi.hoisted(() => ({
   previewQuery: { data: undefined, error: null as unknown, refetch: vi.fn() },
 }));
 
-const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), message: vi.fn() }));
+// `toast(...)` is callable (the discard toast) and has the `success`/`error`/`message` variants.
+const toast = vi.hoisted(() =>
+  Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), message: vi.fn() }),
+);
 
 vi.mock('@/contexts/ops-session', () => ({
   useOpsSession: () => session.state,
@@ -116,7 +119,7 @@ beforeEach(() => {
   data.testSendMutation = { mutateAsync: vi.fn().mockResolvedValue({}), isPending: false };
   data.previewArgs = [];
   data.previewQuery = { data: undefined, error: null, refetch: vi.fn() };
-  Object.values(toast).forEach((fn) => fn.mockReset());
+  [toast, toast.success, toast.error, toast.message].forEach((fn) => fn.mockReset());
 });
 
 describe('useOpsEmailTemplatesEditor', () => {
@@ -228,7 +231,7 @@ describe('useOpsEmailTemplatesEditor', () => {
       templateKey: 'confirmation',
       variants: sent.map((variant, order) => ({ ...variant, order })),
     });
-    expect(toast.success).toHaveBeenCalledWith('Confirmation saved', expect.any(Object));
+    expect(toast.success).toHaveBeenCalledWith('Confirmation saved.', expect.any(Object));
   });
 
   it('@contract keeps the draft and a safe message when the save fails', async () => {
@@ -245,9 +248,37 @@ describe('useOpsEmailTemplatesEditor', () => {
     expect(result.current.isDirty).toBe(true);
     expect(result.current.saveError).toEqual(expect.any(String));
     expect(result.current.saveError).not.toContain('SECRET_DB_DETAIL');
+    expect(result.current.saveReasonCode).toBe('HTTP_500');
 
     act(() => result.current.editField('subject', 'Edited again'));
     expect(result.current.saveError).toBeNull();
+    expect(result.current.saveReasonCode).toBeNull();
+  });
+
+  it('@contract reports a conflicting save with the stable CONFLICT reason code', async () => {
+    const { result } = setup();
+    act(() => result.current.editField('subject', 'Unsaved subject'));
+    data.updateMutation.mutateAsync.mockRejectedValue(
+      new HttpError({ status: 409, message: 'row version mismatch' }),
+    );
+
+    await act(async () => {
+      await result.current.save();
+    });
+
+    expect(result.current.saveReasonCode).toBe('CONFLICT');
+  });
+
+  it('@contract discarding drops the draft with the shared "Changes discarded." toast', () => {
+    const { result } = setup();
+    act(() => result.current.editField('subject', 'Throwaway subject'));
+
+    act(() => result.current.discard());
+
+    expect(result.current.isDirty).toBe(false);
+    expect(toast).toHaveBeenCalledWith('Changes discarded.', {
+      description: 'Confirmation is back to the saved copy.',
+    });
   });
 
   it('@contract resets only customised emails and drops their draft', async () => {
@@ -358,10 +389,10 @@ describe('useOpsEmailTemplatesEditor', () => {
       await result.current.sendTest('owner@example.com');
     });
 
-    expect(toast.error).toHaveBeenNthCalledWith(1, 'Test not sent', {
+    expect(toast.error).toHaveBeenNthCalledWith(1, 'Test not sent.', {
       description: 'That address is blocked after a bounce or complaint. Use a different address.',
     });
-    expect(toast.error).toHaveBeenNthCalledWith(2, 'Test not sent', {
+    expect(toast.error).toHaveBeenNthCalledWith(2, 'Test not sent.', {
       description: 'Something went wrong on our side. Try again.',
     });
   });

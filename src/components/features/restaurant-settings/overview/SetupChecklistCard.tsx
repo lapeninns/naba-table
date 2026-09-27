@@ -19,7 +19,7 @@ type SetupChecklistCardProps = {
 const STATUS_STYLES = {
   complete: { Icon: CheckCircle2, icon: 'text-success', badge: 'status-confirmed' },
   attention: { Icon: Circle, icon: 'text-muted-foreground', badge: 'status-pending' },
-  optional: { Icon: Circle, icon: 'text-muted-foreground', badge: 'secondary' },
+  optional: { Icon: Circle, icon: 'text-muted-foreground', badge: 'status-completed' },
   unknown: { Icon: AlertTriangle, icon: 'text-destructive', badge: 'status-cancelled' },
 } satisfies Record<
   SetupStatus,
@@ -43,13 +43,16 @@ export function SetupChecklistCard({
     <li
       aria-labelledby={titleId}
       data-testid={`setup-step-${card.key}`}
-      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-5"
+      className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 px-4 py-4 sm:px-5 @md:grid-cols-[auto_minmax(0,1fr)_auto]"
     >
       <StatusIcon className={cn('mt-0.5 size-4 shrink-0', styles.icon)} aria-hidden />
 
       <div className="flex min-w-0 flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 id={titleId} className="text-sm font-medium leading-6 text-foreground">
+          <h3
+            id={titleId}
+            className="min-w-0 break-words text-sm font-medium leading-6 text-foreground"
+          >
             {card.title}
           </h3>
           <Badge variant={styles.badge}>{statusLabel(card.status)}</Badge>
@@ -80,7 +83,7 @@ export function SetupChecklistCard({
         ) : null}
       </div>
 
-      <div className="col-start-2 sm:col-start-3 sm:row-start-1 sm:self-start">
+      <div className="col-start-2 @md:col-start-3 @md:row-start-1 @md:self-start">
         {card.status === 'unknown' && onCheckAgain ? (
           <Button
             type="button"

@@ -1,12 +1,8 @@
-import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
-import { getRestaurantSettingsMetadata } from '@/components/features/restaurant-settings/routes';
+import { redirect } from 'next/navigation';
 
-import type { Metadata } from 'next';
+import { getRetiredRestaurantSettingsTarget } from '@/components/features/restaurant-settings/routes';
 
-export const metadata: Metadata = getRestaurantSettingsMetadata(
-  '/settings/restaurant/table-layout',
-);
-
-export default function RestaurantTableLayoutSettingsPage() {
-  return <OpsRestaurantSettingsClient view="table-layout" />;
+/** Retired URL: see RESTAURANT_SETTINGS_RETIRED_ROUTES. */
+export default function LegacyTableLayoutPage() {
+  redirect(getRetiredRestaurantSettingsTarget('/app/settings/restaurant/table-layout'));
 }

@@ -24,6 +24,11 @@ import {
 } from '../../dual-sync/dualSyncWorkspaceDecisionDomain';
 import { DUAL_SYNC_SECTION_LABEL } from '../../dual-sync/dualSyncWorkspaceDomain';
 import {
+  SETTINGS_INLINE_LINK_CLASS,
+  SETTINGS_SEGMENT_GROUP_CLASS,
+  SETTINGS_SEGMENT_ITEM_CLASS,
+} from '../../shared/compactSettingsClasses';
+import {
   describeGbpFieldNotes,
   formatGbpTime,
   isGbpFieldDifferent,
@@ -125,6 +130,8 @@ function FieldRow({
       </span>
     );
   } else {
+    // The shared segment look on a raw ToggleGroup: unlike a filter, a choice here can be
+    // cleared by pressing it again, and each option has its own availability.
     action = (
       <ToggleGroup
         type="single"
@@ -132,7 +139,7 @@ function FieldRow({
         onValueChange={(next) => onSelect(next ? (next as DualSyncDecisionAction) : null)}
         aria-label={`What to do with ${field.label}`}
         aria-describedby={reasonsId}
-        className="flex w-full rounded-lg bg-muted p-0.5"
+        className={SETTINGS_SEGMENT_GROUP_CLASS}
       >
         {CHOICES.map((choice) => {
           const unavailable =
@@ -143,7 +150,7 @@ function FieldRow({
               key={choice.action}
               value={choice.action}
               disabled={locked || unavailable}
-              className="h-8 min-h-0 min-w-0 flex-1 px-1.5 text-[13px] data-[state=on]:bg-background data-[state=on]:font-semibold data-[state=on]:text-foreground data-[state=on]:shadow-sm data-[state=on]:ring-1 data-[state=on]:ring-border [@media(pointer:coarse)]:h-11"
+              className={SETTINGS_SEGMENT_ITEM_CLASS}
             >
               {choice.label}
             </ToggleGroupItem>
@@ -157,12 +164,12 @@ function FieldRow({
     <div
       data-gbp-field={field.fieldKey}
       className={cn(
-        'grid grid-cols-1 gap-x-4 gap-y-2 border-t px-4 py-2.5 @md:grid-cols-2 @4xl:items-start',
+        'grid grid-cols-1 gap-x-4 gap-y-2 border-t border-border/60 px-4 py-2.5 @md:grid-cols-2 @4xl:items-start',
         COLUMNS,
       )}
     >
       <div className="min-w-0 @md:col-span-2 @4xl:col-span-1">
-        <b className="block font-semibold">{field.label}</b>
+        <span className="block text-sm font-medium">{field.label}</span>
         <span
           className={cn(
             'mt-0.5 flex items-center gap-1 text-xs text-muted-foreground',
@@ -218,7 +225,12 @@ function SectionBulkSelect({
       <SelectTrigger aria-label={`Set every difference in ${title}`} className="ml-auto h-8 w-auto">
         <SelectValue placeholder={`Set all ${differing}…`} />
       </SelectTrigger>
-      <SelectContent align="end">
+      <SelectContent
+        align="end"
+        collisionPadding={16}
+        // Menu options are 44px tall on touch screens (RR3); mouse users keep the compact list.
+        className="max-w-[calc(100vw-2rem)] [@media(pointer:coarse)]:[&_[role=option]]:min-h-11"
+      >
         {summary.exportable && !sendBlocked ? (
           <SelectItem value="export_to_google">
             Send all to Google ({summary.exportable})
@@ -305,12 +317,12 @@ export function GbpReviewTable({
         <div
           role="region"
           aria-label="Nabatable compared with Google"
-          className="rounded-lg border bg-background"
+          className="rounded-lg border border-border/60 bg-background"
         >
           <div
             aria-hidden
             className={cn(
-              'sticky top-0 z-10 hidden rounded-t-lg border-b bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground @4xl:grid',
+              'sticky top-0 z-10 hidden rounded-t-lg border-b border-border/60 bg-muted px-4 py-2.5 text-xs font-semibold text-muted-foreground @4xl:grid',
               COLUMNS,
             )}
           >
@@ -327,10 +339,10 @@ export function GbpReviewTable({
               <section
                 key={key}
                 aria-labelledby={headingId}
-                className={cn(index > 0 && 'border-t')}
+                className={cn(index > 0 && 'border-t border-border/60')}
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 pb-2 pt-4">
-                  <h3 id={headingId} className="text-sm font-semibold">
+                  <h3 id={headingId} className="text-base font-semibold leading-6">
                     {DUAL_SYNC_SECTION_LABEL[key]}
                   </h3>
                   <span className="text-xs text-muted-foreground">{section.label}</span>
@@ -369,7 +381,7 @@ export function GbpReviewTable({
           })}
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-2 rounded-lg border px-4 py-7 text-center text-muted-foreground">
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-border/60 px-4 py-7 text-center text-sm text-muted-foreground">
           <CheckCircle2 className="size-5" aria-hidden />
           <p>
             <b className="font-semibold text-foreground">Nabatable and Google match.</b> There is
@@ -385,11 +397,11 @@ export function GbpReviewTable({
       ) : null}
       <p className="text-xs text-muted-foreground">
         Public profile fields are edited on{' '}
-        <Link href={PROFILE_CONTACT_HREF} className="underline underline-offset-2">
-          Restaurant profile
+        <Link href={PROFILE_CONTACT_HREF} className={SETTINGS_INLINE_LINK_CLASS}>
+          Profile
         </Link>
         . Hours and meal windows are edited on{' '}
-        <Link href={AVAILABILITY_SCHEDULE_HREF} className="underline underline-offset-2">
+        <Link href={AVAILABILITY_SCHEDULE_HREF} className={SETTINGS_INLINE_LINK_CLASS}>
           Availability &amp; Booking types
         </Link>
         .

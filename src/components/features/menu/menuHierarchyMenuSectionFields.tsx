@@ -64,7 +64,7 @@ export function MenuDialogFields({
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent collisionPadding={16}>
               <SelectItem value="food">Food</SelectItem>
               <SelectItem value="drinks">Drinks</SelectItem>
               <SelectItem value="mixed">Mixed</SelectItem>

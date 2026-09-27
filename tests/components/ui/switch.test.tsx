@@ -35,4 +35,30 @@ describe('ui/switch', () => {
     await user.click(screen.getByRole('switch', { name: 'Locked' }));
     expect(onCheckedChange).not.toHaveBeenCalled();
   });
+
+  it('@contract opts out of the global 44px button minimum so it keeps its track size', () => {
+    render(<Switch aria-label="Compact" />);
+
+    expect(screen.getByRole('switch', { name: 'Compact' })).toHaveClass(
+      'h-5',
+      'w-9',
+      'min-h-0',
+      'min-w-0',
+    );
+  });
+
+  it('@a11y gains a centred 44px hit area on coarse pointers only', () => {
+    render(<Switch aria-label="Touch" />);
+
+    const control = screen.getByRole('switch', { name: 'Touch' });
+    expect(control).toHaveClass(
+      '[@media(pointer:coarse)]:relative',
+      '[@media(pointer:coarse)]:after:absolute',
+      '[@media(pointer:coarse)]:after:size-11',
+      "[@media(pointer:coarse)]:after:content-['']",
+    );
+    // Fine pointers keep the unchanged track.
+    expect(control).not.toHaveClass('relative');
+    expect(control).toHaveClass('h-5', 'w-9');
+  });
 });

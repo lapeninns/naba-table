@@ -14,28 +14,37 @@ describe('GbpStateSections', () => {
   it('@smoke prompts for a restaurant in the no-restaurant state', () => {
     render(<NoRestaurantGbpSection />);
 
-    expect(screen.getByText(/Select a restaurant using the sidebar switcher/)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select a restaurant' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose a restaurant with the sidebar switcher to manage its Google Business Profile connection.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('@smoke @a11y announces the loading state as busy status', () => {
     render(<LoadingGbpSection />);
 
-    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    const status = screen.getByRole('status');
+    expect(status).toHaveAttribute('aria-busy', 'true');
+    expect(status).toHaveTextContent('Loading Google Business Profile');
   });
 
-  it('@contract renders the load error as fixed copy with a working retry', async () => {
+  it('@contract renders the load error as a reason code with a working retry', async () => {
     const user = userEvent.setup();
     const onRetry = vi.fn();
     const error = new HttpError({
       status: 500,
       message: 'SECRET_DB_DETAIL relation "x" does not exist',
     });
-    render(<ErrorGbpSection error={error} onRetry={onRetry} />);
+    const { container } = render(<ErrorGbpSection error={error} onRetry={onRetry} />);
 
-    expect(screen.getByText('Unable to load Google Business Profile')).toBeInTheDocument();
-    expect(
-      screen.getByText('Google Business Profile could not be loaded. Reason code: HTTP_500.'),
-    ).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Couldn’t load Google Business Profile');
+    expect(alert).toHaveTextContent('Your saved settings are unchanged. Reason code HTTP_500');
+    expect(screen.getByText('HTTP_500')).toHaveClass('font-mono');
+    // A bare alert, not an alert nested in a card.
+    expect(container.firstElementChild).toBe(alert);
     expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));

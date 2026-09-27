@@ -1,12 +1,8 @@
 'use client';
 
-import { CircleAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsGoogleBusinessProfileConnection } from '@/hooks/ops/useOpsGoogleBusinessProfile';
@@ -15,6 +11,7 @@ import {
   useOpsUpdateRestaurantDetails,
 } from '@/hooks/ops/useOpsRestaurantDetails';
 import { opsHref } from '@/lib/url/opsHref';
+import { cn } from '@/lib/utils';
 
 import { openProfileWorkspaceCompare } from './gbp/openSettingsCompare';
 import { PROFILE_WORKSPACE_COMPARE_SECTION_KEYS } from './gbp/profileCompareSections';
@@ -22,8 +19,13 @@ import { useOptionalGbpDrift } from './gbp-drift/useGbpDrift';
 import { useGbpDriftSectionStatus, useGbpDriftStatus } from './GbpDriftProvider';
 import { deriveProfileVerification } from './google-business-profile/googleBusinessProfileVerification';
 import { PROFILE_LAYOUT_GRID_CLASS, ProfileLoadedView, ProfileShell } from './profile';
-import { SettingsSectionStates, getSettingsSaveReasonCode } from './shared';
-import { SettingsRefreshErrorAlert } from './shared/SettingsRefreshErrorAlert';
+import {
+  SETTINGS_CARD_CLASS,
+  SettingsLoadErrorAlert,
+  SettingsNoRestaurantState,
+  SettingsRefreshErrorAlert,
+  SettingsSectionStates,
+} from './shared';
 
 const REVIEW_GBP_HREF = opsHref('/settings/restaurant/google-business-profile');
 
@@ -38,12 +40,12 @@ function ProfileLoadingState() {
         <span className="sr-only">Loading restaurant profile…</span>
         <div className="flex min-w-0 flex-col gap-4" aria-hidden>
           {[0, 1].map((index) => (
-            <Card key={index} variant="compact" className="border-border/70">
+            <Card key={index} variant="compact" className={SETTINGS_CARD_CLASS}>
               <div className="flex flex-col gap-2 border-b border-border/60 px-4 py-4 sm:px-5">
                 <Skeleton className="h-5 w-48" />
                 <Skeleton className="h-4 w-full max-w-md" />
               </div>
-              <div className="flex flex-col gap-5 px-4 py-5 sm:px-5">
+              <div className="flex flex-col gap-5 px-4 py-4 sm:px-5">
                 <div className="flex flex-col gap-2">
                   <Skeleton className="h-4 w-32" />
                   <Skeleton className="h-9 w-full" />
@@ -56,7 +58,11 @@ function ProfileLoadingState() {
             </Card>
           ))}
         </div>
-        <Card variant="compact" className="hidden border-border/70 p-4 xl:block" aria-hidden>
+        <Card
+          variant="compact"
+          className={cn(SETTINGS_CARD_CLASS, 'hidden p-4 xl:block')}
+          aria-hidden
+        >
           <div className="flex flex-col gap-3">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-1.5 w-full" />
@@ -129,28 +135,18 @@ export function RestaurantProfileSection({ restaurantId }: RestaurantProfileSect
       error={data ? null : error}
       noRestaurant={
         <ProfileShell>
-          <OpsEmptyState
-            title="Select a restaurant"
-            description="Choose a restaurant with the sidebar switcher to edit its public details."
-          />
+          <SettingsNoRestaurantState task="edit its public details" />
         </ProfileShell>
       }
       loading={<ProfileLoadingState />}
       errorState={(loadError) => (
         <ProfileShell>
-          <Alert variant="destructive">
-            <CircleAlert aria-hidden />
-            <AlertTitle>Couldn’t load the restaurant profile</AlertTitle>
-            <AlertDescription className="flex flex-col items-start gap-3">
-              <span>
-                Your saved details are unchanged. Reason code{' '}
-                <span className="font-mono">{getSettingsSaveReasonCode(loadError)}</span>
-              </span>
-              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-                Try again
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <SettingsLoadErrorAlert
+            title="Couldn’t load the restaurant profile"
+            message="Your saved details are unchanged."
+            error={loadError}
+            onRetry={() => void refetch()}
+          />
         </ProfileShell>
       )}
     >

@@ -53,7 +53,8 @@ export function MenuSuggestionInput({
       </PopoverAnchor>
       <PopoverContent
         align="start"
-        className="w-[--radix-popover-trigger-width] p-0"
+        collisionPadding={16}
+        className="w-(--radix-popover-trigger-width) max-w-[calc(100vw-2rem)] p-0"
         onOpenAutoFocus={(event) => event.preventDefault()}
       >
         <Command shouldFilter={false}>

@@ -75,7 +75,7 @@ export function ServiceItemRow({
 
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 p-3">
-      <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] md:items-start">
+      <div className="grid min-w-0 gap-3 @xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] @xl:items-start">
         {SERVICE_ITEM_MAIN_FIELDS.map((spec) => (
           <ServiceItemField
             key={spec.field}
@@ -90,7 +90,7 @@ export function ServiceItemRow({
           variant="ghost"
           size="icon-sm"
           aria-label={`Remove ${getServiceItemRowTitle(row)}`}
-          className="justify-self-end text-muted-foreground hover:text-destructive md:mt-7 [@media(pointer:coarse)]:size-11"
+          className="justify-self-end text-muted-foreground hover:text-destructive @xl:mt-7 [@media(pointer:coarse)]:size-11"
           onClick={onRemove}
         >
           <Trash2 className="size-4" aria-hidden />
@@ -102,7 +102,7 @@ export function ServiceItemRow({
         hint="Advanced"
       >
         <div className="flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 @md:grid-cols-2">
             {SERVICE_ITEM_ADVANCED_FIELDS.map((spec) => (
               <ServiceItemField key={spec.field} row={row} editor={editor} spec={spec} mono />
             ))}

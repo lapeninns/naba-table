@@ -156,7 +156,7 @@ describe('ItemTable', () => {
 
     await waitFor(() =>
       expect(toastMock.error).toHaveBeenCalledWith(
-        'Could not hide Burrata. It is still shown. Reason code HTTP_409.',
+        'Could not hide Burrata. It is still shown. Reason code HTTP_409',
       ),
     );
     expect(toggle).toBeChecked();

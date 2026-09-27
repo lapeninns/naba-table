@@ -129,13 +129,13 @@ export function ItemActions({
           type="button"
           variant="ghost"
           size="icon"
-          className="size-9 shrink-0 text-muted-foreground [@media(pointer:coarse)]:size-11"
+          className="size-9 min-h-0 min-w-0 shrink-0 text-muted-foreground [@media(pointer:coarse)]:size-11"
           aria-label={`Open item actions for ${primaryLabel(item, 'Menu item')}`}
         >
           <MoreHorizontal aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" collisionPadding={16}>
         <DropdownMenuGroup>
           <DropdownMenuItem onSelect={() => onQuickEditItem(item)}>
             <SlidersHorizontal aria-hidden />
@@ -190,7 +190,8 @@ export type MenuItemRowProps = {
 
 /**
  * One menu item: details, price, services, Google readiness, and the shown/hidden switch.
- * Stacks on phones, two columns from `sm`, and five aligned columns from `xl`.
+ * Sized by the item list container (not the viewport, since the sidebar takes width): stacks
+ * when narrow, two columns from a 32rem list, and five aligned columns from a 56rem list.
  */
 export function MenuItemRow({
   item,
@@ -216,9 +217,9 @@ export function MenuItemRow({
   return (
     <li
       data-testid={`menu-item-${item.id ?? item.externalItemId}`}
-      className="grid gap-x-4 gap-y-2 border-t border-border/60 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5 xl:grid-cols-[minmax(0,1fr)_5.5rem_9rem_13rem_auto] xl:items-center"
+      className="grid gap-x-4 gap-y-2 border-t border-border/60 px-4 py-3 sm:px-5 @lg:grid-cols-[minmax(0,1fr)_auto] @4xl:grid-cols-[minmax(0,1fr)_5.5rem_9rem_13rem_auto] @4xl:items-center"
     >
-      <div className="min-w-0 sm:col-start-1 sm:row-start-1">
+      <div className="min-w-0 @lg:col-start-1 @lg:row-start-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <span
             className={cn(
@@ -235,7 +236,7 @@ export function MenuItemRow({
             </Badge>
           ) : null}
           {!soldOut && !orderable ? (
-            <Badge variant="outline" className="gap-1">
+            <Badge variant="status-pending" className="gap-1">
               <AlertCircle className="size-3" aria-hidden />
               Not orderable
             </Badge>
@@ -263,21 +264,21 @@ export function MenuItemRow({
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm sm:col-start-1 sm:row-start-2 xl:contents">
-        <span className="font-mono tabular-nums xl:col-start-2 xl:row-start-1 xl:text-right">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm @lg:col-start-1 @lg:row-start-2 @4xl:contents">
+        <span className="font-mono tabular-nums @4xl:col-start-2 @4xl:row-start-1 @4xl:text-right">
           <span className="sr-only">Price </span>
           {moneyLabel(item.attributes)}
         </span>
-        <span className="text-muted-foreground xl:col-start-3 xl:row-start-1">
+        <span className="text-muted-foreground @4xl:col-start-3 @4xl:row-start-1">
           <span className="sr-only">Served at </span>
           {itemServicesLabel(item)}
         </span>
-        <span className="xl:col-start-4 xl:row-start-1">
+        <span className="@4xl:col-start-4 @4xl:row-start-1">
           <ItemReadinessLine item={item} />
         </span>
       </div>
 
-      <div className="flex items-center justify-between gap-2 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:justify-end xl:col-start-5 xl:row-span-1">
+      <div className="flex items-center justify-between gap-2 @lg:col-start-2 @lg:row-span-2 @lg:row-start-1 @lg:justify-end @4xl:col-start-5 @4xl:row-span-1">
         <div className="flex items-center gap-2">
           <Switch
             id={switchId}
@@ -351,7 +352,7 @@ export function OptionRow({
 }) {
   const price = moneyLabel(option.attributes);
   return (
-    <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-md border bg-background shadow-xs">
+    <div className="inline-flex max-w-full items-stretch overflow-hidden rounded-lg border border-border/60 bg-background shadow-xs">
       <Button
         type="button"
         variant="ghost"
@@ -360,12 +361,15 @@ export function OptionRow({
         onClick={() => onEditOption(item, option)}
         aria-label={`Edit option ${primaryLabel(option, 'Option')}`}
       >
-        <span className="min-w-0 flex-1 truncate text-xs font-medium">
+        <span
+          className="min-w-0 flex-1 truncate text-xs font-medium"
+          title={primaryLabel(option, 'Option')}
+        >
           {primaryLabel(option, 'Option')}
         </span>
         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{price}</span>
         {!option.active ? (
-          <Badge variant="outline" className="shrink-0">
+          <Badge variant="status-completed" className="shrink-0">
             Hidden
           </Badge>
         ) : null}
@@ -376,13 +380,13 @@ export function OptionRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-8 rounded-none border-l [@media(pointer:coarse)]:size-11"
+            className="size-8 min-h-0 min-w-0 rounded-none border-l border-border/60 [@media(pointer:coarse)]:size-11"
             aria-label={`Open option actions for ${primaryLabel(option, 'Option')}`}
           >
             <MoreHorizontal aria-hidden />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" collisionPadding={16}>
           <DropdownMenuGroup>
             <DropdownMenuItem onSelect={() => onEditOption(item, option)}>
               <Pencil aria-hidden />

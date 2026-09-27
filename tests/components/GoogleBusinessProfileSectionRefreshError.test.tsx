@@ -168,7 +168,7 @@ describe('GoogleBusinessProfileSection load errors', () => {
     expect(await screen.findByText('Couldn’t refresh saved settings')).toBeInTheDocument();
     expect(screen.getByText('HTTP_503')).toBeInTheDocument();
     expect(screen.queryByText('Service Unavailable')).not.toBeInTheDocument();
-    expect(screen.queryByText('Unable to load Google Business Profile')).not.toBeInTheDocument();
+    expect(screen.queryByText('Couldn’t load Google Business Profile')).not.toBeInTheDocument();
     expect(screen.getByTestId('dual-sync-shell')).toBeInTheDocument();
     expect(screen.getByLabelText('Review decision')).toHaveValue('Keep ours');
     expect(screen.getByRole('region', { name: 'Unsaved changes' })).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('GoogleBusinessProfileSection load errors', () => {
     connectionResult.error = refreshFailure;
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByText('Unable to load Google Business Profile')).toBeInTheDocument();
+    expect(screen.getByText('Couldn’t load Google Business Profile')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
     expect(screen.queryByTestId('dual-sync-shell')).not.toBeInTheDocument();
   });

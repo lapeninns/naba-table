@@ -43,7 +43,7 @@ function Bar(props: GbpDecisionBarProps) {
       role="region"
       aria-label="Publish decisions"
       data-testid="gbp-decision-bar"
-      className="z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90"
+      className="z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-t bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md [@media(max-height:500px)]:gap-y-1.5 [@media(max-height:500px)]:py-1.5 [@media(max-height:500px)]:pb-[max(0.375rem,env(safe-area-inset-bottom))] supports-[backdrop-filter]:bg-background/90"
     >
       <p className="min-w-0 flex-[1_1_320px] text-sm" role="status" aria-live="polite">
         <b className="font-semibold tabular-nums">

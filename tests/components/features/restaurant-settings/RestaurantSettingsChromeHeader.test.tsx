@@ -137,4 +137,14 @@ describe('RestaurantSettingsChromeHeader', () => {
 
     expect(onExitClick).toHaveBeenCalledTimes(1);
   });
+
+  it('@a11y gives the navigation toggle and Close a 44px box on coarse pointers', () => {
+    renderHeader();
+
+    const coarse = ['[@media(pointer:coarse)]:h-11', '[@media(pointer:coarse)]:min-w-11'];
+    expect(
+      screen.getByRole('button', { name: 'Toggle restaurant settings navigation' }),
+    ).toHaveClass('size-9', ...coarse);
+    expect(screen.getByRole('link', { name: 'Close restaurant settings' })).toHaveClass(...coarse);
+  });
 });

@@ -83,5 +83,45 @@ describe('useOpsFloorPlan', () => {
     expect(result.current.snapshot?.bookings).toEqual([]);
     expect(dashboardData).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
     expect(tableTimeline).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+    expect(result.current.refreshError).toBeNull();
+  });
+
+  it('reports no restaurant instead of loading forever', () => {
+    const { result } = renderHook(
+      () => useOpsFloorPlan({ restaurantId: null, date: null, scope: 'layout' }),
+      { wrapper: createQueryWrapper(createTestQueryClient()) },
+    );
+
+    expect(result.current.status).toBe('no-restaurant');
+    expect(tableService.list).not.toHaveBeenCalled();
+  });
+
+  it('exposes the blocking load error for a safe reason code', async () => {
+    const failure = new Error('tables down');
+    tableService.list.mockRejectedValue(failure);
+    const { result } = renderHook(
+      () => useOpsFloorPlan({ restaurantId, date: null, scope: 'layout' }),
+      { wrapper: createQueryWrapper(createTestQueryClient()) },
+    );
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.error).toBe(failure);
+    expect(result.current.refreshError).toBeNull();
+  });
+
+  it('keeps the plan and reports a failed refetch as a refresh error', async () => {
+    const { result } = renderHook(
+      () => useOpsFloorPlan({ restaurantId, date: null, scope: 'layout' }),
+      { wrapper: createQueryWrapper(createTestQueryClient()) },
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    const failure = new Error('refetch failed');
+    tableService.list.mockRejectedValue(failure);
+    await result.current.refresh();
+
+    await waitFor(() => expect(result.current.refreshError).toBe(failure));
+    expect(result.current.status).toBe('ready');
+    expect(result.current.snapshot?.tables.map((t) => t.id)).toEqual(['t1']);
   });
 });

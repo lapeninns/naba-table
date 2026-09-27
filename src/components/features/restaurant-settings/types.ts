@@ -9,7 +9,7 @@ export type RestaurantSettingsView =
   | 'tables'
   | 'team'
   | 'staff-communications'
-  | 'table-layout'
+  | 'floor-layout'
   | 'email-templates';
 
 export type WeeklyRow = {

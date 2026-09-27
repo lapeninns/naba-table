@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { TABLE_EDITOR_FORM_ID } from '@/components/features/tables/TableEditorForm';
 import TableInventoryClient from '@/components/features/tables/TableInventoryClient';
 import {
   CATEGORY_OPTIONS,
@@ -10,6 +11,7 @@ import {
   SEATING_TYPE_OPTIONS,
   STATUS_OPTIONS,
 } from '@/components/features/tables/tableInventoryModel';
+import { TABLE_INSPECTOR_QUERY } from '@/components/features/tables/useTableInventoryController';
 import { OpsServicesProvider } from '@/contexts/ops-services';
 import { OpsSessionProvider } from '@/contexts/ops-session';
 import { HttpError } from '@/lib/http/errors';
@@ -180,7 +182,7 @@ function room() {
 function useWideScreen() {
   const original = window.matchMedia;
   window.matchMedia = ((query: string) => ({
-    matches: query.includes('min-width: 1100px') || query.includes('min-width: 640px'),
+    matches: query === TABLE_INSPECTOR_QUERY || query.includes('min-width: 640px'),
     media: query,
     onchange: null,
     addListener: () => {},
@@ -200,11 +202,15 @@ beforeEach(() => {
 });
 
 describe('TableInventoryClient', () => {
-  it('shows a no-access state when the operator has no restaurant memberships', () => {
+  it('asks for a restaurant, under the page purpose, when none is selected', () => {
     renderClient({ memberships: [] });
 
-    expect(screen.getByText('No restaurant access')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select a restaurant' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Choose a restaurant with the sidebar switcher to manage its tables.'),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('room')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add table' })).not.toBeInTheDocument();
   });
 
   it('shows load errors with the reason code and a retry action, never the raw message', async () => {
@@ -218,10 +224,36 @@ describe('TableInventoryClient', () => {
 
     renderClient({ tableService });
 
-    expect(await screen.findByText('Tables couldn’t be loaded')).toBeInTheDocument();
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText('Couldn’t load tables')).toBeInTheDocument();
+    expect(within(alert).getByText(/Your saved settings are unchanged/)).toBeInTheDocument();
     expect(screen.getByText('HTTP_503')).toHaveClass('font-mono');
     expect(screen.queryByText(/secret detail/)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.queryByTestId('room')).not.toBeInTheDocument();
+  });
+
+  it('keeps the room on screen when a background refresh fails', async () => {
+    const user = userEvent.setup();
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce(buildTablesResult())
+      .mockRejectedValue(
+        new HttpError({ message: 'secret detail', status: 503, code: 'HTTP_503' }),
+      );
+    const zoneService = createZoneService({
+      update: vi.fn().mockResolvedValue({ id: 'zone-main', name: 'Main', active: false }),
+    });
+    renderClient({ tableService: createTableService({ list }), zoneService });
+
+    const main = await screen.findByRole('region', { name: 'Main' });
+    // A zone write refetches the tables list, which now fails.
+    await user.click(within(main).getByRole('switch', { name: 'In service' }));
+
+    expect(await screen.findByText('Couldn’t refresh saved settings')).toBeInTheDocument();
+    expect(screen.queryByText('Couldn’t load tables')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Main' })).toBeInTheDocument();
+    expect(screen.queryByText(/secret detail/)).not.toBeInTheDocument();
   });
 
   it('shows the room zone by zone with capacity, joining and the page status', async () => {
@@ -243,8 +275,10 @@ describe('TableInventoryClient', () => {
     expect(within(main).getByRole('button', { name: 'Add table to Main' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Patio' })).toBeInTheDocument();
 
-    expect(screen.getByText('8 of 8 seats bookable')).toBeInTheDocument();
-    expect(screen.getByText('Every table can be booked')).toBeInTheDocument();
+    const status = screen.getByRole('status');
+    // A status Badge, not a hand-rolled chip: confirmed when every table can be booked.
+    expect(within(status).getByText('8 of 8 seats bookable')).toHaveClass('text-success-text');
+    expect(within(status).getByText('Every table can be booked')).toBeInTheDocument();
 
     const capacity = screen.getByTestId('table-capacity-card');
     expect(
@@ -272,7 +306,7 @@ describe('TableInventoryClient', () => {
     expect(screen.getByRole('button', { name: /^Table 1,/ })).not.toHaveClass('opacity-45');
     expect(within(room()).getByText(/Tables that don’t match are faded/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'List' }));
+    await user.click(screen.getByRole('radio', { name: 'List' }));
     const list = within(room()).getByRole('table', { name: 'All tables' });
     expect(within(list).getByRole('rowheader', { name: '1' })).toBeInTheDocument();
     expect(within(list).queryByRole('rowheader', { name: '2' })).not.toBeInTheDocument();
@@ -294,13 +328,12 @@ describe('TableInventoryClient', () => {
       name: 'Table 2, 4 seats, parties of 1–4, can be joined, not bookable: out of service',
     });
     expect(within(tile).getByText('Out of service')).toBeInTheDocument();
-    expect(screen.getByText('4 of 8 seats bookable')).toBeInTheDocument();
+    expect(screen.getByText('4 of 8 seats bookable')).toHaveClass('text-warning-text');
 
     await user.click(screen.getByRole('button', { name: '1 table needs a look' }));
-    expect(screen.getByRole('button', { name: 'Not bookable' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    const show = screen.getByRole('group', { name: 'Show' });
+    expect(within(show).getByRole('radio', { name: 'Not bookable' })).toBeChecked();
+    expect(within(show).getByRole('radio', { name: 'All' })).not.toBeChecked();
     expect(screen.getByRole('button', { name: /^Table 1,/ })).toHaveClass('opacity-45');
   });
 
@@ -567,6 +600,63 @@ describe('TableInventoryClient', () => {
     await user.click(await screen.findByRole('button', { name: /^Table 1,/ }));
     const sheet = await screen.findByRole('dialog', { name: 'Table 1' });
     expect(within(sheet).queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument();
+  });
+
+  describe('responsive layout', () => {
+    it('switches to the side panel at the xl breakpoint, like the settings aside grid', () => {
+      expect(TABLE_INSPECTOR_QUERY).toBe('(min-width: 80rem)');
+    });
+
+    it('wraps the Show and View controls instead of hiding options in a scroll strip', async () => {
+      renderClient();
+      await screen.findByRole('region', { name: 'Main' });
+
+      const show = screen.getByRole('group', { name: 'Show' });
+      const row = show.parentElement;
+      expect(row).toContainElement(screen.getByRole('group', { name: 'View' }));
+      expect(row).toHaveClass('flex-wrap');
+      expect(row).not.toHaveClass('overflow-x-auto');
+      expect(screen.getByTestId('table-capacity-card')).toHaveClass('xl:hidden');
+    });
+
+    it('keeps the join swatch outline inside the key', async () => {
+      renderClient();
+      const key = await screen.findByTestId('room-key');
+      const swatch = within(key).getByText('Can join the selected table').querySelector('i');
+      expect(swatch).toHaveClass('outline-dashed', 'm-0.75');
+    });
+
+    it('scrolls the list view inside its border with an overflow frame', async () => {
+      const user = userEvent.setup();
+      renderClient();
+      await screen.findByRole('region', { name: 'Main' });
+      await user.click(screen.getByRole('radio', { name: 'List' }));
+
+      const list = within(room()).getByRole('table', { name: 'All tables' });
+      const frame = list.closest('[data-slot="settings-overflow-frame"]');
+      expect(frame).toHaveClass('rounded-xl', 'border', 'overflow-hidden');
+      expect(list.parentElement).toHaveClass('overflow-auto');
+      // Row actions keep a 44px target on touch.
+      expect(within(list).getByRole('button', { name: '1' })).toHaveClass(
+        '[@media(pointer:coarse)]:min-h-11',
+      );
+    });
+
+    it('lays field pairs out by the form width, not the viewport', async () => {
+      const user = userEvent.setup();
+      renderClient();
+      await user.click(await screen.findByRole('button', { name: /^Table 1,/ }));
+      const sheet = await screen.findByRole('dialog', { name: 'Table 1' });
+      const form = sheet.querySelector(`#${TABLE_EDITOR_FORM_ID}`);
+      expect(form).toHaveClass('@container');
+      expect(form?.querySelectorAll('.\\@sm\\:grid-cols-2').length).toBeGreaterThan(0);
+      expect(form?.querySelectorAll('.sm\\:grid-cols-2')).toHaveLength(0);
+      // Footer actions stay end-aligned when they wrap.
+      expect(within(sheet).getByRole('button', { name: 'Save table' }).parentElement).toHaveClass(
+        'ms-auto',
+        'justify-end',
+      );
+    });
   });
 
   describe('on wide screens', () => {

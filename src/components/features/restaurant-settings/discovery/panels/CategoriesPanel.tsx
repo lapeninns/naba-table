@@ -6,11 +6,12 @@ import { memo, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
 import { getCategoryRowTitle } from './categoriesPanelDomain';
 import { CategoryRow } from './CategoryRow';
+import { SETTINGS_TOUCH_CONTROL_CLASS } from '../../shared/compactSettingsClasses';
+import { SettingsCardEmptyState } from '../../shared/SettingsCardEmptyState';
 import {
   DiscoveryDisclosure,
   DiscoveryFieldError,
@@ -25,7 +26,7 @@ export const DISCOVERY_CHIP_CLASS =
   'inline-flex min-h-8 max-w-full items-center gap-1 rounded-md border border-border bg-background py-0.5 pl-2.5 pr-0.5 text-sm [@media(pointer:coarse)]:min-h-11';
 
 export const DISCOVERY_CHIP_BUTTON_CLASS =
-  'size-7 shrink-0 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:size-10';
+  'size-7 min-h-0 min-w-0 shrink-0 text-muted-foreground hover:text-foreground [@media(pointer:coarse)]:size-11';
 
 export type CategoriesPanelEditor = Pick<
   RestaurantBusinessContextEditor,
@@ -76,7 +77,7 @@ export const CategoriesPanel = memo(function CategoriesPanel({
                   row.isPrimary && 'border-foreground font-medium',
                 )}
               >
-                <span className="min-w-0 truncate">
+                <span className="min-w-0 truncate" title={title}>
                   {title}
                   {row.isPrimary ? <span className="text-muted-foreground"> · main</span> : null}
                 </span>
@@ -87,7 +88,7 @@ export const CategoriesPanel = memo(function CategoriesPanel({
                     size="sm"
                     id={DISCOVERY_FIELD_IDS.categoryMakeMain(row.id)}
                     aria-label={`Make main: ${title}`}
-                    className="h-7 px-2 text-xs [@media(pointer:coarse)]:h-10"
+                    className="h-7 min-h-0 px-2 text-xs [@media(pointer:coarse)]:h-11"
                     onClick={() => {
                       editor.makeCategoryPrimary(row.id);
                       requestFocus(DISCOVERY_FIELD_IDS.newCategory);
@@ -114,7 +115,10 @@ export const CategoriesPanel = memo(function CategoriesPanel({
           })}
         </ul>
       ) : (
-        <Text variant="caption">No categories yet.</Text>
+        <SettingsCardEmptyState
+          title="No categories yet"
+          description="Add the categories guests search for below."
+        />
       )}
       {makeMainIssueId ? (
         <DiscoveryFieldError fieldId={makeMainIssueId} issue={makeMainIssue} />
@@ -137,7 +141,13 @@ export const CategoriesPanel = memo(function CategoriesPanel({
             }
           }}
         />
-        <Button type="button" variant="outline" onClick={addCategory}>
+        {/* Same height as the input beside it: 36px on a mouse, 44px on touch. */}
+        <Button
+          type="button"
+          variant="outline"
+          className={cn('min-h-0', SETTINGS_TOUCH_CONTROL_CLASS)}
+          onClick={addCategory}
+        >
           <Plus data-icon="inline-start" aria-hidden />
           Add
         </Button>

@@ -214,20 +214,28 @@ test.describe('ops capacity and table shipped routes', () => {
   test('tables settings route renders capacity and inventory proof @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/tables/);
+    const main = page.locator('main');
     await expect(page.getByRole('heading', { level: 1, name: 'Tables' })).toBeVisible();
-    const summary = page.locator('main').getByTestId('table-inventory-metrics');
-    await expect(summary.getByText('Bookable now')).toBeVisible();
-    await expect(summary.getByText('2 tables', { exact: true })).toBeVisible();
-    await expect(summary.getByText('8 seats')).toBeVisible();
-    await expect(summary.getByText('Dinner: 16 covers')).toBeVisible();
-    await expect(summary.getByRole('link', { name: 'Change meal times' })).toBeVisible();
-    await expect(page.locator('main').getByRole('region', { name: 'Zones' })).toBeVisible();
-    await expect(page.locator('main').getByRole('region', { name: 'Tables' })).toBeVisible();
-    await expect(page.locator('main').getByText('Tables workflow')).toHaveCount(0);
+    // Page status row, then the room: one region per zone.
+    await expect(main.getByRole('status')).toContainText('8 of 8 seats bookable');
+    await expect(main.getByRole('region', { name: 'Main Dining' })).toBeVisible();
+    await expect(main.getByRole('region', { name: 'Patio' })).toBeVisible();
+    await expect(
+      main.getByRole('button', { name: /^Table 1, 4 seats, parties of 1–4/ }),
+    ).toBeVisible();
+    // Wide screens: the room overview sits in the side panel.
+    const aside = main.getByRole('complementary', { name: 'Table details' });
+    await expect(aside.getByRole('heading', { name: 'Room at a glance' })).toBeVisible();
+    await expect(aside.getByText('Service capacity: dinner ≈ 16 covers')).toBeVisible();
+    await expect(aside.getByRole('link', { name: 'Change meal times' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/availability#service-windows',
+    );
 
     await page.screenshot({
       path: testInfo.outputPath('ops-capacity-tables-settings-desktop.png'),
@@ -238,14 +246,16 @@ test.describe('ops capacity and table shipped routes', () => {
   test('tables settings route exposes shared category enum options @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
+    // Below the side-panel breakpoint the table editor opens as a dialog.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
-    await page.locator('main').getByRole('button', { name: 'Add table' }).first().click();
-    await expect(page.getByRole('dialog', { name: 'Add table' })).toBeVisible();
-
-    await page.getByRole('button', { name: /^Details and service notes/ }).click();
-    await page.getByRole('combobox', { name: 'Category' }).click();
+    await page.locator('main').getByRole('button', { name: 'Add table', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: /^Details and notes/ }).click();
+    await dialog.getByRole('combobox', { name: 'Category' }).click();
     await expect(page.getByRole('option', { name: 'Dining' })).toBeVisible();
     await expect(page.getByRole('option', { name: 'Patio' })).toBeVisible();
     await expect(page.getByRole('option', { name: 'Private' })).toBeVisible();
@@ -263,15 +273,21 @@ test.describe('ops capacity and table shipped routes', () => {
     await page.goto('/settings/restaurant/tables', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
+    const main = page.locator('main');
     await expect(
       page.getByRole('button', { name: 'Toggle restaurant settings navigation' }),
     ).toBeVisible();
-    const card = page.locator('main').getByTestId(`table-card-${tables[0].id}`);
-    await expect(card.getByText('Table 1', { exact: true })).toBeVisible();
-    await expect(card.getByText('4 seats · parties of 1–4')).toBeVisible();
-    await expect(card.getByText('Bookable')).toBeVisible();
-    await expect(card.getByRole('button', { name: 'Edit table 1' })).toBeVisible();
-    await expect(card.getByRole('button', { name: 'Delete table 1' })).toBeVisible();
+    // Phones: the capacity summary is a card above the room instead of a side panel.
+    await expect(main.getByRole('region', { name: 'Capacity' })).toBeVisible();
+    const zone = main.getByRole('region', { name: 'Main Dining' });
+    await expect(zone.getByRole('button', { name: 'Rename or reorder Main Dining' })).toBeVisible();
+    await expect(zone.getByRole('button', { name: 'Delete Main Dining' })).toBeVisible();
+    await expect(
+      zone.getByRole('button', {
+        name: 'Table 1, 4 seats, parties of 1–4, can be joined, bookable',
+      }),
+    ).toBeVisible();
+    await expect(zone.getByRole('switch', { name: 'In service' })).toBeChecked();
 
     await page.screenshot({
       path: testInfo.outputPath('ops-capacity-tables-settings-mobile.png'),

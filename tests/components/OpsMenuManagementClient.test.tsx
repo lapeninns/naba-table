@@ -209,10 +209,10 @@ afterEach(() => {
 });
 
 describe('OpsMenuManagementClient', () => {
-  it('shows a no-access state when the operator has no restaurant memberships', () => {
+  it('asks for a restaurant when the operator has no restaurant memberships', () => {
     renderClient({ memberships: [] });
 
-    expect(screen.getByText('No restaurant access')).toBeInTheDocument();
+    expect(screen.getByText('Select a restaurant')).toBeInTheDocument();
     expect(screen.queryByText('Food menu')).not.toBeInTheDocument();
   });
 
@@ -238,7 +238,7 @@ describe('OpsMenuManagementClient', () => {
         'Food and drinks guests can see. Each change saves when you confirm it. Publishing to Google happens separately.',
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New menu' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'New menu' })).toBeInTheDocument();
     expect(await screen.findByText('Dinner Menu')).toBeInTheDocument();
     // No Google note while nothing differs from Google.
     expect(screen.queryByTestId('menu-google-note')).not.toBeInTheDocument();
@@ -273,7 +273,7 @@ describe('OpsMenuManagementClient', () => {
       listMenus: vi.fn().mockRejectedValue(new Error('Menu hierarchy request failed.')),
     });
 
-    expect(await screen.findByText('Menus could not be loaded')).toBeInTheDocument();
+    expect(await screen.findByText('Couldn’t load menus')).toBeInTheDocument();
     expect(screen.queryByText('Menu hierarchy request failed.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
@@ -402,6 +402,8 @@ describe('OpsMenuManagementClient', () => {
 
     expect(await screen.findByText('Differs from Google')).toBeInTheDocument();
     const note = screen.getByTestId('menu-google-note');
+    // RR11: settings info callouts are neutral, never the cyan info hue.
+    expect(note.className).not.toMatch(/\binfo\b|bg-info/);
     expect(note).toHaveTextContent(
       '1 item differs from what Google shows. Publishing a menu to Google replaces Google’s whole menu.',
     );

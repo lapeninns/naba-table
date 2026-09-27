@@ -40,28 +40,24 @@ describe('MenuFilterControls', () => {
     ]);
   });
 
-  it('@contract @a11y toolbar labels the search and marks the pressed status filter', async () => {
+  it('@contract @a11y toolbar labels the search and marks the selected status segment', async () => {
     const user = userEvent.setup();
     const changes: MenuItemFilter[] = [];
     render(<ToolbarHarness onChange={(next) => changes.push(next)} />);
 
     const group = screen.getByRole('group', { name: 'Show' });
-    expect(group).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'All items' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(group).toHaveAttribute('data-slot', 'settings-segmented-control');
+    expect(screen.getByRole('radio', { name: 'All items' })).toBeChecked();
 
-    await user.click(screen.getByRole('button', { name: 'Needs attention' }));
-    expect(screen.getByRole('button', { name: 'Needs attention' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(screen.getByRole('button', { name: 'All items' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    await user.click(screen.getByRole('radio', { name: 'Needs attention' }));
+    expect(screen.getByRole('radio', { name: 'Needs attention' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'All items' })).not.toBeChecked();
     expect(changes.at(-1)).toEqual({ query: '', status: 'attention' });
+
+    // Clicking the selected segment again never clears the filter.
+    await user.click(screen.getByRole('radio', { name: 'Needs attention' }));
+    expect(screen.getByRole('radio', { name: 'Needs attention' })).toBeChecked();
+    expect(changes).toHaveLength(1);
   });
 
   it('@a11y search keeps focus and caret while the query updates', async () => {

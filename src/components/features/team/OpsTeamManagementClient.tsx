@@ -1,16 +1,19 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
-
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
-import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
+import {
+  RestaurantSettingsCommandCenter,
+  SETTINGS_ASIDE_CLASS,
+  SETTINGS_ASIDE_GRID_CLASS,
+  SettingsNoRestaurantState,
+  SettingsStatusFacts,
+} from '@/components/features/restaurant-settings/shared';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
 import { isRestaurantAdminRole, type RestaurantRole } from '@/lib/owner/auth/roles';
+import { cn } from '@/lib/utils';
 
 import { TeamInviteForm } from './TeamInviteForm';
 import { formatTeamRoleWithArticle } from './teamInviteModel';
@@ -31,15 +34,13 @@ function getTeamAccessLine(role: RestaurantRole, canManage: boolean): string {
 function ViewOnlyInviteCard() {
   return (
     <SettingsCard title="Invite someone" description="Only owners and managers can invite people.">
-      <Text variant="caption" className="pt-3">
-        Ask an owner or manager to send the invitation.
-      </Text>
+      <Text variant="caption">Ask an owner or manager to send the invitation.</Text>
     </SettingsCard>
   );
 }
 
 export function OpsTeamManagementClient() {
-  const { memberships, activeRestaurantId, permissions } = useOpsSession();
+  const { activeRestaurantId, permissions } = useOpsSession();
   const activeMembership = useOpsActiveMembership();
   // One request for every invitation: the filters and their counts are worked out on the client.
   const invitations = useOpsTeamInvitations({
@@ -47,17 +48,15 @@ export function OpsTeamManagementClient() {
     status: 'all',
   });
 
-  if (memberships.length === 0) {
-    return (
-      <OpsEmptyState
-        title="No restaurant access"
-        description="Your account is not linked to any restaurants yet. Ask an owner or manager to send you an invitation."
-      />
-    );
-  }
-
   if (!activeRestaurantId || !activeMembership) {
-    return <Skeleton className="h-36 w-full" />;
+    return (
+      <RestaurantSettingsCommandCenter
+        title={TEAM_ROUTE.title}
+        description={TEAM_ROUTE.description}
+      >
+        <SettingsNoRestaurantState task="invite people and manage their invitations" />
+      </RestaurantSettingsCommandCenter>
+    );
   }
 
   const role = activeMembership.role as RestaurantRole;
@@ -69,16 +68,16 @@ export function OpsTeamManagementClient() {
       title={TEAM_ROUTE.title}
       description={TEAM_ROUTE.description}
       status={
-        <p className="flex items-start gap-2 text-sm text-foreground">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <SettingsStatusFacts>
           <span>{getTeamAccessLine(role, canManage)}</span>
-        </p>
+        </SettingsStatusFacts>
       }
     >
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22.5rem]">
+      {/* The invite card is the page's main task, so it stays first below xl (R7 exception). */}
+      <div className={SETTINGS_ASIDE_GRID_CLASS}>
         <div
           id="team-invite"
-          className="min-w-0 scroll-mt-28 xl:sticky xl:top-4 xl:col-start-2 xl:row-start-1"
+          className={cn(SETTINGS_ASIDE_CLASS, 'scroll-mt-28 xl:col-start-2 xl:row-start-1')}
         >
           {canManage ? (
             <TeamInviteForm restaurantId={activeRestaurantId} existingInvites={invites} />

@@ -13,7 +13,7 @@ export function DualSyncFailureCodesPanel({ failureCounts }: DualSyncFailureCode
       {failureCounts.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {failureCounts.map(([code, count]) => (
-            <Badge key={code} variant="outline" className="font-mono text-[10px]">
+            <Badge key={code} variant="outline" className="font-mono text-xs">
               {code}: {count}
             </Badge>
           ))}

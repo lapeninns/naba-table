@@ -1,8 +1,50 @@
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
+import type { SettingsStatusBadgeVariant } from '../../shared/SettingsStatusFacts';
 import type { GbpTone } from '../gbpPageModel';
 
-/** "Connection  Linked": a status pill whose dot and fill follow the ops semantic tones. */
+const TONE_VARIANT: Record<GbpTone, SettingsStatusBadgeVariant> = {
+  ok: 'status-confirmed',
+  off: 'status-completed',
+  bad: 'status-cancelled',
+};
+
+/** The status Badge variant for a Google Business Profile tone. */
+export function gbpToneBadgeVariant(tone: GbpTone): SettingsStatusBadgeVariant {
+  return TONE_VARIANT[tone];
+}
+
+/**
+ * Decorative status dot in the Badge's text colour. The label and value carry the meaning, so the
+ * dot is never the only signal.
+ */
+export function GbpStatusDot() {
+  return (
+    <span
+      aria-hidden
+      data-slot="gbp-status-dot"
+      className="size-1.5 shrink-0 rounded-full bg-current"
+    />
+  );
+}
+
+/**
+ * "Connection" and "Linked" as two separate Badge children. A Badge is `inline-flex`, which drops a
+ * trailing space in a bare text node, so the label and value must be their own items spaced by
+ * the Badge's gap. The Badge must set a gap (`gap-1` or wider).
+ */
+export function GbpStatusLabel({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <span>{label}</span>
+      {/* Collapsed visually by the flex layout, but keeps "Connection Not connected" as two
+          words for screen readers and copied text. */}{' '}
+      <span className="font-semibold">{value}</span>
+    </>
+  );
+}
+
+/** "Connection · Linked": a status Badge whose variant follows the ops semantic tones. */
 export function GbpStatusPill({
   label,
   value,
@@ -13,22 +55,9 @@ export function GbpStatusPill({
   tone: GbpTone;
 }) {
   return (
-    <span
-      className={cn(
-        'inline-flex min-h-[30px] items-center gap-2 rounded-full border px-3 text-sm',
-        tone === 'bad' && 'border-destructive/30 bg-destructive/10 text-destructive',
-      )}
-    >
-      <span
-        aria-hidden
-        className={cn(
-          'size-2 shrink-0 rounded-full',
-          tone === 'ok' && 'bg-success',
-          tone === 'off' && 'ring-[1.5px] ring-inset ring-muted-foreground',
-          tone === 'bad' && 'bg-destructive',
-        )}
-      />
-      {label} <b className="font-semibold">{value}</b>
-    </span>
+    <Badge variant={gbpToneBadgeVariant(tone)} className="gap-1.5" data-tone={tone}>
+      <GbpStatusDot />
+      <GbpStatusLabel label={label} value={value} />
+    </Badge>
   );
 }

@@ -152,7 +152,10 @@ export function ItemTable({
 
   return (
     <>
-      <ul className="flex flex-col" aria-label={`Items in ${primaryLabel(section, 'section')}`}>
+      <ul
+        className="@container flex flex-col"
+        aria-label={`Items in ${primaryLabel(section, 'section')}`}
+      >
         {visibleItems.map((savedItem) => {
           const override = savedItem.id ? visibilityOverrides[savedItem.id] : undefined;
           const item = override === undefined ? savedItem : { ...savedItem, active: override };

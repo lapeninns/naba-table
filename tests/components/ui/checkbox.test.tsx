@@ -34,4 +34,14 @@ describe('ui/checkbox', () => {
     await user.click(checkbox);
     expect(onCheckedChange).not.toHaveBeenCalled();
   });
+
+  it('@contract stays 16px despite the global 44px button floor, with no overlapping hit area', () => {
+    render(<Checkbox aria-label="Sized" />);
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Sized' });
+    // The global base rule gives every <button> min 44x44; the visual box must opt out of it.
+    expect(checkbox).toHaveClass('size-4', 'min-h-0', 'min-w-0');
+    // Its label row is the touch target; a 44px pseudo hit area would overlap neighbours.
+    expect(checkbox.className).not.toContain('after:size-11');
+  });
 });

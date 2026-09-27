@@ -19,18 +19,21 @@ vi.mock('@/components/features/restaurant-settings/shell/useRestaurantSettingsCo
   }),
 }));
 
-vi.mock('@/components/features/restaurant-settings/useRestaurantSettingsNav', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return {
-    ...actual,
-    useRestaurantSettingsNav: () => ({
-      normalizedPathname: '/app/settings/restaurant/profile',
-      getNavBadge: () => undefined,
-      prefetchSettingsView: vi.fn(),
-      handleLinkClick: vi.fn(),
-    }),
-  };
-});
+vi.mock(
+  '@/components/features/restaurant-settings/useRestaurantSettingsNav',
+  async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>();
+    return {
+      ...actual,
+      useRestaurantSettingsNav: () => ({
+        normalizedPathname: '/app/settings/restaurant/profile',
+        getNavBadge: () => undefined,
+        prefetchSettingsView: vi.fn(),
+        handleLinkClick: vi.fn(),
+      }),
+    };
+  },
+);
 
 import { RestaurantSettingsFocusedShell } from '@/components/features/restaurant-settings/RestaurantSettingsFocusedShell';
 
@@ -52,7 +55,9 @@ describe('RestaurantSettingsFocusedShell', () => {
       'href',
       '#ops-content',
     );
-    expect(screen.getByRole('heading', { level: 1, name: 'Restaurant settings' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Restaurant settings' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Restaurant settings' })).toBeInTheDocument();
     expect(screen.getByText('Settings page content')).toBeInTheDocument();
   });
@@ -65,5 +70,33 @@ describe('RestaurantSettingsFocusedShell', () => {
     );
 
     expect(screen.getByRole('status')).toHaveTextContent('Staging environment');
+  });
+
+  it('@a11y lifts settings inputs and selects to 44px on coarse pointers via the content area', () => {
+    render(
+      <RestaurantSettingsFocusedShell>
+        <p>Settings page content</p>
+      </RestaurantSettingsFocusedShell>,
+    );
+
+    const content = document.getElementById('ops-content');
+    expect(content?.className).toContain(
+      '[@media(pointer:coarse)]:[&_[data-slot=input]:not(.sr-only)',
+    );
+    expect(content?.className).toContain(
+      '[@media(pointer:coarse)]:[&_button[role=combobox]]:min-h-11',
+    );
+  });
+
+  it('@a11y applies the same touch scope to full-height workspaces', () => {
+    render(
+      <RestaurantSettingsFocusedShell workspace>
+        <p>Workspace content</p>
+      </RestaurantSettingsFocusedShell>,
+    );
+
+    expect(document.getElementById('ops-content')?.className).toContain(
+      '[@media(pointer:coarse)]:[&_button[role=combobox]]:min-h-11',
+    );
   });
 });

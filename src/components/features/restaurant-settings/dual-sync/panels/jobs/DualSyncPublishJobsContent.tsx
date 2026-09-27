@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils';
 
 import { DualSyncPublishJobsTable } from './DualSyncPublishJobsTable';
+import { SettingsOverflowFrame } from '../../../shared/SettingsOverflowFrame';
 
 import type { DualSyncPublishJobRollup } from '@/server/dual-sync/publish/operations';
 import type { GetDualSyncPublishJobDetailResponse } from '@/services/ops/dual-sync';
@@ -20,13 +21,13 @@ export function DualSyncPublishJobsContent({
   readonly publishJobDetailQuery?: UseQueryResult<GetDualSyncPublishJobDetailResponse, Error>;
 }) {
   return (
-    <div className={cn('rounded-md border', className)}>
+    <SettingsOverflowFrame className={cn('overflow-hidden rounded-md border', className)}>
       <DualSyncPublishJobsTable
         jobs={jobs}
         selectedJobId={selectedJobId}
         onSelectJob={onSelectJob}
         publishJobDetailQuery={publishJobDetailQuery}
       />
-    </div>
+    </SettingsOverflowFrame>
   );
 }

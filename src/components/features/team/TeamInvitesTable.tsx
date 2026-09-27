@@ -6,24 +6,27 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
-  RefreshCw,
   Send,
   type LucideIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState, type ComponentProps } from 'react';
+import { useCallback, useId, useMemo, useState, type ComponentProps } from 'react';
 
 import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
+import {
+  SETTINGS_TOUCH_CONTROL_CLASS,
+  SettingsCardEmptyState,
+  SettingsLoadErrorAlert,
+  SettingsRefreshErrorAlert,
+  SETTINGS_REFRESH_ERROR_READ_ONLY_COPY,
+  SettingsSegmentedControl,
+} from '@/components/features/restaurant-settings/shared';
 import { SettingsCard } from '@/components/features/restaurant-settings/shared/SettingsCard';
-import { getSettingsSaveReasonCode } from '@/components/features/restaurant-settings/shared/settingsSaveSequence';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/typography';
-import {
-  useOpsResendTeamInvite,
-  useOpsRevokeTeamInvite,
-} from '@/hooks/ops/useOpsTeamInvitations';
+import { useOpsResendTeamInvite, useOpsRevokeTeamInvite } from '@/hooks/ops/useOpsTeamInvitations';
+import { cn } from '@/lib/utils';
 
 import {
   TEAM_INVITE_FILTERS,
@@ -39,7 +42,22 @@ import {
 
 import type { TeamInvite } from '@/services/ops/team';
 
-const COARSE_TARGET_CLASS = '[@media(pointer:coarse)]:min-h-11';
+/**
+ * One invitation row. Narrow lists stack it: email and status on the first line, then role,
+ * dates and actions. From a 48rem-wide list (a container query, so the settings sidebar and the
+ * xl aside are accounted for) it becomes one table-like row. Placement uses grid-column/grid-row
+ * only, so the wide values override the stacked ones.
+ */
+const INVITE_ROW_CLASS =
+  'grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-t border-border/60 py-3 @3xl:grid-cols-[minmax(0,1.4fr)_5rem_auto_minmax(0,1fr)_auto] @3xl:items-center @3xl:gap-y-0';
+const INVITE_EMAIL_CLASS =
+  'col-[1] row-[1] min-w-0 break-all text-sm font-medium leading-6 text-foreground @3xl:col-[1] @3xl:row-[1]';
+const INVITE_ROLE_CLASS =
+  'col-[1/-1] row-[2] text-xs text-muted-foreground @3xl:col-[2] @3xl:row-[1] @3xl:text-sm';
+const INVITE_BADGE_CLASS = 'col-[2] row-[1] pt-0.5 @3xl:col-[3] @3xl:row-[1] @3xl:pt-0';
+const INVITE_DATES_CLASS = 'col-[1/-1] row-[3] @3xl:col-[4] @3xl:row-[1]';
+const INVITE_ACTIONS_CLASS =
+  'col-[1/-1] row-[4] mt-1.5 flex empty:hidden @3xl:col-[5] @3xl:row-[1] @3xl:mt-0 @3xl:justify-end';
 
 const STATUS_BADGES: Record<
   TeamInviteDisplayStatus,
@@ -48,7 +66,7 @@ const STATUS_BADGES: Record<
   pending: { variant: 'status-pending', Icon: Clock },
   expired: { variant: 'status-cancelled', Icon: AlertCircle },
   accepted: { variant: 'status-confirmed', Icon: CheckCircle2 },
-  revoked: { variant: 'secondary', Icon: Ban },
+  revoked: { variant: 'status-completed', Icon: Ban },
 };
 
 function StatusBadge({ status }: { status: TeamInviteDisplayStatus }) {
@@ -70,10 +88,10 @@ function InviteDate({ value }: { value: string | null }) {
   );
 }
 
-function InviteDates({ row }: { row: TeamInviteRow }) {
+function InviteDates({ row, className }: { row: TeamInviteRow; className?: string }) {
   const { invite, status } = row;
   return (
-    <span className="text-xs leading-5 text-muted-foreground">
+    <span className={cn('text-xs leading-5 text-muted-foreground', className)}>
       Sent <InviteDate value={invite.createdAt} />
       {status === 'pending' ? (
         <>
@@ -102,18 +120,16 @@ function InviteDates({ row }: { row: TeamInviteRow }) {
 function EmptyInvites({ filter, canManage }: { filter: TeamInviteFilter; canManage: boolean }) {
   const waiting = filter === 'pending';
   return (
-    <div className="flex flex-col items-center gap-1 py-6 text-center">
-      <p className="text-sm font-medium text-foreground">
-        {waiting ? 'No invitations waiting' : 'Nothing here'}
-      </p>
-      <Text variant="caption" className="max-w-[44ch]">
-        {waiting
+    <SettingsCardEmptyState
+      title={waiting ? 'No invitations waiting' : 'Nothing here'}
+      description={
+        waiting
           ? canManage
             ? 'Invite managers and hosts so you aren’t the only person with access.'
             : 'No one is waiting to accept an invitation.'
-          : 'No invitations match this filter.'}
-      </Text>
-    </div>
+          : 'No invitations match this filter.'
+      }
+    />
   );
 }
 
@@ -159,7 +175,7 @@ export function TeamInvitesTable({
 }: TeamInvitesTableProps) {
   const [filter, setFilter] = useState<TeamInviteFilter>('pending');
   const [revokeTarget, setRevokeTarget] = useState<TeamInvite | null>(null);
-  const filterRefs = useRef<Partial<Record<TeamInviteFilter, HTMLButtonElement | null>>>({});
+  const filterGroupId = useId();
   const revokeInvite = useOpsRevokeTeamInvite();
   const resendInvite = useOpsResendTeamInvite();
   const { pending, track } = usePendingRowActions();
@@ -180,7 +196,12 @@ export function TeamInvitesTable({
     )
       .then(() => {
         // The revoked row leaves the Waiting list: return focus to the active filter.
-        window.requestAnimationFrame(() => filterRefs.current[filter]?.focus());
+        window.requestAnimationFrame(() => {
+          document
+            .getElementById(filterGroupId)
+            ?.querySelector<HTMLElement>('[data-state="on"]')
+            ?.focus();
+        });
       })
       .catch(() => {});
   };
@@ -197,12 +218,15 @@ export function TeamInvitesTable({
   // The invitation list is only available to owners and managers. For other roles a failed
   // load is expected, so it gets a calm explanation instead of an error.
   const viewOnlyUnavailable = !canManage && error !== null;
+  // Without data a failed load blocks the list; with data a failed refresh keeps the rows.
+  const blockingError = invites === undefined ? error : null;
+  const refreshError = invites === undefined ? null : error;
 
   return (
     <SettingsCard
       title="Invitations"
       description="Invitations expire after 7 days. Resending one sends a new link and the old link stops working."
-      contentClassName="flex flex-col gap-4 pt-4"
+      contentClassName="flex flex-col gap-4"
       footer={
         isFetching && !isLoading ? (
           <Text variant="caption" role="status">
@@ -219,54 +243,36 @@ export function TeamInvitesTable({
         </div>
       ) : (
         <>
-          <div role="group" aria-label="Filter invitations" className="flex flex-wrap gap-2">
-            {TEAM_INVITE_FILTERS.map((option) => {
-              const isActive = filter === option.value;
-              return (
-                <Button
-                  key={option.value}
-                  ref={(node) => {
-                    filterRefs.current[option.value] = node;
-                  }}
-                  type="button"
-                  size="sm"
-                  variant={isActive ? 'default' : 'outline'}
-                  aria-pressed={isActive}
-                  className={COARSE_TARGET_CLASS}
-                  onClick={() => setFilter(option.value)}
-                >
-                  {option.label}{' '}
-                  {isLoading ? null : (
-                    <span className="tabular-nums opacity-80">{counts[option.value]}</span>
-                  )}
-                </Button>
-              );
-            })}
-          </div>
+          {blockingError ? (
+            <SettingsLoadErrorAlert
+              title="Couldn’t load invitations"
+              message="Nothing has changed."
+              error={blockingError}
+              onRetry={onRetry}
+              retrying={isFetching}
+            />
+          ) : (
+            <SettingsSegmentedControl
+              id={filterGroupId}
+              // A flex-column child would otherwise stretch the track across the whole card.
+              className="self-start"
+              ariaLabel="Filter invitations"
+              value={filter}
+              onValueChange={setFilter}
+              options={TEAM_INVITE_FILTERS.map((option) => ({
+                value: option.value,
+                label: option.label,
+                count: isLoading ? undefined : counts[option.value],
+              }))}
+            />
+          )}
 
-          {error ? (
-            <div>
-              <Alert variant="destructive">
-                <AlertCircle className="size-4" aria-hidden />
-                <AlertTitle>Invitations couldn’t be loaded</AlertTitle>
-                <AlertDescription className="flex flex-col items-start gap-2 text-foreground">
-                  <span>
-                    Nothing has changed. <span className="text-muted-foreground">Reason code</span>{' '}
-                    <span className="font-mono text-xs">{getSettingsSaveReasonCode(error)}</span>
-                  </span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={COARSE_TARGET_CLASS}
-                    onClick={onRetry}
-                  >
-                    <RefreshCw data-icon="inline-start" aria-hidden />
-                    Try again
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </div>
+          {refreshError ? (
+            <SettingsRefreshErrorAlert
+              error={refreshError}
+              onRetry={onRetry}
+              message={SETTINGS_REFRESH_ERROR_READ_ONLY_COPY}
+            />
           ) : null}
 
           {isLoading ? (
@@ -277,10 +283,10 @@ export function TeamInvitesTable({
                 </li>
               ))}
             </ul>
-          ) : error ? null : rows.length === 0 ? (
+          ) : blockingError ? null : rows.length === 0 ? (
             <EmptyInvites filter={filter} canManage={canManage} />
           ) : (
-            <ul aria-label="Invitations" className="flex flex-col">
+            <ul aria-label="Invitations" className="@container flex flex-col">
               {rows.map((row) => {
                 const { invite, status } = row;
                 const rowAction = pending.get(invite.id);
@@ -288,26 +294,22 @@ export function TeamInvitesTable({
                   <li
                     key={invite.id}
                     data-testid={`team-invite-${invite.id}`}
-                    className="flex flex-col items-start gap-1.5 border-t border-border/60 py-3 md:grid md:grid-cols-[minmax(0,1.4fr)_5rem_auto_minmax(0,1fr)_auto] md:items-center md:gap-3"
+                    className={INVITE_ROW_CLASS}
                   >
-                    <span className="min-w-0 max-w-full break-all text-sm font-medium text-foreground">
-                      {invite.email}
-                    </span>
-                    <span className="text-xs text-muted-foreground md:text-sm">
-                      {formatTeamRole(invite.role)}
-                    </span>
-                    <span>
+                    <span className={INVITE_EMAIL_CLASS}>{invite.email}</span>
+                    <span className={INVITE_ROLE_CLASS}>{formatTeamRole(invite.role)}</span>
+                    <span className={INVITE_BADGE_CLASS}>
                       <StatusBadge status={status} />
                     </span>
-                    <InviteDates row={row} />
-                    <span className="flex empty:hidden md:justify-end">
+                    <InviteDates row={row} className={INVITE_DATES_CLASS} />
+                    <span className={INVITE_ACTIONS_CLASS}>
                       {canManage && status === 'pending' ? (
                         <span className="flex flex-wrap gap-2">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className={COARSE_TARGET_CLASS}
+                            className={SETTINGS_TOUCH_CONTROL_CLASS}
                             onClick={() => handleResend(invite)}
                             disabled={pending.has(invite.id)}
                             aria-busy={rowAction === 'resend'}
@@ -328,7 +330,7 @@ export function TeamInvitesTable({
                             type="button"
                             variant="outline"
                             size="sm"
-                            className={COARSE_TARGET_CLASS}
+                            className={SETTINGS_TOUCH_CONTROL_CLASS}
                             onClick={() => setRevokeTarget(invite)}
                             disabled={pending.has(invite.id)}
                             aria-busy={rowAction === 'revoke'}

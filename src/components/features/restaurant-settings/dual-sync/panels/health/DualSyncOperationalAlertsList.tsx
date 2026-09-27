@@ -37,7 +37,7 @@ export function DualSyncOperationalAlertsList({ alerts }: DualSyncOperationalAle
             <span>{alert.message}</span>
             <Badge
               variant={getOperationalAlertBadgeVariant(alert)}
-              className="w-fit font-mono text-[10px]"
+              className="w-fit font-mono text-xs"
             >
               Count: {alert.count}
             </Badge>

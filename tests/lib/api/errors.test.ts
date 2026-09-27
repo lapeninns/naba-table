@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 const loggerErrorMock = vi.hoisted(() => vi.fn());
+const loggerWarnMock = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/logger', async (importOriginal) => {
   const actual = await importOriginal<typeof LoggerModule>();
-  return { ...actual, logger: { error: loggerErrorMock } };
+  return { ...actual, logger: { error: loggerErrorMock, warn: loggerWarnMock } };
 });
 
 import {
@@ -215,5 +216,105 @@ describe('validationError root issues', () => {
       fields: Record<string, string[]>;
     };
     expect(Object.keys(body.fields)).toEqual(['_root']);
+  });
+});
+
+describe('internalError when the database cannot be reached', () => {
+  beforeEach(() => {
+    loggerErrorMock.mockReset();
+    loggerWarnMock.mockReset();
+  });
+
+  const RETRY_COPY = 'We couldn’t reach the server just now. Try again in a moment.';
+  const UNKNOWN_COPY = 'We couldn’t confirm this was saved. Refresh to check before trying again.';
+
+  // The request never left the app: nothing can have been written, so any method may retry.
+  const beforeSend: Array<[string, unknown]> = [
+    ['DNS failure', { message: 'getaddrinfo ENOTFOUND example.supabase.co', code: '' }],
+    ['refused connection', { message: 'connect ECONNREFUSED 127.0.0.1:54321', code: '' }],
+    ['connect timeout', { message: 'Connect Timeout Error', code: 'UND_ERR_CONNECT_TIMEOUT' }],
+  ];
+  // The request may have reached the database before the connection dropped.
+  const midFlight: Array<[string, unknown]> = [
+    [
+      'supabase-js fetch failure',
+      {
+        message: 'TypeError: fetch failed',
+        code: '',
+        details: 'TypeError: fetch failed',
+        hint: '',
+      },
+    ],
+    [
+      'socket reset',
+      Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } }),
+    ],
+    ['socket hang up', new Error('socket hang up')],
+  ];
+
+  it.each([...beforeSend, ...midFlight])(
+    'returns a retryable 503 for a read after a %s',
+    async (_label, error) => {
+      const response = internalError(error, { route: 'ops/tables', method: 'GET' });
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get('Retry-After')).toBe('2');
+      expect(await response.json()).toEqual({
+        error: RETRY_COPY,
+        code: 'UPSTREAM_UNAVAILABLE',
+        message: RETRY_COPY,
+        retryable: true,
+        retryAfter: 2,
+      });
+      // A transient network failure is a warning, not an internal error.
+      expect(loggerErrorMock).not.toHaveBeenCalled();
+      expect(loggerWarnMock).toHaveBeenCalledWith(
+        'api.upstream_unavailable',
+        expect.objectContaining({ route: 'ops/tables', method: 'GET', outcome: 'not_sent' }),
+      );
+    },
+  );
+
+  it.each(beforeSend)('lets a write retry after a %s', async (_label, error) => {
+    const response = internalError(error, { route: 'ops/zones', method: 'POST' });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      code: 'UPSTREAM_UNAVAILABLE',
+      retryable: true,
+    });
+  });
+
+  it.each(midFlight)(
+    'never invites a write to retry after a %s, because it may have landed',
+    async (_label, error) => {
+      const response = internalError(error, { route: 'POST /api/ops/zones' });
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get('Retry-After')).toBeNull();
+      expect(await response.json()).toEqual({
+        error: UNKNOWN_COPY,
+        code: 'OUTCOME_UNKNOWN',
+        message: UNKNOWN_COPY,
+      });
+      expect(loggerWarnMock).toHaveBeenCalledWith(
+        'api.upstream_unavailable',
+        expect.objectContaining({ outcome: 'unknown' }),
+      );
+    },
+  );
+
+  it('treats a route without a known method as a write', async () => {
+    const response = internalError(new Error('socket hang up'), { route: 'profile.put' });
+    expect(await response.json()).toMatchObject({ code: 'OUTCOME_UNKNOWN' });
+  });
+
+  it('keeps real database errors as a 500 even when the message mentions fetch', async () => {
+    const response = internalError(
+      { message: 'function fetch failed does not exist', code: '42883' },
+      { route: 'ops/tables/[id]' },
+    );
+    expect(response.status).toBe(500);
+    expect(loggerErrorMock).toHaveBeenCalledTimes(1);
   });
 });

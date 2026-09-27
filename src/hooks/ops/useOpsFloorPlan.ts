@@ -15,13 +15,21 @@ import { queryKeys } from '@/lib/query/keys';
 
 import type { FloorPlanSnapshot } from '@/components/features/floor-plan/model/floorPlanTypes';
 
-export type FloorPlanStatus = 'loading' | 'error' | 'ready';
+/** `no-restaurant`: no restaurant is selected, so nothing is fetched (never `loading`). */
+export type FloorPlanStatus = 'no-restaurant' | 'loading' | 'error' | 'ready';
 
 export type UseOpsFloorPlanResult = {
   status: FloorPlanStatus;
   snapshot: FloorPlanSnapshot | null;
   /** Which source failed, for a precise retry message. */
   failedSources: Array<'tables' | 'bookings' | 'timeline'>;
+  /** The first blocking load error (status `error`), for a safe reason code. */
+  error: unknown;
+  /**
+   * A background refetch failed while the plan is still on screen. The last loaded plan is kept;
+   * the error is only for a safe reason code.
+   */
+  refreshError: unknown;
   /** Newest successful fetch across all sources (ms), or null before the first load. */
   updatedAt: number | null;
   isRefreshing: boolean;
@@ -119,7 +127,19 @@ export function useOpsFloorPlan({
     withService,
   ]);
 
-  const status: FloorPlanStatus = snapshot ? 'ready' : failedSources.length ? 'error' : 'loading';
+  const status: FloorPlanStatus = !restaurantId
+    ? 'no-restaurant'
+    : snapshot
+      ? 'ready'
+      : failedSources.length
+        ? 'error'
+        : 'loading';
+
+  const sources = withService ? [tablesQuery, summaryQuery, timelineQuery] : [tablesQuery];
+  const error =
+    status === 'error' ? (sources.find((q) => q.isError && !q.data)?.error ?? null) : null;
+  const refreshError =
+    status === 'ready' ? (sources.find((q) => q.isError && q.data)?.error ?? null) : null;
 
   const updatedAt = snapshot
     ? withService
@@ -140,6 +160,8 @@ export function useOpsFloorPlan({
     status,
     snapshot,
     failedSources,
+    error,
+    refreshError,
     updatedAt,
     isRefreshing:
       status === 'ready' &&

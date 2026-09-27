@@ -5,22 +5,17 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { useWorkspaceGbpDriftCheck } from '@/components/features/restaurant-settings/gbpDriftBadges';
 import { useGbpDriftStatus } from '@/components/features/restaurant-settings/GbpDriftProvider';
-import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
-import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
+import { SETTINGS_INLINE_LINK_CLASS } from '@/components/features/restaurant-settings/shared';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { opsHref } from '@/lib/url/opsHref';
-import { cn } from '@/lib/utils';
 
 import { MenuHierarchyManagementPanel } from './MenuHierarchyManagementPanel';
 
 type CatalogMode = 'food' | 'drinks';
 
-const MENU_ROUTE = RESTAURANT_SETTINGS_ROUTE_MAP.menu;
 const MENU_SETTINGS_HREF = opsHref('/settings/restaurant/menu');
 const MENU_DRIFT_SECTIONS = ['foodMenus'] as const;
 
@@ -28,38 +23,6 @@ const CATALOGUES: ReadonlyArray<{ mode: CatalogMode; label: string }> = [
   { mode: 'food', label: 'Food menus' },
   { mode: 'drinks', label: 'Drinks and bar' },
 ];
-
-function CatalogueSwitch({ catalogMode }: { readonly catalogMode: CatalogMode }) {
-  return (
-    <nav aria-label="Menu catalogues" className="min-w-0">
-      <ul className="inline-flex max-w-full flex-wrap gap-1 rounded-lg border border-border/70 bg-background p-1">
-        {CATALOGUES.map((catalogue) => {
-          const isActive = catalogue.mode === catalogMode;
-          return (
-            <li key={catalogue.mode}>
-              <Button
-                asChild
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'text-muted-foreground [@media(pointer:coarse)]:min-h-11',
-                  isActive && 'bg-muted font-semibold text-foreground',
-                )}
-              >
-                <Link
-                  href={`${MENU_SETTINGS_HREF}?catalog=${catalogue.mode}`}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {catalogue.label}
-                </Link>
-              </Button>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
-  );
-}
 
 /** Shown only while some menu items differ from what Google shows. */
 function GoogleMenuDriftNote({
@@ -71,8 +34,8 @@ function GoogleMenuDriftNote({
 }) {
   if (count <= 0) return null;
   return (
-    <Alert variant="info" role="note" data-testid="menu-google-note">
-      <Info aria-hidden />
+    <Alert role="note" data-testid="menu-google-note" className="bg-muted/30">
+      <Info aria-hidden className="text-muted-foreground" />
       <AlertDescription className="flex flex-col gap-1">
         <p>
           <span className="font-semibold tabular-nums">
@@ -82,7 +45,7 @@ function GoogleMenuDriftNote({
         </p>
         <p className="text-muted-foreground">
           Review and publish on{' '}
-          <Link href={reviewHref} className="font-medium text-foreground underline">
+          <Link href={reviewHref} className={SETTINGS_INLINE_LINK_CLASS}>
             Google Business Profile
           </Link>
           .
@@ -117,26 +80,23 @@ export function OpsMenuManagementClient() {
   });
   const foodMenuDriftFields = gbpDrift.getFieldsBySection('foodMenus');
 
-  if (memberships.length === 0) {
-    return (
-      <section className="mx-auto flex min-h-[60vh] max-w-2xl items-center justify-center p-8">
-        <OpsEmptyState
-          title="No restaurant access"
-          description="You need access to at least one restaurant to manage menu settings."
-        />
-      </section>
-    );
-  }
+  const catalogueRailItems = useMemo(
+    () =>
+      CATALOGUES.map((catalogue) => ({
+        label: catalogue.label,
+        href: `${MENU_SETTINGS_HREF}?catalog=${catalogue.mode}`,
+        isActive: catalogue.mode === catalogMode,
+      })),
+    [catalogMode],
+  );
 
   return (
-    <RestaurantSettingsCommandCenter title={MENU_ROUTE.title} description={MENU_ROUTE.description}>
-      <MenuHierarchyManagementPanel
-        restaurantId={restaurantId}
-        preferredMenuKind={catalogMode}
-        gbpDriftFields={foodMenuDriftFields}
-        catalogueSwitch={<CatalogueSwitch catalogMode={catalogMode} />}
-        notice={<GoogleMenuDriftNote count={foodMenuDriftFields.length} reviewHref={reviewHref} />}
-      />
-    </RestaurantSettingsCommandCenter>
+    <MenuHierarchyManagementPanel
+      restaurantId={restaurantId}
+      preferredMenuKind={catalogMode}
+      gbpDriftFields={foodMenuDriftFields}
+      catalogueRailItems={catalogueRailItems}
+      notice={<GoogleMenuDriftNote count={foodMenuDriftFields.length} reviewHref={reviewHref} />}
+    />
   );
 }

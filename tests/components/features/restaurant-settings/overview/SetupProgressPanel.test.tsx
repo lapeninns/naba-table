@@ -24,7 +24,7 @@ describe('SetupProgressPanel', () => {
 
     expect(screen.getByRole('heading', { name: 'Not ready for bookings yet' })).toBeInTheDocument();
     expect(
-      screen.getByText('2 of 3 required steps complete. Next: booking availability.'),
+      screen.getByText('2 of 3 required steps complete. Next: availability.'),
     ).toBeInTheDocument();
     const bar = screen.getByRole('img', { name: '2 of 3 required steps complete' });
     expect(Array.from(bar.children).map((segment) => segment.getAttribute('data-state'))).toEqual([
@@ -32,6 +32,11 @@ describe('SetupProgressPanel', () => {
       'incomplete',
       'complete',
     ]);
+    // Progress meters use the primary accent; completion is told by the badge and title.
+    const [done, todo] = [bar.children[0], bar.children[1]];
+    expect(done).toHaveClass('bg-primary');
+    expect(done).not.toHaveClass('bg-success');
+    expect(todo).toHaveClass('bg-muted');
     expect(screen.queryByRole('link', { name: 'Preview guest times' })).toBeNull();
   });
 

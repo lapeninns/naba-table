@@ -124,7 +124,7 @@ export function GoogleItemDetailsFields({
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent collisionPadding={16}>
               <SelectItem value={NONE_VALUE}>None</SelectItem>
               {SPICINESS_OPTIONS.map((option) => (
                 <SelectItem key={option} value={option}>

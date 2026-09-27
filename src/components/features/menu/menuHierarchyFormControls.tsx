@@ -86,8 +86,8 @@ export function SwitchField({
 }) {
   const id = useId();
   return (
-    <div className="flex items-center justify-between gap-4 rounded-md border bg-muted/20 p-3">
-      <Label htmlFor={id} className="text-sm font-medium">
+    <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-muted/20 p-3">
+      <Label htmlFor={id} className="min-w-0 text-sm font-medium">
         {label}
       </Label>
       <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
@@ -168,13 +168,13 @@ export function MultiCheckboxGroup({
         {options.map((option) => (
           <Label
             key={option}
-            className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm"
+            className="flex min-h-10 items-center gap-2 rounded-lg border border-border/60 bg-background px-3 py-2 text-sm [@media(pointer:coarse)]:min-h-11"
           >
             <Checkbox
               checked={values.includes(option)}
               onCheckedChange={(checked) => onChange(option, checked === true)}
             />
-            <span>{getOptionLabel(option)}</span>
+            <span className="min-w-0 break-words">{getOptionLabel(option)}</span>
           </Label>
         ))}
       </div>
@@ -206,7 +206,7 @@ export function FieldDisclosure({
       open={open}
       onOpenChange={onOpenChange}
       defaultOpen={defaultOpen}
-      className="rounded-lg border border-border/70"
+      className="rounded-lg border border-border/60"
     >
       <CollapsibleTrigger asChild>
         <Button
@@ -251,7 +251,7 @@ export function DialogSaveError({
         {code ? (
           <>
             {' '}
-            Reason code <span className="font-mono">{code}</span>.
+            Reason code <span className="font-mono">{code}</span>
           </>
         ) : null}
       </AlertDescription>

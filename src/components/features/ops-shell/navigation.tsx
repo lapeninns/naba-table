@@ -94,8 +94,8 @@ export const OPS_NAV_SECTIONS: OpsNavigationSection[] = [
     items: [
       {
         title: 'Settings',
-        description: 'Restaurant profile, hours, menu, tables, and team',
-        href: path('/settings/restaurant/profile'),
+        description: 'Setup, profile, availability, menu, tables, and team',
+        href: path('/settings/restaurant'),
         icon: Settings2,
         match: (pathname) => pathname.startsWith(path('/settings/restaurant')),
       },

@@ -8,16 +8,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 import { DualSyncPublishPreviewDialogBody } from './DualSyncPublishPreviewDialogBody';
+import { SettingsDialog } from '../shared/SettingsDialog';
 import { useDualSyncPublishPreviewDialogState } from './hooks/useDualSyncPublishPreviewDialogState';
 
 import type { DualSyncPublishPlan } from '@/server/dual-sync/publish/types';
@@ -54,36 +47,34 @@ export function DualSyncPublishPreviewDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[86dvh] max-w-4xl overflow-y-auto">
-        <DialogHeader className="pr-12 sm:pr-14">
-          <DialogTitle>
-            {purpose === 'import' ? 'Use values from Google?' : 'Review publish plan'}
-          </DialogTitle>
-          <DialogDescription>
-            {purpose === 'import'
-              ? 'These Google values will be saved in Nabatable only. Nothing is sent to Google.'
-              : 'This preview was built from fresh Core and Google snapshots before publish.'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <DualSyncPublishPreviewDialogBody
-          acknowledged={acknowledged}
-          needsAcknowledgement={needsAcknowledgement}
-          onAcknowledgedChange={setAcknowledged}
-          plan={plan}
-          purpose={purpose}
-        />
-
-        <DialogFooter>
+    <SettingsDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      size="xl"
+      title={purpose === 'import' ? 'Use values from Google?' : 'Review publish plan'}
+      description={
+        purpose === 'import'
+          ? 'These Google values will be saved in Nabatable only. Nothing is sent to Google.'
+          : 'This preview was built from fresh Core and Google snapshots before publish.'
+      }
+      footer={
+        <>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPublishing}>
             Cancel
           </Button>
           <Button onClick={onConfirm} disabled={confirmDisabled}>
             {publishButtonLabel}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <DualSyncPublishPreviewDialogBody
+        acknowledged={acknowledged}
+        needsAcknowledgement={needsAcknowledgement}
+        onAcknowledgedChange={setAcknowledged}
+        plan={plan}
+        purpose={purpose}
+      />
+    </SettingsDialog>
   );
 }

@@ -9,9 +9,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import { opsHref } from '@/lib/url/opsHref';
-
 import { AVAILABILITY_ANCHORS, availabilityHash } from '../availabilityAnchors';
+import { RESTAURANT_SETTINGS_ROUTE_MAP as ROUTES } from '../routes';
 import { pluralise } from '../shared/settingsSaveSequence';
 
 /** `unknown` means the check's data did not load, so the status cannot be trusted. */
@@ -161,9 +160,9 @@ export function buildSetupCards({
     {
       key: 'profile',
       group: 'required',
-      title: 'Public profile',
+      title: ROUTES.profile.title,
       reason: 'Guests see this on the booking page and in confirmations.',
-      href: opsHref('/settings/restaurant/profile'),
+      href: ROUTES.profile.href,
       cta: 'Open profile',
       status: requiredStatus(profile),
       checks: profile,
@@ -172,11 +171,9 @@ export function buildSetupCards({
     {
       key: 'availability',
       group: 'required',
-      title: 'Booking availability',
+      title: ROUTES.availability.title,
       reason: 'Opening hours and meal times decide which times guests can request.',
-      href: opsHref(
-        `/settings/restaurant/availability${availabilityHash(AVAILABILITY_ANCHORS.weeklyHours)}`,
-      ),
+      href: `${ROUTES.availability.href}${availabilityHash(AVAILABILITY_ANCHORS.weeklyHours)}`,
       cta: 'Open availability',
       status: requiredStatus(availability),
       checks: availability,
@@ -185,9 +182,9 @@ export function buildSetupCards({
     {
       key: 'tables',
       group: 'required',
-      title: 'Seating capacity',
+      title: ROUTES.tables.title,
       reason: 'Only active tables in active zones can be given to bookings.',
-      href: opsHref('/settings/restaurant/tables'),
+      href: ROUTES.tables.href,
       cta: 'Open tables',
       status: requiredStatus(tables),
       checks: tables,
@@ -196,9 +193,9 @@ export function buildSetupCards({
     {
       key: 'discovery',
       group: 'optional',
-      title: 'Discovery details',
+      title: ROUTES.discovery.title,
       reason: 'Categories, links and amenities that help guests find and choose you.',
-      href: opsHref('/settings/restaurant/discovery'),
+      href: ROUTES.discovery.href,
       cta: 'Open discovery',
       status: 'optional',
       checks: [],
@@ -207,9 +204,9 @@ export function buildSetupCards({
     {
       key: 'google',
       group: 'optional',
-      title: 'Google Business Profile',
+      title: ROUTES['google-business-profile'].title,
       reason: 'Useful after the profile and availability basics are ready.',
-      href: opsHref('/settings/restaurant/google-business-profile'),
+      href: ROUTES['google-business-profile'].href,
       cta: 'Manage Google',
       status: 'optional',
       checks: [],
@@ -218,12 +215,12 @@ export function buildSetupCards({
     {
       key: 'menu',
       group: 'optional',
-      title: 'Menu',
+      title: ROUTES.menu.title,
       reason:
         menuCount > 0
           ? `${pluralise(menuCount, 'menu catalogue entry', 'menu catalogue entries')} found.`
           : 'Add later when menus are ready.',
-      href: opsHref('/settings/restaurant/menu'),
+      href: ROUTES.menu.href,
       cta: 'Open menu',
       status: menuCount > 0 ? 'complete' : 'optional',
       checks: [],
@@ -232,12 +229,12 @@ export function buildSetupCards({
     {
       key: 'team',
       group: 'optional',
-      title: 'Team',
+      title: ROUTES.team.title,
       reason:
         pendingInvites > 0
           ? `${pluralise(pendingInvites, 'pending invite')}.`
           : 'Invite trusted staff when operations are ready.',
-      href: opsHref('/settings/restaurant/team'),
+      href: ROUTES.team.href,
       cta: 'Open team',
       status: pendingInvites > 0 ? 'complete' : 'optional',
       checks: [],

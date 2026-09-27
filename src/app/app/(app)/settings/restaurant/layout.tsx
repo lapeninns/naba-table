@@ -16,7 +16,7 @@ import { fetchUserMembershipsCached } from '@/server/team/access';
 
 import type { ReactNode } from 'react';
 
-const DEFAULT_SETTINGS_REDIRECT_FROM = '/app/settings/restaurant/profile';
+const DEFAULT_SETTINGS_REDIRECT_FROM = '/app/settings/restaurant';
 
 export default async function RestaurantSettingsLayout({ children }: { children: ReactNode }) {
   const cookieStore = await cookies();

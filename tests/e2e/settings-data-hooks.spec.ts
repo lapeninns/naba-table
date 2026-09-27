@@ -609,7 +609,7 @@ async function openWeekday(page: Page, dayOfWeek: number) {
 }
 
 async function closeSunday(page: Page) {
-  await gotoSettings(page, '/settings/restaurant/operating-hours');
+  await gotoSettings(page, '/settings/restaurant/availability#weekly-hours');
   const panel = await openWeekday(page, 0);
   await panel.getByRole('switch', { name: 'Open on Sundays' }).click();
   await expect(panel).toContainText('Closed every Sunday.');
@@ -617,7 +617,7 @@ async function closeSunday(page: Page) {
 }
 
 async function turnOffMondayLunch(page: Page) {
-  await gotoSettings(page, '/settings/restaurant/service-periods');
+  await gotoSettings(page, '/settings/restaurant/availability#service-windows');
   const panel = await openWeekday(page, 1);
   await panel.getByRole('switch', { name: 'Lunch' }).click();
   await expect(saveBar(page)).toBeVisible();
@@ -672,7 +672,7 @@ test.describe('restaurant settings data hooks browser proof', () => {
     await expect(overviewCheck(page, '12 meal times set')).toBeVisible();
     await screenshot(page, 'hours-a2-overview');
 
-    await clickSidebar(page, /Availability & Booking types/);
+    await clickSidebar(page, /^Availability/);
     await expect(page.getByText(/Open 6 days a week/)).toBeVisible();
     await expect(page.locator('#availability-day-0')).toContainText(/Closed/);
     await screenshot(page, 'hours-a3-availability');
@@ -744,7 +744,7 @@ test.describe('restaurant settings data hooks browser proof', () => {
     await expect(overviewCheck(page, '13 meal times set')).toBeVisible();
     await screenshot(page, 'periods-a2-overview');
 
-    await clickSidebar(page, /Availability & Booking types/);
+    await clickSidebar(page, /^Availability/);
     const monday = page.locator('#availability-day-1');
     await expect(monday).toContainText('Dinner 17:00–22:00');
     await expect(monday).not.toContainText('Lunch 12:00–15:00');
@@ -814,9 +814,9 @@ test.describe('restaurant settings data hooks browser proof', () => {
       page.getByText('Nabatable and Google match. There is nothing to review.'),
     ).toBeVisible();
     await expect(page.getByText('Gastropub', { exact: true })).toHaveCount(0);
-    await expect(
-      settingsNav(page).getByRole('link', { name: /Discovery details/ }),
-    ).not.toContainText('Google');
+    await expect(settingsNav(page).getByRole('link', { name: /^Discovery/ })).not.toContainText(
+      'Google',
+    );
     await screenshot(page, 'discovery-a2-gbp');
   });
 

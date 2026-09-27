@@ -1,8 +1,10 @@
 'use client';
 
-import { Loader2, RefreshCw, TriangleAlert } from 'lucide-react';
+import { CircleAlert, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
+import { SettingsSegmentedControl } from '@/components/features/restaurant-settings/shared/SettingsSegmentedControl';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Iframe } from '@/components/ui/iframe';
 import {
@@ -13,7 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 
 import { CTA_DESTINATIONS, SAMPLE_BOOKING_DESCRIPTION } from './model/emailTemplateEditorModel';
@@ -23,8 +24,15 @@ import type { OpsEmailTemplatesEditor } from '@/hooks/ops/useOpsEmailTemplatesEd
 type Device = 'desktop' | 'mobile';
 type Format = 'email' | 'text';
 
-const segmentClass =
-  'h-8 min-h-0 min-w-0 px-2.5 text-sm data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm';
+const DEVICE_OPTIONS = [
+  { value: 'desktop', label: 'Desktop' },
+  { value: 'mobile', label: 'Phone' },
+] as const satisfies readonly { value: Device; label: string }[];
+
+const FORMAT_OPTIONS = [
+  { value: 'email', label: 'Email' },
+  { value: 'text', label: 'Plain text' },
+] as const satisfies readonly { value: Format; label: string }[];
 
 const WIDTH: Record<Device, string> = { desktop: 'max-w-[640px]', mobile: 'max-w-[375px]' };
 
@@ -69,10 +77,13 @@ export function EmailTemplatePreview({ editor }: { editor: OpsEmailTemplatesEdit
           ) : null}
         </h2>
         <Select value={previewVariant.id} onValueChange={editor.setPreviewVariantId}>
-          <SelectTrigger className="h-9 w-auto max-w-[220px]" aria-label="Variant to preview">
+          <SelectTrigger
+            className="h-9 w-auto min-w-0 max-w-[220px]"
+            aria-label="Variant to preview"
+          >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
             {variants.map((item) => (
               <SelectItem key={item.id} value={item.id}>
                 {item.name || 'Untitled variant'}
@@ -81,47 +92,28 @@ export function EmailTemplatePreview({ editor }: { editor: OpsEmailTemplatesEdit
             ))}
           </SelectContent>
         </Select>
-        <ToggleGroup
-          type="single"
+        <SettingsSegmentedControl
           value={device}
-          onValueChange={(value) => value && setDevice(value as Device)}
-          aria-label="Preview width"
-          className="rounded-lg bg-muted p-0.5"
-        >
-          <ToggleGroupItem value="desktop" className={segmentClass}>
-            Desktop
-          </ToggleGroupItem>
-          <ToggleGroupItem value="mobile" className={segmentClass}>
-            Phone
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <ToggleGroup
-          type="single"
+          onValueChange={setDevice}
+          options={DEVICE_OPTIONS}
+          ariaLabel="Preview width"
+        />
+        <SettingsSegmentedControl
           value={format}
-          onValueChange={(value) => value && setFormat(value as Format)}
-          aria-label="Preview format"
-          className="rounded-lg bg-muted p-0.5"
-        >
-          <ToggleGroupItem value="email" className={segmentClass}>
-            Email
-          </ToggleGroupItem>
-          <ToggleGroupItem value="text" className={segmentClass}>
-            Plain text
-          </ToggleGroupItem>
-        </ToggleGroup>
+          onValueChange={setFormat}
+          options={FORMAT_OPTIONS}
+          ariaLabel="Preview format"
+        />
       </div>
 
       <div className="grid content-start gap-3 overflow-y-auto bg-muted/60 p-3">
         {previewQuery.isError ? (
-          <div
-            role="alert"
-            className={cn(
-              'mx-auto grid w-full grid-cols-[16px_minmax(0,1fr)] gap-2 rounded-lg border bg-background p-3 text-sm',
-              width,
-            )}
+          <Alert
+            variant="destructive"
+            className={cn('mx-auto bg-background [&>svg]:size-4', width)}
           >
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-            <div className="grid justify-items-start gap-2">
+            <CircleAlert aria-hidden />
+            <AlertDescription className="flex flex-col items-start gap-2">
               <p>
                 {preview
                   ? 'The preview is out of date: the latest changes could not be rendered.'
@@ -131,15 +123,17 @@ export function EmailTemplatePreview({ editor }: { editor: OpsEmailTemplatesEdit
               <Button
                 type="button"
                 size="sm"
-                variant="secondary"
+                variant="outline"
+                // The destructive Alert tints its text; the retry stays a neutral outline button.
+                className="text-foreground"
                 disabled={previewQuery.isFetching}
+                aria-busy={previewQuery.isFetching || undefined}
                 onClick={editor.retryPreview}
               >
-                <RefreshCw aria-hidden />
                 Retry preview
               </Button>
-            </div>
-          </div>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         {preview ? (

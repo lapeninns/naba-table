@@ -2,6 +2,7 @@
 
 import { Check, Minus } from 'lucide-react';
 
+import { SettingsOverflowFrame } from '@/components/features/restaurant-settings/shared';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -27,9 +28,12 @@ import { BARE_BUTTON_CLASS, LINK_BUTTON_CLASS, LockIcon } from './TableRoomParts
 import type { TableZone } from './tableInventoryModel';
 import type { TableInventory } from '@/services/ops/tables';
 
-const CELL = 'whitespace-nowrap border-t border-border px-3 py-2 text-left text-sm font-normal';
+const CELL = 'whitespace-nowrap border-t border-border/60 px-3 py-2 text-left text-sm font-normal';
 
-/** Every table in one sortable-looking list, zone by zone; rows open the table like tiles. */
+/**
+ * Every table in one sortable-looking list, zone by zone; rows open the table like tiles. On narrow
+ * widths the table scrolls sideways inside its border, with an edge fade on the hidden side (RR9).
+ */
 export function TableRoomList({
   zones,
   tables,
@@ -55,8 +59,8 @@ export function TableRoomList({
   );
 
   return (
-    <div className="rounded-md border border-border bg-background" data-testid="tables-list">
-      <Table className="border-collapse">
+    <SettingsOverflowFrame className="overflow-hidden rounded-xl border border-border/70 bg-background">
+      <Table className="border-collapse" data-testid="tables-list">
         <TableCaption className="sr-only">All tables</TableCaption>
         <TableHeader className="[&_tr]:border-b-0">
           <TableRow className="text-xs hover:bg-transparent">
@@ -106,7 +110,7 @@ export function TableRoomList({
                     scope="row"
                     className={cn(
                       CELL,
-                      'h-auto text-foreground',
+                      'h-auto text-foreground [@media(pointer:coarse)]:py-0',
                       selected && 'shadow-[inset_3px_0_0_var(--color-primary)]',
                     )}
                   >
@@ -120,13 +124,17 @@ export function TableRoomList({
                       }}
                       className={cn(
                         BARE_BUTTON_CLASS,
-                        'min-h-6 font-semibold text-foreground hover:bg-transparent',
+                        'min-h-6 font-semibold text-foreground hover:bg-transparent [@media(pointer:coarse)]:min-h-11',
                       )}
                     >
                       {table.tableNumber}
                     </Button>
                   </TableHead>
-                  <TableCell className={CELL}>{zone.name}</TableCell>
+                  <TableCell
+                    className={cn(CELL, 'min-w-24 max-w-48 whitespace-normal break-words')}
+                  >
+                    {zone.name}
+                  </TableCell>
                   <TableCell className={cn(CELL, 'text-right tabular-nums')}>
                     {table.capacity}
                   </TableCell>
@@ -165,6 +173,6 @@ export function TableRoomList({
           )}
         </TableBody>
       </Table>
-    </div>
+    </SettingsOverflowFrame>
   );
 }

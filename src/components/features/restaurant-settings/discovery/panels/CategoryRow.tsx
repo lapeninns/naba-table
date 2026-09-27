@@ -65,7 +65,7 @@ export function CategoryRow({ row, editor }: { row: CategoryEditor; editor: Cate
   return (
     <fieldset className="flex min-w-0 flex-col gap-3 rounded-lg border border-border/60 p-3">
       <legend className="px-1 text-sm font-semibold text-foreground">{title}</legend>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 @md:grid-cols-2">
         {CATEGORY_TEXT_FIELDS.map((spec) => (
           <CategoryTextField key={spec.field} row={row} editor={editor} spec={spec} />
         ))}

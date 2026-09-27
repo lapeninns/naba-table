@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/typography';
+import { cn } from '@/lib/utils';
 
 import { AttributeAdvancedRow } from './AttributeAdvancedRow';
 import {
@@ -23,6 +24,7 @@ import {
   type AmenityAttributeGroup,
   type AttributeEditor,
 } from '../../businessContextModel';
+import { SETTINGS_SEGMENT_GROUP_CLASS } from '../../shared/compactSettingsClasses';
 import {
   DiscoveryDisclosure,
   useDiscoveryDisclosureOpen,
@@ -36,6 +38,13 @@ export type AttributesPanelEditor = Pick<
   RestaurantBusinessContextEditor,
   'attributes' | 'setAmenityValue' | 'addAttribute' | 'updateAttribute' | 'removeAttribute'
 >;
+
+/**
+ * The shared segment look on a native radio: a raised white chip when checked, never a primary
+ * fill (mirrors `SETTINGS_SEGMENT_ITEM_CLASS`, keyed on `:checked` instead of `data-state`).
+ */
+const AMENITY_SEGMENT_CLASS =
+  'grid h-7 min-w-11 cursor-pointer place-items-center rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-background/60 hover:text-foreground peer-checked:bg-background peer-checked:text-foreground peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-ring motion-reduce:transition-none [@media(pointer:coarse)]:h-11';
 
 /** One amenity: a native Yes / No / Not set radio group. */
 function AmenityValueRadios({
@@ -54,14 +63,14 @@ function AmenityValueRadios({
   const value = getAmenityAttributeValue(row);
 
   return (
-    <li className="flex min-h-11 items-center justify-between gap-3 border-b border-border/60 py-1.5 last:border-b-0">
+    <li className="flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border/60 py-1.5 last:border-b-0">
       <span id={labelId} className="min-w-0 text-sm text-foreground">
         {definition.label}
       </span>
       <div
         role="radiogroup"
         aria-labelledby={labelId}
-        className="inline-flex shrink-0 gap-0.5 rounded-md border border-border p-0.5"
+        className={cn(SETTINGS_SEGMENT_GROUP_CLASS, 'ms-auto shrink-0')}
       >
         {AMENITY_VALUE_OPTIONS.map((option) => (
           <Label key={option.value} className="relative gap-0">
@@ -72,11 +81,9 @@ function AmenityValueRadios({
               value={option.value}
               checked={value === option.value}
               onChange={() => editor.setAmenityValue(definition, groupTitle, option.value)}
-              className="peer absolute inset-0 m-0 size-full cursor-pointer appearance-none border-0 p-0 opacity-0 shadow-none"
+              className="peer absolute inset-0 m-0 size-full min-h-0 min-w-0 cursor-pointer appearance-none border-0 p-0 opacity-0 shadow-none"
             />
-            <span className="grid min-h-7 min-w-11 cursor-pointer place-items-center rounded-sm px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-1 motion-reduce:transition-none [@media(pointer:coarse)]:min-h-9">
-              {option.label}
-            </span>
+            <span className={AMENITY_SEGMENT_CLASS}>{option.label}</span>
           </Label>
         ))}
       </div>
@@ -110,7 +117,7 @@ function AmenityGroup({
           variant="ghost"
           className="group h-auto min-h-12 w-full justify-between gap-2 rounded-none px-0 py-2 text-left hover:bg-transparent"
         >
-          <span className="flex min-w-0 flex-col">
+          <span className="flex min-w-0 flex-col whitespace-normal">
             <span className="text-sm font-semibold text-foreground">{group.title}</span>
             <span className="text-xs font-normal text-muted-foreground">{group.description}</span>
           </span>
@@ -124,7 +131,7 @@ function AmenityGroup({
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <ul className="grid pb-3 md:grid-cols-2 md:gap-x-6">
+        <ul className="grid pb-3 @2xl:grid-cols-2 @2xl:gap-x-6">
           {group.keys.map((definition) => (
             <AmenityValueRadios
               key={definition.key}

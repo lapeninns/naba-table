@@ -26,9 +26,6 @@ import {
   validateAvailabilityDraft,
   type AvailabilityErrors,
 } from './availabilityPageValidation';
-import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
-import { useWorkspaceGbpDriftCheck } from '../gbpDriftBadges';
-import { RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
 import {
   AVAILABILITY_CATALOG_REMOVAL_STEP_NAME,
   AVAILABILITY_CATALOG_STEP_NAME,
@@ -41,6 +38,10 @@ import {
   type AvailabilityBaseRevision,
 } from './availabilitySavePlan';
 import { useSaveAvailabilityOccasions } from './useSaveAvailabilityOccasions';
+import { useOptionalGbpDrift } from '../gbp-drift/useGbpDrift';
+import { useWorkspaceGbpDriftCheck } from '../gbpDriftBadges';
+import { RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
+import { SETTINGS_SAVE_COPY } from '../shared/compactSettingsClasses';
 import {
   formatSettingsSectionList,
   getSettingsSaveReasonCode,
@@ -303,7 +304,7 @@ export function useAvailabilityPageController(
     // The cached snapshot can be older than what is stored (for example after a refused stale
     // save); the clean draft re-seeds from the refetched one.
     void refetchAvailability();
-    toast.success('Changes discarded. Showing the latest saved settings.');
+    toast(SETTINGS_SAVE_COPY.discarded);
   }, [refetchAvailability, saveSequence, saved]);
 
   const buildSteps = useCallback(

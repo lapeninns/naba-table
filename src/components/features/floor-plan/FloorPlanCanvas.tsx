@@ -128,7 +128,7 @@ function Banner({ fp }: { fp: FloorPlanController }) {
     <div className="pointer-events-none absolute inset-x-3 top-3 z-20 flex justify-center">
       <div
         role="status"
-        className="pointer-events-auto flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-card px-3 py-1.5 text-sm shadow-md"
+        className="pointer-events-auto flex max-w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border/70 bg-background/95 px-3 py-1.5 text-sm"
       >
         {body}
       </div>
@@ -150,8 +150,10 @@ function CanvasControls({
   onZoom: (factor: number) => void;
 }) {
   return (
-    <div className="absolute bottom-3 right-3 z-20 flex flex-wrap items-center justify-end gap-2">
-      <div className="flex gap-1 rounded-lg border bg-card p-1 shadow-sm">
+    // Bounded on both sides so the two clusters wrap (end-aligned) instead of running off a
+    // 320px canvas; the empty space between them lets the canvas keep panning.
+    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20 flex flex-wrap items-center justify-end gap-2 [&>*]:pointer-events-auto">
+      <div className="flex gap-1 rounded-lg border border-border/70 bg-background/95 p-1">
         <Popover>
           <PopoverTrigger asChild>
             <Button size="sm" variant="ghost">
@@ -159,7 +161,11 @@ function CanvasControls({
               Key
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-72 space-y-2 text-sm">
+          <PopoverContent
+            align="end"
+            collisionPadding={16}
+            className="max-h-[var(--radix-popover-content-available-height)] w-72 max-w-[calc(100vw-2rem)] space-y-2 overflow-y-auto text-sm"
+          >
             {KEY_STATES.map((kind) => {
               const s = STATE_STYLES[kind];
               const Icon = s.icon;
@@ -197,7 +203,7 @@ function CanvasControls({
       <div
         role="group"
         aria-label="Zoom"
-        className="flex gap-1 rounded-lg border bg-card p-1 shadow-sm"
+        className="flex gap-1 rounded-lg border border-border/70 bg-background/95 p-1"
       >
         <Button size="icon-sm" variant="ghost" aria-label="Zoom out" onClick={() => onZoom(0.8)}>
           <Minus />
@@ -207,7 +213,7 @@ function CanvasControls({
           variant="ghost"
           aria-label="Zoom to fit"
           onClick={onFit}
-          className="min-w-16 font-mono"
+          className="min-w-16 tabular-nums"
         >
           <Maximize aria-hidden />
           {fitted ? 'Fit' : `${Math.round(scale * 100)}%`}
@@ -468,7 +474,7 @@ export function FloorPlanCanvas({ fp }: { fp: FloorPlanController }) {
               className="pointer-events-none absolute rounded-2xl border-2 border-dashed border-primary/60 bg-primary/5"
               style={{ left: g.x, top: g.y, width: g.w, height: g.h }}
             >
-              <span className="absolute -top-2.5 left-3 rounded-full bg-primary px-2 text-[11px] font-semibold text-primary-foreground">
+              <span className="absolute -top-2.5 left-3 rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground">
                 {g.label}
               </span>
             </div>
@@ -507,8 +513,8 @@ export function FloorPlanCanvas({ fp }: { fp: FloorPlanController }) {
       </div>
       <Banner fp={fp} />
       {arrange && fp.selectedTableId ? (
-        <p className="pointer-events-none absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs text-muted-foreground shadow-sm">
-          <Move className="size-3.5" aria-hidden /> Drag, or use arrow keys. R rotates.
+        <p className="pointer-events-none absolute right-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-1.5 rounded-md border border-border/70 bg-background/95 px-2 py-1 text-xs text-muted-foreground">
+          <Move className="size-3.5 shrink-0" aria-hidden /> Drag, or use arrow keys. R rotates.
         </p>
       ) : null}
       <CanvasControls fp={fp} scale={view.scale} fitted={view.fit} onFit={fit} onZoom={zoomBy} />

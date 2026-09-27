@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import {
   Accordion,
   AccordionContent,
@@ -10,23 +11,20 @@ import {
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import { GbpCompareFieldRow } from './GbpCompareFieldRow';
 import { GBP_DRIFT_SECTION_LABELS, GBP_DRIFT_SECTION_ORDER } from './sectionLabels';
 import { useGbpDrift } from './useGbpDrift';
+import { SettingsDialog } from '../shared/SettingsDialog';
+import { SettingsSegmentedControl } from '../shared/SettingsSegmentedControl';
 
 import type { GbpDriftFieldView, GbpDriftFilter } from './types';
 import type { DualSyncSectionKey } from '@/server/dual-sync';
+
+const FILTER_OPTIONS = [
+  { value: 'drifted_only', label: 'Drifted only', ariaLabel: 'Show drifted fields only' },
+  { value: 'all', label: 'All fields', ariaLabel: 'Show all comparable fields' },
+] as const satisfies ReadonlyArray<{ value: GbpDriftFilter; label: string; ariaLabel: string }>;
 
 function isVisibleForFilter(view: GbpDriftFieldView, filter: GbpDriftFilter) {
   if (filter === 'all') return true;
@@ -90,72 +88,14 @@ export function GbpCompareDialog() {
   }, [compareDialogOpen, compareOptions.fieldKey, filter]);
 
   return (
-    <Dialog open={compareDialogOpen} onOpenChange={(open) => (!open ? closeCompare() : undefined)}>
-      <DialogContent className="max-h-[90svh] max-w-5xl gap-0 p-0">
-        <DialogHeader className="border-b border-border/70 px-5 py-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <DialogTitle>Compare with Google</DialogTitle>
-              <DialogDescription>
-                Review Nabatable values beside the current Google Business Profile snapshot.
-              </DialogDescription>
-            </div>
-            <ToggleGroup
-              type="single"
-              value={filter}
-              onValueChange={(value) => {
-                if (value === 'all' || value === 'drifted_only') setFilter(value);
-              }}
-              variant="outline"
-              size="sm"
-            >
-              <ToggleGroupItem value="drifted_only" aria-label="Show drifted fields only">
-                Drifted only
-              </ToggleGroupItem>
-              <ToggleGroupItem value="all" aria-label="Show all comparable fields">
-                All fields
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </DialogHeader>
-
-        <ScrollArea className="max-h-[calc(90svh-9rem)] px-5 py-4">
-          {openSections.length === 0 ? (
-            <div className="rounded-md border border-border/70 bg-muted/30 p-6 text-sm text-muted-foreground">
-              No Google drift is available for the current filter.
-            </div>
-          ) : (
-            <Accordion type="multiple" defaultValue={openSections} className="flex flex-col gap-3">
-              {openSections.map((sectionKey) => {
-                const rows = visibleBySection.get(sectionKey) ?? [];
-                const drifted = rows.filter((view) => view.effectiveStatus === 'drifted').length;
-                return (
-                  <AccordionItem
-                    key={sectionKey}
-                    value={sectionKey}
-                    className="rounded-md border border-border/70 px-3"
-                  >
-                    <AccordionTrigger className="hover:no-underline">
-                      <span className="flex min-w-0 items-center gap-2 text-left">
-                        <span>{GBP_DRIFT_SECTION_LABELS[sectionKey]}</span>
-                        <Badge variant={drifted > 0 ? 'default' : 'secondary'}>{drifted}</Badge>
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="flex flex-col gap-3 pb-3">
-                        {rows.map((view) => (
-                          <GbpCompareFieldRow key={view.fieldKey} view={view} />
-                        ))}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          )}
-        </ScrollArea>
-
-        <DialogFooter className="border-t border-border/70 px-5 py-4">
+    <SettingsDialog
+      open={compareDialogOpen}
+      onOpenChange={(open) => (!open ? closeCompare() : undefined)}
+      size="xl"
+      title="Compare with Google"
+      description="Review Nabatable values beside the current Google Business Profile snapshot."
+      footer={
+        <>
           <Button type="button" variant="outline" onClick={closeCompare}>
             Close
           </Button>
@@ -166,13 +106,62 @@ export function GbpCompareDialog() {
           >
             Apply all Google fields
             {applyableCount > 0 ? (
-              <Badge variant="secondary" className="ml-2">
+              <Badge variant="secondary" className="ml-2 tabular-nums">
                 {applyableCount}
               </Badge>
             ) : null}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <SettingsSegmentedControl<GbpDriftFilter>
+        value={filter}
+        onValueChange={setFilter}
+        options={FILTER_OPTIONS}
+        ariaLabel="Fields to show"
+        size="sm"
+        className="self-start"
+      />
+      {openSections.length === 0 ? (
+        <OpsEmptyState
+          size="compact"
+          title="No drift to show"
+          description="No Google drift is available for the current filter."
+        />
+      ) : (
+        <Accordion type="multiple" defaultValue={openSections} className="flex flex-col gap-3">
+          {openSections.map((sectionKey) => {
+            const rows = visibleBySection.get(sectionKey) ?? [];
+            const drifted = rows.filter((view) => view.effectiveStatus === 'drifted').length;
+            return (
+              <AccordionItem
+                key={sectionKey}
+                value={sectionKey}
+                className="rounded-lg border border-border/60 px-3"
+              >
+                <AccordionTrigger className="hover:no-underline">
+                  <span className="flex min-w-0 items-center gap-2 text-left">
+                    <span>{GBP_DRIFT_SECTION_LABELS[sectionKey]}</span>
+                    <Badge
+                      variant={drifted > 0 ? 'status-pending' : 'secondary'}
+                      className="tabular-nums"
+                    >
+                      {drifted}
+                    </Badge>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex flex-col gap-3 pb-3">
+                    {rows.map((view) => (
+                      <GbpCompareFieldRow key={view.fieldKey} view={view} />
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+      )}
+    </SettingsDialog>
   );
 }

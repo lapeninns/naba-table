@@ -158,7 +158,7 @@ describe('summarizeReadiness', () => {
       nextKey: 'availability',
       segments: [true, false, false],
       title: 'Not ready for bookings yet',
-      description: '1 of 3 required steps complete. Next: booking availability.',
+      description: '1 of 3 required steps complete. Next: availability.',
     });
   });
 

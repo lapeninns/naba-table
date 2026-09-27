@@ -109,7 +109,7 @@ describe('RestaurantSettingsLayout security', () => {
     );
   });
 
-  it('falls back to the canonical profile route when the request-path header is unsafe', async () => {
+  it('falls back to the setup overview when the request-path header is unsafe', async () => {
     headerGetMock.mockImplementation((name: string) => {
       if (name.toLowerCase() === 'host') return 'localhost:5180';
       if (name.toLowerCase() === APP_REQUEST_PATH_HEADER) return 'https://evil.example/settings';
@@ -122,7 +122,7 @@ describe('RestaurantSettingsLayout security', () => {
     );
 
     expect(redirectMock).toHaveBeenCalledWith(
-      '/app/auth/signin?redirectedFrom=%2Fapp%2Fsettings%2Frestaurant%2Fprofile',
+      '/app/auth/signin?redirectedFrom=%2Fapp%2Fsettings%2Frestaurant',
     );
   });
 

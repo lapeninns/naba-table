@@ -92,6 +92,23 @@ describe('TableInventoryConfirmDialogs', () => {
     expect(props.onTakeZoneOutOfService).toHaveBeenCalledWith(zone);
   });
 
+  it('shows a running delete as pending with both actions disabled', () => {
+    renderDialogs({ tableDeleteTarget: makeTable(), isTableDeletePending: true });
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Delete table 12?' });
+    expect(within(dialog).getByRole('button', { name: 'Deleting…' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+  });
+
+  it('closes the zone-with-tables question with Close', async () => {
+    const user = userEvent.setup();
+    const props = renderDialogs({ zoneWithTables: { zone, tableCount: 1 } });
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(props.onZoneWithTablesOpenChange).toHaveBeenCalledWith(false);
+    expect(props.onTakeZoneOutOfService).not.toHaveBeenCalled();
+  });
+
   it('cannot take a zone out of service twice', () => {
     renderDialogs({ zoneWithTables: { zone: { ...zone, active: false }, tableCount: 1 } });
 

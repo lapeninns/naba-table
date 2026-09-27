@@ -7,12 +7,16 @@ import { booking, snapshot } from './floorPlanFixtures';
 
 import type { LifecycleResponse } from '@/services/ops/bookings';
 
-const toast = vi.hoisted(() => ({
-  success: vi.fn(),
-  warning: vi.fn(),
-  error: vi.fn(),
-  info: vi.fn(),
-}));
+// Callable, like sonner's `toast(...)`, with the variants the controller uses.
+const toast = vi.hoisted(() =>
+  Object.assign(vi.fn(), {
+    success: vi.fn(),
+    warning: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  }),
+);
+const layoutSave = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
 const lifecycle = vi.hoisted(() => ({ run: vi.fn() }));
 const plan = vi.hoisted(() => ({ snapshot: null as unknown }));
 
@@ -27,6 +31,8 @@ vi.mock('@/hooks/ops/useOpsFloorPlan', () => ({
     status: 'ready',
     snapshot: plan.snapshot,
     failedSources: [],
+    error: null,
+    refreshError: null,
     updatedAt: null,
     isRefreshing: false,
     isRealtime: false,
@@ -43,7 +49,7 @@ vi.mock('@/hooks/ops/useOpsFloorPlanAssignments', () => ({
   }),
 }));
 vi.mock('@/hooks/ops/useOpsFloorPlanLayout', () => ({
-  useOpsFloorPlanLayoutSave: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useOpsFloorPlanLayoutSave: () => ({ mutateAsync: layoutSave.mutateAsync, isPending: false }),
 }));
 vi.mock('@/hooks/ops/useOpsFloorPlanLifecycle', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -111,5 +117,90 @@ describe('useFloorPlanController undo no-show', () => {
 
     expect(toast.success).toHaveBeenCalledWith('Undo no-show: B1');
     expect(toast.warning).not.toHaveBeenCalled();
+  });
+});
+
+describe('useFloorPlanController layout saving', () => {
+  function arrangeWithOneChange() {
+    const hook = renderHook(() => useFloorPlanController({ initialDate: null, surface: 'layout' }));
+    act(() => hook.result.current.actions.rotateTable('T1', 15));
+    expect(hook.result.current.dirtyIds).toEqual(['T1']);
+    return hook;
+  }
+
+  it('confirms a full save with a sentence toast', async () => {
+    layoutSave.mutateAsync.mockResolvedValue({ saved: ['T1'], failed: [] });
+    const { result } = arrangeWithOneChange();
+
+    await act(async () => {
+      await result.current.actions.saveLayout();
+    });
+
+    expect(toast.success).toHaveBeenCalledWith('Layout saved. 1 table updated.');
+    expect(result.current.layoutSaveFailure).toBeNull();
+    expect(result.current.dirtyIds).toEqual([]);
+  });
+
+  it('reports a partial save to the save bar with a reason code, never a server message', async () => {
+    layoutSave.mutateAsync.mockResolvedValue({
+      saved: [],
+      failed: [{ tableId: 'T1', message: 'This table was deleted.' }],
+    });
+    const { result } = arrangeWithOneChange();
+
+    await act(async () => {
+      await result.current.actions.saveLayout();
+    });
+
+    expect(result.current.layoutSaveFailure).toEqual({
+      failedSection: '1 of 1 tables',
+      saved: [],
+      notAttempted: [],
+      reasonCode: 'PARTIAL_SAVE',
+    });
+    expect(result.current.dirtyIds).toEqual(['T1']);
+  });
+
+  it('reports a failed request with its safe reason code', async () => {
+    layoutSave.mutateAsync.mockRejectedValue(new Error('network down'));
+    const { result } = arrangeWithOneChange();
+
+    await act(async () => {
+      await result.current.actions.saveLayout();
+    });
+
+    expect(result.current.layoutSaveFailure).toMatchObject({ failedSection: 'Layout' });
+    expect(result.current.layoutSaveFailure?.reasonCode).not.toContain('network down');
+  });
+
+  it('discards with the shared "Changes discarded." toast and clears any failure', async () => {
+    layoutSave.mutateAsync.mockRejectedValue(new Error('network down'));
+    const { result } = arrangeWithOneChange();
+    await act(async () => {
+      await result.current.actions.saveLayout();
+    });
+
+    act(() => result.current.actions.discardLayout());
+
+    expect(toast).toHaveBeenCalledWith('Changes discarded.');
+    expect(result.current.dirtyIds).toEqual([]);
+    expect(result.current.layoutSaveFailure).toBeNull();
+  });
+
+  it('leaves no announce or flash timer running after unmount', () => {
+    vi.useFakeTimers();
+    try {
+      const hook = arrangeWithOneChange();
+      // Discarding announces after a short delay (so screen readers re-read the same text).
+      act(() => hook.result.current.actions.discardLayout());
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+      hook.unmount();
+
+      // A timer left behind would set state after unmount (and after test teardown in CI).
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
