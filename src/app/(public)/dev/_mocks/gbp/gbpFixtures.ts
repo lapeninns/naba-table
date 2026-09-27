@@ -154,7 +154,6 @@ export function gbpConnectionFor(scenario: GbpScenario): GoogleBusinessProfileCo
       return connection({ status: 'reauth_required' });
     case 'accesslost':
     case 'liveonly':
-    case 'livefailure':
       return connection({
         status: 'sync_error',
         lastError: 'Google Business Profile sync failed unexpectedly.',
@@ -268,7 +267,6 @@ export function gbpOperatorStateFor(scenario: GbpScenario): GbpOperatorStateFixt
       };
     case 'accesslost':
     case 'liveonly':
-    case 'livefailure':
       return {
         ...base,
         connectionStatus: 'sync_error',

@@ -72,7 +72,9 @@ export function GbpLinkedView({ restaurantId, section, canManageSettings }: GbpL
         state?.connectionStatus,
         state?.writeState,
       ].join(':')}
+      connectionLoading={operator.connectionQuery.isLoading}
       savedStatus={data.status}
+      onCheckFailed={section.refreshHandler}
       operations={
         <>
           <Button

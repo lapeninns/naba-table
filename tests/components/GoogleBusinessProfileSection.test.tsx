@@ -9,6 +9,7 @@ import {
 } from '@/components/features/restaurant-settings/google-business-profile/googleBusinessProfileConnectionModel';
 import { GoogleBusinessProfileSection } from '@/components/features/restaurant-settings/google-business-profile/GoogleBusinessProfileSection';
 import { HttpError } from '@/lib/http/errors';
+import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
@@ -94,8 +95,8 @@ const startAuthorizationMutation = {
 const operatorStateResult = {
   connectionQuery: {
     data: undefined,
-    isLoading: true,
-    error: null,
+    isLoading: false,
+    error: null as Error | null,
   },
   terminalNoticesQuery: {
     data: undefined,
@@ -232,6 +233,8 @@ function expectSharedChrome() {
 }
 
 beforeEach(() => {
+  operatorStateResult.connectionQuery.isLoading = false;
+  operatorStateResult.connectionQuery.error = null;
   mockSearchParams = new URLSearchParams();
   mockCanManageSettings = true;
   connectionResult.data = undefined;
@@ -266,6 +269,40 @@ describe('GoogleBusinessProfileSection', () => {
       ),
     ).toBeInTheDocument();
     expectSharedChrome();
+  });
+
+  it('waits for the initial operator state before live checks and remains usable after that query fails', async () => {
+    connectionResult.data = linkedConnection();
+    operatorStateResult.connectionQuery.isLoading = true;
+    const view = render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+    expect(screen.getByRole('button', { name: 'Loading connection…' })).toBeDisabled();
+    operatorStateResult.connectionQuery.isLoading = false;
+    operatorStateResult.connectionQuery.error = new Error('operator unavailable');
+    view.rerender(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+    expect(screen.getByRole('button', { name: 'Check live connection' })).toBeEnabled();
+  });
+
+  it('refreshes connection, operator and comparison state after live access is denied', async () => {
+    const user = userEvent.setup();
+    connectionResult.data = linkedConnection();
+    render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
+    await screen.findByTestId('gbp-sync-workspace');
+    vi.mocked(fetchJson).mockRejectedValueOnce(
+      new HttpError({ status: 409, code: 'GBP_REAUTH_REQUIRED', message: SENTINEL }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Check live connection' }));
+    await screen.findByRole('alert');
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: queryKeys.opsRestaurants.googleBusinessProfile('rest-1'),
+      exact: true,
+    });
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['gbp-operator-v1', 'rest-1'],
+    });
+    expect(queryClientMock.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['dual-sync-state', 'rest-1'],
+    });
+    expectNoSentinelAnywhere();
   });
 
   it('invalidates GBP and dual-sync workspace queries when checking Google again', async () => {

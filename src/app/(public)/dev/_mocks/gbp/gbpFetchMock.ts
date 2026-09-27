@@ -48,7 +48,7 @@ export function installGbpFetchMock(scenario: GbpScenario): () => void {
   let lastPreviewGroupIds: string[] = [];
   let liveReadCount = 0;
   const retention =
-    scenario === 'liveonly' || scenario === 'livefailure'
+    scenario === 'liveonly'
       ? { status: 'blocked', reason: 'retention_not_ready' }
       : { status: 'ready', reason: null };
 
@@ -60,11 +60,13 @@ export function installGbpFetchMock(scenario: GbpScenario): () => void {
       case 'GET /google-business-profile/live':
         liveReadCount += 1;
         if (scenario === 'accesslost' || (scenario === 'livefailure' && liveReadCount > 1)) {
+          connection = gbpConnectionFor('accesslost');
+          operator = gbpOperatorStateFor('accesslost');
           return {
-            status: 403,
+            status: 409,
             body: {
               error: 'Google did not allow access to this listing.',
-              code: 'GBP_ACCESS_DENIED',
+              code: 'GBP_REAUTH_REQUIRED',
             },
           };
         }
