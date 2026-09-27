@@ -19,7 +19,7 @@ const dynamicState = vi.hoisted(() => ({
     'tables',
     'team',
     'staff-communications',
-    'table-layout',
+    'floor-layout',
     'email-templates',
   ],
   index: 0,
@@ -100,7 +100,7 @@ const expectedViews: RestaurantSettingsView[] = [
   'tables',
   'team',
   'staff-communications',
-  'table-layout',
+  'floor-layout',
   'email-templates',
 ];
 
@@ -251,20 +251,10 @@ describe('restaurant settings route contract', () => {
       '/app/settings/restaurant/tables',
       '/app/settings/restaurant/team',
       '/app/settings/restaurant/staff-communications',
-      '/app/settings/restaurant/table-layout',
+      '/app/settings/restaurant/floor-layout',
       '/app/settings/restaurant/email-templates',
     ]);
     expect(RESTAURANT_SETTINGS_NAV_ITEMS).toHaveLength(RESTAURANT_SETTINGS_ROUTES.length);
-    expect(
-      RESTAURANT_SETTINGS_NAV_ITEMS.find(
-        (item) => item.href === '/app/settings/restaurant/availability',
-      )?.aliases,
-    ).toEqual([
-      '/app/settings/restaurant/service-periods#service-windows',
-      '/app/settings/restaurant/operating-hours#weekly-hours',
-      '/app/settings/restaurant/turn-durations#booking-occasions',
-      '/app/settings/restaurant/occasions#booking-occasions',
-    ]);
   });
 });
 
@@ -325,13 +315,13 @@ describe('RestaurantSettingsSubnav', () => {
     );
     const profileHeading = screen.getByRole('heading', {
       level: 1,
-      name: 'Restaurant profile',
+      name: 'Profile',
     });
     expect(profileHeading).toHaveClass('text-sm');
     expect(
       screen.queryByText(/Public details, booking page URL, manager alerts/i),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Restaurant profile' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Profile' })).toHaveAttribute(
       'href',
       '/app/settings/restaurant/profile',
     );
@@ -345,9 +335,7 @@ describe('RestaurantSettingsSubnav', () => {
       expect(screen.getByRole('link', { name: item.title })).toHaveAttribute('href', item.href);
     }
     expect(screen.getByRole('link', { name: 'Tables' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Restaurant profile' })).not.toHaveAttribute(
-      'aria-current',
-    );
+    expect(screen.getByRole('link', { name: 'Profile' })).not.toHaveAttribute('aria-current');
   });
 
   it('gives full-height workspaces the content area without the page gutter', () => {
@@ -360,13 +348,11 @@ describe('RestaurantSettingsSubnav', () => {
     expect(document.getElementById('ops-content')).toHaveAttribute('data-layout', 'page');
   });
 
-  it('titles former availability routes as the Availability page and marks it active', () => {
-    renderPageShell('/app/settings/restaurant/service-periods');
+  it('titles the Availability page and marks it active', () => {
+    renderPageShell('/app/settings/restaurant/availability');
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Availability & Booking types' }),
-    ).toBeInTheDocument();
-    const availabilityLinks = screen.getAllByRole('link', { name: 'Availability & Booking types' });
+    expect(screen.getByRole('heading', { level: 1, name: 'Availability' })).toBeInTheDocument();
+    const availabilityLinks = screen.getAllByRole('link', { name: 'Availability' });
     expect(
       availabilityLinks.some(
         (link) => link.getAttribute('href') === '/app/settings/restaurant/availability',
@@ -385,7 +371,7 @@ describe('RestaurantSettingsSubnav', () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     renderPageShell(
-      '/app/settings/restaurant/service-periods',
+      '/app/settings/restaurant/availability',
       makePrefetchServiceCalls(),
       <DirtyRouteContent />,
     );
@@ -484,10 +470,10 @@ describe('RestaurantSettingsSubnav', () => {
     const serviceCalls = makePrefetchServiceCalls();
     renderSubnav('/app/settings/restaurant/profile', serviceCalls);
 
-    await user.hover(screen.getByRole('link', { name: 'Restaurant profile' }));
-    await user.hover(screen.getByRole('link', { name: 'Discovery details' }));
+    await user.hover(screen.getByRole('link', { name: 'Profile' }));
+    await user.hover(screen.getByRole('link', { name: 'Discovery' }));
     await user.hover(screen.getByRole('link', { name: 'Google Business Profile' }));
-    await user.hover(screen.getByRole('link', { name: 'Availability & Booking types' }));
+    await user.hover(screen.getByRole('link', { name: 'Availability' }));
     await user.hover(screen.getByRole('link', { name: 'Menu' }));
     await user.hover(screen.getByRole('link', { name: 'Tables' }));
     await user.hover(screen.getByRole('link', { name: 'Team' }));

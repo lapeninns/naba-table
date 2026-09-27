@@ -33,8 +33,11 @@ import { useTableInventoryMutations } from './useTableInventoryMutations';
 import type { TableInventory } from '@/services/ops/tables';
 
 export const TABLE_INVENTORY_ADD_BUTTON_ID = 'table-inventory-add-table';
-/** From this width the table details sit in a side panel; below it they open in a sheet. */
-export const TABLE_INSPECTOR_QUERY = '(min-width: 1100px)';
+/**
+ * From this width (Tailwind `xl`) the table details sit in a side panel; below it they open in a
+ * sheet. Matches the `xl:` aside grid in `TableInventoryClient`.
+ */
+export const TABLE_INSPECTOR_QUERY = '(min-width: 80rem)';
 
 export type TableRoomView = 'room' | 'list';
 

@@ -149,7 +149,7 @@ describe('DeleteHierarchyDialog', () => {
     renderDialog({ type: 'menu', menu: makeMenu() });
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Not deleted. Nothing was removed. Reason code HTTP_409.',
+      'Not deleted. Nothing was removed. Reason code HTTP_409',
     );
     expect(screen.queryByText(/Delete rejected/)).not.toBeInTheDocument();
   });

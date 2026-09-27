@@ -671,7 +671,7 @@ describe('GbpSyncWorkspace', () => {
     );
   });
 
-  it('@contract shows fixed copy, never the server message, when the comparison fails to load', () => {
+  it('@contract shows a reason code, never the server message, when the comparison fails to load', () => {
     mocks.useOpsDualSync.mockReturnValue(
       dualSync({
         stateQuery: query(undefined, {
@@ -683,9 +683,10 @@ describe('GbpSyncWorkspace', () => {
 
     renderWorkspace();
 
-    expect(
-      screen.getByText(/The differences could not be loaded\. Reason code: HTTP_500\./),
-    ).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Couldn’t load the differences');
+    expect(alert).toHaveTextContent('Your saved settings are unchanged. Reason code HTTP_500');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
     expect(document.body.textContent).not.toContain('SECRET_DB_DETAIL');
   });
 });

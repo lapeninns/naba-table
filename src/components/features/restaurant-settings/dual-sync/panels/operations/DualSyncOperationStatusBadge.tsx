@@ -31,7 +31,7 @@ export function DualSyncOperationStatusBadge({ status }: DualSyncOperationStatus
   return (
     <Badge
       variant={DUAL_SYNC_OPERATION_STATUS_VARIANT[status]}
-      className="inline-flex items-center gap-1 font-mono text-[10px]"
+      className="inline-flex items-center gap-1 font-mono text-xs"
     >
       <Icon className="h-3.5 w-3.5" />
       {DUAL_SYNC_OPERATION_STATUS_LABEL[status]}

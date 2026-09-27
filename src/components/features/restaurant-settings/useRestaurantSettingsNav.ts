@@ -56,7 +56,7 @@ export const RESTAURANT_SETTINGS_NAV_GROUPS: Array<{
     hrefs: [
       '/app/settings/restaurant/discovery',
       '/app/settings/restaurant/menu',
-      '/app/settings/restaurant/table-layout',
+      '/app/settings/restaurant/floor-layout',
     ],
   },
   {
@@ -133,11 +133,7 @@ export function isRestaurantSettingsNavItemActive(
   pathname: string,
   item: RestaurantSettingsNavItem,
 ) {
-  if (isRestaurantSettingsRouteActive(pathname, item.href)) {
-    return true;
-  }
-
-  return (item.aliases ?? []).some((alias) => isRestaurantSettingsRouteActive(pathname, alias));
+  return isRestaurantSettingsRouteActive(pathname, item.href);
 }
 
 export function useRestaurantSettingsNav() {

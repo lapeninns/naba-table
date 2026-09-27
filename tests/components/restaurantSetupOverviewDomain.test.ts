@@ -91,7 +91,7 @@ describe('restaurantSetupOverviewDomain', () => {
       total: 3,
       ready: false,
       nextKey: 'profile',
-      description: '0 of 3 required steps complete. Next: public profile.',
+      description: '0 of 3 required steps complete. Next: profile.',
     });
     expect(state.requiredCards.map((card) => card.status)).toEqual([
       'attention',

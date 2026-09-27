@@ -78,6 +78,11 @@ describe('GbpReviewTable', () => {
     expect(within(maps).getByRole('radio', { name: 'Use Google’s' })).toBeEnabled();
     expect(screen.getByText('Changed on Google · Google-owned')).toBeInTheDocument();
     expect(maps).toHaveAccessibleDescription(/Google owns this value/);
+    // The shared segmented look: muted track, raised white chip, no ring or arbitrary text size.
+    expect(maps).toHaveClass('bg-muted', 'rounded-lg');
+    const choice = within(maps).getByRole('radio', { name: 'Use Google’s' });
+    expect(choice).toHaveClass('h-8', 'text-sm', 'data-[state=on]:bg-background');
+    expect(choice.className).not.toMatch(/text-\[13px\]|ring-1/);
   });
 
   it('warns that sending any menu item replaces Google’s whole menu', () => {

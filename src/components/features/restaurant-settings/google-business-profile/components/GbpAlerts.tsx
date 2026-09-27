@@ -60,6 +60,8 @@ function ActionButton({
       type="button"
       size="sm"
       variant={primary ? 'default' : 'outline'}
+      // Alerts tint their text; secondary actions stay neutral outline buttons.
+      className={primary ? undefined : 'text-foreground'}
       onClick={action.onClick}
       disabled={action.pending || action.disabled}
     >
@@ -123,7 +125,11 @@ export function GbpAlerts({
           preview.
           <span className="mt-2 flex flex-wrap gap-1.5" aria-label="Unknown paths">
             {pending.unknownPaths.map((path) => (
-              <Badge key={path} variant="outline" className="font-mono font-normal">
+              <Badge
+                key={path}
+                variant="outline"
+                className="max-w-full font-mono font-normal [overflow-wrap:anywhere]"
+              >
                 {path}
               </Badge>
             ))}

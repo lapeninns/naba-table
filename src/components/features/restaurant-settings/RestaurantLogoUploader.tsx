@@ -166,7 +166,7 @@ export function RestaurantLogoUploader({
       tabIndex={-1}
       role="group"
       aria-labelledby="restaurant-logo-title"
-      className="flex flex-col gap-4 rounded-lg border border-border/70 p-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/30 @md:flex-row @md:items-start"
+      className="flex flex-col gap-4 rounded-lg border border-border/70 p-3 outline-none sm:p-4 focus-visible:ring-[3px] focus-visible:ring-ring/30 @md:flex-row @md:items-start"
     >
       <div className="relative size-16 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
         {displayUrl ? (
@@ -242,9 +242,10 @@ export function RestaurantLogoUploader({
             ref={fileInputRef}
             type="file"
             accept={LOGO_ALLOWED_MIME_TYPES.join(',')}
-            // `size-px` replaces the Input's `w-full`/`h-9`, which would otherwise override
-            // sr-only's 1px box and let the hidden input stretch past the settings scroll area.
-            className="sr-only size-px"
+            // `size-px`, `p-0` and `border-0` replace the Input's `w-full`/`h-9`, `px-3 py-1` and
+            // border, which would otherwise win over sr-only's 1px box and leave a 25×9 box over
+            // the Upload button (and let it stretch past the settings scroll area).
+            className="sr-only size-px border-0 p-0"
             onChange={handleFileChange}
             aria-label="Upload restaurant logo"
             disabled={controlsDisabled}

@@ -24,7 +24,9 @@ import {
   type SaveBlocker,
   type VariantField,
 } from '@/components/features/email-templates/model/emailTemplateEditorModel';
+import { SETTINGS_SAVE_COPY } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
 import { getSafeSettingsErrorMessage } from '@/components/features/restaurant-settings/shared/settingsErrorCopy';
+import { getSettingsSaveFailureReasonCode } from '@/components/features/restaurant-settings/shared/settingsSaveSequence';
 import { useOpsActiveMembership, useOpsSession } from '@/contexts/ops-session';
 import { useRegisterOptionalOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import {
@@ -106,6 +108,8 @@ export function useOpsEmailTemplatesEditor() {
     () => new Set(),
   );
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** Safe reason code of the last failed save, shown in the save bar. Never the server message. */
+  const [saveReasonCode, setSaveReasonCode] = useState<string | null>(null);
   const [loadedRestaurantId, setLoadedRestaurantId] = useState(restaurantId);
   const testSendIntentRef = useRef<{ intent: string; key: string } | null>(null);
 
@@ -122,6 +126,7 @@ export function useOpsEmailTemplatesEditor() {
     setPreviewVariantId(null);
     setProblemsShownFor(new Set());
     setSaveError(null);
+    setSaveReasonCode(null);
   }
 
   const snapshot = templatesQuery.data;
@@ -222,6 +227,7 @@ export function useOpsEmailTemplatesEditor() {
     setRequestedKey(key);
     setPreviewVariantId(null);
     setSaveError(null);
+    setSaveReasonCode(null);
   };
 
   const selectVariant = (variantId: string) => {
@@ -237,6 +243,7 @@ export function useOpsEmailTemplatesEditor() {
   const editField = (field: VariantField, value: string) => {
     if (!templateKey || !variant || !canEdit) return;
     setSaveError(null);
+    setSaveReasonCode(null);
     dispatch({ type: 'edit', key: templateKey, base, variantId: variant.id, field, value });
   };
 
@@ -284,12 +291,13 @@ export function useOpsEmailTemplatesEditor() {
     if (!templateKey || !template) return;
     dispatch({ type: 'discard', key: templateKey });
     setSaveError(null);
+    setSaveReasonCode(null);
     setProblemsShownFor((current) => {
       const next = new Set(current);
       next.delete(templateKey);
       return next;
     });
-    toast.message('Changes discarded', {
+    toast(SETTINGS_SAVE_COPY.discarded, {
       description: `${template.title} is back to the saved copy.`,
     });
   };
@@ -309,6 +317,7 @@ export function useOpsEmailTemplatesEditor() {
 
     const sent = variants.map((item, order) => ({ ...item, order }));
     setSaveError(null);
+    setSaveReasonCode(null);
     try {
       const saved = await updateMutation.mutateAsync({ templateKey, variants: sent });
       // Anything typed while the request was in flight stays as the newer draft.
@@ -318,12 +327,13 @@ export function useOpsEmailTemplatesEditor() {
         next.delete(templateKey);
         return next;
       });
-      toast.success(`${template.title} saved`, {
+      toast.success(`${template.title} saved.`, {
         description: 'Emails sent from now on use this copy.',
       });
       return { status: 'saved' };
     } catch (error) {
       setSaveError(getSafeSettingsErrorMessage(error, 'The copy could not be saved.'));
+      setSaveReasonCode(getSettingsSaveFailureReasonCode(error));
       return { status: 'failed' };
     }
   };
@@ -340,12 +350,13 @@ export function useOpsEmailTemplatesEditor() {
       });
       setPreviewVariantId(null);
       setSaveError(null);
-      toast.success(`${template.title} reset`, {
+      setSaveReasonCode(null);
+      toast.success(`${template.title} reset.`, {
         description: 'Emails sent from now on use the Nabatable default copy.',
       });
       return true;
     } catch (error) {
-      toast.error('Not reset', {
+      toast.error('Not reset.', {
         description: getSafeSettingsErrorMessage(error, 'The email could not be reset.'),
       });
       return false;
@@ -375,13 +386,13 @@ export function useOpsEmailTemplatesEditor() {
         idempotencyKey: testSendIntentRef.current.key,
       });
       testSendIntentRef.current = null;
-      toast.success('Test handed to the email provider', {
+      toast.success('Test handed to the email provider.', {
         description: `It is on its way to ${toEmail.trim()}. It usually arrives within a minute; check spam if it does not.`,
       });
       return true;
     } catch (error) {
       // The key is kept, so sending again retries this intent without a duplicate.
-      toast.error('Test not sent', {
+      toast.error('Test not sent.', {
         description: toUserMessage(error, {
           copy: TEST_SEND_ERROR_COPY,
           fallback: 'The test email could not be sent. Try again.',
@@ -428,6 +439,7 @@ export function useOpsEmailTemplatesEditor() {
     save,
     isSaving: updateMutation.isPending,
     saveError,
+    saveReasonCode,
     discard,
     reset,
     isResetting: resetMutation.isPending,

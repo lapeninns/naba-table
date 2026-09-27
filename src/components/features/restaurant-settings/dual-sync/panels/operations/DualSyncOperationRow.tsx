@@ -20,13 +20,13 @@ export function DualSyncOperationRow({ operation }: DualSyncOperationRowProps) {
       <TableCell>
         <DualSyncOperationStatusBadge status={operation.status} />
         {operation.errorCode ? (
-          <div className="mt-0.5 font-mono text-[10px] text-destructive">{operation.errorCode}</div>
+          <div className="mt-0.5 font-mono text-xs text-destructive">{operation.errorCode}</div>
         ) : null}
       </TableCell>
-      <TableCell className="font-mono text-[11px]">
+      <TableCell className="font-mono text-xs">
         {operation.fieldKey}
         {operation.errorMessage ? (
-          <div className="mt-0.5 font-sans text-[10px] text-muted-foreground">
+          <div className="mt-0.5 font-sans text-xs text-muted-foreground">
             {operation.errorMessage}
           </div>
         ) : null}
@@ -34,10 +34,10 @@ export function DualSyncOperationRow({ operation }: DualSyncOperationRowProps) {
       <TableCell>
         <DualSyncOperationDirectionCell direction={operation.direction} />
       </TableCell>
-      <TableCell className="font-mono text-[10px]">
+      <TableCell className="font-mono text-xs">
         {formatOperationTimestamp(operation.startedAt ?? operation.createdAt)}
       </TableCell>
-      <TableCell className="text-right font-mono text-[10px]">
+      <TableCell className="text-right font-mono text-xs">
         {formatOperationDuration(getOperationDurationMs(operation))}
       </TableCell>
     </TableRow>

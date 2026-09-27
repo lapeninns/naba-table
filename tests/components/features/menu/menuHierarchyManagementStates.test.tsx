@@ -17,7 +17,7 @@ describe('menuHierarchyManagementStates', () => {
 
     expect(screen.getByText('Select a restaurant')).toBeInTheDocument();
     expect(
-      screen.getByText('Choose an active restaurant before editing its menu structure.'),
+      screen.getByText('Choose a restaurant with the sidebar switcher to edit its menus.'),
     ).toBeInTheDocument();
   });
 
@@ -31,10 +31,10 @@ describe('menuHierarchyManagementStates', () => {
       />,
     );
 
-    expect(screen.getByText('Menus could not be loaded')).toBeInTheDocument();
-    expect(
-      screen.getByText('Your saved menus are unchanged. Reason code HTTP_503.'),
-    ).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Couldn’t load menus');
+    expect(alert).toHaveTextContent('Your saved menus are unchanged. Reason code HTTP_503');
+    expect(screen.getByText('HTTP_503')).toHaveClass('font-mono');
     expect(screen.queryByText(/Guest data here/)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
@@ -43,20 +43,26 @@ describe('menuHierarchyManagementStates', () => {
     rerender(<MenuLoadErrorState error={new Error('Network exploded')} onRetry={onRetry} />);
     expect(screen.queryByText(/Network exploded/)).not.toBeInTheDocument();
     expect(screen.getByText(/Your saved menus are unchanged/)).toBeInTheDocument();
+
+    rerender(<MenuLoadErrorState error={new Error('x')} onRetry={onRetry} retrying />);
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeDisabled();
   });
 
   it('@smoke MenuLoadingState renders the loading copy', () => {
     render(<MenuLoadingState />);
 
-    expect(screen.getByText('Loading menus…')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading menus…');
+    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
   });
 
   it('@contract EmptyMenuState invites creating the first menu', async () => {
     const user = userEvent.setup();
     const onCreateMenu = vi.fn();
-    render(<EmptyMenuState onCreateMenu={onCreateMenu} />);
+    const { container } = render(<EmptyMenuState onCreateMenu={onCreateMenu} />);
 
     expect(screen.getByText('No menus yet')).toBeInTheDocument();
+    // The empty state is not wrapped in another Card.
+    expect(container.firstElementChild).toHaveClass('border-dashed');
 
     await user.click(screen.getByRole('button', { name: 'Create menu' }));
     expect(onCreateMenu).toHaveBeenCalledTimes(1);

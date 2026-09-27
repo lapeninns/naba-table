@@ -1,13 +1,6 @@
 'use client';
 
-import { CircleAlert } from 'lucide-react';
-
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { ManagerNotificationsSubform } from '@/components/ops/restaurants/RestaurantDetailsForm';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   useOpsRestaurantDetails,
   useOpsUpdateRestaurantDetails,
@@ -19,13 +12,15 @@ import { STAFF_COMMUNICATIONS_SECTION_DEFINITIONS } from '../profile/profileSect
 import { RESTAURANT_SETTINGS_ROUTE_MAP, RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS } from '../routes';
 import {
   RestaurantSettingsCommandCenter,
+  SettingsLoadErrorAlert,
+  SettingsNoRestaurantState,
+  SettingsRefreshErrorAlert,
   SettingsReviewChangesDialog,
   SettingsSaveBar,
+  SettingsSectionSkeleton,
   SettingsSectionStates,
   SettingsStatusLine,
-  getSettingsSaveReasonCode,
 } from '../shared';
-import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 
 import type { ProfileSubformProps } from '../../../../../components/ops/restaurants/details/shared';
 import type { RestaurantProfile } from '@/services/ops/restaurants';
@@ -55,21 +50,7 @@ function StaffCommunicationsShell({
 function StaffCommunicationsLoading() {
   return (
     <StaffCommunicationsShell>
-      <Card variant="compact" className="border-border/70" role="status" aria-live="polite">
-        <span className="sr-only">Loading staff communications…</span>
-        <div
-          className="flex flex-col gap-2 border-b border-border/60 px-4 py-4 sm:px-5"
-          aria-hidden
-        >
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-full max-w-md" />
-        </div>
-        <div className="flex flex-col gap-5 px-4 py-5 sm:px-5" aria-hidden>
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-16 w-full" />
-        </div>
-      </Card>
+      <SettingsSectionSkeleton label="Loading staff communications…" purposeLine={false} />
     </StaffCommunicationsShell>
   );
 }
@@ -117,7 +98,7 @@ function StaffCommunicationsLoadedView({
         />
       }
     >
-      <div className="flex min-w-0 max-w-4xl flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4">
         {notice}
         {draft.sectionStatuses.map(({ section, isDirty, visibleIssueCount }) => (
           <ProfileSectionPane
@@ -172,28 +153,17 @@ export function StaffCommunicationsSection({ restaurantId }: { restaurantId: str
       error={data ? null : error}
       noRestaurant={
         <StaffCommunicationsShell>
-          <OpsEmptyState
-            title="Select a restaurant"
-            description="Choose a restaurant with the sidebar switcher to edit who is told about its bookings."
-          />
+          <SettingsNoRestaurantState task="edit who is told about its bookings" />
         </StaffCommunicationsShell>
       }
       loading={<StaffCommunicationsLoading />}
       errorState={(loadError) => (
         <StaffCommunicationsShell>
-          <Alert variant="destructive">
-            <CircleAlert aria-hidden />
-            <AlertTitle>Couldn’t load staff communications</AlertTitle>
-            <AlertDescription className="flex flex-col items-start gap-3">
-              <span>
-                Your saved settings are unchanged. Reason code{' '}
-                <span className="font-mono">{getSettingsSaveReasonCode(loadError)}</span>
-              </span>
-              <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
-                Try again
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <SettingsLoadErrorAlert
+            title="Couldn’t load staff communications"
+            error={loadError}
+            onRetry={() => void refetch()}
+          />
         </StaffCommunicationsShell>
       )}
     >

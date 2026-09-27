@@ -70,7 +70,7 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page.getByRole('navigation', { name: 'Restaurant settings' })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Restaurant profile' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Profile', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open profile' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Open availability' })).toBeVisible();
@@ -82,6 +82,16 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     });
   });
 
+  test('bare settings URL redirects to the setup overview @p1 @browser @smoke @local-only', async ({
+    page,
+  }) => {
+    await page.goto('/settings', { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+
+    await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant$/);
+    await expect(page.getByRole('heading', { name: 'Restaurant setup' })).toBeVisible();
+  });
+
   test('discovery route shows GBP-aware disconnected status @p1 @browser @smoke @local-only', async ({
     page,
   }, testInfo) => {
@@ -89,7 +99,7 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/discovery/);
-    await expect(page.getByRole('heading', { name: 'Discovery details' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Discovery', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'Categories' })).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Link Google Business Profile' }).first(),
@@ -109,7 +119,7 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/profile/);
-    await expect(page.getByRole('heading', { name: 'Restaurant profile' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Link Google Business Profile' })).toHaveAttribute(
       'href',
       '/app/settings/restaurant/google-business-profile#gbp-connection',
@@ -135,7 +145,9 @@ test.describe('ops restaurant settings command-center primary routes', () => {
       'page',
     );
     await expect(catalogues.getByRole('link', { name: 'Drinks and bar' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'New menu' })).toBeVisible();
+    // With no menus the empty state's 'Create menu' is the only primary action.
+    await expect(page.getByRole('button', { name: 'Create menu' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'New menu' })).toHaveCount(0);
     await expect(page.locator('main').getByText('No menus yet')).toBeVisible();
 
     await page.screenshot({
@@ -153,10 +165,10 @@ test.describe('ops restaurant settings command-center primary routes', () => {
     await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
 
     await expect(page).toHaveURL(/app\.localhost:\d+\/settings\/restaurant\/availability/);
-    await expect(page.getByRole('heading', { name: 'Availability & Booking types' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Availability', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Sections on this page' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Weekly hours and meal times' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Special dates' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Special dates', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Booking rules' })).toBeVisible();
     await expect(
       page.getByRole('heading', { name: 'Booking types and table times' }),

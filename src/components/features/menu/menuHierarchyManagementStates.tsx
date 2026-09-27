@@ -3,90 +3,78 @@
 import { Plus } from 'lucide-react';
 
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import {
+  SETTINGS_CARD_CLASS,
+  SETTINGS_CARD_CONTENT_CLASS,
+  SETTINGS_CARD_HEADER_CLASS,
+  SettingsLoadErrorAlert,
+  SettingsNoRestaurantState,
+} from '@/components/features/restaurant-settings/shared';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-
-import { menuErrorReasonCode } from './menuMutationFeedback';
+import { cn } from '@/lib/utils';
 
 import type { MenuKind } from '@/server/menu-hierarchy/types';
 
 type PreferredMenuKind = Extract<MenuKind, 'food' | 'drinks'>;
 
+export const MENU_LOAD_ERROR_TITLE = 'Couldn’t load menus';
+
 export function SelectRestaurantMenuState() {
-  return (
-    <Card className="border-border/70 shadow-none">
-      <CardContent className="p-6">
-        <OpsEmptyState
-          title="Select a restaurant"
-          description="Choose an active restaurant before editing its menu structure."
-        />
-      </CardContent>
-    </Card>
-  );
+  return <SettingsNoRestaurantState task="edit its menus" />;
 }
 
 export function MenuLoadErrorState({
   error,
   onRetry,
+  retrying,
 }: {
   readonly error: unknown;
   readonly onRetry: () => void;
+  readonly retrying?: boolean;
 }) {
-  const code = menuErrorReasonCode(error);
   return (
-    <Card className="border-border/70 shadow-none">
-      <CardContent className="p-6">
-        <OpsEmptyState
-          title="Menus could not be loaded"
-          description={
-            code
-              ? `Your saved menus are unchanged. Reason code ${code}.`
-              : 'Your saved menus are unchanged. Check your connection and try again.'
-          }
-          action={
-            <Button type="button" variant="outline" onClick={onRetry}>
-              Try again
-            </Button>
-          }
-        />
-      </CardContent>
-    </Card>
+    <SettingsLoadErrorAlert
+      title={MENU_LOAD_ERROR_TITLE}
+      error={error}
+      onRetry={onRetry}
+      retrying={retrying}
+      message="Your saved menus are unchanged."
+    />
   );
 }
 
+/** Placeholder shaped like the selected-menu card, so the loaded menu does not jump. */
 export function MenuLoadingState() {
   return (
-    <Card className="border-border/70 shadow-none" aria-busy="true">
-      <CardContent className="flex flex-col gap-3 p-5">
-        <span className="sr-only" role="status">
-          Loading menus…
-        </span>
-        <Skeleton className="h-6 w-48" />
+    <Card variant="compact" className={SETTINGS_CARD_CLASS} role="status" aria-busy="true">
+      <span className="sr-only">Loading menus…</span>
+      <div className={cn(SETTINGS_CARD_HEADER_CLASS, 'flex flex-col gap-2')}>
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+      <div className={cn(SETTINGS_CARD_CONTENT_CLASS, 'flex flex-col gap-3')}>
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-full" />
         <Skeleton className="h-12 w-3/4" />
-      </CardContent>
+      </div>
     </Card>
   );
 }
 
 export function EmptyMenuState({ onCreateMenu }: { readonly onCreateMenu: () => void }) {
   return (
-    <Card className="border-border/70 shadow-none">
-      <CardContent className="p-6">
-        <OpsEmptyState
-          title="No menus yet"
-          description="Create a menu, add sections such as Starters or Wine, then add items."
-          action={
-            <Button type="button" onClick={onCreateMenu}>
-              <Plus data-icon="inline-start" aria-hidden />
-              Create menu
-            </Button>
-          }
-        />
-      </CardContent>
-    </Card>
+    <OpsEmptyState
+      title="No menus yet"
+      description="Create a menu, add sections such as Starters or Wine, then add items."
+      action={
+        <Button type="button" onClick={onCreateMenu}>
+          <Plus data-icon="inline-start" aria-hidden />
+          Create menu
+        </Button>
+      }
+    />
   );
 }
 
@@ -100,19 +88,15 @@ export function EmptyPreferredMenuState({
   const menuLabel = preferredMenuKind === 'drinks' ? 'drinks' : 'food';
 
   return (
-    <Card className="border-border/70 shadow-none">
-      <CardContent className="p-6">
-        <OpsEmptyState
-          title={`No ${menuLabel} menu yet`}
-          description={`Create a ${menuLabel} menu, add sections, then add items. Mixed menus show under both food and drinks.`}
-          action={
-            <Button type="button" onClick={onCreateMenu}>
-              <Plus data-icon="inline-start" aria-hidden />
-              Create {menuLabel} menu
-            </Button>
-          }
-        />
-      </CardContent>
-    </Card>
+    <OpsEmptyState
+      title={`No ${menuLabel} menu yet`}
+      description={`Create a ${menuLabel} menu, add sections, then add items. Mixed menus show under both food and drinks.`}
+      action={
+        <Button type="button" onClick={onCreateMenu}>
+          <Plus data-icon="inline-start" aria-hidden />
+          Create {menuLabel} menu
+        </Button>
+      }
+    />
   );
 }

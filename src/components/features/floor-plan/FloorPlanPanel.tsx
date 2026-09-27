@@ -19,6 +19,7 @@ import {
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 import { BOOKING_STATUS_LABELS, STATE_STYLES, TAG_ICONS, TAG_TONES } from './floorPlanStyles';
+import { TABLES_SETTINGS_HREF } from './FloorPlanToolbar';
 import {
   arrivingSoon,
   bestFitForBooking,
@@ -59,17 +61,14 @@ function Tags({ booking, withStatus = false }: { booking: FloorBooking; withStat
   return (
     <div className="flex flex-wrap gap-1">
       {showStatus ? (
-        <Badge
-          variant={booking.status === 'checked_in' ? 'default' : 'outline'}
-          className="text-[11px]"
-        >
+        <Badge variant={booking.status === 'checked_in' ? 'default' : 'outline'}>
           {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
         </Badge>
       ) : null}
       {booking.tags.map((tag, i) => {
         const Icon = TAG_ICONS[tag.kind];
         return (
-          <Badge key={i} variant="outline" className={cn('gap-1 text-[11px]', TAG_TONES[tag.kind])}>
+          <Badge key={i} variant="outline" className={cn('gap-1', TAG_TONES[tag.kind])}>
             <Icon className="size-3" aria-hidden />
             {tag.label}
           </Badge>
@@ -180,7 +179,7 @@ function NeedsRow({
           </span>
           <span className="truncate font-medium">{booking.name}</span>
           {late ? (
-            <Badge variant="outline" className="border-warning text-[11px]">
+            <Badge variant="outline" className="border-warning">
               Late
             </Badge>
           ) : null}
@@ -393,7 +392,7 @@ function MiniTimeline({ fp, table }: { fp: FloorPlanController; table: FloorTabl
       {hours.map((h) => (
         <span
           key={h}
-          className="absolute bottom-0 -translate-x-1/2 font-mono text-[10px] text-muted-foreground"
+          className="absolute bottom-0 -translate-x-1/2 font-mono text-xs leading-3 text-muted-foreground"
           style={{ left: pct(h) }}
         >
           {formatClock(h, fp.timezone).slice(0, 2)}
@@ -550,7 +549,7 @@ function SelectedTableBody({
         </p>
       ) : null}
       <Button asChild variant="link" size="sm" className="h-auto px-0">
-        <Link href="/app/settings/tables">
+        <Link href={TABLES_SETTINGS_HREF}>
           Edit table in settings <ExternalLink aria-hidden />
         </Link>
       </Button>
@@ -736,6 +735,13 @@ function PickBody({ fp }: { fp: FloorPlanController }) {
 
 /* ───────── arrange ───────── */
 
+/**
+ * Neutral note callout for the arrange side panel. Settings pages keep info notes neutral (muted
+ * box, muted icon) and use amber only for warnings, never the cyan info hue.
+ */
+export const FLOOR_NOTE_CLASS =
+  'border-border/60 bg-muted/40 text-muted-foreground [&>svg]:size-4 [&>svg]:text-muted-foreground';
+
 function ArrangeBody({ fp }: { fp: FloorPlanController }) {
   const { snapshot, layout } = fp;
   if (!snapshot || !layout) return null;
@@ -756,7 +762,7 @@ function ArrangeBody({ fp }: { fp: FloorPlanController }) {
     const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).replace('_', '-');
     return (
       <>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => fp.actions.rotateTable(table.id, -15)}>
             <RotateCcw aria-hidden />
             Rotate −15°
@@ -793,16 +799,18 @@ function ArrangeBody({ fp }: { fp: FloorPlanController }) {
             {table.outOfService ? 'Out of service' : table.bookable ? 'Active' : 'Turned off'}
           </dd>
         </dl>
-        <p className="flex gap-2 rounded-md border bg-muted/40 p-2 text-sm text-muted-foreground">
-          <Combine className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {table.mobility === 'fixed'
-            ? 'Fixed tables are never joined.'
-            : partners.length
-              ? `Can be joined with ${partners.map((p) => p.number).join(', ')}, all in ${zone?.name}. Placing it next to a table in another zone doesn’t make them joinable.`
-              : `No other movable tables in ${zone?.name}.`}
-        </p>
+        <Alert role="note" className={FLOOR_NOTE_CLASS}>
+          <Combine aria-hidden />
+          <AlertDescription>
+            {table.mobility === 'fixed'
+              ? 'Fixed tables are never joined.'
+              : partners.length
+                ? `Can be joined with ${partners.map((p) => p.number).join(', ')}, all in ${zone?.name}. Placing it next to a table in another zone doesn’t make them joinable.`
+                : `No other movable tables in ${zone?.name}.`}
+          </AlertDescription>
+        </Alert>
         <Button asChild variant="link" size="sm" className="h-auto justify-start px-0">
-          <Link href="/app/settings/tables">
+          <Link href={TABLES_SETTINGS_HREF}>
             Edit in Tables settings <ExternalLink aria-hidden />
           </Link>
         </Button>
@@ -813,27 +821,33 @@ function ArrangeBody({ fp }: { fp: FloorPlanController }) {
   return (
     <>
       {autos ? (
-        <p className="flex gap-2 rounded-md border bg-muted/40 p-2 text-sm text-muted-foreground">
-          <Scan className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {autos} {autos === 1 ? 'table has' : 'tables have'} no saved position, so{' '}
-          {autos === 1 ? 'it was' : 'they were'} auto-placed in a tidy grid. Drag to adjust, then
-          save.
-        </p>
+        <Alert role="note" className={FLOOR_NOTE_CLASS}>
+          <Scan aria-hidden />
+          <AlertDescription>
+            {autos} {autos === 1 ? 'table has' : 'tables have'} no saved position, so{' '}
+            {autos === 1 ? 'it was' : 'they were'} auto-placed in a tidy grid. Drag to adjust, then
+            save.
+          </AlertDescription>
+        </Alert>
       ) : null}
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Zones</h3>
+        <h3 className="text-sm font-medium">Zones</h3>
         <ul className="space-y-1.5">
           {layout.zones.map((zone) => {
             const count = snapshot.tables.filter((t) => t.zoneId === zone.id).length;
             return (
-              <li key={zone.id} className="flex items-center gap-2 rounded-lg border p-2.5">
-                <span className="min-w-0 flex-1">
-                  <b className="block text-sm">{zone.name}</b>
+              <li
+                key={zone.id}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-border/60 p-2.5"
+              >
+                <span className="min-w-0 flex-[1_1_8rem]">
+                  <span className="block break-words text-sm font-medium">{zone.name}</span>
                   <span className="text-xs text-muted-foreground">{count} tables</span>
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
+                  className="ms-auto"
                   onClick={() => fp.actions.requestResetZone(zone.id)}
                 >
                   Reset zone layout
@@ -843,11 +857,13 @@ function ArrangeBody({ fp }: { fp: FloorPlanController }) {
           })}
         </ul>
       </section>
-      <p className="flex gap-2 rounded-md border bg-muted/40 p-2 text-sm text-muted-foreground">
-        <Combine className="mt-0.5 size-4 shrink-0" aria-hidden />
-        Only movable tables in the same zone can be joined, up to 5 at a time. Tables that sit next
-        to each other across a zone line are never joined.
-      </p>
+      <Alert role="note" className={FLOOR_NOTE_CLASS}>
+        <Combine aria-hidden />
+        <AlertDescription>
+          Only movable tables in the same zone can be joined, up to 5 at a time. Tables that sit
+          next to each other across a zone line are never joined.
+        </AlertDescription>
+      </Alert>
       <div className="grid gap-1.5 text-xs text-muted-foreground">
         <span>Tab selects a table</span>
         <span>Arrow keys nudge 8 px, with Shift 40 px</span>
@@ -875,18 +891,20 @@ function panelParts(
     const arranging = mode === 'arrange';
     return {
       peek:
-        data.status === 'error'
-          ? arranging
-            ? 'Tables unavailable'
-            : 'Bookings unavailable'
-          : 'Loading…',
+        data.status === 'no-restaurant'
+          ? 'No restaurant selected'
+          : data.status === 'error'
+            ? arranging
+              ? 'Tables unavailable'
+              : 'Bookings unavailable'
+            : 'Loading…',
       head: (
         <h2 className="text-base font-semibold">
           {arranging ? 'Arrange layout' : 'Needs a table'}
         </h2>
       ),
       body:
-        data.status === 'error' ? (
+        data.status === 'error' || data.status === 'no-restaurant' ? (
           <p className="text-sm text-muted-foreground">
             {arranging
               ? 'Table details appear here once your tables load.'
@@ -916,8 +934,8 @@ function panelParts(
         />
       ) : (
         <div>
-          <h2 className="text-base font-semibold">Arrange layout</h2>
-          <p className="text-xs text-muted-foreground">
+          <h2 className="text-base font-semibold leading-6">Arrange layout</h2>
+          <p className="text-sm text-muted-foreground">
             Position only. Capacity, zones and join rules live in Tables settings.
           </p>
         </div>
@@ -984,7 +1002,7 @@ function panelParts(
         <h2 className="flex items-center gap-2 text-base font-semibold">
           Needs a table <CountBadge n={fp.needs.length} />
         </h2>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {fp.service === 'all'
             ? 'All services'
             : snapshot.services.find((s) => s.key === fp.service)?.label}{' '}
@@ -1028,13 +1046,11 @@ function PanelHeading({
   return (
     <div className="flex items-start gap-2">
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {eyebrow}
-        </p>
+        <p className="text-xs font-medium text-muted-foreground">{eyebrow}</p>
         <h2
           ref={ref}
           tabIndex={-1}
-          className="flex items-center gap-2 text-lg font-semibold outline-none"
+          className="flex items-center gap-2 text-base font-semibold leading-6 outline-none"
         >
           <span className="truncate">{title}</span>
           {badge ? <Badge variant="outline">{badge}</Badge> : null}
@@ -1068,12 +1084,18 @@ export function FloorPlanPanel({
         data-sheet={sheet}
         className={cn(
           'flex min-h-0 flex-col border-t bg-card',
-          'max-[1099px]:absolute max-[1099px]:inset-x-0 max-[1099px]:bottom-0 max-[1099px]:z-30 max-[1099px]:rounded-t-xl max-[1099px]:shadow-lg',
+          // Elevation only where the drawer overlaps the plan on phones.
+          'max-[1099px]:absolute max-[1099px]:inset-x-0 max-[1099px]:bottom-0 max-[1099px]:z-30 max-[1099px]:rounded-t-xl max-md:shadow-lg',
           sheet === 'open'
-            ? 'max-[1099px]:h-[min(70%,560px)] max-md:h-[min(75dvh,560px)]'
+            ? // Never taller than the workspace it sits in (landscape phones are ~260px tall).
+              'max-[1099px]:h-[min(70%,560px)] max-[1099px]:max-h-full max-md:h-[min(75dvh,560px)]'
             : 'max-[1099px]:h-14',
-          // Phones scroll the page, so pin the sheet to the screen above the bottom nav.
-          'max-md:fixed max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)]',
+          // The live floor plan scrolls the page on phones, so its sheet is pinned above the ops
+          // bottom nav. The Floor layout settings workspace doesn't scroll and has no bottom nav:
+          // its sheet stays at the foot of the workspace, above the docked settings save bar.
+          fp.mode === 'arrange'
+            ? 'max-md:bottom-[env(safe-area-inset-bottom,0px)]'
+            : 'max-md:fixed max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)]',
           'min-[1100px]:w-[340px] min-[1100px]:shrink-0 min-[1100px]:border-l min-[1100px]:border-t-0',
         )}
       >

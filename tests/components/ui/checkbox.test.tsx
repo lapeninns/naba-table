@@ -34,4 +34,14 @@ describe('ui/checkbox', () => {
     await user.click(checkbox);
     expect(onCheckedChange).not.toHaveBeenCalled();
   });
+
+  it('@contract stays 16px on fine pointers despite the global 44px button floor, with a 44px touch hit area', () => {
+    render(<Checkbox aria-label="Sized" />);
+
+    const checkbox = screen.getByRole('checkbox', { name: 'Sized' });
+    // The global base rule gives every <button> min 44x44; the visual box must opt out of it.
+    expect(checkbox).toHaveClass('size-4', 'min-h-0', 'min-w-0');
+    // Coarse pointers get an invisible 44px hit area instead of a 44px box.
+    expect(checkbox.className).toContain('[@media(pointer:coarse)]:after:size-11');
+  });
 });

@@ -3,6 +3,13 @@
 import { Plus } from 'lucide-react';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
+import {
+  RestaurantSettingsCommandCenter,
+  SettingsRefreshErrorAlert,
+  SettingsStatusFacts,
+  type RestaurantSettingsCommandRailItem,
+} from '@/components/features/restaurant-settings/shared';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -35,9 +42,10 @@ import {
 import { MenuDialog, SectionDialog } from './menuHierarchyMenuSectionDialogs';
 import { OptionDialog } from './menuHierarchyOptionDialog';
 import { MenuSectionList } from './menuHierarchySections';
-import { SelectedMenuHeader } from './menuHierarchySelectedMenuHeader';
+import { plural, SelectedMenuCard } from './menuHierarchySelectedMenuHeader';
 
 import type {
+  CanonicalRestaurantMenu,
   CanonicalRestaurantMenuItem,
   CanonicalRestaurantMenuOption,
   CanonicalRestaurantMenuSection,
@@ -49,17 +57,57 @@ type MenuHierarchyManagementPanelProps = {
   restaurantId: string | null;
   preferredMenuKind: Extract<MenuKind, 'food' | 'drinks'>;
   gbpDriftFields?: ReadonlyArray<DualSyncFieldSummary>;
-  /** Food / drinks switch, shown at the start of the menu bar. */
-  catalogueSwitch?: ReactNode;
-  /** Google drift note, shown between the menu bar and the menu. */
+  /** Food / drinks catalogue links, docked as the page's underline rail. */
+  catalogueRailItems?: RestaurantSettingsCommandRailItem[];
+  /** Google drift note, shown above the menu. */
   notice?: ReactNode;
 };
+
+const MENU_ROUTE = RESTAURANT_SETTINGS_ROUTE_MAP.menu;
+
+function MenuCommandCenter({
+  railItems,
+  primaryAction,
+  status,
+  children,
+}: {
+  readonly railItems?: RestaurantSettingsCommandRailItem[];
+  readonly primaryAction?: ReactNode;
+  readonly status?: ReactNode;
+  readonly children: ReactNode;
+}) {
+  return (
+    <RestaurantSettingsCommandCenter
+      title={MENU_ROUTE.title}
+      description={MENU_ROUTE.description}
+      railTitle="Menu catalogues"
+      railItems={railItems}
+      primaryAction={primaryAction}
+      status={status}
+    >
+      {children}
+    </RestaurantSettingsCommandCenter>
+  );
+}
+
+/** Page facts for the current catalogue: menu, section and item counts. */
+function MenuCatalogueStatus({ menus }: { readonly menus: readonly CanonicalRestaurantMenu[] }) {
+  const sections = menus.flatMap((menu) => menu.sections);
+  const itemCount = sections.reduce((total, section) => total + section.items.length, 0);
+  return (
+    <SettingsStatusFacts>
+      <span className="tabular-nums">{plural(menus.length, 'menu')}</span>
+      <span className="tabular-nums">{plural(sections.length, 'section')}</span>
+      <span className="tabular-nums">{plural(itemCount, 'item')}</span>
+    </SettingsStatusFacts>
+  );
+}
 
 export function MenuHierarchyManagementPanel({
   restaurantId,
   preferredMenuKind,
   gbpDriftFields = [],
-  catalogueSwitch,
+  catalogueRailItems,
   notice,
 }: MenuHierarchyManagementPanelProps) {
   const menuSelectId = useId();
@@ -113,8 +161,17 @@ export function MenuHierarchyManagementPanel({
   }, [catalogueMenus, selectedMenuId]);
 
   if (!restaurantId) {
-    return <SelectRestaurantMenuState />;
+    return (
+      <MenuCommandCenter railItems={catalogueRailItems}>
+        <SelectRestaurantMenuState />
+      </MenuCommandCenter>
+    );
   }
+
+  const hasData = hierarchyQuery.data !== undefined;
+  // A failed refetch keeps the loaded menus on screen; only a first-load failure blocks the page.
+  const showBlockingError = hierarchyQuery.isError && !hasData;
+  const ready = !showBlockingError && !hierarchyQuery.isLoading;
 
   const openCreateMenu = () => setMenuDialogMode('create');
   const filterActive = isMenuItemFilterActive(filter);
@@ -139,96 +196,95 @@ export function MenuHierarchyManagementPanel({
     },
   };
 
-  return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
-        {catalogueSwitch}
-        <div className="flex min-w-0 flex-wrap items-end gap-2">
-          {selectedMenu && catalogueMenus.length > 1 ? (
-            <div className="flex min-w-0 flex-col gap-2">
-              <Label htmlFor={menuSelectId} className="text-sm font-medium text-foreground">
-                Menu
-              </Label>
-              <Select
-                value={selectedMenu.id ?? ''}
-                onValueChange={(value) => setSelectedMenuId(value || null)}
-              >
-                <SelectTrigger
-                  id={menuSelectId}
-                  className="w-full min-w-48 sm:w-56 [@media(pointer:coarse)]:min-h-11"
-                >
-                  <SelectValue placeholder="Select menu" />
-                </SelectTrigger>
-                <SelectContent>
-                  {catalogueMenus.map((menu) =>
-                    menu.id ? (
-                      <SelectItem key={menu.id} value={menu.id}>
-                        {primaryLabel(menu, 'Menu')}
-                        {menu.active ? '' : ' (hidden)'}
-                      </SelectItem>
-                    ) : null,
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            className="[@media(pointer:coarse)]:min-h-11"
-            onClick={openCreateMenu}
+  const menuPicker =
+    selectedMenu && catalogueMenus.length > 1 ? (
+      <div className="flex min-w-0 flex-col gap-2">
+        <Label htmlFor={menuSelectId}>Menu</Label>
+        <Select
+          value={selectedMenu.id ?? ''}
+          onValueChange={(value) => setSelectedMenuId(value || null)}
+        >
+          <SelectTrigger
+            id={menuSelectId}
+            title={primaryLabel(selectedMenu, 'Menu')}
+            className="w-full min-w-48 sm:w-56 [@media(pointer:coarse)]:min-h-11 [&>span]:min-w-0 [&>span]:truncate"
           >
+            <SelectValue placeholder="Select menu" />
+          </SelectTrigger>
+          <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
+            {catalogueMenus.map((menu) =>
+              menu.id ? (
+                <SelectItem key={menu.id} value={menu.id}>
+                  {primaryLabel(menu, 'Menu')}
+                  {menu.active ? '' : ' (hidden)'}
+                </SelectItem>
+              ) : null,
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    ) : null;
+
+  return (
+    <MenuCommandCenter
+      railItems={catalogueRailItems}
+      primaryAction={
+        ready && catalogueMenus.length > 0 ? (
+          <Button type="button" onClick={openCreateMenu}>
             <Plus data-icon="inline-start" aria-hidden />
             New menu
           </Button>
-        </div>
-      </div>
-
+        ) : null
+      }
+      status={
+        ready && catalogueMenus.length > 0 ? <MenuCatalogueStatus menus={catalogueMenus} /> : null
+      }
+    >
       {notice}
 
-      {hierarchyQuery.isError ? (
-        <MenuLoadErrorState
+      {hierarchyQuery.isError && hasData ? (
+        <SettingsRefreshErrorAlert
           error={hierarchyQuery.error}
           onRetry={() => void hierarchyQuery.refetch()}
         />
       ) : null}
-      {!hierarchyQuery.isError && hierarchyQuery.isLoading ? <MenuLoadingState /> : null}
-      {!hierarchyQuery.isError && !hierarchyQuery.isLoading && menus.length === 0 ? (
-        <EmptyMenuState onCreateMenu={openCreateMenu} />
+      {showBlockingError ? (
+        <MenuLoadErrorState
+          error={hierarchyQuery.error}
+          onRetry={() => void hierarchyQuery.refetch()}
+          retrying={hierarchyQuery.isFetching}
+        />
       ) : null}
-      {!hierarchyQuery.isError &&
-      !hierarchyQuery.isLoading &&
-      menus.length > 0 &&
-      catalogueMenus.length === 0 ? (
+      {!showBlockingError && hierarchyQuery.isLoading ? <MenuLoadingState /> : null}
+      {ready && menus.length === 0 ? <EmptyMenuState onCreateMenu={openCreateMenu} /> : null}
+      {ready && menus.length > 0 && catalogueMenus.length === 0 ? (
         <EmptyPreferredMenuState
           preferredMenuKind={preferredMenuKind}
           onCreateMenu={openCreateMenu}
         />
       ) : null}
 
-      {!hierarchyQuery.isError && selectedMenu ? (
-        <section
-          aria-label={primaryLabel(selectedMenu, 'Menu')}
-          data-testid="menu-card"
-          className="min-w-0 overflow-hidden rounded-xl border border-border/70 bg-card"
-        >
-          <SelectedMenuHeader
-            selectedMenu={selectedMenu}
-            onCreateSection={() => setSectionDialogState({ mode: 'create', section: null })}
-            onDeleteMenu={() => setDeleteTarget({ type: 'menu', menu: selectedMenu })}
-            onEditMenu={() => setMenuDialogMode('edit')}
-          />
-          {selectedMenu.sections.length > 0 ? (
-            <div className="border-t border-border/60 px-4 py-3 sm:px-5">
-              <MenuItemFilterToolbar filter={filter} onFilterChange={setFilter} />
-              <p role="status" className="sr-only">
-                {filterActive
-                  ? `${matchingItemCount} ${matchingItemCount === 1 ? 'item matches' : 'items match'}`
-                  : ''}
-              </p>
-            </div>
-          ) : null}
+      {menuPicker}
 
+      {!showBlockingError && selectedMenu ? (
+        <SelectedMenuCard
+          selectedMenu={selectedMenu}
+          onCreateSection={() => setSectionDialogState({ mode: 'create', section: null })}
+          onDeleteMenu={() => setDeleteTarget({ type: 'menu', menu: selectedMenu })}
+          onEditMenu={() => setMenuDialogMode('edit')}
+          subheader={
+            selectedMenu.sections.length > 0 ? (
+              <div className="border-b border-border/60 px-4 py-3 sm:px-5">
+                <MenuItemFilterToolbar filter={filter} onFilterChange={setFilter} />
+                <p role="status" className="sr-only">
+                  {filterActive
+                    ? `${matchingItemCount} ${matchingItemCount === 1 ? 'item matches' : 'items match'}`
+                    : ''}
+                </p>
+              </div>
+            ) : null
+          }
+        >
           <StaleBoundary
             isStale={hierarchyQuery.isPlaceholderData && hierarchyQuery.isFetching}
             className="min-w-0"
@@ -267,7 +323,7 @@ export function MenuHierarchyManagementPanel({
               }}
             />
           </StaleBoundary>
-        </section>
+        </SelectedMenuCard>
       ) : null}
 
       <MenuDialog
@@ -316,6 +372,6 @@ export function MenuHierarchyManagementPanel({
           if (!open) setDeleteTarget(null);
         }}
       />
-    </div>
+    </MenuCommandCenter>
   );
 }

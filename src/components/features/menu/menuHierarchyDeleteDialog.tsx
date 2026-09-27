@@ -3,17 +3,7 @@
 import { useEffect } from 'react';
 import { toast } from 'sonner';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { buttonVariants } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
 import {
   useOpsDeleteRestaurantMenu,
   useOpsDeleteRestaurantMenuItem,
@@ -151,29 +141,19 @@ export function DeleteHierarchyDialog({
   };
 
   return (
-    <AlertDialog open={Boolean(target)} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete {targetName}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            {effect} This can’t be undone. Publishing to Google happens separately.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <DialogSaveError error={error} message="Not deleted. Nothing was removed." />
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className={buttonVariants({ variant: 'destructive' })}
-            disabled={pending}
-            onClick={(event) => {
-              event.preventDefault();
-              void confirm();
-            }}
-          >
-            {pending ? 'Deleting…' : `Delete ${targetLabel}`}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      tone="destructive"
+      title={`Delete ${targetName}?`}
+      description={`${effect} This can’t be undone. Publishing to Google happens separately.`}
+      confirmLabel={`Delete ${targetLabel}`}
+      pending={pending}
+      pendingLabel="Deleting…"
+      keepOpenOnConfirm
+      onConfirm={() => void confirm()}
+    >
+      <DialogSaveError error={error} message="Not deleted. Nothing was removed." />
+    </ConfirmDialog>
   );
 }

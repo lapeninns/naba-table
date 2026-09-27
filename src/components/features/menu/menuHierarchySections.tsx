@@ -2,7 +2,7 @@
 
 import { ArrowDown, ArrowUp, EyeOff, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { SettingsCardEmptyState } from '@/components/features/restaurant-settings/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -32,7 +32,7 @@ import type {
 import type { DualSyncFieldSummary } from '@/services/ops/dual-sync';
 
 const SECTION_ACTION_BUTTON_CLASS = '[@media(pointer:coarse)]:min-h-11';
-const SECTION_ICON_BUTTON_CLASS = 'size-9 [@media(pointer:coarse)]:size-11';
+const SECTION_ICON_BUTTON_CLASS = 'size-9 min-h-0 min-w-0 [@media(pointer:coarse)]:size-11';
 
 export function MenuSectionList({
   menu,
@@ -79,8 +79,8 @@ export function MenuSectionList({
 
   if (menu.sections.length === 0) {
     return (
-      <div className="border-t border-border/60 p-6">
-        <OpsEmptyState
+      <div className="px-4 py-4 sm:px-5">
+        <SettingsCardEmptyState
           title="No sections yet"
           description="Add a section, such as Starters, before adding items."
           action={
@@ -109,8 +109,11 @@ export function MenuSectionList({
 
   if (sections.length === 0) {
     return (
-      <div className="border-t border-border/60 p-6">
-        <OpsEmptyState title="No items match" description="Try another search or filter." />
+      <div className="px-4 py-4 sm:px-5">
+        <SettingsCardEmptyState
+          title="No items match"
+          description="Try another search or filter."
+        />
       </div>
     );
   }
@@ -137,13 +140,13 @@ export function MenuSectionList({
                   {section.items.length} {section.items.length === 1 ? 'item' : 'items'}
                 </span>
                 {section.active ? null : (
-                  <Badge variant="outline" className="gap-1">
+                  <Badge variant="status-completed" className="gap-1">
                     <EyeOff className="size-3" aria-hidden />
                     Hidden
                   </Badge>
                 )}
               </h3>
-              <div className="flex flex-wrap items-center gap-1">
+              <div className="ms-auto flex flex-wrap items-center justify-end gap-1">
                 <Button
                   type="button"
                   variant="ghost"
@@ -200,7 +203,7 @@ export function MenuSectionList({
                       <MoreHorizontal aria-hidden />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
+                  <DropdownMenuContent align="end" collisionPadding={16}>
                     <DropdownMenuGroup>
                       <DropdownMenuItem
                         variant="destructive"

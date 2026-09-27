@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
-import { TOUCH_TARGET_CLASS } from './AvailabilityFields';
+import { STEPPER_BUTTON_CLASS, TOUCH_TARGET_CLASS } from './AvailabilityFields';
 import { MEAL_KEYS, MEAL_LABEL, formatOverrideDate } from './availabilityPageDraft';
 import {
   formatTimeRanges,
@@ -16,12 +16,24 @@ import {
   previewAvailabilityDate,
   type AvailabilityPreviewSource,
 } from './availabilityPreviewModel';
+import { SettingsCard } from '../shared/SettingsCard';
 import { pluralise } from '../shared/settingsSaveSequence';
+import {
+  SettingsSegmentedControl,
+  type SettingsSegmentedOption,
+} from '../shared/SettingsSegmentedControl';
 
 import type { OpsOccasion } from '@/services/ops/occasions';
 
 const MIN_PARTY = 1;
 const MAX_PARTY = 50;
+
+type PreviewSource = 'draft' | 'saved';
+
+const PREVIEW_SOURCE_OPTIONS: readonly SettingsSegmentedOption<PreviewSource>[] = [
+  { value: 'draft', label: 'With your changes' },
+  { value: 'saved', label: 'Saved settings' },
+];
 
 type BookingPreviewPanelProps = {
   draftSource: AvailabilityPreviewSource;
@@ -49,7 +61,7 @@ export function BookingPreviewPanel({
   const [date, setDate] = useState(today);
   const [party, setParty] = useState(2);
   const [partyText, setPartyText] = useState('2');
-  const [source, setSource] = useState<'draft' | 'saved'>('draft');
+  const [source, setSource] = useState<PreviewSource>('draft');
   const showSaved = isDirty && source === 'saved';
 
   const result = useMemo(
@@ -74,27 +86,11 @@ export function BookingPreviewPanel({
     ? 'fixed start times'
     : `every ${result.hours.intervalMinutes} min`;
 
-  return (
-    <section
-      aria-labelledby={`${ids}-title`}
-      className={cn('flex flex-col', !bare && 'rounded-xl border border-border/70 bg-card')}
-    >
-      {bare ? null : (
-        <div className="flex flex-col gap-1 border-b border-border/60 px-4 py-4">
-          <h2 id={`${ids}-title`} className="text-base font-semibold leading-6">
-            Booking preview
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            What a guest can request with these settings.
-          </p>
-        </div>
-      )}
-      {bare ? (
-        <h2 id={`${ids}-title`} className="sr-only">
-          Booking preview
-        </h2>
-      ) : null}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 border-b border-border/60 px-4 py-4">
+  // A container, so the date and party-size row stacks by the width it gets (the 20rem aside,
+  // the full-width phone sheet), not by the viewport.
+  const body = (
+    <div className="flex min-w-0 flex-col @container">
+      <div className="grid grid-cols-1 items-end gap-3 border-b border-border/60 px-4 py-4 @sm:grid-cols-[minmax(0,1fr)_auto] sm:px-5">
         <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor={`${ids}-date`}>Date</Label>
           <Input
@@ -117,7 +113,7 @@ export function BookingPreviewPanel({
               type="button"
               variant="outline"
               size="icon"
-              className={TOUCH_TARGET_CLASS}
+              className={STEPPER_BUTTON_CLASS}
               aria-label="Fewer guests"
               onClick={() => setPartySize(party - 1)}
             >
@@ -141,7 +137,7 @@ export function BookingPreviewPanel({
               type="button"
               variant="outline"
               size="icon"
-              className={TOUCH_TARGET_CLASS}
+              className={STEPPER_BUTTON_CLASS}
               aria-label="More guests"
               onClick={() => setPartySize(party + 1)}
             >
@@ -150,29 +146,18 @@ export function BookingPreviewPanel({
           </div>
         </div>
         {isDirty ? (
-          <div
-            role="group"
-            aria-label="Settings to preview"
-            className="col-span-full grid grid-cols-2 gap-1 rounded-md border border-border/70 p-0.5"
-          >
-            {(['draft', 'saved'] as const).map((value) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={source === value ? 'secondary' : 'ghost'}
-                aria-pressed={source === value}
-                onClick={() => setSource(value)}
-                className={cn('font-medium', TOUCH_TARGET_CLASS)}
-              >
-                {value === 'draft' ? 'With your changes' : 'Saved settings'}
-              </Button>
-            ))}
-          </div>
+          <SettingsSegmentedControl
+            value={source}
+            onValueChange={setSource}
+            ariaLabel="Settings to preview"
+            options={PREVIEW_SOURCE_OPTIONS}
+            className="col-span-full flex w-full"
+            itemClassName="flex-1"
+          />
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-4 px-4 py-4" aria-live="polite">
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-5" aria-live="polite">
         {result.isClosed ? (
           <>
             <p className="font-semibold text-foreground">{dateLabel}</p>
@@ -282,13 +267,36 @@ export function BookingPreviewPanel({
           </>
         )}
       </div>
-      <p className="border-t border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground">
+      <p className="border-t border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground sm:px-5">
         <span className="font-medium text-foreground">
           Configuration preview, not live availability.
         </span>{' '}
         Tables and existing bookings are checked when a guest books, so a time shown here can still
         be full.
       </p>
-    </section>
+    </div>
+  );
+
+  if (bare) {
+    return (
+      <section aria-labelledby={`${ids}-title`} className="flex flex-col">
+        <h2 id={`${ids}-title`} className="sr-only">
+          Booking preview
+        </h2>
+        {body}
+      </section>
+    );
+  }
+
+  return (
+    <SettingsCard
+      region
+      titleId={`${ids}-title`}
+      title="Booking preview"
+      description="What a guest can request with these settings."
+      contentClassName="flex flex-col p-0 sm:p-0"
+    >
+      {body}
+    </SettingsCard>
   );
 }

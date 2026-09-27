@@ -3,6 +3,7 @@
 import { Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsGbpOperatorState } from '@/hooks/ops/useOpsGoogleBusinessProfile';
 
@@ -110,12 +111,16 @@ export function GbpLinkedView({ restaurantId, section, canManageSettings }: GbpL
       }
       differenceCount={null}
       review={
-        <p className="flex items-center gap-2 rounded-lg border px-4 py-6 text-sm text-muted-foreground">
-          <Lock className="size-4 shrink-0" aria-hidden />
-          {needsReconnect
-            ? 'Reconnect Google to compare your details with the listing again.'
-            : 'Comparison tools are unavailable right now. Check the listing on Google directly.'}
-        </p>
+        <OpsEmptyState
+          size="compact"
+          icon={<Lock className="size-5" aria-hidden />}
+          title="Comparison unavailable"
+          description={
+            needsReconnect
+              ? 'Reconnect Google to compare your details with the listing again.'
+              : 'Comparison tools are unavailable right now. Check the listing on Google directly.'
+          }
+        />
       }
       operations={
         <GbpOperationsPanel

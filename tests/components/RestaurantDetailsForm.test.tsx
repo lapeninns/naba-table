@@ -169,6 +169,16 @@ describe('RestaurantDetailsForm subforms', () => {
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeDisabled();
   });
 
+  it('keeps the paired manager fields on shared rows so their inputs line up (RR5)', () => {
+    render(<ManagerNotificationsSubform {...profileProps()} />);
+
+    for (const id of ['restaurant-manager-name', 'restaurant-manager-notification-phone']) {
+      const field = document.getElementById(id)?.closest('.\\@xl\\:grid-rows-subgrid');
+      expect(field).not.toBeNull();
+      expect(field).toHaveClass('@xl:row-span-4', 'flex', 'flex-col');
+    }
+  });
+
   it('explains why WhatsApp is unavailable and when the number change turned it off', () => {
     const saved = mapInitialValues(initialValues);
     const { rerender } = render(<ManagerNotificationsSubform {...profileProps()} />);

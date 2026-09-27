@@ -255,7 +255,12 @@ describe('GoogleBusinessProfileSection', () => {
   it('renders shared chrome when no restaurant is selected', () => {
     render(<GoogleBusinessProfileSection restaurantId={null} />);
 
-    expect(screen.getByText(/select a restaurant using the sidebar switcher/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Select a restaurant' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose a restaurant with the sidebar switcher to manage its Google Business Profile connection.',
+      ),
+    ).toBeInTheDocument();
     expectSharedChrome();
   });
 
@@ -292,10 +297,10 @@ describe('GoogleBusinessProfileSection', () => {
 
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
-    expect(screen.getByText(/unable to load google business profile/i)).toBeInTheDocument();
-    expect(
-      screen.getByText('Google Business Profile could not be loaded. Reason code: HTTP_500.'),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t load Google Business Profile');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Your saved settings are unchanged. Reason code HTTP_500',
+    );
     expectNoSentinelAnywhere();
     expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
     expectSharedChrome();
@@ -314,7 +319,17 @@ describe('GoogleBusinessProfileSection', () => {
     render(<GoogleBusinessProfileSection restaurantId="rest-1" />);
 
     const setup = screen.getByRole('region', { name: 'Link your Google listing' });
-    expect(within(setup).getByText('Not connected')).toBeInTheDocument();
+    // The page keeps its purpose line after load, with the connection as its status row.
+    expectSharedChrome();
+    expect(screen.getByRole('status')).toHaveTextContent('Connection Not connected');
+    // Label and value are separate Badge items, spaced by the Badge gap (not a lost text space).
+    const connectionLabel = within(screen.getByRole('status')).getByText('Connection');
+    const badge = connectionLabel.parentElement;
+    expect(badge).toHaveClass('gap-1');
+    expect(within(screen.getByRole('status')).getByText('Not connected').parentElement).toBe(badge);
+    expect(badge?.querySelector('[data-slot="gbp-status-dot"]')).toHaveAttribute('aria-hidden');
+    // The setup card does not repeat the page purpose line.
+    expect(within(setup).queryByText(/Bookings work without it/)).toBeNull();
     expect(within(setup).getByRole('button', { name: 'Connect Google' })).toBeEnabled();
     expect(within(setup).getByText('Available after sign-in.')).toBeInTheDocument();
     expect(
@@ -481,6 +496,9 @@ describe('GoogleBusinessProfileSection', () => {
       'rest-1',
     );
     expect(screen.queryByTestId('gbp-setup-card')).not.toBeInTheDocument();
+    // The overview owns the connection status once linked; the purpose line stays.
+    expectSharedChrome();
+    expect(document.querySelector('[data-slot="settings-status-facts"]')).toBeNull();
   });
 
   it('hides admin-only Google operator controls without settings permission', () => {

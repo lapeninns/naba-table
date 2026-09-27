@@ -15,6 +15,13 @@ import {
   type ProfileSubformProps,
 } from './shared';
 
+/**
+ * The two fields share rows when side by side (CSS subgrid): label row, control, help, error. A
+ * label whose hint wraps ("Needed for the daily summary") then moves both inputs down together
+ * instead of leaving them misaligned.
+ */
+const PAIRED_FIELD_CLASS = '@xl:row-span-4 @xl:grid @xl:grid-rows-subgrid @xl:content-start';
+
 type ManagerNotificationsSubformProps = ProfileSubformProps & {
   /** Editing the alert number switched "Try WhatsApp first" off in this draft. */
   whatsappTurnedOff?: boolean;
@@ -46,13 +53,14 @@ export function ManagerNotificationsSubform({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid gap-5 @xl:grid-cols-2">
+      <div className="grid gap-5 @xl:grid-cols-2 @xl:gap-y-1.5">
         <ProfileField
           id="restaurant-manager-name"
           label="Manager name"
           requirement="Optional"
           help="Shown as the sender of review-request emails, e.g. “Sam from The Old Crown”."
           error={errors.managerName}
+          className={PAIRED_FIELD_CLASS}
         >
           <Input
             id="restaurant-manager-name"
@@ -78,6 +86,7 @@ export function ManagerNotificationsSubform({
           requirement="Needed for the daily summary"
           help="International format, e.g. +447700900000."
           error={errors.managerNotificationPhone}
+          className={PAIRED_FIELD_CLASS}
         >
           <Input
             id="restaurant-manager-notification-phone"

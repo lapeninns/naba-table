@@ -6,8 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-import { GbpStatusPill } from './GbpStatusPill';
-import { describeGbpConnection } from '../gbpPageModel';
+import { SettingsCard } from '../../shared/SettingsCard';
 
 import type { GoogleBusinessProfileConnection } from '@/services/ops/restaurants';
 import type { ReactNode } from 'react';
@@ -31,20 +30,20 @@ function Step({
     <li
       id={id}
       data-state={state}
-      className="grid scroll-mt-24 content-start gap-1.5 border-b px-4 py-3.5 last:border-b-0 sm:px-5 @3xl:border-b-0 @3xl:border-r @3xl:last:border-r-0"
+      className="grid scroll-mt-24 content-start gap-1.5 border-b border-border/60 px-4 py-4 last:border-b-0 sm:px-5 @3xl:border-b-0 @3xl:border-r @3xl:last:border-r-0"
     >
       <h3
         className={cn(
-          'flex items-center gap-2 text-sm font-semibold',
+          'flex items-center gap-2 text-sm font-medium',
           state === 'locked' && 'text-muted-foreground',
         )}
       >
         <span
           aria-hidden
           className={cn(
-            'grid size-[22px] place-items-center rounded-full text-xs font-semibold',
-            state === 'done' && 'bg-foreground text-background',
-            state === 'current' && 'ring-2 ring-inset ring-foreground',
+            'grid size-5.5 shrink-0 place-items-center rounded-full text-xs font-semibold',
+            state === 'done' && 'bg-primary text-primary-foreground',
+            state === 'current' && 'text-primary ring-2 ring-inset ring-primary',
             state === 'locked' && 'ring-1 ring-inset ring-border',
           )}
         >
@@ -55,7 +54,9 @@ function Step({
         </span>
         {title}
       </h3>
-      <div className="grid gap-2 text-sm text-muted-foreground">{children}</div>
+      <div className="grid min-w-0 gap-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
+        {children}
+      </div>
     </li>
   );
 }
@@ -91,34 +92,25 @@ export function GbpSetupCard({
   onRequestDisconnect,
 }: GbpSetupCardProps) {
   const { status } = data;
-  const connection = describeGbpConnection(status);
   const signedIn = status === 'authorized';
   const signInState: StepState = signedIn ? 'done' : 'current';
   const chooseState: StepState = signedIn ? 'current' : 'locked';
   const locationCount = data.availableLocations.length;
 
   return (
-    <section
+    <SettingsCard
       id="gbp-connection"
-      aria-labelledby="gbp-setup-title"
+      region
+      titleId="gbp-setup-title"
       data-testid="gbp-setup-card"
-      className="@container min-w-0 scroll-mt-24 rounded-xl border bg-background"
+      className="@container scroll-mt-24"
+      contentClassName="p-0 sm:p-0"
+      title="Link your Google listing"
+      // The page purpose line above already says this is optional and bookings work without it.
+      description="Nabatable shows where your public details differ from Google, and publishes only the changes you confirm."
     >
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-4 sm:px-5">
-        <div className="min-w-0">
-          <h2 id="gbp-setup-title" className="text-base font-semibold">
-            Link your Google listing
-          </h2>
-          <p className="mt-0.5 max-w-[72ch] text-sm text-muted-foreground">
-            Optional. Once linked, Nabatable shows where your public details differ from Google, and
-            publishes only the changes you confirm. Bookings work without it.
-          </p>
-        </div>
-        <GbpStatusPill label="Connection" value={connection.label} tone={connection.tone} />
-      </div>
-
       {!data.isConfigured || connectError ? (
-        <div className="grid gap-2 px-4 pt-3 sm:px-5">
+        <div className="grid gap-2 border-b border-border/60 px-4 py-4 sm:px-5">
           {!data.isConfigured ? (
             <Alert variant="warning">
               <Lock className="size-4" aria-hidden />
@@ -139,7 +131,7 @@ export function GbpSetupCard({
         </div>
       ) : null}
 
-      <ol className="mt-3.5 grid border-t @3xl:grid-cols-3">
+      <ol className="grid @3xl:grid-cols-3">
         <Step n={1} state={signInState} title="Sign in with Google">
           {signedIn ? (
             <p>Signed in as {accountLabel}.</p>
@@ -224,7 +216,7 @@ export function GbpSetupCard({
       </ol>
 
       {onRequestDisconnect ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2 text-xs text-muted-foreground sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 px-4 py-2 text-xs text-muted-foreground sm:px-5">
           <span>Signed in with the wrong Google account?</span>
           <Button
             type="button"
@@ -237,6 +229,6 @@ export function GbpSetupCard({
           </Button>
         </div>
       ) : null}
-    </section>
+    </SettingsCard>
   );
 }

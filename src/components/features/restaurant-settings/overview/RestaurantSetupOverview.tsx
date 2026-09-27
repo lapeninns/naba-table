@@ -1,11 +1,17 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, RefreshCw } from 'lucide-react';
 
-import { RestaurantSettingsCommandCenter } from '@/components/features/restaurant-settings/shared';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import {
+  RestaurantSettingsCommandCenter,
+  SETTINGS_CARD_CLASS,
+  SettingsCard,
+  SettingsLoadErrorAlert,
+  SettingsRefreshErrorAlert,
+  SETTINGS_REFRESH_ERROR_READ_ONLY_COPY,
+  SettingsStatusFacts,
+  type SettingsStatusBadgeVariant,
+} from '@/components/features/restaurant-settings/shared';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTableInventoryService } from '@/contexts/ops-services';
@@ -16,6 +22,7 @@ import { useOpsServicePeriods } from '@/hooks/ops/useOpsServicePeriods';
 import { useOpsTeamInvitations } from '@/hooks/ops/useOpsTeamInvitations';
 import { queryKeys } from '@/lib/query/keys';
 import { OPS_SETTINGS_STALE_TIME } from '@/lib/query/staleTimes';
+import { cn } from '@/lib/utils';
 
 import {
   deriveRestaurantSetupOverviewState,
@@ -28,9 +35,11 @@ import { SetupProgressPanel } from './SetupProgressPanel';
 import { RESTAURANT_SETTINGS_OVERVIEW_ROUTE } from '../routes';
 import { useRestaurantSettingsContext } from '../shell/useRestaurantSettingsContext';
 
-import type { SetupCard } from './buildSetupCards';
+import type { ReadinessSummary, SetupCard } from './buildSetupCards';
 
 type SetupSourceQuery = {
+  data?: unknown;
+  error?: unknown;
   isError?: boolean;
   isFetching?: boolean;
   refetch?: () => Promise<unknown>;
@@ -47,17 +56,30 @@ const SOURCE_LABELS: Record<SetupCheckSource, string> = {
 
 const SOURCE_ORDER = Object.keys(SOURCE_LABELS) as SetupCheckSource[];
 
+function getReadinessBadgeVariant(
+  readiness: Pick<ReadinessSummary, 'ready' | 'hasFailedCheck'>,
+): SettingsStatusBadgeVariant {
+  if (readiness.hasFailedCheck) {
+    return 'status-cancelled';
+  }
+  return readiness.ready ? 'status-confirmed' : 'status-pending';
+}
+
 function SetupOverviewSkeleton() {
   return (
     <div className="flex flex-col gap-4" aria-busy="true">
       <span className="sr-only" role="status">
         Loading setup status…
       </span>
-      <Card className="flex flex-col gap-3 p-4 sm:p-5">
+      <Card variant="compact" className={cn(SETTINGS_CARD_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <Skeleton className="h-5 w-56 max-w-full" />
         <Skeleton className="h-1.5 w-full" />
       </Card>
-      <Card className="flex flex-col gap-3 p-4 sm:p-5" data-testid="setup-steps-skeleton">
+      <Card
+        variant="compact"
+        className={cn(SETTINGS_CARD_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}
+        data-testid="setup-steps-skeleton"
+      >
         {Array.from({ length: 3 }).map((_, index) => (
           <Skeleton key={index} className="h-12 w-full" />
         ))}
@@ -85,16 +107,18 @@ function SetupStepList({
   failedSources,
   queries,
 }: SetupStepListProps) {
-  const headingId = `${id}-heading`;
   return (
-    <Card role="region" aria-labelledby={headingId} data-testid={id} className="overflow-hidden">
-      <div className="flex flex-col gap-0.5 border-b border-border/60 px-4 py-3 sm:px-5">
-        <h2 id={headingId} className="text-base font-semibold leading-6 text-foreground">
-          {title}
-        </h2>
-        <p className="text-xs leading-5 text-muted-foreground">{description}</p>
-      </div>
-      <ul className="divide-y divide-border/60">
+    <SettingsCard
+      region
+      titleId={`${id}-heading`}
+      title={title}
+      description={description}
+      data-testid={id}
+      // Checklist rows carry their own padding and dividers.
+      contentClassName="p-0 sm:px-0"
+    >
+      {/* A container, so each row lays out by the card's width, not the viewport's. */}
+      <ul className="@container divide-y divide-border/60">
         {cards.map((card) => {
           const rowSources = getFailedSourcesForRow(card.key, failedSources);
           return (
@@ -112,7 +136,7 @@ function SetupStepList({
           );
         })}
       </ul>
-    </Card>
+    </SettingsCard>
   );
 }
 
@@ -150,7 +174,14 @@ export function RestaurantSetupOverview() {
     menu: menuQuery,
     team: teamQuery,
   };
-  const failedSources = new Set(SOURCE_ORDER.filter((source) => queries[source].isError));
+  const erroredSources = SOURCE_ORDER.filter((source) => queries[source].isError);
+  // A failed source with no data cannot be checked; one with data keeps its last loaded status
+  // on screen (R11) and only gets the refresh notice.
+  const blockingSources = erroredSources.filter((source) => queries[source].data == null);
+  const refreshSources = erroredSources.filter((source) => queries[source].data != null);
+  const failedSources: ReadonlySet<SetupCheckSource> = new Set(blockingSources);
+  const retrySources = (sources: readonly SetupCheckSource[]) =>
+    sources.forEach((source) => void queries[source].refetch?.());
 
   const isLoadingRequired = isRequiredSetupLoading({
     profileLoading: detailsQuery.isLoading,
@@ -173,28 +204,33 @@ export function RestaurantSetupOverview() {
     <RestaurantSettingsCommandCenter
       title={RESTAURANT_SETTINGS_OVERVIEW_ROUTE.title}
       description={RESTAURANT_SETTINGS_OVERVIEW_ROUTE.description}
+      status={
+        isLoadingRequired ? undefined : (
+          // Same slot and treatment as Tables: the progress count as a status Badge.
+          <SettingsStatusFacts
+            badge={{
+              label: <span className="tabular-nums">{readiness.progressLabel}</span>,
+              variant: getReadinessBadgeVariant(readiness),
+            }}
+          />
+        )
+      }
     >
-      {failedSources.size > 0 ? (
-        <Alert variant="destructive">
-          <AlertCircle className="size-4" aria-hidden />
-          <AlertTitle>Some setup checks could not load</AlertTitle>
-          <AlertDescription>
-            <p>
-              {[...failedSources].map((source) => SOURCE_LABELS[source]).join(', ')} could not be
-              checked, so their status below may be out of date. Saved settings are unchanged.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-3 [@media(pointer:coarse)]:min-h-11"
-              onClick={() => failedSources.forEach((source) => void queries[source].refetch?.())}
-            >
-              <RefreshCw data-icon="inline-start" aria-hidden />
-              Try again
-            </Button>
-          </AlertDescription>
-        </Alert>
+      {blockingSources.length > 0 ? (
+        <SettingsLoadErrorAlert
+          title="Some setup checks could not load"
+          message={`${blockingSources.map((source) => SOURCE_LABELS[source]).join(', ')} could not be checked, so their status below may be out of date. Saved settings are unchanged.`}
+          error={queries[blockingSources[0]].error}
+          retrying={blockingSources.some((source) => queries[source].isFetching)}
+          onRetry={() => retrySources(blockingSources)}
+        />
+      ) : null}
+      {refreshSources.length > 0 ? (
+        <SettingsRefreshErrorAlert
+          error={queries[refreshSources[0]].error}
+          onRetry={() => retrySources(refreshSources)}
+          message={SETTINGS_REFRESH_ERROR_READ_ONLY_COPY}
+        />
       ) : null}
 
       {isLoadingRequired ? (

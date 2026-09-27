@@ -1,12 +1,8 @@
 import { redirect } from 'next/navigation';
 
-import type { Metadata } from 'next';
+import { getRetiredRestaurantSettingsTarget } from '@/components/features/restaurant-settings/routes';
 
-export const metadata: Metadata = {
-  title: 'Email Templates · Nab a Table Ops',
-  description: 'Email templates now live in restaurant settings.',
-};
-
-export default function OpsEmailTemplatesPage() {
-  redirect('/app/settings/restaurant/email-templates');
+/** Retired URL: see RESTAURANT_SETTINGS_RETIRED_ROUTES. */
+export default function LegacyEmailTemplatesPage() {
+  redirect(getRetiredRestaurantSettingsTarget('/app/email-templates'));
 }

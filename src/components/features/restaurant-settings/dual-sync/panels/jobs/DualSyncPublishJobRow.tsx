@@ -55,10 +55,8 @@ export function DualSyncPublishJobRow({
         ) : null}
         <DualSyncPublishJobStatusCell viewModel={viewModel} />
         <DualSyncPublishJobIdentityCell viewModel={viewModel} />
-        <TableCell className="font-mono text-[10px]">{viewModel.startedAtLabel}</TableCell>
-        <TableCell className="text-right font-mono text-[10px]">
-          {viewModel.durationLabel}
-        </TableCell>
+        <TableCell className="font-mono text-xs">{viewModel.startedAtLabel}</TableCell>
+        <TableCell className="text-right font-mono text-xs">{viewModel.durationLabel}</TableCell>
         <DualSyncPublishJobCountsCell viewModel={viewModel} />
         <DualSyncPublishJobSectionsCell viewModel={viewModel} />
       </TableRow>

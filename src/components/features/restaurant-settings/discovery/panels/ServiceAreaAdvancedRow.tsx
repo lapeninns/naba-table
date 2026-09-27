@@ -75,7 +75,7 @@ export function ServiceAreaAdvancedRow({
           {getServiceAreaAdvancedSubtitle(row)}
         </span>
       </legend>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 @2xl:grid-cols-3">
         {SERVICE_AREA_MAIN_FIELDS.map((spec) => (
           <ServiceAreaField key={spec.field} row={row} editor={editor} spec={spec} />
         ))}
@@ -86,7 +86,7 @@ export function ServiceAreaAdvancedRow({
         hint="For support"
       >
         <div className="flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 @md:grid-cols-2">
             {SERVICE_AREA_PROVIDER_FIELDS.map((spec) => (
               <ServiceAreaField key={spec.field} row={row} editor={editor} spec={spec} />
             ))}

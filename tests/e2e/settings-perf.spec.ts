@@ -425,7 +425,9 @@ async function measureDiscoveryTyping(browser: Browser, baseUrl: string) {
   const { context, page } = await openSession(browser, baseUrl);
   try {
     await gotoSettings(page, '/settings/restaurant/discovery');
-    await expect(page.getByRole('heading', { name: 'Discovery details' }).first()).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Discovery', exact: true }).first(),
+    ).toBeVisible();
     await settle(page, 1_000);
     const trackedCount = await page.evaluate((names) => {
       const api = (window as PerfWindow).__settingsPerf;

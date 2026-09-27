@@ -16,7 +16,7 @@ export function DualSyncPublishJobStatusBadge({ status }: DualSyncPublishJobStat
       return (
         <Badge
           variant="status-confirmed"
-          className="inline-flex items-center gap-1 font-mono text-[10px]"
+          className="inline-flex items-center gap-1 font-mono text-xs"
         >
           <CheckCircle2 className="size-3" /> Success
         </Badge>
@@ -25,7 +25,7 @@ export function DualSyncPublishJobStatusBadge({ status }: DualSyncPublishJobStat
       return (
         <Badge
           variant="status-pending"
-          className="inline-flex items-center gap-1 font-mono text-[10px]"
+          className="inline-flex items-center gap-1 font-mono text-xs"
         >
           <AlertCircle className="size-3" /> Partial
         </Badge>
@@ -34,7 +34,7 @@ export function DualSyncPublishJobStatusBadge({ status }: DualSyncPublishJobStat
       return (
         <Badge
           variant="status-cancelled"
-          className="inline-flex items-center gap-1 font-mono text-[10px]"
+          className="inline-flex items-center gap-1 font-mono text-xs"
         >
           <XCircle className="size-3" /> Failed
         </Badge>
@@ -44,7 +44,7 @@ export function DualSyncPublishJobStatusBadge({ status }: DualSyncPublishJobStat
       return (
         <Badge
           variant="status-pending"
-          className="inline-flex items-center gap-1 font-mono text-[10px]"
+          className="inline-flex items-center gap-1 font-mono text-xs"
         >
           <Clock className="size-3" /> In flight
         </Badge>

@@ -2,6 +2,7 @@
 
 import { ChevronLeft, Eye, MoreHorizontal, RotateCcw, Send } from 'lucide-react';
 
+import { SettingsSegmentedControl } from '@/components/features/restaurant-settings/shared/SettingsSegmentedControl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,15 +11,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { cn } from '@/lib/utils';
 
 import type { OpsEmailTemplatesEditor } from '@/hooks/ops/useOpsEmailTemplatesEditor';
+import type { ReactNode } from 'react';
 
 export type EmailTemplatesTab = 'edit' | 'preview';
 
-const segmentClass =
-  'h-8 min-h-0 min-w-0 gap-1.5 px-2.5 text-sm data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm';
+const TAB_OPTIONS = [
+  { value: 'edit', label: 'Edit' },
+  { value: 'preview', label: 'Preview', icon: <Eye aria-hidden /> },
+] as const satisfies readonly { value: EmailTemplatesTab; label: string; icon?: ReactNode }[];
 
 export function EmailTemplateHeader({
   editor,
@@ -54,37 +56,24 @@ export function EmailTemplateHeader({
       <div className="min-w-0 flex-[1_1_280px]">
         <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
           {template.title}
-          <Badge
-            variant={isCustom ? 'secondary' : 'outline'}
-            className={cn(
-              'rounded-full px-2 py-0 text-xs font-medium',
-              !isCustom && 'text-muted-foreground',
-            )}
-          >
+          <Badge variant={isCustom ? 'status-completed' : 'outline'}>
             {isCustom ? 'Customised' : 'Default copy'}
           </Badge>
-          <span className="font-mono text-xs font-normal text-muted-foreground">
+          <span className="break-all font-mono text-xs font-normal text-muted-foreground">
             {template.key}
           </span>
         </h2>
         <p className="mt-0.5 text-sm text-muted-foreground">Sent for: {template.description}</p>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <ToggleGroup
-          type="single"
+      {/* When the actions wrap under the title they stay end-aligned (RR5). */}
+      <div className="ms-auto flex flex-wrap items-center justify-end gap-2">
+        <SettingsSegmentedControl
           value={tab}
-          onValueChange={(value) => value && onTabChange(value as EmailTemplatesTab)}
-          aria-label="Show"
-          className="rounded-lg bg-muted p-0.5 @6xl:hidden"
-        >
-          <ToggleGroupItem value="edit" className={segmentClass}>
-            Edit
-          </ToggleGroupItem>
-          <ToggleGroupItem value="preview" className={segmentClass}>
-            <Eye aria-hidden />
-            Preview
-          </ToggleGroupItem>
-        </ToggleGroup>
+          onValueChange={onTabChange}
+          options={TAB_OPTIONS}
+          ariaLabel="Show"
+          className="@6xl:hidden"
+        />
         <Button type="button" variant="outline" disabled={!canEdit} onClick={onSendTest}>
           <Send aria-hidden />
           Send test
@@ -95,7 +84,11 @@ export function EmailTemplateHeader({
               <MoreHorizontal aria-hidden />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuContent
+            align="end"
+            collisionPadding={16}
+            className="w-72 max-w-[calc(100vw-2rem)]"
+          >
             <DropdownMenuItem
               disabled={!canEdit || !isCustom}
               onSelect={onReset}

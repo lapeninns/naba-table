@@ -33,31 +33,29 @@ export function DualSyncQueueJobRow({
     <TableRow className="text-xs">
       <TableCell>
         <DualSyncQueueJobStatusBadge status={job.status} />
-        <div className="mt-1 font-mono text-[10px] text-muted-foreground">
-          {job.priority} priority
-        </div>
+        <div className="mt-1 font-mono text-xs text-muted-foreground">{job.priority} priority</div>
       </TableCell>
       <TableCell>
         <div className="font-medium">{DUAL_SYNC_QUEUE_JOB_KIND_LABEL[job.jobKind]}</div>
-        <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+        <div className="mt-0.5 font-mono text-xs text-muted-foreground">
           {formatQueueJobShortId(job)}
           {job.idempotencyKey ? ` / ${job.idempotencyKey}` : ''}
         </div>
       </TableCell>
-      <TableCell className="text-right font-mono text-[10px]">
+      <TableCell className="text-right font-mono text-xs">
         {job.attemptCount} / {job.maxAttempts}
       </TableCell>
-      <TableCell className="font-mono text-[10px]">
+      <TableCell className="font-mono text-xs">
         {formatQueueJobTimestamp(job.availableAt)}
       </TableCell>
       <TableCell>
         {job.lastErrorCode ? (
-          <span className="font-mono text-[10px] text-destructive">{job.lastErrorCode}</span>
+          <span className="font-mono text-xs text-destructive">{job.lastErrorCode}</span>
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
         {job.lastErrorMessage ? (
-          <div className="mt-0.5 text-[10px] text-muted-foreground" title={job.lastErrorMessage}>
+          <div className="mt-0.5 text-xs text-muted-foreground" title={job.lastErrorMessage}>
             {formatQueueJobErrorPreview(job.lastErrorMessage)}
           </div>
         ) : null}

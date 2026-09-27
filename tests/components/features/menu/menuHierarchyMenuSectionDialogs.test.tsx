@@ -22,6 +22,10 @@ const hooks = vi.hoisted(() => ({
   updateSection: undefined as unknown as MutationStub,
 }));
 
+const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+
+vi.mock('sonner', () => ({ toast: toastMock }));
+
 vi.mock('@/hooks/ops/useOpsMenuHierarchy', () => ({
   useOpsCreateRestaurantMenu: () => hooks.createMenu,
   useOpsUpdateRestaurantMenu: () => hooks.updateMenu,
@@ -34,6 +38,7 @@ beforeEach(() => {
   hooks.updateMenu = mutationStub();
   hooks.createSection = mutationStub();
   hooks.updateSection = mutationStub();
+  toastMock.success.mockClear();
 });
 
 describe('MenuDialog', () => {
@@ -71,6 +76,8 @@ describe('MenuDialog', () => {
     expect(payload.labels[0].displayName).toBe('Sunday Lunch');
     expect(payload.menuKind).toBe('food');
     expect(props.onOpenChange).toHaveBeenCalledWith(false);
+    // Every create on the Menu page confirms with "<Name> added."
+    expect(toastMock.success).toHaveBeenCalledWith('Sunday Lunch added.');
   });
 
   it('@contract editing prefills the menu and routes through update', async () => {
@@ -125,7 +132,7 @@ describe('MenuDialog', () => {
 
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'Not saved. Your edits are still in this dialog. Reason code HTTP_422.',
+      'Not saved. Your edits are still in this dialog. Reason code HTTP_422',
     );
     expect(screen.queryByText(/Menu rejected/)).not.toBeInTheDocument();
   });

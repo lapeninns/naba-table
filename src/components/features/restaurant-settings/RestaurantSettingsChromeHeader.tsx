@@ -27,6 +27,14 @@ import { RESTAURANT_SETTINGS_OVERVIEW_ROUTE, RESTAURANT_SETTINGS_ROUTE_MAP } fro
 import { useRestaurantSettingsContext } from './shell/useRestaurantSettingsContext';
 
 const SETTINGS_EXIT_HREF = opsHref('/dashboard');
+
+/**
+ * Chrome icon buttons are 36px on fine pointers and a full 44×44 box on coarse ones (RR3). The
+ * sidebar trigger opts out of the global 44px minimum, so the size is set explicitly; the Close
+ * link keeps its label width from `lg`.
+ */
+export const SETTINGS_CHROME_TOUCH_TARGET_CLASS =
+  '[@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:w-auto';
 const SETTINGS_ROOT_LABEL = 'Settings';
 const FALLBACK_TITLE = 'Restaurant settings';
 const GBP_ROUTE_HREF = normalizeOpsPathname(
@@ -84,14 +92,18 @@ export function RestaurantSettingsChromeHeader({
     <header
       data-slot="settings-chrome"
       className={cn(
-        'flex shrink-0 items-center gap-2 border-b border-border/60 bg-background py-1 sm:gap-3',
+        // 2px padding on coarse pointers keeps the row at 48px around the 44px touch targets.
+        'flex shrink-0 items-center gap-2 border-b border-border/60 bg-background py-1 sm:gap-3 [@media(pointer:coarse)]:py-0.5',
         OPS_CHROME_MIN_HEIGHT_CLASS,
         OPS_SHELL_GUTTER_X_CLASS,
       )}
     >
       <SidebarTrigger
         ref={navTriggerRef}
-        className="relative -ml-2 size-9 shrink-0 after:absolute after:-inset-1 md:hidden"
+        className={cn(
+          'relative -ml-2 size-9 shrink-0 after:absolute after:-inset-1 md:hidden',
+          SETTINGS_CHROME_TOUCH_TARGET_CLASS,
+        )}
         aria-label="Toggle restaurant settings navigation"
       />
 
@@ -139,7 +151,10 @@ export function RestaurantSettingsChromeHeader({
           asChild
           variant="ghost"
           size="icon"
-          className="relative -mr-2 ml-1 shrink-0 after:absolute after:-inset-1 lg:w-auto lg:px-3"
+          className={cn(
+            'relative -mr-2 ml-1 shrink-0 after:absolute after:-inset-1 lg:w-auto lg:px-3',
+            SETTINGS_CHROME_TOUCH_TARGET_CLASS,
+          )}
         >
           <Link
             href={SETTINGS_EXIT_HREF}

@@ -3,6 +3,8 @@
 import { Minus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 
+import { SettingsCard } from '@/components/features/restaurant-settings/shared';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -29,11 +31,11 @@ import {
   BARE_BUTTON_CLASS,
   CapacityBar,
   HATCH_TILE_CLASS,
+  JOIN_OUTLINE_CLASS,
   JoinIcon,
   LINK_BUTTON_CLASS,
   LockIcon,
   SeatDots,
-  SWITCH_SIZE_CLASS,
 } from './TableRoomParts';
 import { tileDomId, zoneDomId } from './useTableInventoryController';
 
@@ -125,15 +127,16 @@ function TableTile({
         }`}
         className={cn(
           BARE_BUTTON_CLASS,
-          'relative flex h-full min-h-[74px] w-full flex-col gap-[3px] rounded-md border border-border bg-background px-2.5 pb-2 pt-[9px] text-left text-foreground outline-none hover:border-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30',
+          'relative flex h-full min-h-18 w-full flex-col gap-1 rounded-lg border border-border/60 bg-background px-2.5 pb-2 pt-2 text-left text-foreground outline-none hover:border-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30',
           !status.bookable && HATCH_TILE_CLASS,
           !matches && 'opacity-45',
-          joinPartner && 'outline-2 outline-offset-1 outline-dashed outline-foreground',
-          selected && 'border-primary hover:border-primary outline-2 outline-offset-1 outline-solid outline-primary',
+          joinPartner && JOIN_OUTLINE_CLASS,
+          selected &&
+            'border-primary hover:border-primary outline-2 outline-offset-1 outline-solid outline-primary',
         )}
       >
         <span className="flex items-start justify-between gap-1.5">
-          <span className="inline-flex shrink-0 items-center whitespace-nowrap gap-1 text-[19px] font-semibold leading-none tracking-[-0.01em]">
+          <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-base font-semibold leading-none">
             {table.tableNumber}
             {movable ? null : (
               <span
@@ -150,18 +153,16 @@ function TableTile({
           {table.capacity} seats · {party}
         </span>
         {!status.bookable ? (
-          <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-semibold">
+          <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold">
             <Minus className="size-4" aria-hidden />
             {getShortBlockLabel(status.reason)}
           </span>
         ) : note?.kind === 'join' ? (
-          <span className="mt-auto inline-flex items-center gap-1 text-[11px] font-semibold leading-[1.35] text-foreground">
+          <span className="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-foreground">
             <JoinIcon /> Can join
           </span>
         ) : note ? (
-          <span className="mt-auto text-[11px] leading-[1.35] text-muted-foreground">
-            {note.text}
-          </span>
+          <span className="mt-auto text-xs text-muted-foreground">{note.text}</span>
         ) : null}
       </Button>
     </li>
@@ -240,49 +241,44 @@ function ZoneSection({
   const headingId = `zh-${zone.id}`;
 
   return (
-    <section
+    <SettingsCard
       id={zoneDomId(zone.id)}
       tabIndex={-1}
-      aria-labelledby={headingId}
+      region
+      titleId={headingId}
       data-testid={`zone-${zone.id}`}
-      className="scroll-mt-20 rounded-md border border-border bg-background outline-none min-[720px]:grid min-[720px]:grid-cols-[208px_minmax(0,1fr)]"
-    >
-      <div
-        className={cn(
-          'grid content-start gap-0.5 border-b border-border px-4 py-3 max-[719px]:grid-cols-[minmax(0,1fr)_auto] max-[719px]:items-center max-[719px]:gap-x-3 min-[720px]:border-b-0 min-[720px]:border-r min-[720px]:px-3.5',
-          !zone.active && 'bg-muted',
-        )}
-      >
-        <div className="flex items-start justify-between gap-1 max-[719px]:col-span-full">
-          <h2
-            id={headingId}
-            className="break-words pt-1 text-[15px] font-semibold leading-[1.3] [overflow-wrap:anywhere]"
-          >
-            {zone.name}
-          </h2>
-          <span className="-mr-1.5 -mt-0.5 flex shrink-0">
-            <ZoneIconButton
-              label={`Rename or reorder ${zone.name}`}
-              tooltip="Rename or reorder"
-              onClick={() => onEditZone(zone)}
-            >
-              <Pencil aria-hidden />
-            </ZoneIconButton>
-            <ZoneIconButton
-              label={`Delete ${zone.name}`}
-              tooltip="Delete zone"
-              onClick={() => onDeleteZone(zone)}
-            >
-              <Trash2 aria-hidden />
-            </ZoneIconButton>
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground tabular-nums">
+      className="outline-none"
+      badges={zone.active ? null : <Badge variant="status-cancelled">Out of service</Badge>}
+      title={<span className="break-words [overflow-wrap:anywhere]">{zone.name}</span>}
+      description={
+        <span className="tabular-nums">
           {countLabel(tables.length, 'table')} · {seats} seats
-        </p>
+        </span>
+      }
+      headerAction={
+        <span className="-my-1 flex shrink-0 sm:-mr-1.5">
+          <ZoneIconButton
+            label={`Rename or reorder ${zone.name}`}
+            tooltip="Rename or reorder"
+            onClick={() => onEditZone(zone)}
+          >
+            <Pencil aria-hidden />
+          </ZoneIconButton>
+          <ZoneIconButton
+            label={`Delete ${zone.name}`}
+            tooltip="Delete zone"
+            onClick={() => onDeleteZone(zone)}
+          >
+            <Trash2 aria-hidden />
+          </ZoneIconButton>
+        </span>
+      }
+      contentClassName="grid gap-3"
+    >
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         {tables.length > 0 ? (
-          <div className="mt-1.5 grid gap-1 max-[719px]:col-span-full">
-            <CapacityBar bookable={bookableSeats} total={seats} className="h-[5px]" />
+          <div className="grid w-full max-w-48 gap-1">
+            <CapacityBar bookable={bookableSeats} total={seats} className="h-1.5" />
             <span className="text-xs text-muted-foreground tabular-nums">
               {bookableSeats === seats
                 ? 'All seats bookable'
@@ -291,7 +287,7 @@ function ZoneSection({
           </div>
         ) : null}
         {zone.active ? (
-          <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-[1.4] max-[719px]:col-span-full">
+          <p className="flex items-start gap-1.5 text-xs">
             <JoinIcon className="mt-0.5" />
             <span>
               {join.maxTables >= 2 ? (
@@ -302,24 +298,18 @@ function ZoneSection({
                 'No tables to join here'
               )}
               {join.fixedCount > 0 ? (
-                <>
-                  <br />
-                  <span className="text-muted-foreground">{join.fixedCount} fixed</span>
-                </>
+                <span className="text-muted-foreground"> · {join.fixedCount} fixed</span>
               ) : null}
             </span>
           </p>
         ) : (
-          <p className="text-xs leading-[1.4] max-[719px]:col-span-full">
-            <b>Out of service.</b> Tables kept, not bookable.
-          </p>
+          <p className="text-xs text-muted-foreground">Tables kept, not bookable.</p>
         )}
-        <Label className="mt-1 inline-flex min-h-9 cursor-pointer items-center gap-2.5 font-medium max-[719px]:mt-0 [@media(pointer:coarse)]:min-h-11">
+        <Label className="inline-flex min-h-9 cursor-pointer items-center gap-2.5 font-medium sm:ml-auto [@media(pointer:coarse)]:min-h-11">
           <Switch
             id={`zs-${zone.id}`}
             checked={zone.active}
             onCheckedChange={(checked) => onToggleZone(zone, checked)}
-            className={SWITCH_SIZE_CLASS}
           />
           <span>In service</span>
         </Label>
@@ -328,7 +318,7 @@ function ZoneSection({
         ref={ref}
         role="list"
         onKeyDown={(event) => handleTileKeys(event, columns)}
-        className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] content-start gap-2 p-2.5 sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))] sm:p-3"
+        className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] content-start gap-2 sm:grid-cols-[repeat(auto-fill,minmax(112px,1fr))]"
       >
         {tables.map((table) => (
           <TableTile
@@ -348,8 +338,8 @@ function ZoneSection({
             onClick={() => onAddTable(zone.id)}
             className={cn(
               BARE_BUTTON_CLASS,
-              'flex h-full w-full items-center justify-center rounded-md border border-dashed border-border bg-transparent text-[13px] font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30',
-              addAlone ? 'min-h-10 [@media(pointer:coarse)]:min-h-11' : 'min-h-[74px]',
+              'flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border bg-transparent text-sm font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30',
+              addAlone ? 'min-h-10 [@media(pointer:coarse)]:min-h-11' : 'min-h-18',
             )}
           >
             <span className="inline-flex items-center gap-1.5">
@@ -359,7 +349,7 @@ function ZoneSection({
           </Button>
         </li>
       </ul>
-    </section>
+    </SettingsCard>
   );
 }
 
@@ -397,7 +387,7 @@ export function TableRoomZones({
   const anyMatch = tables.some((table) => matchesRoomFilters(table, filters, lookup));
   return (
     <div>
-      <div className="grid gap-2.5">
+      <div className="grid gap-3">
         {zones.map((zone) => (
           <ZoneSection
             key={zone.id}
@@ -439,7 +429,7 @@ export function TableRoomZones({
         onClick={onAddZone}
         className={cn(
           BARE_BUTTON_CLASS,
-          'mt-2.5 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-transparent font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30',
+          'mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-transparent font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/30',
         )}
       >
         <Plus className="size-4" aria-hidden /> Add zone

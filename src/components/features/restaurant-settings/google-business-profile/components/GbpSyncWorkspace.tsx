@@ -1,10 +1,10 @@
 'use client';
 
-import { AlertCircle, CircleDashed } from 'lucide-react';
+import { CircleDashed } from 'lucide-react';
 import { useState } from 'react';
 
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Accordion } from '@/components/ui/accordion';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -16,9 +16,9 @@ import { GbpOverviewCard } from './GbpOverviewCard';
 import { GbpReviewTable } from './GbpReviewTable';
 import { DualSyncLazyPanels } from '../../dual-sync/DualSyncLazyPanels';
 import { getDualSyncReviewActionState } from '../../dual-sync/dualSyncReviewActionsDomain';
-import { getDualSyncErrorMessage } from '../../dual-sync/dualSyncShellActionDomain';
 import { DualSyncShellDialogs } from '../../dual-sync/DualSyncShellDialogs';
 import { useDualSyncShellController } from '../../dual-sync/hooks/useDualSyncShellController';
+import { SettingsLoadErrorAlert } from '../../shared/SettingsLoadErrorAlert';
 import {
   getGbpReconnectReason,
   getGbpSendBlockReason,
@@ -114,55 +114,45 @@ export function GbpSyncWorkspace({ restaurantId, section, operator }: GbpSyncWor
     );
   } else if (workspace.stateQuery.isError) {
     reviewContent = (
-      <Alert variant="destructive">
-        <AlertCircle className="size-4" aria-hidden />
-        <AlertTitle>Couldn’t load the differences</AlertTitle>
-        <AlertDescription className="flex flex-col items-start gap-2">
-          <span>
-            {getDualSyncErrorMessage(
-              workspace.stateQuery.error,
-              'The differences could not be loaded.',
-            )}{' '}
-            Your saved settings are unchanged.
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => void workspace.stateQuery.refetch()}
-          >
-            Try again
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <SettingsLoadErrorAlert
+        title="Couldn’t load the differences"
+        error={workspace.stateQuery.error}
+        onRetry={() => void workspace.stateQuery.refetch()}
+        retrying={workspace.stateQuery.isFetching}
+      />
     );
   } else if (workspace.visibleFields.length === 0) {
     reviewContent = (
-      <p className="rounded-lg border px-4 py-6 text-sm text-muted-foreground">
-        No Nabatable fields can be compared with Google yet.
-      </p>
+      <OpsEmptyState
+        size="compact"
+        title="Nothing to compare yet"
+        description="No Nabatable fields can be compared with Google yet."
+      />
     );
   } else if (!compared) {
     // Nothing has been read from Google, so there are no differences to decide on yet.
     reviewContent = (
-      <div className="flex flex-col items-center gap-2 rounded-lg border px-4 py-7 text-center">
-        <CircleDashed className="size-5 text-muted-foreground" aria-hidden />
-        <p className="font-semibold">Google hasn’t been checked yet</p>
-        <p className="max-w-prose text-sm text-muted-foreground">
-          {reconnectReason
+      <OpsEmptyState
+        size="compact"
+        icon={<CircleDashed className="size-5" aria-hidden />}
+        title="Google hasn’t been checked yet"
+        description={
+          reconnectReason
             ? 'Nabatable can’t read this listing until Google is reconnected. Once it can, the differences appear here.'
-            : 'Get the latest from Google to compare the listing with your Nabatable details.'}
-        </p>
-        <Button
-          type="button"
-          size="sm"
-          variant={reconnectReason ? 'default' : 'outline'}
-          onClick={reconnectReason ? reconnect.onClick : refresh.onClick}
-          disabled={reconnectReason ? reconnect.pending : refresh.disabled || refresh.pending}
-        >
-          {reconnectReason ? reconnect.label : refresh.label}
-        </Button>
-      </div>
+            : 'Get the latest from Google to compare the listing with your Nabatable details.'
+        }
+        action={
+          <Button
+            type="button"
+            size="sm"
+            variant={reconnectReason ? 'default' : 'outline'}
+            onClick={reconnectReason ? reconnect.onClick : refresh.onClick}
+            disabled={reconnectReason ? reconnect.pending : refresh.disabled || refresh.pending}
+          >
+            {reconnectReason ? reconnect.label : refresh.label}
+          </Button>
+        }
+      />
     );
   } else {
     reviewContent = (

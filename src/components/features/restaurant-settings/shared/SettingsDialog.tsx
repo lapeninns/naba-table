@@ -12,16 +12,34 @@ import {
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
+import { SETTINGS_TOUCH_CONTROL_SCOPE_CLASS } from './compactSettingsClasses';
+
 /**
  * Settings dialog frame. Below `sm` it is a full-height sheet; from `sm` a centred dialog up to
- * 86dvh tall. The header and footer stay pinned while the body scrolls.
+ * 86dvh tall, or nearly the full height on short landscape phones (height ≤ 500px). The header
+ * and footer stay pinned while the body scrolls (RR6).
  */
 export const SETTINGS_DIALOG_CONTENT_CLASS =
-  'left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[86dvh] sm:w-[calc(100%-2rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border';
+  'left-0 top-0 flex h-dvh max-h-dvh w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[86dvh] sm:w-[calc(100%-2rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:[@media(max-height:500px)]:max-h-[calc(100dvh-1rem)]';
+
+/**
+ * Pinned header. Its minimum height clears the 44px close button in the corner (top-4 on phones,
+ * top-6 from `sm`), so the button never overlaps the body.
+ */
+export const SETTINGS_DIALOG_HEADER_CLASS =
+  'min-h-15 shrink-0 justify-center border-b border-border/60 px-4 py-4 pr-16 text-left sm:min-h-17 sm:px-6 sm:pr-20';
+
+/** Scrolling body; inputs and selects in it are 44px tall on coarse pointers. */
+export const SETTINGS_DIALOG_BODY_CLASS = cn(
+  'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6',
+  SETTINGS_TOUCH_CONTROL_SCOPE_CLASS,
+);
 
 const SIZE_CLASS = {
   md: 'sm:max-w-lg',
   lg: 'sm:max-w-2xl',
+  /** Side-by-side compare and publish dialogs. */
+  xl: 'sm:max-w-5xl',
 } as const;
 
 type SettingsDialogProps = {
@@ -77,11 +95,11 @@ export function SettingsDialog({
           }
         }}
       >
-        <DialogHeader className="shrink-0 border-b border-border/60 px-4 py-4 pr-16 text-left sm:px-6 sm:pr-20">
+        <DialogHeader className={SETTINGS_DIALOG_HEADER_CLASS}>
           <DialogTitle className="text-base leading-6">{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
-        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
+        <div data-slot="settings-dialog-body" className={SETTINGS_DIALOG_BODY_CLASS}>
           {children}
         </div>
         {footer ? (

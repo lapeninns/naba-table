@@ -1,10 +1,8 @@
-import { OpsRestaurantSettingsClient } from '@/components/features/restaurant-settings/OpsRestaurantSettingsClient';
-import { getRestaurantSettingsMetadata } from '@/components/features/restaurant-settings/routes';
+import { redirect } from 'next/navigation';
 
-import type { Metadata } from 'next';
+import { getRetiredRestaurantSettingsTarget } from '@/components/features/restaurant-settings/routes';
 
-export const metadata: Metadata = getRestaurantSettingsMetadata('/settings/restaurant/occasions');
-
-export default function BookingOccasionsSettingsPage() {
-  return <OpsRestaurantSettingsClient view="availability" />;
+/** Retired URL: see RESTAURANT_SETTINGS_RETIRED_ROUTES. */
+export default function LegacyOccasionsPage() {
+  redirect(getRetiredRestaurantSettingsTarget('/app/settings/restaurant/occasions'));
 }

@@ -13,6 +13,14 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
+import {
+  SETTINGS_CARD_DESCRIPTION_CLASS,
+  SETTINGS_CARD_TITLE_CLASS,
+  SETTINGS_TABS_LIST_CLASS,
+  SETTINGS_TABS_TRIGGER_CLASS,
+} from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
+import { SettingsOverflowFrame } from '@/components/features/restaurant-settings/shared/SettingsOverflowFrame';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -59,21 +67,24 @@ function Notice({
   icon: ReactNode;
   title: string;
   children: ReactNode;
+  /** Something guests are affected by (a warning), rather than information. */
   strong?: boolean;
 }) {
   return (
-    <div
+    // Shown while editing, not in response to an action, so it is not announced as an alert.
+    // Information stays neutral (muted box); only guest-affecting warnings use amber (RR11).
+    <Alert
+      variant={strong ? 'warning' : 'default'}
+      role="note"
       className={cn(
-        'grid grid-cols-[16px_minmax(0,1fr)] gap-2.5 rounded-lg border bg-background px-3.5 py-3',
-        strong && 'border-2 border-foreground',
+        '[&>svg]:size-4',
+        !strong && 'border-border/60 bg-muted/40 [&>svg]:text-muted-foreground',
       )}
     >
-      <span className="mt-0.5 text-foreground [&>svg]:size-4">{icon}</span>
-      <div>
-        <p className="font-semibold">{title}</p>
-        <p className="text-sm text-muted-foreground">{children}</p>
-      </div>
-    </div>
+      {icon}
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription className="text-muted-foreground">{children}</AlertDescription>
+    </Alert>
   );
 }
 
@@ -89,13 +100,17 @@ function EditorCard({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-xl border bg-background">
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-3.5 sm:px-5">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="mt-0.5 max-w-[60ch] text-xs text-muted-foreground">{description}</p>
+    <section className="rounded-xl border border-border/70 bg-background">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-4 sm:px-5">
+        {/* The action stays in the header row, end-aligned; it wraps (still end-aligned) only
+            when the title column would drop below 10rem (RR5). */}
+        <div className="min-w-0 flex-[1_1_10rem]">
+          <h3 className={SETTINGS_CARD_TITLE_CLASS}>{title}</h3>
+          <p className={cn('mt-0.5', SETTINGS_CARD_DESCRIPTION_CLASS)}>{description}</p>
         </div>
-        {action}
+        {action ? (
+          <div className="ms-auto flex max-w-full shrink-0 items-center">{action}</div>
+        ) : null}
       </div>
       {children}
     </section>
@@ -188,31 +203,42 @@ export function EmailTemplateEditor({
     <>
       {readOnly ? null : (
         <div
-          className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 border-b bg-background/95 px-4 py-2.5 backdrop-blur"
+          className="sticky top-0 z-10 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-b bg-background/95 px-4 py-2.5 backdrop-blur [@media(max-height:500px)]:py-1.5"
           role="group"
           aria-label="Insert a variable"
         >
-          <span className="mr-1 text-xs text-muted-foreground">
+          <span className="shrink-0 text-xs text-muted-foreground">
             Insert into <b className="font-semibold text-foreground">{FIELD_LABELS[target]}</b>
           </span>
-          {chips.map((item) => (
-            <Button
-              key={item.key}
-              type="button"
-              variant="outline"
-              size="sm"
-              title={`${item.description} · preview: ${item.sample}${recommended.has(item.key) ? ' · recommended for this email' : ''}`}
-              // Keep focus (and the caret) in the field being edited.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => insert(item.key)}
-              className={cn(
-                'h-7 min-h-0 min-w-0 px-2 font-mono text-xs',
-                recommended.has(item.key) ? 'font-semibold' : 'font-normal text-muted-foreground',
-              )}
+          {/* Fine pointers: the chips wrap. Touch: 44px chips on one sideways-scrolling row with
+              edge fades, so the sticky bar stays short above the keyboard (RR2, RR3). */}
+          <SettingsOverflowFrame className="flex-[1_1_10rem]">
+            <div
+              data-slot="email-template-variable-chips"
+              className="flex flex-wrap gap-1.5 [@media(pointer:coarse)]:flex-nowrap [@media(pointer:coarse)]:overflow-x-auto [@media(pointer:coarse)]:[scrollbar-width:none]"
             >
-              {`{{${item.key}}}`}
-            </Button>
-          ))}
+              {chips.map((item) => (
+                <Button
+                  key={item.key}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title={`${item.description} · preview: ${item.sample}${recommended.has(item.key) ? ' · recommended for this email' : ''}`}
+                  // Keep focus (and the caret) in the field being edited.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => insert(item.key)}
+                  className={cn(
+                    'h-7 min-h-0 min-w-0 shrink-0 px-2 font-mono text-xs [@media(pointer:coarse)]:h-11',
+                    recommended.has(item.key)
+                      ? 'font-semibold'
+                      : 'font-normal text-muted-foreground',
+                  )}
+                >
+                  {`{{${item.key}}}`}
+                </Button>
+              ))}
+            </div>
+          </SettingsOverflowFrame>
         </div>
       )}
 
@@ -250,43 +276,52 @@ export function EmailTemplateEditor({
           }
         >
           <Tabs value={variant.id} onValueChange={editor.selectVariant}>
-            <TabsList
-              aria-label="Variants"
-              className="mt-3 flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent px-4 pb-0 pt-0 sm:px-5"
-            >
-              {variants.map((item) => {
-                const flagged =
-                  hasProblems(variantProblems(item, templateKey)) &&
-                  (showAllProblems || item.id === variant.id);
-                return (
-                  <TabsTrigger
-                    key={item.id}
-                    value={item.id}
-                    className="relative min-h-10 gap-2 rounded-none rounded-t-md px-3 font-medium text-muted-foreground shadow-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:bg-primary"
-                  >
-                    {item.name || 'Untitled variant'}
-                    <span
-                      className={cn(
-                        'text-xs font-medium',
-                        item.isActive ? 'text-foreground' : 'text-muted-foreground',
-                      )}
+            {/* Sideways-scrolling variant strip: edge fades show hidden variants and the
+                current one is kept in view (RR2). */}
+            <SettingsOverflowFrame revealKey={variant.id} className="mt-3">
+              <TabsList
+                aria-label="Variants"
+                className={cn(SETTINGS_TABS_LIST_CLASS, 'px-4 sm:px-5')}
+              >
+                {variants.map((item) => {
+                  const flagged =
+                    hasProblems(variantProblems(item, templateKey)) &&
+                    (showAllProblems || item.id === variant.id);
+                  return (
+                    <TabsTrigger
+                      key={item.id}
+                      value={item.id}
+                      className={cn(SETTINGS_TABS_TRIGGER_CLASS, 'gap-2')}
                     >
-                      {item.isActive ? 'Live' : 'Paused'}
-                    </span>
-                    {flagged ? (
+                      {/* Long names truncate (full name on hover) instead of widening the strip. */}
+                      <span className="max-w-48 truncate" title={item.name || undefined}>
+                        {item.name || 'Untitled variant'}
+                      </span>
                       <span
-                        className="size-1.5 rounded-full bg-destructive"
-                        role="img"
-                        aria-label="Has problems"
-                      />
-                    ) : null}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
+                        className={cn(
+                          'text-xs font-medium',
+                          item.isActive ? 'text-foreground' : 'text-muted-foreground',
+                        )}
+                      >
+                        {item.isActive ? 'Live' : 'Paused'}
+                      </span>
+                      {flagged ? (
+                        <span
+                          className="size-1.5 rounded-full bg-destructive"
+                          role="img"
+                          aria-label="Has problems"
+                        />
+                      ) : null}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+            </SettingsOverflowFrame>
             <TabsContent value={variant.id} className="mt-0 grid gap-4 px-4 pb-4 pt-3.5 sm:px-5">
-              <div className="grid items-end gap-3 @md:grid-cols-[minmax(0,1fr)_auto_auto]">
-                {field('name')}
+              {/* Narrow: the name takes the full row; Live and the actions menu share the next row,
+                  the menu end-aligned. Wider: all three on one row. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 @md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                <div className="col-span-2 min-w-0 @md:col-span-1">{field('name')}</div>
                 <div className="flex min-h-11 items-center gap-2">
                   <Switch
                     id={EMAIL_TEMPLATE_LIVE_SWITCH_ID}
@@ -311,7 +346,11 @@ export function EmailTemplateEditor({
                       <MoreHorizontal aria-hidden />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuContent
+                    align="end"
+                    collisionPadding={16}
+                    className="w-64 max-w-[calc(100vw-2rem)]"
+                  >
                     <DropdownMenuItem
                       disabled={!editor.canAddVariant}
                       onSelect={editor.duplicateVariant}

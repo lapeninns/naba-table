@@ -41,7 +41,7 @@ export const BusinessDetailsPanel = memo(function BusinessDetailsPanel({
   const statusHelpId = `${BUSINESS_DETAILS_STATUS_FIELD.id}-help`;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-4 @md:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-2">
         <Label htmlFor={BUSINESS_DETAILS_STATUS_FIELD.id}>
           {BUSINESS_DETAILS_STATUS_FIELD.label}
@@ -61,7 +61,7 @@ export const BusinessDetailsPanel = memo(function BusinessDetailsPanel({
           >
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
             <SelectGroup>
               {BUSINESS_DETAILS_STATUS_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>

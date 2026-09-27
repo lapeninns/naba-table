@@ -23,7 +23,7 @@ import type { RestaurantSettingsView } from '@/components/features/restaurant-se
 const VIEW_OPTIONS: Array<{ value: RestaurantSettingsView; label: string }> = [
   { value: 'profile', label: 'Profile' },
   { value: 'google-business-profile', label: 'Google Business Profile' },
-  { value: 'availability', label: 'Availability & booking types' },
+  { value: 'availability', label: 'Availability' },
   { value: 'menu', label: 'Menu' },
   { value: 'tables', label: 'Tables' },
   { value: 'team', label: 'Team' },

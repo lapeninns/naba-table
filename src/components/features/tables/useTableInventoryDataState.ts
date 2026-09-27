@@ -60,9 +60,14 @@ export function useTableInventoryDataState(activeRestaurantId: string | null) {
 
   const zoneOptions = useMemo(() => buildTableInventoryZoneOptions(zones), [zones]);
 
+  // A failed background refetch keeps the loaded tables on screen: only a failure with no data
+  // blocks the page, and a failure with data is reported separately as `refreshError`.
+  const hasData = tableQueryResult !== undefined;
+
   return {
-    error,
-    isError,
+    error: hasData ? null : error,
+    isError: isError && !hasData,
+    refreshError: hasData && isError ? error : null,
     isFetching,
     isLoading,
     isLoadingZones: !summary && (isLoading || fallbackZonesQuery.isLoading),

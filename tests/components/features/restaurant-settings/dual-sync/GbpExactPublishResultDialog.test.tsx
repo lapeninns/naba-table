@@ -33,8 +33,8 @@ describe('GbpExactPublishResultDialog', () => {
     expect(screen.getByRole('button', { name: 'Back to review' })).toBeInTheDocument();
     expect(screen.getByText(/verify the operational notification channel/i)).toBeInTheDocument();
     expect(screen.getByText(/queued is not complete/i).parentElement).toHaveClass(
-      'pr-12',
-      'sm:pr-14',
+      'pr-16',
+      'sm:pr-20',
     );
   });
 });

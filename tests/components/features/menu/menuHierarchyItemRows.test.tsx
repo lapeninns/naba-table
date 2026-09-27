@@ -202,6 +202,12 @@ describe('OptionRow', () => {
     expect(screen.getByText('£2.00')).toBeInTheDocument();
   });
 
+  it('@a11y keeps the full option name available when it is truncated', () => {
+    renderRow();
+
+    expect(screen.getByText('Extra bread')).toHaveAttribute('title', 'Extra bread');
+  });
+
   it('@smoke marks inactive options', () => {
     renderRow({ option: makeOption({ active: false }) });
 

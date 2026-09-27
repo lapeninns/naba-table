@@ -2,6 +2,7 @@ import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components
 import { cn } from '@/lib/utils';
 
 import { DualSyncOperationRow } from './DualSyncOperationRow';
+import { SettingsOverflowFrame } from '../../../shared/SettingsOverflowFrame';
 
 import type { DualSyncPublishOperation } from '@/server/dual-sync';
 
@@ -13,7 +14,7 @@ export function DualSyncOperationsContent({
   readonly operations: ReadonlyArray<DualSyncPublishOperation>;
 }) {
   return (
-    <div className={cn('rounded-md border', className)}>
+    <SettingsOverflowFrame className={cn('overflow-hidden rounded-md border', className)}>
       <Table>
         <TableHeader>
           <TableRow>
@@ -30,6 +31,6 @@ export function DualSyncOperationsContent({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </SettingsOverflowFrame>
   );
 }

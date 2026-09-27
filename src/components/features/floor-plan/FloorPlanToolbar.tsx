@@ -5,16 +5,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Hourglass,
-  Loader2,
   Move,
   PencilRuler,
   RefreshCw,
-  TriangleAlert,
 } from 'lucide-react';
 import { DateTime } from 'luxon';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from '@/components/features/restaurant-settings/routes';
+import { SettingsSaveBar } from '@/components/features/restaurant-settings/shared/SettingsSaveBar';
+import { SettingsSegmentedControl } from '@/components/features/restaurant-settings/shared/SettingsSegmentedControl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -27,9 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Heading } from '@/components/ui/typography';
-import { opsHref } from '@/lib/url/opsHref';
 import { cn } from '@/lib/utils';
 
 import { isLiveDate, isShowingNow, servicesForToolbar } from './model/floorPlanState';
@@ -46,10 +45,19 @@ import type { FloorServiceFilter } from './model/floorPlanTypes';
 import type { FloorPlanController, FloorView, StatFilter } from './useFloorPlanController';
 
 /** Settings page where admins arrange the saved floor layout. */
-export const FLOOR_LAYOUT_SETTINGS_HREF = opsHref('/settings/restaurant/table-layout');
+export const FLOOR_LAYOUT_SETTINGS_HREF = RESTAURANT_SETTINGS_ROUTE_MAP['floor-layout'].href;
+/** Settings page where tables, zones, capacity and join rules are edited. */
+export const TABLES_SETTINGS_HREF = RESTAURANT_SETTINGS_ROUTE_MAP.tables.href;
 
-const segmentClass =
-  'h-8 min-h-0 min-w-0 px-3 text-sm data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm';
+const VIEW_OPTIONS = [
+  { value: 'plan', label: 'Plan' },
+  { value: 'timeline', label: 'Timeline' },
+] as const satisfies readonly { value: FloorView; label: string }[];
+
+const LAYOUT_CHANGE_UNIT = {
+  singular: 'unsaved layout change',
+  plural: 'unsaved layout changes',
+};
 
 function relativeLabel(fp: FloorPlanController): string {
   const { snapshot, ctx, today } = fp;
@@ -143,7 +151,7 @@ function TimeScrubber({ fp }: { fp: FloorPlanController }) {
         ) : null}
         <div
           aria-hidden
-          className="absolute inset-x-2.5 bottom-0 hidden h-3 font-mono text-[10px] text-muted-foreground sm:block"
+          className="absolute inset-x-2.5 bottom-0 hidden h-3 font-mono text-xs leading-3 text-muted-foreground sm:block"
         >
           {ticks.map((t) => (
             <span
@@ -245,44 +253,27 @@ function DatePicker({ fp }: { fp: FloorPlanController }) {
   );
 }
 
-/** In the toolbar, not over the canvas: the narrow-screen sheet and the phone list can't hide it. */
-function LayoutSaveBar({ fp }: { fp: FloorPlanController }) {
-  const n = fp.dirtyIds.length;
-  const failed = Object.keys(fp.saveErrors).length;
-  if (fp.mode !== 'arrange' || (!n && !failed)) return null;
+/**
+ * The Floor layout save bar: the shared settings save bar, docked below the settings workspace
+ * (so the narrow-screen sheet and the phone list can't hide it) and hidden while the layout has
+ * no unsaved changes. Discard asks first.
+ */
+export function FloorLayoutSaveBar({ fp }: { fp: FloorPlanController }) {
+  if (fp.mode !== 'arrange') return null;
   return (
-    <div
-      role="region"
-      aria-label="Unsaved layout"
-      className="flex flex-wrap items-center gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm"
-    >
-      <b>
-        {n} unsaved layout {n === 1 ? 'change' : 'changes'}
-      </b>
-      <Button
-        size="sm"
-        variant="ghost"
-        disabled={fp.isSavingLayout}
-        onClick={fp.actions.discardLayout}
-      >
-        Discard
-      </Button>
-      <Button
-        size="sm"
-        disabled={fp.isSavingLayout || n === 0}
-        onClick={() => void fp.actions.saveLayout()}
-      >
-        {fp.isSavingLayout ? <Loader2 className="animate-spin" aria-hidden /> : null}
-        {fp.isSavingLayout ? 'Saving layout…' : 'Save layout'}
-      </Button>
-      {failed ? (
-        <p role="alert" className="flex w-full items-center gap-1.5 text-destructive">
-          <TriangleAlert className="size-4" aria-hidden />
-          {failed} {failed === 1 ? 'table wasn’t' : 'tables weren’t'} saved:{' '}
-          {Object.values(fp.saveErrors)[0]} Try again.
-        </p>
-      ) : null}
-    </div>
+    <SettingsSaveBar
+      changeCount={fp.dirtyIds.length}
+      unit={LAYOUT_CHANGE_UNIT}
+      sectionNames={['Table positions only. Bookings are not affected.']}
+      issueCount={0}
+      progress={fp.isSavingLayout ? { step: 1, total: 1, sectionName: 'Floor layout' } : null}
+      // A failure only matters while its changes are still unsaved (a date change discards them).
+      failure={fp.dirtyIds.length > 0 ? fp.layoutSaveFailure : null}
+      onSave={() => void fp.actions.saveLayout()}
+      onDiscard={fp.actions.discardLayout}
+      onShowFirstIssue={() => undefined}
+      saveLabel="Save layout"
+    />
   );
 }
 
@@ -293,14 +284,32 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
   const updated = data.updatedAt ? formatClock(data.updatedAt, fp.timezone) : null;
 
   return (
-    <div className="shrink-0 space-y-2 border-b bg-background px-[var(--pg-gutter,1rem)] py-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div
+      className={cn(
+        'shrink-0 space-y-2 border-b border-border/60 bg-background px-[var(--ops-shell-gutter)] py-3',
+        // Landscape phones: keep the workspace for the canvas.
+        arrange && '[@media(max-height:500px)]:py-2',
+      )}
+    >
+      <div className={cn('flex flex-wrap items-center', arrange ? 'gap-x-3 gap-y-1' : 'gap-2')}>
         {arrange ? (
-          // The settings chrome owns the Floor layout heading; no service controls here.
-          <>
-            <LayoutSaveBar fp={fp} />
-            <span className="flex-1" />
-          </>
+          // The settings chrome owns the Floor layout heading; no service controls here, so the
+          // arrange hint shares this row with the refresh status. The hint only shares the row
+          // when it keeps at least 28rem; narrower, it takes the full row and the status wraps
+          // underneath, still end-aligned.
+          snapshot && data.status === 'ready' ? (
+            <p
+              data-slot="floor-layout-hint"
+              className="flex min-w-0 flex-[1_1_28rem] items-start gap-2 text-sm text-muted-foreground"
+            >
+              <Move className="mt-0.5 size-4 shrink-0" aria-hidden />
+              <span>
+                <span className="font-medium text-foreground">Arranging the layout.</span> Drag
+                tables within their zone. Arrow keys nudge, R rotates 15°. Bookings are not
+                affected.
+              </span>
+            </p>
+          ) : null
         ) : (
           <>
             <Heading as="h1" variant="title" className="mr-2">
@@ -308,35 +317,21 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
             </Heading>
             <DatePicker fp={fp} />
             {services.length > 1 ? (
-              <ToggleGroup
-                type="single"
+              <SettingsSegmentedControl<FloorServiceFilter>
                 value={fp.service}
-                onValueChange={(v) => v && fp.actions.chooseService(v as FloorServiceFilter)}
-                aria-label="Service"
-                className="rounded-lg bg-muted p-0.5"
-              >
-                {services.map((s) => (
-                  <ToggleGroupItem key={s.key} value={s.key} className={segmentClass}>
-                    {s.label}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+                onValueChange={fp.actions.chooseService}
+                options={services.map((s) => ({ value: s.key, label: s.label }))}
+                ariaLabel="Service"
+              />
             ) : null}
             <span className="flex-1" />
-            <ToggleGroup
-              type="single"
+            <SettingsSegmentedControl
               value={fp.view}
-              onValueChange={(v) => v && fp.actions.setView(v as FloorView)}
-              aria-label="View"
-              className="hidden rounded-lg bg-muted p-0.5 sm:flex"
-            >
-              <ToggleGroupItem value="plan" className={segmentClass}>
-                Plan
-              </ToggleGroupItem>
-              <ToggleGroupItem value="timeline" className={segmentClass}>
-                Timeline
-              </ToggleGroupItem>
-            </ToggleGroup>
+              onValueChange={fp.actions.setView}
+              options={VIEW_OPTIONS}
+              ariaLabel="View"
+              className="hidden sm:inline-flex"
+            />
             {fp.canArrange ? (
               <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
                 <Link href={FLOOR_LAYOUT_SETTINGS_HREF}>
@@ -347,12 +342,17 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
             ) : null}
           </>
         )}
-        <div role="status" className="flex items-center gap-1 text-xs text-muted-foreground">
+        <div
+          role="status"
+          className="ml-auto flex shrink-0 items-center gap-1 text-xs text-muted-foreground"
+        >
           <span>{data.isRefreshing ? 'Refreshing…' : updated ? `Updated ${updated}` : ''}</span>
           <Button
             size="sm"
             variant="ghost"
-            disabled={data.isRefreshing || data.status === 'loading'}
+            disabled={
+              data.isRefreshing || data.status === 'loading' || data.status === 'no-restaurant'
+            }
             onClick={() => void fp.actions.refresh()}
             aria-label={arrange ? 'Refresh tables' : 'Refresh bookings'}
           >
@@ -361,25 +361,15 @@ export function FloorPlanToolbar({ fp }: { fp: FloorPlanController }) {
           </Button>
         </div>
       </div>
-      {snapshot && data.status === 'ready' ? (
+      {snapshot && data.status === 'ready' && (!arrange || snapshot.zones.length > 1) ? (
         <div className="flex flex-wrap items-center gap-3">
-          {arrange ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Move className="size-4" aria-hidden />
-              <span>
-                <b className="text-foreground">Arranging the layout.</b> Drag tables within their
-                zone. Arrow keys nudge, R rotates 15°. Bookings are not affected.
-              </span>
-            </p>
-          ) : fp.serviceWindow ? (
-            <TimeScrubber fp={fp} />
-          ) : null}
+          {!arrange && fp.serviceWindow ? <TimeScrubber fp={fp} /> : null}
           {snapshot.zones.length > 1 ? (
             <Select value={fp.zoneFilter} onValueChange={fp.actions.setZoneFilter}>
               <SelectTrigger className="h-8 w-40" aria-label="Zone">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
                 <SelectItem value="all">All zones</SelectItem>
                 {[...snapshot.zones]
                   .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -467,7 +457,7 @@ export function FloorPlanSummary({ fp }: { fp: FloorPlanController }) {
     <div
       role="group"
       aria-label="Service summary. Each figure filters the plan."
-      className="grid shrink-0 grid-cols-2 gap-2 border-b px-[var(--pg-gutter,1rem)] py-2 md:grid-cols-4"
+      className="grid shrink-0 grid-cols-2 gap-2 border-b px-[var(--ops-shell-gutter)] py-2 md:grid-cols-4"
     >
       {items.map((item) => {
         const on = fp.statFilter === item.key;

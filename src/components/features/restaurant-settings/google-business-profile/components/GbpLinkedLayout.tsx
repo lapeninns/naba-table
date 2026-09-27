@@ -5,6 +5,12 @@ import { useState, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import {
+  SETTINGS_TABS_LIST_CLASS,
+  SETTINGS_TABS_TRIGGER_CLASS,
+} from '../../shared/compactSettingsClasses';
+import { SettingsOverflowFrame } from '../../shared/SettingsOverflowFrame';
+
 export type GbpTab = 'review' | 'operations';
 
 export type GbpLinkedLayoutProps = {
@@ -18,9 +24,6 @@ export type GbpLinkedLayoutProps = {
   /** Publish, import and outcome dialogs. */
   readonly dialogs?: ReactNode;
 };
-
-const TRIGGER =
-  'relative min-h-[42px] gap-2 rounded-none px-3 font-medium text-muted-foreground shadow-none after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:bg-primary';
 
 /** A linked listing: overview, what currently limits the page, then Review and Operations tabs. */
 export function GbpLinkedLayout({
@@ -44,27 +47,28 @@ export function GbpLinkedLayout({
         onValueChange={(next) => setTab(next as GbpTab)}
         className="flex min-w-0 scroll-mt-24 flex-col gap-4"
       >
-        <TabsList
-          aria-label="Google Business Profile"
-          className="flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-none border-b bg-transparent p-0"
-        >
-          <TabsTrigger value="review" className={TRIGGER}>
-            Review differences
-            {differenceCount !== null ? (
-              <Badge variant="secondary" className="rounded-full px-2 py-0 tabular-nums">
-                {differenceCount}
-              </Badge>
-            ) : null}
-          </TabsTrigger>
-          <TabsTrigger value="operations" className={TRIGGER}>
-            Operations
-            {operationsNeedAttention ? (
-              <Badge variant="destructive" className="rounded-full px-2 py-0">
-                Needs attention
-              </Badge>
-            ) : null}
-          </TabsTrigger>
-        </TabsList>
+        {/* On a narrow phone the two tabs and their badges can outgrow the row: they scroll with
+            an edge fade, and the active tab stays in view. */}
+        <SettingsOverflowFrame revealKey={tab}>
+          <TabsList aria-label="Google Business Profile" className={SETTINGS_TABS_LIST_CLASS}>
+            <TabsTrigger value="review" className={SETTINGS_TABS_TRIGGER_CLASS}>
+              Review differences
+              {differenceCount !== null ? (
+                <Badge variant="secondary" className="px-2 py-0 tabular-nums">
+                  {differenceCount}
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="operations" className={SETTINGS_TABS_TRIGGER_CLASS}>
+              Operations
+              {operationsNeedAttention ? (
+                <Badge variant="status-cancelled" className="px-2 py-0">
+                  Needs attention
+                </Badge>
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+        </SettingsOverflowFrame>
         <TabsContent value="review" className="mt-0 min-w-0">
           {review}
         </TabsContent>

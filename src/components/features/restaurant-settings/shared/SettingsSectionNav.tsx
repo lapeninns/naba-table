@@ -8,7 +8,6 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
@@ -21,13 +20,17 @@ import { cn } from '@/lib/utils';
 import { useRestaurantSettingsSectionNavSlot } from '../RestaurantSettingsSectionNavSlot';
 import {
   SETTINGS_COMMAND_CENTER_DOCKED_NAV_CLASS,
-  SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_ITEM_ACTIVE_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_ITEM_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS,
   SETTINGS_COMMAND_CENTER_RAIL_NAV_CLASS,
 } from './compactSettingsClasses';
+import { SettingsOverflowFades } from './SettingsOverflowFrame';
+import {
+  settingsOverflowEdges,
+  useSettingsHorizontalOverflow,
+} from './useSettingsHorizontalOverflow';
 import { announceSettingsSectionJump } from './useSettingsSectionSpy';
 
 /** Section status on a jump link: "Edited" or "N issues". Always text, never colour alone. */
@@ -93,20 +96,8 @@ function SectionNavBadge({ badge }: { badge: string | SettingsSectionNavBadge })
   );
 }
 
-export function sectionNavOverflowEdges(metrics: {
-  scrollLeft: number;
-  clientWidth: number;
-  scrollWidth: number;
-}): { start: boolean; end: boolean } {
-  const { scrollLeft, clientWidth, scrollWidth } = metrics;
-  if (scrollWidth <= clientWidth + 1) {
-    return { start: false, end: false };
-  }
-  return {
-    start: scrollLeft > 1,
-    end: scrollLeft + clientWidth < scrollWidth - 1,
-  };
-}
+/** @deprecated Use `settingsOverflowEdges`. */
+export const sectionNavOverflowEdges = settingsOverflowEdges;
 
 export type SettingsSectionNavProps = {
   title?: string;
@@ -134,21 +125,6 @@ export function SettingsSectionNav({
 }: SettingsSectionNavProps) {
   const sectionNavSlot = useRestaurantSettingsSectionNavSlot();
   const itemRefs = useRef<Array<HTMLElement | null>>([]);
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const [overflow, setOverflow] = useState({ start: false, end: false });
-  const updateOverflow = useCallback(() => {
-    const list = listRef.current;
-    if (!list) {
-      return;
-    }
-    setOverflow(
-      sectionNavOverflowEdges({
-        scrollLeft: list.scrollLeft,
-        clientWidth: list.clientWidth,
-        scrollWidth: list.scrollWidth,
-      }),
-    );
-  }, []);
   const focusRailItem = useCallback(
     (nextIndex: number) => {
       const count = items.length;
@@ -300,31 +276,11 @@ export function SettingsSectionNav({
     })
     .join('|');
 
-  // On phones the rail scrolls sideways; keep the current tab in view without moving the page
-  // (scrollIntoView would also scroll the settings content vertically).
-  // Keyed on the items signature so a new active tab yields a new ref callback, which React
-  // re-invokes with the mounted list.
-  const revealActiveItem = useCallback(
-    (list: HTMLDivElement | null) => {
-      listRef.current = list;
-      const active = itemsSignature
-        ? list?.querySelector<HTMLElement>('[aria-current="page"], [aria-current="location"]')
-        : null;
-      if (!list || !active) {
-        updateOverflow();
-        return;
-      }
-      const overflowLeft = active.offsetLeft - list.scrollLeft;
-      const overflowRight = overflowLeft + active.offsetWidth - list.clientWidth;
-      if (overflowLeft < 0) {
-        list.scrollLeft = active.offsetLeft - 16;
-      } else if (overflowRight > 0) {
-        list.scrollLeft += overflowRight + 16;
-      }
-      updateOverflow();
-    },
-    [itemsSignature, updateOverflow],
-  );
+  // On phones the rail scrolls sideways: fade the side(s) that hide sections and keep the current
+  // one in view without moving the page (scrollIntoView would also scroll the content vertically).
+  const { ref: listRef, edges: overflow } = useSettingsHorizontalOverflow<HTMLDivElement>({
+    revealKey: itemsSignature,
+  });
 
   const nav = useMemo(
     () => (
@@ -342,36 +298,14 @@ export function SettingsSectionNav({
         )}
         {items.length > 0 ? (
           <div className="relative min-w-0">
-            <div
-              ref={revealActiveItem}
-              className={SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS}
-              role="list"
-              onScroll={updateOverflow}
-            >
+            <div ref={listRef} className={SETTINGS_COMMAND_CENTER_RAIL_LIST_CLASS} role="list">
               {items.map((item, index) => (
                 <div key={item.href ?? item.label} role="listitem">
                   {renderNavItem(item, index)}
                 </div>
               ))}
             </div>
-            {overflow.start ? (
-              <div
-                aria-hidden
-                className={cn(
-                  SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS,
-                  'left-0 border-r border-border/60',
-                )}
-              />
-            ) : null}
-            {overflow.end ? (
-              <div
-                aria-hidden
-                className={cn(
-                  SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS,
-                  'right-0 border-l border-border/60',
-                )}
-              />
-            ) : null}
+            <SettingsOverflowFades edges={overflow} />
           </div>
         ) : null}
         {footer ? (
@@ -384,26 +318,8 @@ export function SettingsSectionNav({
         ) : null}
       </nav>
     ),
-    [
-      description,
-      footer,
-      items,
-      navClassName,
-      overflow.end,
-      overflow.start,
-      renderNavItem,
-      revealActiveItem,
-      showHeader,
-      title,
-      updateOverflow,
-    ],
+    [description, footer, items, listRef, navClassName, overflow, renderNavItem, showHeader, title],
   );
-
-  useLayoutEffect(() => {
-    updateOverflow();
-    window.addEventListener('resize', updateOverflow);
-    return () => window.removeEventListener('resize', updateOverflow);
-  }, [itemsSignature, updateOverflow]);
 
   useLayoutEffect(() => {
     if (!shouldDockInChrome || !sectionNavSlot) {

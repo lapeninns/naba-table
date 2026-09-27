@@ -15,7 +15,9 @@ const useOpsRestaurantBusinessContextMock = vi.hoisted(() => vi.fn());
 const mutateAsyncMock = vi.hoisted(() => vi.fn());
 const useOpsUpdateRestaurantBusinessContextMock = vi.hoisted(() => vi.fn());
 const registerUnsavedMock = vi.hoisted(() => vi.fn());
-const toastMock = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() }));
+const toastMock = vi.hoisted(() =>
+  Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
+);
 const gbpFieldsMock = vi.hoisted(() => ({ fields: [] as unknown[] }));
 
 vi.mock('@/hooks/ops/useOpsRestaurantBusinessContext', () => ({
@@ -168,9 +170,10 @@ describe('RestaurantBusinessContextSection', () => {
     );
     expect(screen.queryByRole('button', { name: /^Save/ })).not.toBeInTheDocument();
     expect(screen.getByText('All changes saved')).toBeInTheDocument();
-    expect(
-      within(section('Links')).getByRole('link', { name: 'Restaurant profile' }),
-    ).toHaveAttribute('href', '/app/settings/restaurant/profile#profile-contact');
+    expect(within(section('Links')).getByRole('link', { name: 'Profile' })).toHaveAttribute(
+      'href',
+      '/app/settings/restaurant/profile#profile-contact',
+    );
     expect(within(section('Links')).getByText('Not compared with Google.')).toBeInTheDocument();
     expect(registerUnsavedMock).toHaveBeenLastCalledWith(
       'restaurant-discovery',
@@ -415,9 +418,9 @@ describe('RestaurantBusinessContextSection', () => {
       screen.getByRole('switch', { name: 'We serve customers at their location' }),
     ).not.toBeChecked();
     // Discarding a Google pre-fill returns the section to what is saved: nothing.
-    expect(within(section('Categories')).getByText('No categories yet.')).toBeInTheDocument();
+    expect(within(section('Categories')).getByText('No categories yet')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Unsaved changes' })).not.toBeInTheDocument();
-    expect(toastMock.info).toHaveBeenCalledWith('Changes discarded.');
+    expect(toastMock).toHaveBeenCalledWith('Changes discarded.');
     expect(mutateAsyncMock).not.toHaveBeenCalled();
   });
 
@@ -519,10 +522,57 @@ describe('RestaurantBusinessContextSection', () => {
     render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
 
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Discovery details didn’t load');
-    expect(alert).toHaveTextContent('Saved settings are unchanged. Reason code HTTP_500');
+    expect(alert).toHaveTextContent('Couldn’t load discovery details');
+    expect(alert).toHaveTextContent('Your saved settings are unchanged. Reason code HTTP_500');
     expect(alert).not.toHaveTextContent('secret detail');
     await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the loaded page and offers a retry when a background refresh fails', async () => {
+    const user = userEvent.setup();
+    setSnapshot();
+    const refetch = vi.fn();
+    useOpsRestaurantBusinessContextMock.mockReturnValue({
+      data: serverSnapshot,
+      error: new HttpError({ message: 'secret detail', status: 503, code: 'HTTP_503' }),
+      isLoading: false,
+      refetch,
+    });
+    render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
+
+    const notice = screen
+      .getAllByRole('status')
+      .find((element) => element.textContent?.includes('Couldn’t refresh saved settings'));
+    if (!notice) throw new Error('refresh notice not shown');
+    expect(notice).toHaveTextContent('Reason code HTTP_503');
+    expect(notice).not.toHaveTextContent('secret detail');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(section('Categories')).toBeInTheDocument();
+    await user.click(within(notice).getByRole('button', { name: 'Try again' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for a restaurant under the Discovery purpose line when none is selected', () => {
+    setSnapshot();
+    render(<RestaurantBusinessContextSection restaurantId={null} />);
+
+    expect(screen.getByRole('heading', { name: 'Select a restaurant' })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose a restaurant with the sidebar switcher to manage its discovery details.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('renders each section as a settings card that keeps its anchor and section hook', () => {
+    setSnapshot();
+    render(<RestaurantBusinessContextSection restaurantId="rest-1" />);
+
+    const categories = section('Categories');
+    expect(categories).toHaveAttribute('data-slot', 'settings-card');
+    expect(categories).toHaveAttribute('id', 'profile-discovery-categories');
+    expect(categories).toHaveAttribute('data-discovery-section', 'categories');
+    expect(categories.querySelector('[data-discovery-google-status]')).not.toBeNull();
   });
 });

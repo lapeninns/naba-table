@@ -10,6 +10,7 @@ import {
 
 import { DualSyncDirectionIcon } from './DualSyncDirectionIcon';
 import { buildDualSyncPublishGroupTableRows } from './dualSyncPublishPreviewDomain';
+import { SettingsOverflowFrame } from '../shared/SettingsOverflowFrame';
 
 import type { DualSyncPublishGroup } from '@/server/dual-sync/publish/types';
 
@@ -23,7 +24,7 @@ export function DualSyncPublishGroupsTable({ groups }: DualSyncPublishGroupsTabl
   const rows = buildDualSyncPublishGroupTableRows(groups);
 
   return (
-    <div className="rounded-md border">
+    <SettingsOverflowFrame className="overflow-hidden rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
@@ -39,27 +40,27 @@ export function DualSyncPublishGroupsTable({ groups }: DualSyncPublishGroupsTabl
             <TableRow key={row.id} className="text-xs">
               <TableCell>
                 <div className="font-medium">{row.sectionLabel}</div>
-                <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                <div className="mt-0.5 font-mono text-xs text-muted-foreground">
                   {row.writeGroup}
                 </div>
               </TableCell>
               <TableCell>
-                <span className="inline-flex items-center gap-1 font-mono text-[10px]">
+                <span className="inline-flex items-center gap-1 font-mono text-xs">
                   <DualSyncDirectionIcon iconKey={row.directionIconKey} className="size-3" />
                   {row.directionLabel}
                 </span>
               </TableCell>
               <TableCell>
-                <Badge variant={row.riskVariant} className="font-mono text-[10px]">
+                <Badge variant={row.riskVariant} className="font-mono text-xs">
                   {row.riskLevel}
                 </Badge>
               </TableCell>
-              <TableCell className="font-mono text-[10px]">{row.masksLabel}</TableCell>
-              <TableCell className="text-right font-mono text-[10px]">{row.fieldCount}</TableCell>
+              <TableCell className="font-mono text-xs">{row.masksLabel}</TableCell>
+              <TableCell className="text-right font-mono text-xs">{row.fieldCount}</TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-    </div>
+    </SettingsOverflowFrame>
   );
 }

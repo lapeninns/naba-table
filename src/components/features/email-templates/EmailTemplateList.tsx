@@ -2,6 +2,7 @@
 
 import { Search } from 'lucide-react';
 
+import { SettingsDirtyBadge } from '@/components/features/restaurant-settings/shared/SettingsDirtyBadge';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,14 +18,9 @@ import type { RestaurantBookingEmailTemplateKey } from '@/lib/restaurants/email-
 function TemplateStatus({ item }: { item: EmailTemplateListItem }) {
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-      {item.isDirty ? (
-        <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-          <span className="size-1.5 rounded-full bg-foreground" aria-hidden />
-          Unsaved
-        </span>
-      ) : null}
+      {item.isDirty ? <SettingsDirtyBadge /> : null}
       {item.isCustom && item.liveCount === 0 ? (
-        <Badge className="rounded-full px-2 py-0 text-xs font-medium">No live</Badge>
+        <Badge variant="status-pending">No live</Badge>
       ) : (
         <span>{item.isCustom ? `Custom · ${item.liveCount} live` : 'Default'}</span>
       )}
@@ -43,8 +39,9 @@ export function EmailTemplateList({
 
   return (
     <div className="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-      <div className="grid gap-2 px-3 pb-2 pt-3">
-        <p className="text-xs text-muted-foreground">
+      {/* Full width below @2xl, so the list shares the shell gutter; a narrow pane beside the email above it. */}
+      <div className="grid gap-2 px-[var(--ops-shell-gutter)] pb-2 pt-3 @2xl:px-3">
+        <p className="text-sm text-muted-foreground">
           {templateCount} guest emails ·{' '}
           {customisedCount ? `${customisedCount} customised` : 'all using Nabatable defaults'}.
           Saved changes apply to emails sent afterwards.
@@ -68,7 +65,10 @@ export function EmailTemplateList({
           />
         </div>
       </div>
-      <nav aria-label="Templates" className="min-h-0 overflow-y-auto px-2 pb-6">
+      <nav
+        aria-label="Templates"
+        className="min-h-0 overflow-y-auto px-[var(--ops-shell-gutter)] pb-6 @2xl:px-3"
+      >
         {groups.length ? (
           groups.map((group) => (
             <div key={group.key} className="mt-2.5">
@@ -87,7 +87,7 @@ export function EmailTemplateList({
                         onClick={() => onSelect(item.key)}
                         className={cn(
                           'grid h-auto min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 whitespace-normal border border-transparent px-2 py-2 text-left font-normal',
-                          current && 'border-border bg-muted',
+                          current && 'border-border/60 bg-muted',
                         )}
                       >
                         <span className={cn('truncate', current ? 'font-semibold' : 'font-medium')}>

@@ -21,7 +21,9 @@ import { HttpError } from '@/lib/http/errors';
 import { cn } from '@/lib/utils';
 
 import { GbpPublishOutcomeBadge } from '../../dual-sync/GbpPublishOutcomeBadge';
+import { SettingsCard } from '../../shared/SettingsCard';
 import { getSafeSettingsErrorMessage } from '../../shared/settingsErrorCopy';
+import { SettingsOverflowFrame } from '../../shared/SettingsOverflowFrame';
 import { formatGbpTime } from '../gbpPageModel';
 
 import type { useOpsGbpOperatorState } from '@/hooks/ops/useOpsGoogleBusinessProfile';
@@ -57,7 +59,7 @@ export type GbpOperationsPanelProps = {
   readonly isDisconnecting: boolean;
 };
 
-function Card({
+function OperationsCard({
   title,
   description,
   action,
@@ -73,19 +75,18 @@ function Card({
   testId?: string;
 }) {
   return (
-    <section
+    <SettingsCard
       data-testid={testId}
-      className={cn('min-w-0 rounded-xl border bg-background', wide && '@4xl:col-span-2')}
+      className={cn(wide && '@4xl:col-span-2')}
+      title={title}
+      description={description}
+      headerAction={action}
+      // A card that is only a heading and an action (Disconnect) has no body or divider.
+      headerClassName={children ? undefined : 'border-b-0'}
+      contentClassName={children ? 'grid gap-3' : 'hidden'}
     >
-      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pt-4 sm:px-5">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="mt-0.5 max-w-[72ch] text-sm text-muted-foreground">{description}</p>
-        </div>
-        {action}
-      </div>
-      <div className="grid gap-3 px-4 pb-4 pt-3 sm:px-5">{children}</div>
-    </section>
+      {children}
+    </SettingsCard>
   );
 }
 
@@ -99,10 +100,10 @@ function ControlRow({
   action: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t py-2.5 first:border-t-0 first:pt-0">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/60 py-2.5 first:border-t-0 first:pt-0">
       <div className="min-w-0 flex-[1_1_220px]">
-        <b className="block font-semibold">{title}</b>
-        <span className="text-sm text-muted-foreground">{detail}</span>
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{detail}</span>
       </div>
       {action}
     </div>
@@ -213,7 +214,11 @@ function WritesCard({ operator }: { operator: GbpOperatorQueries }) {
                   ...state.pendingUpdates.locationMasks,
                   ...state.pendingUpdates.attributePaths,
                 ].map((path) => (
-                  <Badge key={path} variant="outline" className="font-mono font-normal">
+                  <Badge
+                    key={path}
+                    variant="outline"
+                    className="max-w-full font-mono font-normal [overflow-wrap:anywhere]"
+                  >
                     {path}
                   </Badge>
                 ))}
@@ -287,13 +292,13 @@ function WritesCard({ operator }: { operator: GbpOperatorQueries }) {
   }
 
   return (
-    <Card
+    <OperationsCard
       testId="gbp-operator-controls"
       title="Google writes and notifications"
       description="Each change asks for your password. Turning writes off stops all publishing straight away."
     >
       {body}
-    </Card>
+    </OperationsCard>
   );
 }
 
@@ -319,7 +324,7 @@ function outcomeActions(notice: GbpTerminalNoticesResponseV1['notices'][number])
 function OutcomesCard({ operator }: { operator: GbpOperatorQueries }) {
   const data = operator.terminalNoticesQuery.data;
   return (
-    <Card
+    <OperationsCard
       wide
       title="Provider outcomes"
       description="What Google confirmed for each write. An unknown outcome is never shown as success."
@@ -338,7 +343,7 @@ function OutcomesCard({ operator }: { operator: GbpOperatorQueries }) {
       ) : data.notices.length === 0 ? (
         <p className="text-sm text-muted-foreground">No provider outcomes yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
+        <SettingsOverflowFrame className="overflow-hidden rounded-lg border border-border/60">
           <Table>
             <TableHeader>
               <TableRow>
@@ -362,7 +367,9 @@ function OutcomesCard({ operator }: { operator: GbpOperatorQueries }) {
                       </span>
                     </span>
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{notice.safe_reason_code}</TableCell>
+                  <TableCell className="font-mono text-xs [overflow-wrap:anywhere]">
+                    {notice.safe_reason_code}
+                  </TableCell>
                   <TableCell>
                     {outcomeActions(notice).map((action) => (
                       <span key={action} className="block">
@@ -374,9 +381,9 @@ function OutcomesCard({ operator }: { operator: GbpOperatorQueries }) {
               ))}
             </TableBody>
           </Table>
-        </div>
+        </SettingsOverflowFrame>
       )}
-    </Card>
+    </OperationsCard>
   );
 }
 
@@ -393,7 +400,7 @@ export function GbpOperationsPanel({
       <div className="grid gap-4 @4xl:grid-cols-2">
         {operator ? <WritesCard operator={operator} /> : null}
         {sync ? (
-          <Card
+          <OperationsCard
             title="Sync"
             description={
               sync.paused
@@ -436,20 +443,20 @@ export function GbpOperationsPanel({
                 </Button>
               }
             />
-          </Card>
+          </OperationsCard>
         ) : null}
         {operator ? <OutcomesCard operator={operator} /> : null}
         {diagnostics ? (
-          <Card
+          <OperationsCard
             wide
             title="Diagnostics"
             description="Operational health, pending changes, queue recovery, publishes and operations. Loaded when opened."
           >
             {diagnostics}
-          </Card>
+          </OperationsCard>
         ) : null}
         {onRequestDisconnect ? (
-          <Card
+          <OperationsCard
             wide
             title="Disconnect"
             description="Nabatable stops comparing with this Google listing and publishing to it. The listing on Google and your Nabatable settings stay as they are."

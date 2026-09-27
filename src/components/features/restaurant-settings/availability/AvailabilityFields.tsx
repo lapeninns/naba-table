@@ -15,6 +15,12 @@ import type { ReactNode } from 'react';
 export const TOUCH_TARGET_CLASS =
   '[@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
 
+/**
+ * Icon stepper button beside a 36px input: 36×36 on fine pointers so the − / input / + row shares
+ * one height (the base 44px button floor is lifted), 44×44 on touch screens.
+ */
+export const STEPPER_BUTTON_CLASS = `min-h-0 min-w-0 ${TOUCH_TARGET_CLASS}`;
+
 export function FieldErrorText({ id, message }: { id: string; message?: string }) {
   if (!message) {
     return <p id={id} className="sr-only" />;
@@ -114,7 +120,7 @@ export function MinutesStepper({
           type="button"
           variant="outline"
           size="icon"
-          className={TOUCH_TARGET_CLASS}
+          className={STEPPER_BUTTON_CLASS}
           aria-label={`Decrease ${labelText.toLowerCase()} by ${step} minutes`}
           onClick={() => stepBy(-step)}
         >
@@ -136,7 +142,7 @@ export function MinutesStepper({
           type="button"
           variant="outline"
           size="icon"
-          className={TOUCH_TARGET_CLASS}
+          className={STEPPER_BUTTON_CLASS}
           aria-label={`Increase ${labelText.toLowerCase()} by ${step} minutes`}
           onClick={() => stepBy(step)}
         >

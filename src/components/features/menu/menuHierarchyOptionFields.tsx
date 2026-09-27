@@ -108,7 +108,9 @@ export function OptionGoogleAttributeFields({
 }) {
   return (
     <div className="rounded-md border p-4">
-      <Text variant="subheading" as="h3">Option Google attributes</Text>
+      <Text variant="subheading" as="h3">
+        Option Google attributes
+      </Text>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="Spiciness">
           <Select
@@ -118,7 +120,7 @@ export function OptionGoogleAttributeFields({
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent collisionPadding={16}>
               <SelectItem value={NONE_VALUE}>None</SelectItem>
               {SPICINESS_OPTIONS.map((option) => (
                 <SelectItem key={option} value={option}>
@@ -196,7 +198,9 @@ export function OptionMediaFields({
 }) {
   return (
     <div className="rounded-md border p-4">
-      <Text variant="subheading" as="h3">Option media keys</Text>
+      <Text variant="subheading" as="h3">
+        Option media keys
+      </Text>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <Field label="GBP media keys">
           <Textarea

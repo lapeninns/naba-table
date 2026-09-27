@@ -20,14 +20,11 @@ const SETTINGS_ROUTES = [
   '/settings/restaurant/discovery',
   '/settings/restaurant/google-business-profile',
   '/settings/restaurant/availability',
-  '/settings/restaurant/operating-hours',
-  '/settings/restaurant/service-periods',
-  '/settings/restaurant/turn-durations',
-  '/settings/restaurant/occasions',
   '/settings/restaurant/menu',
   '/settings/restaurant/tables',
   '/settings/restaurant/team',
-  '/settings/restaurant/table-layout',
+  '/settings/restaurant/floor-layout',
+  '/settings/restaurant/staff-communications',
   '/settings/restaurant/email-templates',
 ] as const;
 

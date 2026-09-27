@@ -1,14 +1,12 @@
 'use client';
 
 import { AlertTriangle, Eye, Info, X } from 'lucide-react';
-import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   Sheet,
   SheetContent,
@@ -18,13 +16,14 @@ import {
 } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOpsSession } from '@/contexts/ops-session';
+import { cn } from '@/lib/utils';
 import { getTodayInTimezone } from '@/lib/utils/datetime';
 
 import { AVAILABILITY_ANCHORS } from '../availabilityAnchors';
 import { AvailabilityOccasionsEditor } from '../AvailabilityOccasionsEditor';
 import { updateTurnBandsDraft } from '../availabilityScheduleDraftDomain';
 import { extractRequiredOccasionKeys } from '../availabilityScheduleManagerUtils';
-import { getRestaurantSettingsAvailabilityAlias, RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
+import { RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
 import {
   AVAILABILITY_SAVE_GROUP_NAMES,
   MEAL_KEYS,
@@ -48,19 +47,28 @@ import {
   previewAvailabilityDate,
   type AvailabilityPreviewSource,
 } from './availabilityPreviewModel';
+import {
+  SETTINGS_ASIDE_CLASS,
+  SETTINGS_ASIDE_GRID_CLASS,
+  SETTINGS_CARD_CLASS,
+  SETTINGS_CARD_CONTENT_CLASS,
+  SETTINGS_CARD_HEADER_CLASS,
+  SETTINGS_TOUCH_CONTROL_SCOPE_CLASS,
+  SETTINGS_TOUCH_ICON_BUTTON_CLASS,
+} from '../shared/compactSettingsClasses';
 import { RestaurantSettingsCommandCenter } from '../shared/RestaurantSettingsCommandCenter';
+import { SettingsCard } from '../shared/SettingsCard';
+import { SettingsLoadErrorAlert } from '../shared/SettingsLoadErrorAlert';
+import { SettingsNoRestaurantState } from '../shared/SettingsNoRestaurantState';
 import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
 import { SettingsReviewChangesDialog } from '../shared/SettingsReviewChangesDialog';
 import { AVAILABILITY_SAVE_CONFLICT_MESSAGE, SettingsSaveBar } from '../shared/SettingsSaveBar';
-import {
-  formatSettingsSectionList,
-  getSettingsSaveReasonCode,
-  pluralise,
-} from '../shared/settingsSaveSequence';
+import { formatSettingsSectionList, pluralise } from '../shared/settingsSaveSequence';
 import {
   scrollToSettingsSection,
   type RestaurantSettingsCommandRailItem,
 } from '../shared/SettingsSectionNav';
+import { SettingsSectionStates } from '../shared/settingsSectionStates';
 import { SettingsStatusLine } from '../shared/SettingsStatusLine';
 import { useSettingsSectionSpy } from '../shared/useSettingsSectionSpy';
 import { DAYS_OF_WEEK, type OverrideRow } from '../types';
@@ -128,9 +136,6 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
     canEditCatalog: permissions.isPlatformAdmin,
   });
   const saveFailureCopy = describeAvailabilitySaveFailure(controller.saveFailure?.reasonCode);
-  const pathname = usePathname();
-  const alias = getRestaurantSettingsAvailabilityAlias(pathname);
-  const [aliasDismissed, setAliasDismissed] = useState(false);
   const [openDays, setOpenDays] = useState<ReadonlySet<number>>(new Set());
   const [copyFrom, setCopyFrom] = useState<number | null>(null);
   const [dateDialog, setDateDialog] = useState<{
@@ -279,12 +284,12 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
     }
   }, [controller, focusIssue]);
 
-  // Deep links: former routes and #anchors open the section that replaced them.
+  // Deep links: #anchors (including those former routes redirect to) open their section.
   const handledHashRef = useRef(false);
   useEffect(() => {
     if (!draft || handledHashRef.current) return;
     handledHashRef.current = true;
-    const hash = alias?.availabilityAnchor ?? window.location.hash.replace(/^#/, '');
+    const hash = window.location.hash.replace(/^#/, '');
     const section = ANCHOR_SECTIONS[hash];
     if (!section) return;
     if (hash === AVAILABILITY_ANCHORS.serviceWindows) {
@@ -298,7 +303,7 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       }
     }
     afterRender(() => scrollToSettingsSection(section));
-  }, [alias?.availabilityAnchor, draft, openDay]);
+  }, [draft, openDay]);
 
   const handleAttentionAction = useCallback(
     (action: AvailabilityAttentionAction) => {
@@ -334,35 +339,29 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
     [openDay, showFirstIssue, updateDraft],
   );
 
-  if (!restaurantId) {
+  if (!restaurantId || controller.loadError || !draft || !saved || !previewSources) {
     return (
-      <OpsEmptyState
-        title="No restaurant selected"
-        description="Choose a restaurant to manage its availability and booking types."
-      />
+      <RestaurantSettingsCommandCenter title={route.title} description={route.description}>
+        <SettingsSectionStates
+          restaurantId={restaurantId}
+          isLoading={!controller.loadError}
+          error={controller.loadError}
+          noRestaurant={
+            <SettingsNoRestaurantState task="manage its availability and booking types" />
+          }
+          loading={<AvailabilityPageSkeleton />}
+          errorState={(loadError) => (
+            <SettingsLoadErrorAlert
+              title="Couldn’t load availability settings"
+              error={loadError}
+              onRetry={controller.retryLoad}
+            />
+          )}
+        >
+          {() => <AvailabilityPageSkeleton />}
+        </SettingsSectionStates>
+      </RestaurantSettingsCommandCenter>
     );
-  }
-
-  if (controller.loadError) {
-    return (
-      <Alert variant="destructive">
-        <AlertTriangle aria-hidden />
-        <AlertTitle>Availability settings couldn’t load</AlertTitle>
-        <AlertDescription className="flex flex-col items-start gap-2">
-          <span>
-            Your saved settings are unchanged. Reason code{' '}
-            <span className="font-mono">{getSettingsSaveReasonCode(controller.loadError)}</span>
-          </span>
-          <Button type="button" variant="outline" size="sm" onClick={controller.retryLoad}>
-            Try again
-          </Button>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  if (!draft || !saved || !previewSources) {
-    return <AvailabilityPageSkeleton />;
   }
 
   const hoursChanges = controller.changeGroups.find((group) => group.id === 'hours')?.changes ?? [];
@@ -501,33 +500,13 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
           onDismiss={controller.dismissRebaseNotice}
         />
       ) : null}
-      {alias && !aliasDismissed ? (
-        <Alert variant="info" role="status" className="pr-12">
-          <Info aria-hidden />
-          <AlertTitle>{alias.title} is part of Availability.</AlertTitle>
-          <AlertDescription>
-            You opened <span className="font-mono">/app/settings/restaurant/{alias.slug}</span>, so
-            we’ve taken you to that section.
-          </AlertDescription>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="absolute right-2 top-2"
-            aria-label="Dismiss"
-            onClick={() => setAliasDismissed(true)}
-          >
-            <X aria-hidden />
-          </Button>
-        </Alert>
-      ) : null}
       {draft.customRows.length > 0 ? (
         <p className="text-xs text-muted-foreground">
           {pluralise(draft.customRows.length, 'other service period')} (not a weekday’s lunch or
           dinner) are kept as they are when you save meal times.
         </p>
       ) : null}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_21.25rem] xl:items-start">
+      <div className={SETTINGS_ASIDE_GRID_CLASS}>
         <div className="flex min-w-0 flex-col gap-4">
           <AvailabilityAttentionSection items={attentionItems} onAction={handleAttentionAction} />
           <WeeklyHoursSection
@@ -597,56 +576,44 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
             }
             onTouch={controller.markTouched}
           />
-          <Card
+          <SettingsCard
             id={BOOKING_TYPES_SECTION_ID}
-            aria-labelledby="availability-types-heading"
-            className="scroll-mt-4 overflow-hidden border-border/70 pb-0 shadow-none"
+            region
+            titleId="availability-types-heading"
+            title="Booking types and table times"
+            description="What guests book and how long a table is held for each party size."
+            contentClassName="p-0 @container sm:p-0"
           >
-            <CardHeader className="flex flex-col gap-1 px-4 pt-4 sm:px-5">
-              <CardTitle
-                id="availability-types-heading"
-                role="heading"
-                aria-level={2}
-                className="text-base leading-6"
-              >
-                Booking types and table times
-              </CardTitle>
-              <CardDescription>
-                What guests book and how long a table is held for each party size.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="px-0 pb-0">
-              <DefaultTableTimeField
-                value={draft.rules.reservationDefaultDurationMinutes}
-                errors={visibleErrors}
-                onChange={(value) =>
-                  updateDraft((current) => ({
-                    ...current,
-                    rules: { ...current.rules, reservationDefaultDurationMinutes: value },
-                  }))
-                }
-                onTouch={controller.markTouched}
-              />
-              <AvailabilityOccasionsEditor
-                occasions={draft.occasions}
-                savedOccasions={saved.occasions}
-                savedTurnBands={saved.turnBands}
-                turnBands={draft.turnBands}
-                turnBandDefaults={controller.turnBandDefaults}
-                editRequest={editRequest}
-                canEditCatalog={controller.canEditCatalog}
-                onChange={(occasions) => updateDraft((current) => ({ ...current, occasions }))}
-                onTurnBandsChange={(key, bands) =>
-                  updateDraft((current) => ({
-                    ...current,
-                    turnBands: updateTurnBandsDraft(current.turnBands, key, bands),
-                  }))
-                }
-              />
-            </CardContent>
-          </Card>
+            <DefaultTableTimeField
+              value={draft.rules.reservationDefaultDurationMinutes}
+              errors={visibleErrors}
+              onChange={(value) =>
+                updateDraft((current) => ({
+                  ...current,
+                  rules: { ...current.rules, reservationDefaultDurationMinutes: value },
+                }))
+              }
+              onTouch={controller.markTouched}
+            />
+            <AvailabilityOccasionsEditor
+              occasions={draft.occasions}
+              savedOccasions={saved.occasions}
+              savedTurnBands={saved.turnBands}
+              turnBands={draft.turnBands}
+              turnBandDefaults={controller.turnBandDefaults}
+              editRequest={editRequest}
+              canEditCatalog={controller.canEditCatalog}
+              onChange={(occasions) => updateDraft((current) => ({ ...current, occasions }))}
+              onTurnBandsChange={(key, bands) =>
+                updateDraft((current) => ({
+                  ...current,
+                  turnBands: updateTurnBandsDraft(current.turnBands, key, bands),
+                }))
+              }
+            />
+          </SettingsCard>
         </div>
-        <aside aria-label="Booking preview" className="hidden xl:sticky xl:top-0 xl:block">
+        <aside aria-label="Booking preview" className={cn(SETTINGS_ASIDE_CLASS, 'hidden xl:flex')}>
           {previewPanel(false)}
         </aside>
       </div>
@@ -654,18 +621,28 @@ export function AvailabilitySettingsPage({ restaurantId }: { restaurantId: strin
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
         <SheetContent
           side="right"
-          className="w-full max-w-none gap-0 overflow-y-auto p-0 sm:max-w-md"
+          className="w-full max-w-none gap-0 overflow-hidden p-0 sm:max-w-md"
           onCloseAutoFocus={(event) => {
             // The sheet opens from a button outside it, so return focus there explicitly.
             event.preventDefault();
             previewButtonRef.current?.focus();
           }}
         >
-          <SheetHeader className="border-b border-border/60 px-4 py-4 pr-12">
+          {/* Pinned header; only the preview scrolls, so the title and close stay in reach on a
+              landscape phone. */}
+          <SheetHeader className="shrink-0 border-b border-border/60 px-4 py-4 pr-14 [@media(max-height:500px)]:py-2.5">
             <SheetTitle>Preview guest times</SheetTitle>
             <SheetDescription>Configuration preview only</SheetDescription>
           </SheetHeader>
-          {previewOpen ? previewPanel(true) : null}
+          <div
+            data-slot="availability-preview-sheet-body"
+            className={cn(
+              'min-h-0 flex-1 overflow-y-auto overscroll-contain',
+              SETTINGS_TOUCH_CONTROL_SCOPE_CLASS,
+            )}
+          >
+            {previewOpen ? previewPanel(true) : null}
+          </div>
         </SheetContent>
       </Sheet>
 
@@ -758,9 +735,10 @@ function AvailabilityRebaseAlert({
   const hasConflicts = notice.conflicts.length > 0;
   return (
     <Alert
-      variant={hasConflicts ? 'warning' : 'info'}
+      variant={hasConflicts ? 'warning' : 'default'}
       role="status"
-      className="pr-12"
+      // Room for the 32px dismiss button, 44px on touch (RR3/RR4).
+      className="pr-12 [@media(pointer:coarse)]:pr-14"
       data-testid="availability-rebase-notice"
     >
       {hasConflicts ? <AlertTriangle aria-hidden /> : <Info aria-hidden />}
@@ -777,7 +755,7 @@ function AvailabilityRebaseAlert({
         type="button"
         variant="ghost"
         size="icon-sm"
-        className="absolute right-2 top-2"
+        className={cn('absolute right-2 top-2 min-h-0 min-w-0', SETTINGS_TOUCH_ICON_BUTTON_CLASS)}
         aria-label="Dismiss"
         onClick={onDismiss}
       >
@@ -791,20 +769,25 @@ function AvailabilityPageSkeleton() {
   return (
     <div className="flex flex-col gap-4" role="status" aria-busy="true">
       <span className="sr-only">Loading availability settings</span>
-      <Skeleton className="h-5 w-full max-w-xl" />
-      <Card className="border-border/70 shadow-none">
-        <CardContent className="flex flex-col gap-3 p-4">
+      <Card variant="compact" className={SETTINGS_CARD_CLASS}>
+        <div className={cn(SETTINGS_CARD_HEADER_CLASS, 'flex flex-col gap-2')}>
           <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-4 w-full max-w-sm" />
+        </div>
+        <div className={cn(SETTINGS_CARD_CONTENT_CLASS, 'flex flex-col gap-3')}>
           {WEEK_ORDER.map((day) => (
             <Skeleton key={day} className="h-11 w-full" />
           ))}
-        </CardContent>
+        </div>
       </Card>
-      <Card className="border-border/70 shadow-none">
-        <CardContent className="flex flex-col gap-3 p-4">
+      <Card variant="compact" className={SETTINGS_CARD_CLASS}>
+        <div className={cn(SETTINGS_CARD_HEADER_CLASS, 'flex flex-col gap-2')}>
           <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-4 w-full max-w-xs" />
+        </div>
+        <div className={SETTINGS_CARD_CONTENT_CLASS}>
           <Skeleton className="h-16 w-full" />
-        </CardContent>
+        </div>
       </Card>
     </div>
   );

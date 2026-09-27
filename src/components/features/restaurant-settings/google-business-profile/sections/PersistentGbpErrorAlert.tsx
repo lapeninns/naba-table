@@ -1,3 +1,5 @@
+import { CircleAlert } from 'lucide-react';
+
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 
@@ -18,6 +20,7 @@ export function PersistentGbpErrorAlert({
 }: PersistentGbpErrorAlertProps) {
   return (
     <Alert variant="destructive">
+      <CircleAlert aria-hidden />
       <AlertTitle>{error.title}</AlertTitle>
       <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span>{error.message}</span>
@@ -26,10 +29,13 @@ export function PersistentGbpErrorAlert({
             type="button"
             size="sm"
             variant="outline"
+            // The destructive Alert tints its text; the action stays a neutral outline button.
+            className="text-foreground"
             onClick={onAction}
             disabled={isActionPending}
+            aria-busy={isActionPending || undefined}
           >
-            {isActionPending ? `${actionLabel}...` : actionLabel}
+            {isActionPending ? `${actionLabel}…` : actionLabel}
           </Button>
         ) : null}
       </AlertDescription>

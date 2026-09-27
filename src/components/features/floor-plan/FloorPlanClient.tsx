@@ -1,20 +1,14 @@
 'use client';
 
-import { CalendarX, LayoutGrid, RefreshCw, TriangleAlert } from 'lucide-react';
+import { CalendarX, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from '@/components/ui/alert';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { ConfirmDialog } from '@/components/features/restaurant-settings/ConfirmDialog';
+import { SettingsLoadErrorAlert } from '@/components/features/restaurant-settings/shared/SettingsLoadErrorAlert';
+import { SettingsNoRestaurantState } from '@/components/features/restaurant-settings/shared/SettingsNoRestaurantState';
+import { SettingsRefreshErrorAlert } from '@/components/features/restaurant-settings/shared/SettingsRefreshErrorAlert';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -22,7 +16,12 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { FloorPlanCanvas } from './FloorPlanCanvas';
 import { FloorPlanPanel } from './FloorPlanPanel';
 import { FloorPlanList, FloorPlanTimeline } from './FloorPlanTimeline';
-import { FloorPlanSummary, FloorPlanToolbar } from './FloorPlanToolbar';
+import {
+  FloorLayoutSaveBar,
+  FloorPlanSummary,
+  FloorPlanToolbar,
+  TABLES_SETTINGS_HREF,
+} from './FloorPlanToolbar';
 import { tableNumbers } from './model/floorPlanState';
 import { formatClock, formatLongDate } from './model/floorPlanTime';
 import { floorPlanBody } from './model/floorPlanView';
@@ -32,24 +31,11 @@ import {
   type FloorSurface,
 } from './useFloorPlanController';
 
-function CenteredState({
-  icon,
-  title,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  children?: React.ReactNode;
-}) {
+/** Workspace states (no restaurant, load failure, empty) sit centred in the canvas. */
+function CenteredState({ children }: { children: ReactNode }) {
   return (
-    <div className="grid min-h-0 flex-1 place-items-center p-6">
-      <div className="max-w-md space-y-3 text-center">
-        <span className="mx-auto grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
-          {icon}
-        </span>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {children}
-      </div>
+    <div className="grid min-h-0 flex-1 place-items-center px-[var(--ops-shell-gutter)] py-6">
+      <div className="w-full max-w-md">{children}</div>
     </div>
   );
 }
@@ -75,62 +61,68 @@ function LoadingPlan() {
 
 function ViewArea({ fp, phone }: { fp: FloorPlanController; phone: boolean }) {
   const { data, snapshot } = fp;
+  const arranging = fp.mode === 'arrange';
+  if (data.status === 'no-restaurant') {
+    return (
+      <CenteredState>
+        <SettingsNoRestaurantState
+          task={arranging ? 'arrange its floor layout' : 'see its floor plan'}
+        />
+      </CenteredState>
+    );
+  }
   if (data.status === 'loading') return <LoadingPlan />;
   if (data.status === 'error' || !snapshot) {
     const what = data.failedSources
       .map((s) => (s === 'bookings' ? 'bookings' : s === 'tables' ? 'tables' : 'service times'))
       .join(' and ');
-    const arranging = fp.mode === 'arrange';
     return (
-      <CenteredState
-        icon={<TriangleAlert className="size-5" />}
-        title={arranging ? 'Your floor layout didn’t load' : 'The floor plan didn’t load'}
-      >
-        <Alert variant="destructive" className="text-left">
-          <AlertIcon>
-            <TriangleAlert className="size-4" aria-hidden />
-          </AlertIcon>
-          <AlertTitle>Couldn’t fetch {what || 'the floor plan'}</AlertTitle>
-          <AlertDescription>
-            {arranging
-              ? 'Your tables couldn’t be loaded.'
-              : `${formatLongDate(fp.date)} couldn’t be loaded.`}
-            {data.updatedAt
-              ? ` The last update was at ${formatClock(data.updatedAt, fp.timezone)}.`
-              : ''}
-          </AlertDescription>
-        </Alert>
-        <Button onClick={() => void fp.actions.refresh()}>
-          <RefreshCw aria-hidden />
-          Try again
-        </Button>
+      <CenteredState>
+        <SettingsLoadErrorAlert
+          title={
+            arranging ? 'Couldn’t load your tables' : `Couldn’t load ${what || 'the floor plan'}`
+          }
+          message={
+            <>
+              {arranging
+                ? 'Your floor layout is unchanged.'
+                : `${formatLongDate(fp.date)} couldn’t be loaded.`}
+              {data.updatedAt
+                ? ` The last update was at ${formatClock(data.updatedAt, fp.timezone)}.`
+                : ''}
+            </>
+          }
+          error={data.error}
+          onRetry={() => void fp.actions.refresh()}
+        />
       </CenteredState>
     );
   }
   if (snapshot.tables.length === 0) {
     return (
-      <CenteredState icon={<LayoutGrid className="size-5" />} title="No tables yet">
-        <p className="text-sm text-muted-foreground">
-          The floor plan is drawn from your tables. Add tables and zones in Tables settings, then
-          come back to see them here.
-        </p>
-        <Button asChild>
-          <Link href="/app/settings/tables">Go to Tables settings</Link>
-        </Button>
+      <CenteredState>
+        <OpsEmptyState
+          icon={<LayoutGrid className="size-5" aria-hidden />}
+          title="No tables yet"
+          description="The floor plan is drawn from your tables. Add tables and zones in Tables settings, then come back to see them here."
+          action={
+            <Button asChild>
+              <Link href={TABLES_SETTINGS_HREF}>Go to Tables settings</Link>
+            </Button>
+          }
+        />
       </CenteredState>
     );
   }
   // Arranging the saved layout doesn't depend on the day's services.
   if (fp.mode === 'service' && (snapshot.isClosed || !snapshot.window)) {
     return (
-      <CenteredState
-        icon={<CalendarX className="size-5" />}
-        title={`Closed on ${formatLongDate(snapshot.date)}`}
-      >
-        <p className="text-sm text-muted-foreground">
-          There are no services on this date, so there is nothing to seat. Pick another day, or
-          check opening hours in settings.
-        </p>
+      <CenteredState>
+        <OpsEmptyState
+          icon={<CalendarX className="size-5" aria-hidden />}
+          title={`Closed on ${formatLongDate(snapshot.date)}`}
+          description="There are no services on this date, so there is nothing to seat. Pick another day, or check opening hours in settings."
+        />
       </CenteredState>
     );
   }
@@ -140,7 +132,7 @@ function ViewArea({ fp, phone }: { fp: FloorPlanController; phone: boolean }) {
   return <FloorPlanCanvas fp={fp} />;
 }
 
-function ConfirmDialog({ fp }: { fp: FloorPlanController }) {
+function FloorPlanConfirmDialog({ fp }: { fp: FloorPlanController }) {
   const { confirm, snapshot } = fp;
   let title = '';
   let body = '';
@@ -169,28 +161,18 @@ function ConfirmDialog({ fp }: { fp: FloorPlanController }) {
     ok = 'Reset zone layout';
   }
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={Boolean(confirm && title)}
-      onOpenChange={(open) => !open && fp.actions.cancelConfirm()}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{body}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>{cancel}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={fp.actions.confirmAction}
-            className={
-              destructive ? 'bg-destructive/10 text-destructive hover:bg-destructive/15' : undefined
-            }
-          >
-            {ok}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      onOpenChange={(open) => {
+        if (!open) fp.actions.cancelConfirm();
+      }}
+      title={title}
+      description={body}
+      confirmLabel={ok}
+      cancelLabel={cancel}
+      tone={destructive ? 'destructive' : 'default'}
+      onConfirm={fp.actions.confirmAction}
+    />
   );
 }
 
@@ -249,6 +231,15 @@ export function FloorPlanClient({
       <FloorPlanToolbar fp={fp} />
       <div className="relative flex min-h-0 flex-1">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col max-[1099px]:pb-14">
+          {surface === 'layout' && fp.data.refreshError ? (
+            // The last loaded layout stays on screen; unsaved positions are kept.
+            <div className="shrink-0 border-b border-border/60 px-[var(--ops-shell-gutter)] py-3">
+              <SettingsRefreshErrorAlert
+                error={fp.data.refreshError}
+                onRetry={() => void fp.actions.refresh()}
+              />
+            </div>
+          ) : null}
           {showSummary ? <FloorPlanSummary fp={fp} /> : null}
           <ViewArea fp={fp} phone={phone} />
         </div>
@@ -261,7 +252,8 @@ export function FloorPlanClient({
           }}
         />
       </div>
-      <ConfirmDialog fp={fp} />
+      <FloorPlanConfirmDialog fp={fp} />
+      <FloorLayoutSaveBar fp={fp} />
       <div className="sr-only" aria-live="polite">
         {fp.announcement}
       </div>

@@ -206,6 +206,18 @@ describe('RestaurantSetupOverview', () => {
       '/app/settings/restaurant/tables',
     );
     expect(screen.queryByText('Setup flow')).not.toBeInTheDocument();
+
+    const status = document.querySelector('[data-slot="settings-status-facts"]');
+    expect(status).toHaveTextContent('3 of 3 required steps complete');
+    // Same status Badge treatment as Tables: green once every required step is done.
+    expect(status?.firstElementChild).toHaveClass('bg-success/10');
+    expect(screen.getByTestId('setup-required-steps').querySelector('ul')).toHaveClass(
+      '@container',
+    );
+    expect(screen.getByRole('region', { name: 'Required before guests can book' })).toHaveAttribute(
+      'data-slot',
+      'settings-card',
+    );
   });
 
   it('lists what was checked for each required step', async () => {
@@ -214,11 +226,11 @@ describe('RestaurantSetupOverview', () => {
     const required = await screen.findByRole('region', {
       name: 'Required before guests can book',
     });
-    const tables = await within(required).findByRole('listitem', { name: /Seating capacity/ });
+    const tables = await within(required).findByRole('listitem', { name: /^Tables/ });
     await waitFor(() => expect(within(tables).getByText('4 tables added')).toBeInTheDocument());
     expect(within(tables).getByText('4 bookable now')).toBeInTheDocument();
 
-    const availability = within(required).getByRole('listitem', { name: /Booking availability/ });
+    const availability = within(required).getByRole('listitem', { name: /^Availability/ });
     expect(
       within(within(availability).getByRole('list', { name: 'What was checked' })).getAllByRole(
         'listitem',
@@ -238,11 +250,11 @@ describe('RestaurantSetupOverview', () => {
 
     const summary = await screen.findByRole('region', { name: 'Not ready for bookings yet' });
     expect(
-      await within(summary).findByText('2 of 3 required steps complete. Next: public profile.'),
+      await within(summary).findByText('2 of 3 required steps complete. Next: profile.'),
     ).toBeInTheDocument();
     expect(within(summary).queryByRole('link', { name: 'Preview guest times' })).toBeNull();
 
-    const profile = screen.getByRole('listitem', { name: /Public profile/ });
+    const profile = screen.getByRole('listitem', { name: /^Profile/ });
     expect(within(profile).getByText('Needs attention')).toBeInTheDocument();
     expect(within(profile).getByText('Missing:', { exact: false })).toHaveTextContent('Missing:');
     expect(within(profile).getByText('Restaurant name')).toBeInTheDocument();
@@ -288,12 +300,17 @@ describe('RestaurantSetupOverview', () => {
 
   it('shows "Couldn’t check" on the failed row and refetches only that row’s failed checks', async () => {
     const user = userEvent.setup();
+    overviewState.servicePeriodsQuery.data = undefined as never;
     overviewState.servicePeriodsQuery.isError = true;
 
     renderOverview();
 
-    expect(await screen.findByText('Some setup checks could not load')).toBeInTheDocument();
-    const availability = await screen.findByRole('listitem', { name: /Booking availability/ });
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Some setup checks could not load');
+    expect(alert).toHaveTextContent(
+      'Service periods could not be checked, so their status below may be out of date. Saved settings are unchanged. Reason code',
+    );
+    const availability = await screen.findByRole('listitem', { name: /^Availability/ });
     expect(within(availability).getByText('Couldn’t check')).toBeInTheDocument();
     expect(
       within(availability).getByText(
@@ -302,12 +319,43 @@ describe('RestaurantSetupOverview', () => {
     ).toBeInTheDocument();
     expect(within(availability).queryByRole('list', { name: 'What was checked' })).toBeNull();
     expect(screen.getByRole('region', { name: 'Some checks couldn’t run' })).toBeInTheDocument();
+    const failedStatus = document.querySelector('[data-slot="settings-status-facts"]');
+    expect(failedStatus?.firstElementChild).toHaveTextContent('required steps complete');
+    expect(failedStatus?.firstElementChild).toHaveClass('bg-destructive/10');
 
     await user.click(within(availability).getByRole('button', { name: 'Check again' }));
 
     expect(overviewState.servicePeriodsQuery.refetch).toHaveBeenCalledTimes(1);
     expect(overviewState.hoursQuery.refetch).not.toHaveBeenCalled();
     expect(overviewState.detailsQuery.refetch).not.toHaveBeenCalled();
+
+    // The page-level retry is a plain outline button with no icon.
+    const retry = within(alert).getByRole('button', { name: 'Try again' });
+    expect(retry.querySelector('svg')).toBeNull();
+    await user.click(retry);
+    expect(overviewState.servicePeriodsQuery.refetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the checklist and shows a refresh notice when a loaded source fails to refresh', async () => {
+    const user = userEvent.setup();
+    overviewState.servicePeriodsQuery.isError = true;
+
+    renderOverview();
+
+    expect(await screen.findByText('Couldn’t refresh saved settings')).toBeInTheDocument();
+    expect(screen.queryByText('Some setup checks could not load')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(
+      await screen.findByRole('region', { name: 'Required before guests can book' }),
+    ).toBeInTheDocument();
+    // The last loaded status stays on the row instead of flipping to "Couldn’t check".
+    const availability = screen.getByRole('listitem', { name: /^Availability/ });
+    expect(within(availability).queryByText('Couldn’t check')).toBeNull();
+    expect(within(availability).queryByRole('button', { name: 'Check again' })).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(overviewState.servicePeriodsQuery.refetch).toHaveBeenCalledTimes(1);
+    expect(overviewState.hoursQuery.refetch).not.toHaveBeenCalled();
   });
 
   it('marks the tables row as failed when the tables request errors and checks it again', async () => {
@@ -316,7 +364,7 @@ describe('RestaurantSetupOverview', () => {
 
     renderOverview();
 
-    const tables = await screen.findByRole('listitem', { name: /Seating capacity/ });
+    const tables = await screen.findByRole('listitem', { name: /^Tables/ });
     await waitFor(() => expect(within(tables).getByText('Couldn’t check')).toBeInTheDocument());
 
     overviewState.tableService.list.mockResolvedValue({

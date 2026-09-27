@@ -51,6 +51,10 @@ export type SettingsSaveBarProps = {
   onReloadLatest?: () => void;
   /** The latest saved settings are loading after `onReloadLatest`. */
   isReloadingLatest?: boolean;
+  /** Label of the primary action while idle, e.g. "Save Booking confirmation". */
+  saveLabel?: string;
+  /** Replaces the default change count ("2 unsaved changes") in the idle and blocked messages. */
+  summary?: ReactNode;
 };
 
 /** Fixed copy for a conflicting save. The server's own error text is never shown. */
@@ -68,8 +72,12 @@ export const DISCOVERY_SAVE_CONFLICT_MESSAGE =
 export const AVAILABILITY_SAVE_CONFLICT_MESSAGE =
   'Someone else changed these settings. Your edits are still here. Reload the latest settings, review them, then save again.';
 
-const BAR_CLASS =
-  'z-20 flex shrink-0 flex-col gap-2 border-t border-border/60 bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between sm:gap-4';
+/**
+ * Docked under the settings scroll area. On short landscape phones (height ≤ 500px) the padding
+ * tightens so chrome, section rail and this bar together leave well over half the screen (RR7).
+ */
+export const SETTINGS_SAVE_BAR_CLASS =
+  'z-20 flex shrink-0 flex-col gap-2 border-t border-border/60 bg-background/95 px-[var(--ops-shell-gutter)] py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-md supports-[backdrop-filter]:bg-background/90 sm:flex-row sm:items-center sm:justify-between sm:gap-4 [@media(max-height:500px)]:flex-row [@media(max-height:500px)]:items-center [@media(max-height:500px)]:justify-between [@media(max-height:500px)]:gap-3 [@media(max-height:500px)]:py-1.5 [@media(max-height:500px)]:pb-[max(0.375rem,env(safe-area-inset-bottom))]';
 
 const LINK_BUTTON_CLASS =
   'h-auto min-h-0 p-0 align-baseline text-xs font-medium underline underline-offset-2 [@media(pointer:coarse)]:min-h-11';
@@ -141,6 +149,8 @@ function SettingsSaveBarRegion({
   conflictMessage = SETTINGS_SAVE_CONFLICT_MESSAGE,
   onReloadLatest,
   isReloadingLatest = false,
+  saveLabel = 'Save changes',
+  summary,
   onRequestDiscard,
 }: SettingsSaveBarProps & { onRequestDiscard: () => void }) {
   const isSaving = progress !== null;
@@ -149,7 +159,7 @@ function SettingsSaveBarRegion({
       ? onReloadLatest
       : null;
   const blocked = !isSaving && failure === null && issueCount > 0;
-  const changes = pluralise(changeCount, unit.singular, unit.plural);
+  const changes: ReactNode = summary ?? pluralise(changeCount, unit.singular, unit.plural);
 
   let message: ReactNode;
   if (progress) {
@@ -226,12 +236,12 @@ function SettingsSaveBarRegion({
       role="region"
       aria-label="Unsaved changes"
       data-slot="settings-save-bar"
-      className={BAR_CLASS}
+      className={SETTINGS_SAVE_BAR_CLASS}
     >
       <div className="flex min-w-0 flex-col gap-0.5" role="status" aria-live="polite">
         {message}
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0 sm:items-center [@media(max-height:500px)]:flex [@media(max-height:500px)]:shrink-0 [@media(max-height:500px)]:items-center">
         <Button type="button" variant="outline" onClick={onRequestDiscard} disabled={isSaving}>
           Discard
         </Button>
@@ -268,7 +278,7 @@ function SettingsSaveBarRegion({
                 aria-hidden
               />
             ) : null}
-            {isSaving ? SETTINGS_SAVE_COPY.saving : failure ? 'Try again' : 'Save changes'}
+            {isSaving ? SETTINGS_SAVE_COPY.saving : failure ? 'Try again' : saveLabel}
           </Button>
         )}
         {blocked ? (

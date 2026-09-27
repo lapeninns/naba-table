@@ -8,7 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
-import { pluralise } from '../shared';
+import {
+  SETTINGS_CARD_CLASS,
+  SETTINGS_INLINE_LINK_CLASS,
+  SettingsCard,
+  pluralise,
+} from '../shared';
 
 import type { ReadinessChecklistItem, ReadinessItemKey } from '../restaurantProfileModel';
 
@@ -20,7 +25,7 @@ type ReadinessProps = {
 };
 
 const ADD_LINK_CLASS =
-  'h-auto min-h-0 p-0 text-sm font-medium underline-offset-2 [@media(pointer:coarse)]:min-h-11';
+  'h-auto min-h-0 min-w-0 p-0 text-sm font-medium underline-offset-4 [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11';
 
 function readinessCounts(items: readonly ReadinessChecklistItem[]) {
   const done = items.filter((item) => item.complete).length;
@@ -61,51 +66,52 @@ export function ProfileReadinessPanel({ items, onFocusItem, className }: Readine
   const { done, total, missingRequired } = readinessCounts(items);
 
   return (
-    <Card variant="compact" className={cn('min-w-0 border-border/70', className)}>
-      <section aria-labelledby="profile-readiness-title" className="flex flex-col gap-3 p-4">
-        <div className="flex flex-col gap-0.5">
-          <h2 id="profile-readiness-title" className="text-sm font-semibold text-foreground">
-            Profile readiness
-          </h2>
-          <p className="text-xs tabular-nums text-muted-foreground">
-            {done} of {total} details filled in.
-          </p>
-        </div>
-        <ReadinessBar done={done} total={total} label={`${done} of ${total} details filled in`} />
-        <p className="text-sm font-medium text-foreground">
-          {requiredHeadline(missingRequired.length)}
-        </p>
-        <ul className="flex flex-col divide-y divide-border/60" aria-label="Profile details">
-          {items.map((item) => (
-            <li key={item.key} className="flex min-h-9 items-center justify-between gap-2 py-1.5">
-              <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
-                {item.complete ? (
-                  <CircleCheck className="size-4 shrink-0 text-success-text" aria-hidden />
-                ) : (
-                  <Minus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                )}
-                <span className="min-w-0 truncate">{item.label}</span>
-                <span className="sr-only">{item.complete ? ', filled in' : ', missing'}</span>
-                {item.required ? null : (
-                  <span className="shrink-0 text-xs text-muted-foreground">Optional</span>
-                )}
-              </span>
-              {item.complete ? null : (
-                <Button
-                  type="button"
-                  variant="link"
-                  className={ADD_LINK_CLASS}
-                  aria-label={`Add ${item.label}`}
-                  onClick={() => onFocusItem(item.key)}
-                >
-                  Add
-                </Button>
+    <SettingsCard
+      region
+      titleId="profile-readiness-title"
+      title="Profile readiness"
+      description={
+        <span className="tabular-nums">
+          {done} of {total} details filled in.
+        </span>
+      }
+      className={className}
+      contentClassName="flex flex-col gap-3"
+    >
+      <ReadinessBar done={done} total={total} label={`${done} of ${total} details filled in`} />
+      <p className="text-sm font-medium text-foreground">
+        {requiredHeadline(missingRequired.length)}
+      </p>
+      <ul className="flex flex-col divide-y divide-border/60" aria-label="Profile details">
+        {items.map((item) => (
+          <li key={item.key} className="flex min-h-9 items-center justify-between gap-2 py-1.5">
+            <span className="flex min-w-0 items-center gap-2 text-sm text-foreground">
+              {item.complete ? (
+                <CircleCheck className="size-4 shrink-0 text-success-text" aria-hidden />
+              ) : (
+                <Minus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               )}
-            </li>
-          ))}
-        </ul>
-      </section>
-    </Card>
+              <span className="min-w-0 truncate">{item.label}</span>
+              <span className="sr-only">{item.complete ? ', filled in' : ', missing'}</span>
+              {item.required ? null : (
+                <span className="shrink-0 text-xs text-muted-foreground">Optional</span>
+              )}
+            </span>
+            {item.complete ? null : (
+              <Button
+                type="button"
+                variant="link"
+                className={ADD_LINK_CLASS}
+                aria-label={`Add ${item.label}`}
+                onClick={() => onFocusItem(item.key)}
+              >
+                Add
+              </Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </SettingsCard>
   );
 }
 
@@ -114,8 +120,8 @@ export function ProfileReadinessSummary({ items, onFocusItem, className }: Readi
   const { done, total, missingRequired } = readinessCounts(items);
 
   return (
-    <Card variant="compact" className={cn('min-w-0 border-border/70', className)}>
-      <section aria-label="Profile readiness" className="flex flex-col gap-2 p-4">
+    <Card variant="compact" className={cn(SETTINGS_CARD_CLASS, className)}>
+      <section aria-label="Profile readiness" className="flex flex-col gap-2 px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <p className="text-sm font-medium text-foreground">
             {requiredHeadline(missingRequired.length)}
@@ -165,35 +171,44 @@ export function ProfileGoogleCard({
   onCompareWithGoogle,
   className,
 }: ProfileGoogleCardProps) {
+  const canCompare = googleLinked && gbpDriftCount > 0 && Boolean(onCompareWithGoogle);
+  const action = canCompare ? (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="w-full sm:w-fit"
+      onClick={onCompareWithGoogle}
+    >
+      Compare with Google ({gbpDriftCount})
+    </Button>
+  ) : !googleLinked ? (
+    <Link
+      href={googleHref}
+      className={cn(
+        SETTINGS_INLINE_LINK_CLASS,
+        'inline-flex w-fit items-center text-sm [@media(pointer:coarse)]:min-h-11',
+      )}
+    >
+      Link Google Business Profile
+    </Link>
+  ) : null;
+
   return (
-    <Card variant="compact" className={cn('min-w-0 border-border/70', className)}>
-      <section aria-labelledby="profile-google-title" className="flex flex-col gap-2 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="profile-google-title" className="text-sm font-semibold text-foreground">
-            Google Business Profile
-          </h2>
-          <Badge variant={googleLinked ? 'secondary' : 'outline'}>
-            {googleLinked ? 'Linked' : 'Not linked'}
-          </Badge>
-        </div>
-        <p className="text-xs leading-5 text-muted-foreground">{googleDetail}</p>
-        {googleLinked && gbpDriftCount > 0 && onCompareWithGoogle ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full sm:w-fit"
-            onClick={onCompareWithGoogle}
-          >
-            Compare with Google ({gbpDriftCount})
-          </Button>
-        ) : null}
-        {!googleLinked ? (
-          <Button asChild variant="link" size="sm" className="h-auto w-fit px-0">
-            <Link href={googleHref}>Link Google Business Profile</Link>
-          </Button>
-        ) : null}
-      </section>
-    </Card>
+    <SettingsCard
+      region
+      titleId="profile-google-title"
+      title="Google Business Profile"
+      badges={
+        <Badge variant={googleLinked ? 'status-confirmed' : 'outline'}>
+          {googleLinked ? 'Linked' : 'Not linked'}
+        </Badge>
+      }
+      description={googleDetail}
+      className={className}
+      contentClassName={action ? 'flex flex-col' : 'hidden'}
+    >
+      {action}
+    </SettingsCard>
   );
 }

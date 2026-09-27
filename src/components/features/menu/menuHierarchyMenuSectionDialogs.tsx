@@ -79,7 +79,7 @@ export function MenuDialog({
       return;
     }
     const savedName = state.displayName.trim() || 'Menu';
-    toast.success(mode === 'edit' ? `${savedName} saved.` : `${savedName} created.`);
+    toast.success(mode === 'edit' ? `${savedName} saved.` : `${savedName} added.`);
     onOpenChange(false);
   };
 

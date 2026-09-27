@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 import { GbpStatusPill } from './GbpStatusPill';
+import { SettingsCard } from '../../shared/SettingsCard';
 import {
   describeGbpConnection,
   describeGbpWrites,
@@ -42,13 +43,15 @@ function Evidence({ items }: { items: ReadonlyArray<{ label: string; value: Reac
   return (
     <dl
       aria-label="Evidence"
-      className="mt-3.5 flex flex-wrap items-baseline gap-x-5 gap-y-1.5 rounded-lg bg-muted px-3.5 py-2.5 text-xs"
+      className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5 rounded-lg bg-muted px-3.5 py-2.5 text-xs"
     >
       <span className="font-semibold">Evidence</span>
       {items.map((item) => (
-        <div key={item.label} className="flex items-baseline gap-1.5">
-          <dt className="text-muted-foreground">{item.label}</dt>
-          <dd className="font-mono font-semibold tabular-nums">{item.value}</dd>
+        <div key={item.label} className="flex min-w-0 max-w-full items-baseline gap-1.5">
+          <dt className="shrink-0 text-muted-foreground">{item.label}</dt>
+          <dd className="min-w-0 font-mono font-semibold tabular-nums [overflow-wrap:anywhere]">
+            {item.value}
+          </dd>
         </div>
       ))}
     </dl>
@@ -79,29 +82,28 @@ export function GbpOverviewCard({
   const pending = operator?.pendingUpdates;
 
   return (
-    <section
+    <SettingsCard
       id="gbp-connection"
-      aria-labelledby="gbp-overview-title"
+      region
+      titleId="gbp-overview-title"
       data-testid="gbp-overview-card"
-      className="min-w-0 scroll-mt-24 rounded-xl border bg-background px-4 py-4 sm:px-5"
-    >
-      <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
-        <div id="gbp-location" className="grid min-w-0 flex-[1_1_380px] gap-0.5">
-          <span className="text-xs text-muted-foreground">Linked Google listing</span>
-          <h2 id="gbp-overview-title" className="text-xl font-semibold tracking-tight">
-            {location.business}
-          </h2>
-          <span className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            {location.address}
-            {data.externalLocationName ? (
-              <>
-                {' · '}
-                <span className="font-mono text-xs">{data.externalLocationName}</span>
-              </>
-            ) : null}
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      className="scroll-mt-24"
+      contentClassName="flex flex-col gap-3"
+      title={<span className="[overflow-wrap:anywhere]">{location.business}</span>}
+      description={
+        <span id="gbp-location" className="block scroll-mt-24 [overflow-wrap:anywhere]">
+          <span className="block text-xs">Linked Google listing</span>
+          {location.address}
+          {data.externalLocationName ? (
+            <>
+              {' · '}
+              <span className="font-mono text-xs">{data.externalLocationName}</span>
+            </>
+          ) : null}
+        </span>
+      }
+      headerAction={
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             variant="outline"
@@ -125,22 +127,24 @@ export function GbpOverviewCard({
             </Button>
           ) : null}
         </div>
+      }
+    >
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2" aria-label="Status">
+          <GbpStatusPill label="Connection" value={connection.label} tone={connection.tone} />
+          {writes ? (
+            <GbpStatusPill label="Google writes" value={writes.label} tone={writes.tone} />
+          ) : null}
+          <GbpStatusPill label="Checked" value={formatGbpTime(checkedAt, 'Not yet')} tone="off" />
+        </div>
+        <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+          {writes ? `${writes.sentence}. ` : null}Signed in as {accountLabel}.
+          {/* A reconnect alert explains the problem; the generic sync error would contradict it. */}
+          {data.status === 'sync_error' && data.lastError && !reconnectReason ? (
+            <span className="block break-words">Last error: {data.lastError}</span>
+          ) : null}
+        </p>
       </div>
-
-      <div className="mt-2.5 flex flex-wrap gap-2" aria-label="Status">
-        <GbpStatusPill label="Connection" value={connection.label} tone={connection.tone} />
-        {writes ? (
-          <GbpStatusPill label="Google writes" value={writes.label} tone={writes.tone} />
-        ) : null}
-        <GbpStatusPill label="Checked" value={formatGbpTime(checkedAt, 'Not yet')} tone="off" />
-      </div>
-      <p className="mt-2 text-sm text-muted-foreground">
-        {writes ? `${writes.sentence}. ` : null}Signed in as {accountLabel}.
-        {/* A reconnect alert explains the problem; the generic sync error would contradict it. */}
-        {data.status === 'sync_error' && data.lastError && !reconnectReason ? (
-          <span className="block break-words">Last error: {data.lastError}</span>
-        ) : null}
-      </p>
 
       {operatorUnavailable ? (
         <Evidence
@@ -208,6 +212,6 @@ export function GbpOverviewCard({
           ]}
         />
       ) : null}
-    </section>
+    </SettingsCard>
   );
 }

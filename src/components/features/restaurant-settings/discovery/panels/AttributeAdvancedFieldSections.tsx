@@ -85,7 +85,7 @@ function AttributeInputField({
 
 export function AttributeAdvancedTextFields({ row, editor }: AttributeFieldProps) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 @md:grid-cols-2">
       {ATTRIBUTE_ADVANCED_TEXT_FIELDS.map((spec) => (
         <AttributeInputField key={spec.field} row={row} editor={editor} spec={spec} />
       ))}
@@ -97,7 +97,7 @@ export function AttributeAdvancedScalarValueFields({ row, editor }: AttributeFie
   const boolFieldId = makeFieldId('attributes', row.id, 'boolValue');
 
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3 @2xl:grid-cols-3">
       <div className="flex min-w-0 flex-col gap-2">
         <Label htmlFor={boolFieldId}>Yes or no value</Label>
         <Select
@@ -112,7 +112,7 @@ export function AttributeAdvancedScalarValueFields({ row, editor }: AttributeFie
           <SelectTrigger id={boolFieldId} className="w-full">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
             <SelectGroup>
               {ATTRIBUTE_ADVANCED_BOOL_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
@@ -139,7 +139,7 @@ export function AttributeAdvancedScalarValueFields({ row, editor }: AttributeFie
 
 export function AttributeAdvancedGuestValueFields({ row, editor }: AttributeFieldProps) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3 @md:grid-cols-2">
       {ATTRIBUTE_ADVANCED_VALUE_FIELDS.map((spec) => (
         <AttributeInputField key={spec.field} row={row} editor={editor} spec={spec} />
       ))}
@@ -161,7 +161,7 @@ export function AttributeAdvancedJsonFields({ row, editor }: AttributeFieldProps
         title="Provider payload fields"
         hint="JSON objects"
       >
-        <div className="grid gap-3 lg:grid-cols-3">
+        <div className="grid gap-3 @2xl:grid-cols-3">
           {ATTRIBUTE_ADVANCED_JSON_FIELDS.map((spec) => (
             <AttributeInputField key={spec.field} row={row} editor={editor} spec={spec} multiline />
           ))}

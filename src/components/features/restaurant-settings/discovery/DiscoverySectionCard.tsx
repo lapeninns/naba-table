@@ -6,6 +6,10 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { opsHref } from '@/lib/url/opsHref';
 
+import { SETTINGS_INLINE_LINK_CLASS } from '../shared/compactSettingsClasses';
+import { SettingsCard } from '../shared/SettingsCard';
+import { SettingsDirtyBadge } from '../shared/SettingsDirtyBadge';
+
 import type { DiscoveryGoogleStatus } from './discoveryPanelChromeDomain';
 import type { DiscoverySectionState } from './discoveryPanelsFrameDomain';
 import type { ReactNode } from 'react';
@@ -14,7 +18,7 @@ const GOOGLE_CONNECTION_HREF = opsHref(
   '/settings/restaurant/google-business-profile#gbp-connection',
 );
 
-const LINK_CLASS = 'font-medium text-foreground underline underline-offset-2';
+const LINK_CLASS = SETTINGS_INLINE_LINK_CLASS;
 
 /** The Google line at the top of a section. Always icon plus text, never colour alone. */
 export function DiscoveryGoogleStatusLine({
@@ -100,38 +104,30 @@ export function DiscoverySectionCard({
   description?: ReactNode;
   children: ReactNode;
 }) {
-  const headingId = `${section.anchorId}-heading`;
+  const badge = section.badge ? (
+    section.badge.tone === 'issue' ? (
+      <Badge variant="status-cancelled" className="gap-1">
+        <AlertTriangle className="size-3" aria-hidden />
+        {section.badge.label}
+      </Badge>
+    ) : (
+      <SettingsDirtyBadge label={section.badge.label} />
+    )
+  ) : null;
 
   return (
-    <section
+    <SettingsCard
       id={section.anchorId}
-      aria-labelledby={headingId}
-      className="min-w-0 scroll-mt-28 overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
+      region
+      titleId={`${section.anchorId}-heading`}
+      title={section.title}
+      description={description ?? section.description}
+      badges={badge}
+      subheader={<DiscoveryGoogleStatusLine status={googleStatus} reviewHref={reviewHref} />}
+      contentClassName="flex min-w-0 flex-col gap-4 @container"
       data-discovery-section={section.family}
     >
-      <header className="flex flex-col gap-1 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:px-5">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 id={headingId} className="text-base font-semibold leading-6 text-foreground">
-            {section.title}
-          </h2>
-          <p className="max-w-[65ch] text-sm leading-5 text-muted-foreground">
-            {description ?? section.description}
-          </p>
-        </div>
-        {section.badge ? (
-          <Badge
-            variant={section.badge.tone === 'issue' ? 'status-cancelled' : 'status-pending'}
-            className="w-fit shrink-0 gap-1"
-          >
-            {section.badge.tone === 'issue' ? (
-              <AlertTriangle className="size-3" aria-hidden />
-            ) : null}
-            {section.badge.label}
-          </Badge>
-        ) : null}
-      </header>
-      <DiscoveryGoogleStatusLine status={googleStatus} reviewHref={reviewHref} />
-      <div className="flex min-w-0 flex-col gap-4 px-4 py-4 sm:px-5">{children}</div>
-    </section>
+      {children}
+    </SettingsCard>
   );
 }

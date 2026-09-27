@@ -3,11 +3,17 @@
 import { useOpsSession } from '@/contexts/ops-session';
 
 import { RESTAURANT_SETTINGS_ROUTE_MAP } from '../routes';
-import { RestaurantSettingsCommandCenter, SettingsSectionStates } from '../shared';
-import { SettingsRefreshErrorAlert } from '../shared/SettingsRefreshErrorAlert';
+import {
+  RestaurantSettingsCommandCenter,
+  SettingsRefreshErrorAlert,
+  SettingsSectionStates,
+  SettingsStatusFacts,
+} from '../shared';
 import { GbpLinkedView } from './components/GbpLinkedView';
 import { GbpLocationChooserDialog } from './components/GbpLocationChooserDialog';
 import { GbpSetupCard } from './components/GbpSetupCard';
+import { GbpStatusDot, GbpStatusLabel, gbpToneBadgeVariant } from './components/GbpStatusPill';
+import { describeGbpConnection } from './gbpPageModel';
 import {
   EmptyGbpConnectionSection,
   ErrorGbpSection,
@@ -37,14 +43,29 @@ export function GoogleBusinessProfileSection({ restaurantId }: GoogleBusinessPro
   // Linked, or linked with Google access expired (the last comparison stays readable).
   const showLinkedView =
     summary.hasLinkedLocation && (summary.isLinked || summary.status === 'reauth_required');
+  // Until a listing is linked the page owns the connection status. Once linked, the overview
+  // card shows it with the reconnect reason and write state, so it is not repeated here.
+  const setupConnection =
+    state.data && !showLinkedView ? describeGbpConnection(state.data.status) : null;
 
   return (
     <>
       <RestaurantSettingsCommandCenter
         title={ROUTE.title}
         description={ROUTE.description}
-        // The setup card and the overview explain the page once it loads.
-        showHeader={!state.data}
+        status={
+          setupConnection ? (
+            <SettingsStatusFacts
+              live
+              badge={{
+                // The icon slot gives the Badge its gap, which spaces the label from the value.
+                icon: <GbpStatusDot />,
+                label: <GbpStatusLabel label="Connection" value={setupConnection.label} />,
+                variant: gbpToneBadgeVariant(setupConnection.tone),
+              }}
+            />
+          ) : null
+        }
       >
         <SettingsSectionStates
           restaurantId={restaurantId}

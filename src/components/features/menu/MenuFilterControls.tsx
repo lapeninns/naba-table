@@ -2,7 +2,7 @@
 
 import { cloneElement, isValidElement, useId } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { SettingsSegmentedControl } from '@/components/features/restaurant-settings/shared';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -77,29 +77,13 @@ export function MenuItemFilterToolbar({
           onChange={(event) => onFilterChange({ ...filter, query: event.target.value })}
         />
       </MenuFilterField>
-      <MenuFilterField label="Show">
-        <div role="group" className="flex flex-wrap gap-2">
-          {MENU_STATUS_FILTER_OPTIONS.map((option) => {
-            const pressed = filter.status === option.value;
-            return (
-              <Button
-                key={option.value}
-                type="button"
-                size="sm"
-                variant={pressed ? 'secondary' : 'outline'}
-                aria-pressed={pressed}
-                className={cn(
-                  '[@media(pointer:coarse)]:min-h-11',
-                  pressed && 'border border-border font-semibold',
-                )}
-                onClick={() => onFilterChange({ ...filter, status: option.value })}
-              >
-                {option.label}
-              </Button>
-            );
-          })}
-        </div>
-      </MenuFilterField>
+      <SettingsSegmentedControl
+        ariaLabel="Show"
+        className="self-start sm:self-auto"
+        value={filter.status}
+        options={MENU_STATUS_FILTER_OPTIONS}
+        onValueChange={(status) => onFilterChange({ ...filter, status })}
+      />
     </div>
   );
 }

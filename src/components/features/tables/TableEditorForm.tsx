@@ -33,9 +33,10 @@ import {
   describedBy,
   JoinIcon,
   LockIcon,
+  TABLE_SELECT_COLLISION_PADDING,
+  TABLE_SELECT_CONTENT_CLASS,
   TABLE_TOUCH_TARGET_CLASS,
   TableFieldError,
-  SWITCH_SIZE_CLASS,
 } from './TableRoomParts';
 import { TABLE_EDITOR_FIELD_PREFIX, type TableEditor } from './useTableEditorState';
 
@@ -58,7 +59,7 @@ function Reason({
   return (
     <div
       data-testid={testId}
-      className="flex items-start gap-2 rounded-md bg-muted px-3 py-2.5 text-[13px] leading-5"
+      className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2.5 text-sm leading-5"
     >
       <span className="mt-1 shrink-0">{icon}</span>
       <span>{children}</span>
@@ -147,7 +148,10 @@ function OptionSelect<TValue extends string>({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent
+        collisionPadding={TABLE_SELECT_COLLISION_PADDING}
+        className={TABLE_SELECT_CONTENT_CLASS}
+      >
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
@@ -173,21 +177,21 @@ function MobilityOption({
     <ToggleGroupItem
       value={value}
       className={cn(
-        'h-auto min-h-9 min-w-0 w-full justify-start gap-2.5 whitespace-normal rounded-md border px-2.5 py-2 text-left font-normal text-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-transparent data-[state=on]:text-foreground',
-        checked ? 'border-foreground' : 'border-border',
+        'h-auto min-h-9 w-full min-w-0 justify-start gap-2.5 whitespace-normal rounded-lg border px-2.5 py-2 text-left font-normal text-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-transparent data-[state=on]:text-foreground',
+        checked ? 'border-primary' : 'border-border/60',
       )}
     >
       <span
         aria-hidden
         className={cn(
-          'mt-[3px] grid size-4 shrink-0 place-items-center self-start rounded-full border',
-          checked ? 'border-foreground' : 'border-muted-foreground',
+          'mt-0.5 grid size-4 shrink-0 place-items-center self-start rounded-full border',
+          checked ? 'border-primary' : 'border-muted-foreground',
         )}
       >
-        {checked ? <span className="size-2 rounded-full bg-foreground" /> : null}
+        {checked ? <span className="size-2 rounded-full bg-primary" /> : null}
       </span>
       <span>
-        <b className="font-semibold">{title}</b>
+        <span className="text-sm font-medium">{title}</span>
         <br />
         <span className="text-xs text-muted-foreground">{children}</span>
       </span>
@@ -257,7 +261,9 @@ export function TableEditorForm({
       id={TABLE_EDITOR_FORM_ID}
       noValidate
       onSubmit={handleSubmit}
-      className={cn('grid content-start gap-3.5', className)}
+      // Field pairs sit two-up only when the form itself is at least 24rem wide, so the narrow side
+      // panel and phone sheets keep one column (RR1, RR5).
+      className={cn('@container grid content-start gap-3.5', className)}
     >
       {savedTable && status ? (
         <>
@@ -284,11 +290,9 @@ export function TableEditorForm({
         </>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 @sm:grid-cols-2">
         <div className="grid min-w-0 content-start gap-1">
-          <Label htmlFor={fieldId('tableNumber')} className="text-[13px]">
-            Table number
-          </Label>
+          <Label htmlFor={fieldId('tableNumber')}>Table number</Label>
           <Input
             id={fieldId('tableNumber')}
             value={draft.tableNumber}
@@ -302,9 +306,7 @@ export function TableEditorForm({
           <TableFieldError id="tf-tableNumber-error" message={errors.tableNumber} />
         </div>
         <div className="grid min-w-0 content-start gap-1">
-          <Label htmlFor={fieldId('capacity')} className="text-[13px]">
-            Seats
-          </Label>
+          <Label htmlFor={fieldId('capacity')}>Seats</Label>
           <div className="flex max-w-[180px] items-stretch">
             <Button
               type="button"
@@ -341,12 +343,10 @@ export function TableEditorForm({
       </div>
 
       <fieldset className="grid min-w-0 gap-2">
-        <legend className="mb-1 text-[13px] font-semibold">Party sizes it takes</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <legend className="mb-1 text-sm font-medium">Party sizes it takes</legend>
+        <div className="grid gap-3 @sm:grid-cols-2">
           <div className="grid min-w-0 content-start gap-1">
-            <Label htmlFor={fieldId('minPartySize')} className="text-[13px]">
-              Smallest
-            </Label>
+            <Label htmlFor={fieldId('minPartySize')}>Smallest</Label>
             <Input
               id={fieldId('minPartySize')}
               inputMode="numeric"
@@ -359,9 +359,7 @@ export function TableEditorForm({
             <TableFieldError id="tf-minPartySize-error" message={errors.minPartySize} />
           </div>
           <div className="grid min-w-0 content-start gap-1">
-            <Label htmlFor={fieldId('maxPartySize')} className="text-[13px]">
-              Largest
-            </Label>
+            <Label htmlFor={fieldId('maxPartySize')}>Largest</Label>
             <Input
               id={fieldId('maxPartySize')}
               inputMode="numeric"
@@ -378,9 +376,7 @@ export function TableEditorForm({
       </fieldset>
 
       <div className="grid min-w-0 gap-1">
-        <Label htmlFor={fieldId('zoneId')} className="text-[13px]">
-          Zone
-        </Label>
+        <Label htmlFor={fieldId('zoneId')}>Zone</Label>
         <Select value={draft.zoneId} onValueChange={(zoneId) => onChange({ zoneId })}>
           <SelectTrigger
             id={fieldId('zoneId')}
@@ -390,7 +386,10 @@ export function TableEditorForm({
           >
             <SelectValue placeholder="Choose a zone" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent
+            collisionPadding={TABLE_SELECT_COLLISION_PADDING}
+            className={TABLE_SELECT_CONTENT_CLASS}
+          >
             {zones.map((zone) => (
               <SelectItem key={zone.id} value={zone.id}>
                 {zone.name}
@@ -403,7 +402,7 @@ export function TableEditorForm({
       </div>
 
       <fieldset className="grid min-w-0 gap-2" data-testid="table-joining">
-        <legend className="mb-1 text-[13px] font-semibold">Joining with other tables</legend>
+        <legend className="mb-1 text-sm font-medium">Joining with other tables</legend>
         <ToggleGroup
           type="single"
           value={draft.mobility === 'fixed' ? 'fixed' : 'movable'}
@@ -427,7 +426,6 @@ export function TableEditorForm({
           id={fieldId('active')}
           checked={draft.active}
           onCheckedChange={(active) => onChange({ active })}
-          className={SWITCH_SIZE_CLASS}
         />
         <span>Can be given to bookings</span>
       </Label>
@@ -449,9 +447,7 @@ export function TableEditorForm({
         <CollapsibleContent forceMount className="data-[state=closed]:hidden">
           <div className="mt-2 grid gap-3">
             <div className="grid min-w-0 gap-1">
-              <Label htmlFor={fieldId('status')} className="text-[13px]">
-                Service status
-              </Label>
+              <Label htmlFor={fieldId('status')}>Service status</Label>
               <OptionSelect
                 id={fieldId('status')}
                 value={draft.status}
@@ -463,11 +459,9 @@ export function TableEditorForm({
                 Only “Out of service” stops bookings being assigned.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 @sm:grid-cols-2">
               <div className="grid min-w-0 content-start gap-1">
-                <Label htmlFor={fieldId('seatingType')} className="text-[13px]">
-                  Seating
-                </Label>
+                <Label htmlFor={fieldId('seatingType')}>Seating</Label>
                 <OptionSelect
                   id={fieldId('seatingType')}
                   value={draft.seatingType}
@@ -476,9 +470,7 @@ export function TableEditorForm({
                 />
               </div>
               <div className="grid min-w-0 content-start gap-1">
-                <Label htmlFor={fieldId('category')} className="text-[13px]">
-                  Category
-                </Label>
+                <Label htmlFor={fieldId('category')}>Category</Label>
                 <OptionSelect
                   id={fieldId('category')}
                   value={draft.category}
@@ -487,9 +479,7 @@ export function TableEditorForm({
                 />
               </div>
               <div className="grid min-w-0 content-start gap-1">
-                <Label htmlFor={fieldId('section')} className="text-[13px]">
-                  Section
-                </Label>
+                <Label htmlFor={fieldId('section')}>Section</Label>
                 <Input
                   id={fieldId('section')}
                   value={draft.section}
@@ -508,9 +498,7 @@ export function TableEditorForm({
               table gets.
             </p>
             <div className="grid min-w-0 gap-1">
-              <Label htmlFor={fieldId('notes')} className="text-[13px]">
-                Notes
-              </Label>
+              <Label htmlFor={fieldId('notes')}>Notes</Label>
               <Textarea
                 id={fieldId('notes')}
                 value={draft.notes}
@@ -556,7 +544,7 @@ export function TableEditorFooter({
       ) : (
         <span />
       )}
-      <span className="flex flex-wrap gap-1">
+      <span className="ms-auto flex flex-wrap justify-end gap-1">
         <Button
           type="button"
           variant="outline"

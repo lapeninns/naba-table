@@ -675,7 +675,9 @@ test.describe('ops GBP dual-sync shipped route', () => {
     expect(requests.getPreviewRequests()).toBe(1);
     expect(requests.getPublishRequests()).toBe(0);
 
-    const initialScroll = await previewDialog.evaluate((element) => ({
+    // The header and footer are pinned; the plan body is the scroll container.
+    const previewBody = previewDialog.locator('[data-slot="gbp-exact-publish-body"]');
+    const initialScroll = await previewBody.evaluate((element) => ({
       top: element.scrollTop,
       clientHeight: element.clientHeight,
       scrollHeight: element.scrollHeight,
@@ -715,7 +717,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await expect(
       previewDialog.getByLabel(/changes public google business profile data/i),
     ).toBeFocused();
-    await previewDialog.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await previewBody.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
     await expect(previewDialog.getByLabel(/full replacement of your food menus/i)).toBeInViewport();
     await expect(
       previewDialog.getByRole('button', { name: 'Publish exact plan' }),
@@ -808,7 +810,9 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     const setup = page.getByTestId('gbp-setup-card');
-    await expect(setup.getByText('Not connected', { exact: true })).toBeVisible();
+    // Before a listing is linked, the connection status is the page status row.
+    const pageStatus = page.locator('main [data-slot="settings-status-facts"]');
+    await expect(pageStatus.getByText('Not connected', { exact: true })).toBeVisible();
     await expect(setup.getByText('Available after sign-in.')).toBeVisible();
     await expect(
       setup.getByText('Google Business Profile credentials are missing in this environment', {
@@ -842,7 +846,9 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page.getByTestId('gbp-setup-card').getByText('Not connected', { exact: true }),
+      page
+        .locator('main [data-slot="settings-status-facts"]')
+        .getByText('Not connected', { exact: true }),
     ).toBeVisible();
     await expect(
       page.locator('main').getByRole('button', { name: 'Connect Google', exact: true }),
@@ -871,7 +877,9 @@ test.describe('ops GBP dual-sync shipped route', () => {
     await navigateToGbpSettings(page);
 
     await expect(
-      page.getByTestId('gbp-setup-card').getByText('Choose a listing', { exact: true }),
+      page
+        .locator('main [data-slot="settings-status-facts"]')
+        .getByText('Choose a listing', { exact: true }),
     ).toBeVisible();
     await page.locator('main').getByRole('button', { name: 'Choose listing' }).click();
     const chooser = page.getByRole('dialog', { name: 'Choose a Business Profile location' });
@@ -895,7 +903,7 @@ test.describe('ops GBP dual-sync shipped route', () => {
       .getByRole('tab', { name: /Operations/ })
       .click();
     await page.locator('main').getByTestId('gbp-disconnect-button').click();
-    const dialog = page.getByTestId('gbp-disconnect-dialog');
+    const dialog = page.getByRole('alertdialog', { name: 'Disconnect Google Business Profile?' });
 
     await expect(dialog).toBeVisible();
     await expect(dialog.getByRole('button', { name: /^Disconnect$/ })).toBeDisabled();

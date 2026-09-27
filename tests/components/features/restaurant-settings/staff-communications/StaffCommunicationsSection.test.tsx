@@ -102,6 +102,9 @@ describe('StaffCommunicationsSection', () => {
 
     const section = screen.getByRole('region', { name: 'Manager alerts' });
     expect(within(section).getByText('Staff only')).toBeInTheDocument();
+    // The content column uses the full shell width, like every other settings page.
+    expect(section.parentElement).toHaveClass('min-w-0', 'flex-col', 'gap-4');
+    expect(section.parentElement).not.toHaveClass('max-w-4xl');
     expect(screen.getByRole('textbox', { name: /manager name/i })).toHaveValue('Sam');
     expect(screen.getByRole('textbox', { name: /manager alert number/i })).toHaveValue(
       '+447700900123',
@@ -210,12 +213,19 @@ describe('StaffCommunicationsSection', () => {
     expect(await screen.findByText('Couldn’t load staff communications')).toBeInTheDocument();
     expect(screen.getByText('E500')).toBeInTheDocument();
     expect(screen.queryByText('Server exploded')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Your saved settings are unchanged. Reason code E500');
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toHaveClass('text-foreground');
   });
 
   it('asks for a restaurant when none is selected', () => {
     render(<StaffCommunicationsSection restaurantId={null} />);
     expect(screen.getByText('Select a restaurant')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose a restaurant with the sidebar switcher to edit who is told about its bookings.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('sends the phone and the WhatsApp withdrawal together when the alert number changes', async () => {
@@ -278,7 +288,9 @@ describe('StaffCommunicationsSection', () => {
         message: 'Some fields need attention.',
         status: 400,
         code: 'VALIDATION_FAILED',
-        fields: { managerNotificationPhone: ['Use international format, for example +447700900123.'] },
+        fields: {
+          managerNotificationPhone: ['Use international format, for example +447700900123.'],
+        },
       }),
     );
     await renderPage();

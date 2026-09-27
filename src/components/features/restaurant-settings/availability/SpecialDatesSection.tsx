@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -18,7 +17,10 @@ import {
 import { FieldErrorText, TOUCH_TARGET_CLASS } from './AvailabilityFields';
 import { MEAL_KEYS, MEAL_LABEL, formatOverrideDate } from './availabilityPageDraft';
 import { overrideFieldKey, type AvailabilityErrors } from './availabilityPageValidation';
+import { SettingsCard } from '../shared/SettingsCard';
+import { SettingsCardEmptyState } from '../shared/SettingsCardEmptyState';
 import { SettingsDialog } from '../shared/SettingsDialog';
+import { SettingsDirtyBadge } from '../shared/SettingsDirtyBadge';
 import { pluralise } from '../shared/settingsSaveSequence';
 
 import type { OverrideRow } from '../types';
@@ -98,7 +100,7 @@ export function SpecialDatesSection({
     return (
       <li
         key={id}
-        className="grid gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[9.5rem_minmax(0,1fr)_auto] sm:items-start sm:px-5"
+        className="grid gap-x-4 gap-y-2 px-4 py-3 @lg:grid-cols-[9.5rem_minmax(0,1fr)_auto] @lg:items-start sm:px-5"
       >
         <div>
           <p className="font-semibold tabular-nums text-foreground">{dateLabel}</p>
@@ -110,7 +112,7 @@ export function SpecialDatesSection({
           <div className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-foreground">
             <span className="min-w-0 break-words">{row.notes || 'Special date'}</span>
             <Badge variant="secondary">{row.isClosed ? 'Closed' : 'Different hours'}</Badge>
-            {state ? <Badge variant="status-pending">{state}</Badge> : null}
+            {state ? <SettingsDirtyBadge label={state} /> : null}
             {rowErrors.length > 0 ? (
               <Badge variant="status-cancelled" className="gap-1">
                 <AlertTriangle className="size-3" aria-hidden />
@@ -122,7 +124,7 @@ export function SpecialDatesSection({
             {describeOverrideEffect(row, previewFor(row))}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 justify-self-start">
           <Button
             type="button"
             variant="outline"
@@ -149,25 +151,13 @@ export function SpecialDatesSection({
   };
 
   return (
-    <Card
+    <SettingsCard
       id={SPECIAL_DATES_SECTION_ID}
-      aria-labelledby="availability-dates-heading"
-      className="scroll-mt-4 overflow-hidden border-border/70 shadow-none"
-    >
-      <CardHeader className="flex flex-col gap-3 border-b border-border/60 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-        <div className="flex min-w-0 flex-col gap-1">
-          <CardTitle
-            id="availability-dates-heading"
-            role="heading"
-            aria-level={2}
-            className="text-base leading-6"
-          >
-            Special dates
-          </CardTitle>
-          <CardDescription>
-            Closures and different hours for one date. Meal times still follow that weekday.
-          </CardDescription>
-        </div>
+      region
+      titleId="availability-dates-heading"
+      title="Special dates"
+      description="Closures and different hours for one date. Meal times still follow that weekday."
+      headerAction={
         <Button
           type="button"
           variant="outline"
@@ -178,18 +168,21 @@ export function SpecialDatesSection({
           <Plus data-icon="inline-start" aria-hidden />
           Add special date
         </Button>
-      </CardHeader>
+      }
+      contentClassName="p-0 @container sm:p-0"
+    >
       {sorted.length === 0 ? (
-        <div className="flex flex-col items-start gap-2 px-4 py-6 sm:px-5">
-          <p className="font-medium text-foreground">No special dates</p>
-          <p className="max-w-[65ch] text-sm text-muted-foreground">
-            Add a closure or different hours for a bank holiday, private event or Christmas. Your
-            weekly hours apply until then.
-          </p>
-          <Button type="button" className={TOUCH_TARGET_CLASS} onClick={onAdd}>
-            <Plus data-icon="inline-start" aria-hidden />
-            Add special date
-          </Button>
+        <div className="px-4 py-4 sm:px-5">
+          <SettingsCardEmptyState
+            title="No special dates"
+            description="Add a closure or different hours for a bank holiday, private event or Christmas. Your weekly hours apply until then."
+            action={
+              <Button type="button" className={TOUCH_TARGET_CLASS} onClick={onAdd}>
+                <Plus data-icon="inline-start" aria-hidden />
+                Add special date
+              </Button>
+            }
+          />
         </div>
       ) : (
         <>
@@ -216,7 +209,7 @@ export function SpecialDatesSection({
           ) : null}
         </>
       )}
-    </Card>
+    </SettingsCard>
   );
 }
 

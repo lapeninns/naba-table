@@ -14,7 +14,10 @@ vi.mock('@/contexts/ops-unsaved-changes', () => ({
   }),
 }));
 
-import { RestaurantSettingsSidebarNav } from '@/components/features/restaurant-settings/RestaurantSettingsSidebarNav';
+import {
+  RestaurantSettingsSidebarNav,
+  sidebarNavBadgePaddingClass,
+} from '@/components/features/restaurant-settings/RestaurantSettingsSidebarNav';
 import { SidebarProvider } from '@/components/ui/sidebar';
 
 import { stubMatchMedia } from './testUtils';
@@ -47,7 +50,7 @@ describe('RestaurantSettingsSidebarNav', () => {
 
     const nav = screen.getByRole('navigation', { name: 'Restaurant settings' });
     expect(within(nav).getAllByRole('link').length).toBeGreaterThanOrEqual(5);
-    expect(within(nav).getByRole('link', { name: 'Restaurant profile' })).toBeInTheDocument();
+    expect(within(nav).getByRole('link', { name: 'Profile' })).toBeInTheDocument();
   });
 
   it('@contract @a11y marks the active item with aria-current', () => {
@@ -64,7 +67,7 @@ describe('RestaurantSettingsSidebarNav', () => {
     const user = userEvent.setup();
     const props = renderNav();
 
-    const profileLink = screen.getByRole('link', { name: 'Restaurant profile' });
+    const profileLink = screen.getByRole('link', { name: 'Profile' });
     await user.hover(profileLink);
     expect(props.prefetchSettingsView).toHaveBeenCalledWith('/app/settings/restaurant/profile');
 
@@ -76,7 +79,7 @@ describe('RestaurantSettingsSidebarNav', () => {
     const user = userEvent.setup();
     const props = renderNav();
 
-    const availabilityLink = screen.getByRole('link', { name: 'Availability & Booking types' });
+    const availabilityLink = screen.getByRole('link', { name: 'Availability' });
     await user.hover(availabilityLink);
     await user.click(availabilityLink);
 
@@ -90,14 +93,12 @@ describe('RestaurantSettingsSidebarNav', () => {
     const props = renderNav();
 
     // A mouse click elsewhere must not suppress a later keyboard focus.
-    await user.click(screen.getByRole('link', { name: 'Restaurant profile' }));
+    await user.click(screen.getByRole('link', { name: 'Profile' }));
     props.prefetchSettingsView.mockClear();
 
     await user.tab();
 
-    expect(document.activeElement).not.toBe(
-      screen.getByRole('link', { name: 'Restaurant profile' }),
-    );
+    expect(document.activeElement).not.toBe(screen.getByRole('link', { name: 'Profile' }));
     expect(props.prefetchSettingsView).toHaveBeenCalledTimes(1);
     expect(props.prefetchSettingsView).toHaveBeenCalledWith(
       document.activeElement?.getAttribute('href'),
@@ -118,7 +119,7 @@ describe('RestaurantSettingsSidebarNav', () => {
     unsavedState.entries = [{ id: 'restaurant-availability' }];
     renderNav();
 
-    const link = screen.getByRole('link', { name: /Availability & Booking types/ });
+    const link = screen.getByRole('link', { name: /^Availability/ });
     expect(within(link).getByText('Unsaved')).toBeInTheDocument();
     expect(screen.getAllByText('Unsaved')).toHaveLength(1);
   });
@@ -135,7 +136,7 @@ describe('RestaurantSettingsSidebarNav', () => {
       '/app/settings/restaurant/tables',
       '/app/settings/restaurant/discovery',
       '/app/settings/restaurant/menu',
-      '/app/settings/restaurant/table-layout',
+      '/app/settings/restaurant/floor-layout',
       '/app/settings/restaurant/email-templates',
       '/app/settings/restaurant/team',
       '/app/settings/restaurant/staff-communications',
@@ -156,7 +157,7 @@ describe('RestaurantSettingsSidebarNav', () => {
 
   it('@contract marks Floor layout "Unsaved" while floor plan layout drafts are pending', () => {
     unsavedState.entries = [{ id: 'floor-plan-layout' }];
-    renderNav({ normalizedPathname: '/settings/restaurant/table-layout' });
+    renderNav({ normalizedPathname: '/settings/restaurant/floor-layout' });
 
     const link = screen.getByRole('link', { name: /Floor layout/ });
     expect(link).toHaveAttribute('aria-current', 'page');
@@ -173,17 +174,22 @@ describe('RestaurantSettingsSidebarNav', () => {
     expect(screen.getAllByText('Unsaved')).toHaveLength(1);
   });
 
-  it.each(['service-periods', 'operating-hours', 'occasions', 'turn-durations'])(
-    '@contract keeps Availability active on the former %s route',
-    (slug) => {
-      renderNav({ normalizedPathname: `/settings/restaurant/${slug}` });
+  it('@contract reserves only the room a short badge needs, so long titles keep their text', () => {
+    expect(sidebarNavBadgePaddingClass(undefined)).toBeUndefined();
+    expect(sidebarNavBadgePaddingClass('Link')).toBe('pr-12');
+    expect(sidebarNavBadgePaddingClass('12')).toBe('pr-12');
+    expect(sidebarNavBadgePaddingClass('Pending Google')).toBe('pr-28');
 
-      const active = screen
-        .getAllByRole('link')
-        .filter((link) => link.getAttribute('aria-current') === 'page');
-      expect(active.map((link) => link.getAttribute('href'))).toEqual([
-        '/app/settings/restaurant/availability',
-      ]);
-    },
-  );
+    renderNav({
+      getNavBadge: vi.fn((href: string) =>
+        href.endsWith('/google-business-profile') ? 'Link' : undefined,
+      ),
+    });
+    const link = screen.getByRole('link', { name: /Google Business Profile/ });
+    expect(link).toHaveClass('pr-12');
+    expect(within(link).getByText('Google Business Profile')).toHaveAttribute(
+      'title',
+      'Google Business Profile',
+    );
+  });
 });

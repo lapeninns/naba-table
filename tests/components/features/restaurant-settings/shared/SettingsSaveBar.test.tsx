@@ -334,4 +334,41 @@ describe('SettingsSaveBar', () => {
     expect(region).not.toHaveTextContent(CONFLICT_COPY);
     expect(document.body).not.toHaveTextContent(RAW_SERVER_TEXT);
   });
+
+  it('@contract uses a scoped save label and summary when given', () => {
+    render(
+      <DraftPage
+        changeCount={3}
+        sectionNames={['Booking confirmation']}
+        saveLabel="Save Booking confirmation"
+        summary="3 unsaved layout changes"
+      />,
+    );
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(within(region).getByRole('button', { name: 'Save Booking confirmation' })).toBeEnabled();
+    expect(region).toHaveTextContent('3 unsaved layout changes');
+    expect(region).not.toHaveTextContent('3 unsaved changes');
+  });
+
+  it('@contract keeps "Save changes" and the change count by default', () => {
+    render(<DraftPage changeCount={2} sectionNames={['Profile']} />);
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(within(region).getByRole('button', { name: 'Save changes' })).toBeEnabled();
+    expect(region).toHaveTextContent('2 unsaved changes');
+  });
+
+  it('@contract shows "Try again" rather than the scoped label after a failure', () => {
+    render(
+      <DraftPage
+        changeCount={1}
+        saveLabel="Save Booking confirmation"
+        failure={{ failedSection: 'Template', saved: [], notAttempted: [], reasonCode: 'X' }}
+      />,
+    );
+
+    const region = screen.getByRole('region', { name: 'Unsaved changes' });
+    expect(within(region).getByRole('button', { name: 'Try again' })).toBeEnabled();
+  });
 });

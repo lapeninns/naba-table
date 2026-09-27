@@ -73,7 +73,7 @@ export function LinkRow({
   const primaryId = makeFieldId('links', row.id, 'isPrimary');
 
   return (
-    <div className="grid min-w-0 gap-3 rounded-lg border border-border/60 p-3 md:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,9rem)_auto] md:items-start">
+    <div className="grid min-w-0 gap-3 rounded-lg border border-border/60 p-3 @2xl:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_minmax(0,9rem)_auto] @2xl:items-start">
       <div className="flex min-w-0 flex-col gap-2">
         <Label htmlFor={typeFieldId}>Type</Label>
         <Select
@@ -88,7 +88,7 @@ export function LinkRow({
           >
             <SelectValue placeholder="Choose a type" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent collisionPadding={16} className="max-w-[calc(100vw-2rem)]">
             <SelectGroup>
               {LINK_TYPE_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
@@ -102,7 +102,7 @@ export function LinkRow({
       </div>
       {urlSpec ? <LinkTextField row={row} editor={editor} spec={urlSpec} /> : null}
       {labelSpec ? <LinkTextField row={row} editor={editor} spec={labelSpec} /> : null}
-      <div className="flex items-center justify-between gap-2 md:mt-7 md:justify-start">
+      <div className="flex items-center justify-between gap-2 @2xl:mt-7 @2xl:justify-start">
         <div className="flex items-center gap-2">
           <Switch
             id={primaryId}

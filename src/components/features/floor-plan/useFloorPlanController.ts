@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
+import { SETTINGS_SAVE_COPY } from '@/components/features/restaurant-settings/shared/compactSettingsClasses';
+import {
+  getSettingsSaveFailureReasonCode,
+  type SettingsSaveFailure,
+} from '@/components/features/restaurant-settings/shared/settingsSaveSequence';
 import { useOpsActiveMembership, useOpsActiveRestaurantId } from '@/contexts/ops-session';
 import { useRegisterOpsUnsavedChanges } from '@/contexts/ops-unsaved-changes';
 import { useOpsFloorPlan } from '@/hooks/ops/useOpsFloorPlan';
@@ -44,6 +49,9 @@ import type {
   FloorTable,
 } from './model/floorPlanTypes';
 import type { FloorPlanLifecycleAction } from '@/hooks/ops/useOpsFloorPlanLifecycle';
+
+/** Reason code when some tables' positions saved and others did not. */
+export const LAYOUT_PARTIAL_SAVE_CODE = 'PARTIAL_SAVE';
 
 export type FloorView = 'plan' | 'timeline';
 export type FloorMode = 'service' | 'arrange';
@@ -116,6 +124,8 @@ export function useFloorPlanController({
   const [announcement, setAnnouncement] = useState('');
   const [drafts, dispatchDraft] = useReducer(layoutDraftReducer, {});
   const [saveErrors, setSaveErrors] = useState<Readonly<Record<string, string>>>({});
+  /** The last layout save that did not fully land, for the settings save bar. */
+  const [layoutSaveFailure, setLayoutSaveFailure] = useState<SettingsSaveFailure | null>(null);
   const flashTimer = useRef<number | null>(null);
   const dragRef = useRef<{ bookingId: string; overTableId: string | null } | null>(null);
 
@@ -589,7 +599,9 @@ export function useFloorPlanController({
   const discardLayout = useCallback(() => {
     dispatchDraft({ type: 'discard' });
     setSaveErrors({});
+    setLayoutSaveFailure(null);
     announce('Layout changes discarded');
+    toast(SETTINGS_SAVE_COPY.discarded);
   }, [announce, dispatchDraft, setSaveErrors]);
 
   const saveLayout = useCallback(async () => {
@@ -599,20 +611,35 @@ export function useFloorPlanController({
       return placed ? [{ tableId, position: placed.relative }] : [];
     });
     setSaveErrors({});
+    setLayoutSaveFailure(null);
     try {
       const result = await layoutSave.mutateAsync(changes);
       dispatchDraft({ type: 'keep-only', tableIds: result.failed.map((f) => f.tableId) });
       if (result.failed.length === 0) {
-        toast.success(
-          `Layout saved · ${result.saved.length} ${result.saved.length === 1 ? 'table' : 'tables'}`,
-        );
+        const n = result.saved.length;
+        toast.success(`Layout saved. ${n} ${n === 1 ? 'table' : 'tables'} updated.`);
       } else {
         setSaveErrors(Object.fromEntries(result.failed.map((f) => [f.tableId, f.message])));
+        setLayoutSaveFailure({
+          failedSection: `${result.failed.length} of ${changes.length} tables`,
+          saved: result.saved.length
+            ? [`${result.saved.length} ${result.saved.length === 1 ? 'table' : 'tables'}`]
+            : [],
+          notAttempted: [],
+          // Per-table failures carry only safe messages (shown on each table), not an API code.
+          reasonCode: LAYOUT_PARTIAL_SAVE_CODE,
+        });
         const message = `${result.failed.length} of ${changes.length} tables weren’t saved. ${result.failed[0]?.message ?? ''} Your other changes are saved.`;
         toast.error(message);
         announce(message);
       }
-    } catch {
+    } catch (error) {
+      setLayoutSaveFailure({
+        failedSection: 'Layout',
+        saved: [],
+        notAttempted: [],
+        reasonCode: getSettingsSaveFailureReasonCode(error),
+      });
       toast.error('Layout not saved. Your changes are still here.');
     }
   }, [announce, dirtyIds, dispatchDraft, layout, layoutSave, setSaveErrors]);
@@ -758,6 +785,7 @@ export function useFloorPlanController({
     drafts,
     dirtyIds,
     saveErrors,
+    layoutSaveFailure,
     isSavingLayout: layoutSave.isPending,
     tableById,
     bookingById,

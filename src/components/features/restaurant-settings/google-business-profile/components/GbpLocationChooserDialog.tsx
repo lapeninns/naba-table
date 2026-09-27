@@ -57,9 +57,12 @@ export function GbpLocationChooserDialog({
       }}
       title="Choose a Business Profile location"
       description={
-        connectedAccount
-          ? `Signed in as ${connectedAccount}. Only listings this Google account can manage are shown.`
-          : 'Only listings your Google account can manage are shown.'
+        // A long Google account email must wrap on a 320px sheet instead of widening it.
+        <span className="[overflow-wrap:anywhere]">
+          {connectedAccount
+            ? `Signed in as ${connectedAccount}. Only listings this Google account can manage are shown.`
+            : 'Only listings your Google account can manage are shown.'}
+        </span>
       }
       testId="gbp-location-chooser"
       footer={
@@ -129,7 +132,7 @@ export function GbpLocationChooserDialog({
               <Label
                 key={value}
                 htmlFor={inputId}
-                className="flex min-w-0 cursor-pointer items-start gap-3 rounded-md border border-border/70 p-3 has-[:checked]:border-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring [@media(pointer:coarse)]:min-h-11"
+                className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-border/60 p-3 has-[:checked]:border-primary has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring [@media(pointer:coarse)]:min-h-11"
               >
                 <Input
                   id={inputId}
@@ -141,7 +144,7 @@ export function GbpLocationChooserDialog({
                   className="mt-1 size-4 shrink-0 p-0 accent-primary shadow-none"
                 />
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="text-sm font-medium text-foreground">
+                  <span className="text-sm font-medium text-foreground [overflow-wrap:anywhere]">
                     {location.title ?? location.locationId}
                   </span>
                   <span className="break-words text-xs text-muted-foreground">
@@ -156,7 +159,12 @@ export function GbpLocationChooserDialog({
         </fieldset>
       )}
       {previewHref ? (
-        <Button type="button" variant="link" asChild className="h-auto self-start px-0">
+        <Button
+          type="button"
+          variant="link"
+          asChild
+          className="h-auto self-start px-0 [@media(pointer:coarse)]:min-h-11"
+        >
           <a href={previewHref} target="_blank" rel="noreferrer">
             <ExternalLink data-icon="inline-start" aria-hidden />
             Preview the selected listing on Google

@@ -61,7 +61,7 @@ describe('OPS_NAV_SECTIONS order', () => {
 });
 
 describe('OPS_NAV_SECTIONS restaurant settings', () => {
-  it('exposes a single Settings entry for all restaurant settings routes', () => {
+  it('exposes a single Settings entry that lands on the setup overview', () => {
     const settingsSection = OPS_NAV_SECTIONS.find((section) =>
       section.items.some((item) => item.title === 'Settings'),
     );
@@ -70,7 +70,7 @@ describe('OPS_NAV_SECTIONS restaurant settings', () => {
     expect(settingsSection?.items).toHaveLength(1);
     expect(settingsSection?.items[0]).toMatchObject({
       title: 'Settings',
-      href: '/app/settings/restaurant/profile',
+      href: '/app/settings/restaurant',
     });
 
     const settingsItem = settingsSection?.items[0];

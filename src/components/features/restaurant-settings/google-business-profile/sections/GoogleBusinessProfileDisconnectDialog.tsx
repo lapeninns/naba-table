@@ -2,19 +2,10 @@
 
 import { useEffect, useState } from 'react';
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+import { ConfirmDialog } from '../../ConfirmDialog';
 
 export type GoogleBusinessProfileDisconnectDialogProps = {
   open: boolean;
@@ -39,41 +30,32 @@ export function GoogleBusinessProfileDisconnectDialog({
   }, [open]);
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent data-testid="gbp-disconnect-dialog">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Disconnect Google Business Profile?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Nabatable stops comparing with and publishing to this Google listing. Your Google
-            listing and Nabatable settings stay as they are.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="grid gap-2">
-          <Label htmlFor="gbp-disconnect-password">Confirm with your password</Label>
-          <Input
-            id="gbp-disconnect-password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            disabled={isPending}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className={buttonVariants({ variant: 'destructive' })}
-            disabled={isPending || trimmedPassword.length === 0}
-            onClick={(event) => {
-              event.preventDefault();
-              onConfirm(trimmedPassword);
-            }}
-          >
-            {isPending ? 'Disconnecting…' : 'Disconnect'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      tone="destructive"
+      title="Disconnect Google Business Profile?"
+      description="Nabatable stops comparing with and publishing to this Google listing. Your Google listing and Nabatable settings stay as they are."
+      confirmLabel="Disconnect"
+      pending={isPending}
+      pendingLabel="Disconnecting…"
+      confirmDisabled={trimmedPassword.length === 0}
+      // The caller closes the dialog once the disconnect settles.
+      keepOpenOnConfirm
+      onConfirm={() => onConfirm(trimmedPassword)}
+    >
+      <div className="grid gap-2">
+        <Label htmlFor="gbp-disconnect-password">Confirm with your password</Label>
+        <Input
+          id="gbp-disconnect-password"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          disabled={isPending}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+      </div>
+    </ConfirmDialog>
   );
 }
 

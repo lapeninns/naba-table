@@ -1,17 +1,13 @@
 import { normalizeOpsPathname, opsHref } from '@/lib/url/opsHref';
 
-import {
-  AVAILABILITY_ANCHORS,
-  availabilityHash,
-  type AvailabilityAnchor,
-} from './availabilityAnchors';
+import { AVAILABILITY_ANCHORS, availabilityHash } from './availabilityAnchors';
 
 import type { RestaurantSettingsView } from './types';
 
 export type RestaurantSettingsRoute = {
+  /** Also the URL segment: every page is `/app/settings/restaurant/<view>`, named after its title. */
   view: RestaurantSettingsView;
   href: string;
-  aliases?: string[];
   title: string;
   description: string;
   /**
@@ -27,60 +23,11 @@ export type RestaurantSettingsOverviewRoute = {
   description: string;
 };
 
-/**
- * Former standalone availability routes. Each still has its own page, which renders the single
- * Availability page and opens it on the section that replaced the old route.
- */
-export type RestaurantSettingsAliasRoute = {
-  /** Route segment after `/settings/restaurant/`, shown in the alias notice. */
-  slug: string;
-  href: string;
-  title: string;
-  description: string;
-  availabilityAnchor: AvailabilityAnchor;
+/** A former settings URL. Its page redirects to `to`, a live settings page. */
+export type RestaurantSettingsRetiredRoute = {
+  from: string;
+  to: string;
 };
-
-function availabilityAlias(
-  slug: string,
-  anchor: AvailabilityAnchor,
-  title: string,
-  description: string,
-): RestaurantSettingsAliasRoute {
-  return {
-    slug,
-    href: opsHref(`/settings/restaurant/${slug}${availabilityHash(anchor)}`),
-    title,
-    description,
-    availabilityAnchor: anchor,
-  };
-}
-
-export const RESTAURANT_SETTINGS_AVAILABILITY_ALIASES: RestaurantSettingsAliasRoute[] = [
-  availabilityAlias(
-    'service-periods',
-    AVAILABILITY_ANCHORS.serviceWindows,
-    'Service periods',
-    'Define lunch, dinner, and other booking windows inside operating hours.',
-  ),
-  availabilityAlias(
-    'operating-hours',
-    AVAILABILITY_ANCHORS.weeklyHours,
-    'Operating hours',
-    'Configure weekly open and close times plus date-specific overrides.',
-  ),
-  availabilityAlias(
-    'turn-durations',
-    AVAILABILITY_ANCHORS.bookingOccasions,
-    'Dining durations',
-    'Configure table-time bands by booking type and party size.',
-  ),
-  availabilityAlias(
-    'occasions',
-    AVAILABILITY_ANCHORS.bookingOccasions,
-    'Booking types',
-    'Control the lunch, dinner, and occasion types staff and guests can use.',
-  ),
-];
 
 export const RESTAURANT_SETTINGS_OVERVIEW_ROUTE: RestaurantSettingsOverviewRoute = {
   href: opsHref('/settings/restaurant'),
@@ -92,14 +39,14 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
     view: 'profile',
     href: opsHref('/settings/restaurant/profile'),
-    title: 'Restaurant profile',
+    title: 'Profile',
     description:
       'What guests see when they book: your name, booking page link, contact details and location.',
   },
   {
     view: 'discovery',
     href: opsHref('/settings/restaurant/discovery'),
-    title: 'Discovery details',
+    title: 'Discovery',
     description:
       'Details that help guests find and choose you, such as categories, links and amenities. Google is optional. If it’s linked, it can suggest values here.',
   },
@@ -113,8 +60,7 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
   {
     view: 'availability',
     href: opsHref('/settings/restaurant/availability'),
-    aliases: [...RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.map((item) => item.href)],
-    title: 'Availability & Booking types',
+    title: 'Availability',
     description:
       'Opening hours, meal times and booking rules decide which times guests can request. Tables and existing bookings are checked separately when a guest books.',
   },
@@ -146,8 +92,8 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
       'Who we tell about bookings: the manager alert number, the daily booking summary and WhatsApp. Guests never see the alert number.',
   },
   {
-    view: 'table-layout',
-    href: opsHref('/settings/restaurant/table-layout'),
+    view: 'floor-layout',
+    href: opsHref('/settings/restaurant/floor-layout'),
     title: 'Floor layout',
     description:
       'Where each table sits in its zone on the floor plan. Moving tables here never changes bookings.',
@@ -164,7 +110,7 @@ export const RESTAURANT_SETTINGS_ROUTES: RestaurantSettingsRoute[] = [
 
 export type RestaurantSettingsNavItem = Pick<
   RestaurantSettingsRoute,
-  'href' | 'aliases' | 'title' | 'description'
+  'href' | 'title' | 'description'
 >;
 
 const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
@@ -172,7 +118,6 @@ const getRoute = (view: RestaurantSettingsView): RestaurantSettingsNavItem => {
   if (!route) throw new Error(`Missing restaurant settings route for view: ${view}`);
   return {
     href: route.href,
-    aliases: route.aliases,
     title: route.title,
     description: route.description,
   };
@@ -187,7 +132,7 @@ export const RESTAURANT_SETTINGS_NAV_ITEMS: RestaurantSettingsNavItem[] = [
   getRoute('tables'),
   getRoute('team'),
   getRoute('staff-communications'),
-  getRoute('table-layout'),
+  getRoute('floor-layout'),
   getRoute('email-templates'),
 ];
 
@@ -202,33 +147,11 @@ export const RESTAURANT_SETTINGS_ROUTE_MAP: Record<
   {} as Record<RestaurantSettingsView, RestaurantSettingsRoute>,
 );
 
-/** The former availability route the pathname points at, or null for every other route. */
-export function getRestaurantSettingsAvailabilityAlias(
-  pathname: string | null | undefined,
-): RestaurantSettingsAliasRoute | null {
-  if (!pathname) {
-    return null;
-  }
-  const normalizedPathname = normalizeOpsPathname(pathname);
-  return (
-    RESTAURANT_SETTINGS_AVAILABILITY_ALIASES.find(
-      (item) => normalizeOpsPathname(item.href) === normalizedPathname,
-    ) ?? null
-  );
-}
-
-/**
- * Route copy for a pathname. Former availability routes resolve to the Availability page, which
- * is what they render.
- */
+/** Route copy for a pathname. */
 export function getRestaurantSettingsRouteCopy(pathname: string) {
   const normalizedPathname = normalizeOpsPathname(pathname);
   if (normalizedPathname === normalizeOpsPathname(RESTAURANT_SETTINGS_OVERVIEW_ROUTE.href)) {
     return RESTAURANT_SETTINGS_OVERVIEW_ROUTE;
-  }
-
-  if (getRestaurantSettingsAvailabilityAlias(pathname)) {
-    return RESTAURANT_SETTINGS_ROUTE_MAP.availability;
   }
 
   return (
@@ -270,7 +193,47 @@ export const RESTAURANT_SETTINGS_UNSAVED_ENTRY_IDS = {
   team: 'team-invite-draft',
   'staff-communications': 'restaurant-staff-communications',
   // Registered by the floor plan controller while layout drafts are unsaved.
-  'table-layout': 'floor-plan-layout',
+  'floor-layout': 'floor-plan-layout',
   // Registered by useOpsEmailTemplatesEditor while any email has unsaved copy.
   'email-templates': 'restaurant-email-templates',
 } as const satisfies Partial<Record<RestaurantSettingsView, string>>;
+
+const AVAILABILITY_HREF = opsHref('/settings/restaurant/availability');
+
+/**
+ * Former settings URLs, each with its own page that redirects here. Links in the app
+ * must use the live `href`s above; a test fails if source code points at a `from` URL.
+ */
+export const RESTAURANT_SETTINGS_RETIRED_ROUTES: RestaurantSettingsRetiredRoute[] = [
+  { from: opsHref('/settings'), to: RESTAURANT_SETTINGS_OVERVIEW_ROUTE.href },
+  { from: opsHref('/settings/tables'), to: RESTAURANT_SETTINGS_ROUTE_MAP.tables.href },
+  { from: opsHref('/management/team'), to: RESTAURANT_SETTINGS_ROUTE_MAP.team.href },
+  { from: opsHref('/email-templates'), to: RESTAURANT_SETTINGS_ROUTE_MAP['email-templates'].href },
+  {
+    from: opsHref('/settings/restaurant/table-layout'),
+    to: RESTAURANT_SETTINGS_ROUTE_MAP['floor-layout'].href,
+  },
+  {
+    from: opsHref('/settings/restaurant/operating-hours'),
+    to: `${AVAILABILITY_HREF}${availabilityHash(AVAILABILITY_ANCHORS.weeklyHours)}`,
+  },
+  {
+    from: opsHref('/settings/restaurant/service-periods'),
+    to: `${AVAILABILITY_HREF}${availabilityHash(AVAILABILITY_ANCHORS.serviceWindows)}`,
+  },
+  {
+    from: opsHref('/settings/restaurant/turn-durations'),
+    to: `${AVAILABILITY_HREF}${availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions)}`,
+  },
+  {
+    from: opsHref('/settings/restaurant/occasions'),
+    to: `${AVAILABILITY_HREF}${availabilityHash(AVAILABILITY_ANCHORS.bookingOccasions)}`,
+  },
+];
+
+/** Where a retired settings URL now lives. Throws for a URL that was never retired. */
+export function getRetiredRestaurantSettingsTarget(from: string): string {
+  const route = RESTAURANT_SETTINGS_RETIRED_ROUTES.find((item) => item.from === opsHref(from));
+  if (!route) throw new Error(`Not a retired restaurant settings route: ${from}`);
+  return route.to;
+}

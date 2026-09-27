@@ -1,12 +1,8 @@
-import { redirect } from "next/navigation";
+import { redirect } from 'next/navigation';
 
-import type { Metadata } from "next";
+import { getRetiredRestaurantSettingsTarget } from '@/components/features/restaurant-settings/routes';
 
-export const metadata: Metadata = {
-  title: "Team management · Nab a Table",
-  description: "This route has moved to restaurant settings.",
-};
-
-export default function TeamManagementPage() {
-  redirect("/settings/restaurant/team");
+/** Retired URL: see RESTAURANT_SETTINGS_RETIRED_ROUTES. */
+export default function LegacyTeamManagementPage() {
+  redirect(getRetiredRestaurantSettingsTarget('/app/management/team'));
 }

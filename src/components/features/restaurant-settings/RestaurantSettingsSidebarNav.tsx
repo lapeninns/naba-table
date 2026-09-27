@@ -48,9 +48,21 @@ const NAV_ICONS: Record<SettingsHref, LucideIcon> = {
   '/app/settings/restaurant/tables': LayoutGrid,
   '/app/settings/restaurant/team': Users,
   '/app/settings/restaurant/staff-communications': BellRing,
-  '/app/settings/restaurant/table-layout': PencilRuler,
+  '/app/settings/restaurant/floor-layout': PencilRuler,
   '/app/settings/restaurant/email-templates': Mail,
 };
+
+/**
+ * Right padding that clears the absolutely positioned menu badge. Short badges ("Link", "Check",
+ * a count) need only 3rem, so long titles such as "Google Business Profile" keep their full text;
+ * longer badges ("Pending Google") reserve more.
+ */
+export function sidebarNavBadgePaddingClass(badge: string | undefined): string | undefined {
+  if (!badge) {
+    return undefined;
+  }
+  return badge.length <= 5 ? 'pr-12' : 'pr-28';
+}
 
 export type RestaurantSettingsSidebarNavProps = {
   normalizedPathname: string | null;
@@ -111,10 +123,12 @@ export function RestaurantSettingsSidebarNav({
                           pointerFocusHrefRef.current = null;
                           onLinkClick(event);
                         }}
-                        className={cn(badge && 'pr-20')}
+                        className={cn(sidebarNavBadgePaddingClass(badge))}
                       >
                         <Icon aria-hidden />
-                        <span className="min-w-0 truncate">{item.title}</span>
+                        <span className="min-w-0 truncate" title={item.title}>
+                          {item.title}
+                        </span>
                         {hasUnsaved ? (
                           <Badge
                             variant="status-pending"
