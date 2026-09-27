@@ -183,6 +183,7 @@ export const NIGHTLY_SPECS = [
   'tests/e2e/ops-authenticated-app-host.spec.ts',
   'tests/e2e/ops-booking-dialog-action-rail.spec.ts',
   'tests/e2e/ops-capacity-tables.spec.ts',
+  'tests/e2e/ops-communications-delivery-layout.spec.ts',
   'tests/e2e/ops-customers-delivery.spec.ts',
   'tests/e2e/ops-dashboard-print.spec.ts',
   'tests/e2e/ops-email-delivery-dev-harness.spec.ts',

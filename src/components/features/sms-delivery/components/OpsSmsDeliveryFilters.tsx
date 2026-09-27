@@ -1,5 +1,12 @@
 'use client';
 
+import { X } from 'lucide-react';
+
+import {
+  COMMS_CONTROL_HEIGHT_CLASS,
+  COMMS_FILTER_CONTROL_CLASS,
+} from '@/components/features/communications-delivery/components/communicationsDeliveryClasses';
+import { CommunicationsDeliveryStatusFilter } from '@/components/features/communications-delivery/components/CommunicationsDeliveryStatusFilter';
 import { OpsPageToolbar } from '@/components/features/ops-shell/patterns/OpsPageToolbar';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 import {
   OPS_SMS_DELIVERY_CHANNEL_OPTIONS,
@@ -50,27 +58,15 @@ export function OpsSmsDeliveryFilters({
     <OpsPageToolbar
       sticky={false}
       filters={
-        <>
-          <Select
-            value={channel}
-            onValueChange={(value) => onChannelChange(value as SmsDeliveryChannelFilter)}
-          >
-            <SelectTrigger className="h-9 w-full sm:w-[170px]" aria-label="Select channel">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {OPS_SMS_DELIVERY_CHANNEL_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center">
           <Select
             value={range}
             onValueChange={(value) => onRangeChange(value as OpsSmsDeliveryRange)}
           >
-            <SelectTrigger className="h-9 w-full sm:w-[170px]" aria-label="Select date range">
+            <SelectTrigger
+              className={cn(COMMS_FILTER_CONTROL_CLASS, 'lg:w-auto lg:min-w-[150px] max-w-full')}
+              aria-label="Select date range"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -82,10 +78,37 @@ export function OpsSmsDeliveryFilters({
             </SelectContent>
           </Select>
           <Select
+            value={channel}
+            onValueChange={(value) => onChannelChange(value as SmsDeliveryChannelFilter)}
+          >
+            <SelectTrigger
+              className={cn(COMMS_FILTER_CONTROL_CLASS, 'lg:w-auto lg:min-w-[150px] max-w-full')}
+              aria-label="Select channel"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {OPS_SMS_DELIVERY_CHANNEL_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CommunicationsDeliveryStatusFilter
+            options={OPS_SMS_DELIVERY_STATUS_FILTERS}
+            selected={selectedStatuses}
+            onToggle={(status) => onToggleStatus(status)}
+            className="sm:w-full lg:w-auto"
+          />
+          <Select
             value={String(pageSize)}
             onValueChange={(value) => onPageSizeChange(Number(value))}
           >
-            <SelectTrigger className="h-9 w-full sm:w-[140px]" aria-label="Rows per page">
+            <SelectTrigger
+              className={cn(COMMS_FILTER_CONTROL_CLASS, 'lg:w-auto lg:min-w-[120px] max-w-full')}
+              aria-label="Rows per page"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -96,33 +119,20 @@ export function OpsSmsDeliveryFilters({
               ))}
             </SelectContent>
           </Select>
-        </>
-      }
-      actions={
-        <>
           <Button
             type="button"
-            variant={selectedStatuses.length === 0 ? 'default' : 'outline'}
-            size="sm"
+            variant="ghost"
+            className={cn(
+              COMMS_CONTROL_HEIGHT_CLASS,
+              'w-full sm:col-span-2 sm:w-auto sm:justify-self-start',
+            )}
+            disabled={selectedStatuses.length === 0}
             onClick={onClearStatuses}
           >
-            All
+            <X data-icon="inline-start" aria-hidden />
+            Show all statuses
           </Button>
-          {OPS_SMS_DELIVERY_STATUS_FILTERS.map((status) => {
-            const active = selectedStatuses.includes(status.value);
-            return (
-              <Button
-                key={status.value}
-                type="button"
-                variant={active ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => onToggleStatus(status.value)}
-              >
-                {status.label}
-              </Button>
-            );
-          })}
-        </>
+        </div>
       }
     />
   );

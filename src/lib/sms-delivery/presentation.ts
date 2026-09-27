@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 
+import type { OpsStatusTone } from '@/lib/ops/status-tones';
 import type { SmsDeliveryStatus } from '@/types/smsDelivery';
 
 export const SMS_DELIVERY_STATUS_LABELS: Record<SmsDeliveryStatus, string> = {
@@ -26,7 +27,9 @@ const PROVIDER_STATUS_LABELS: Record<string, string> = {
   failed: 'Failed',
 };
 
-export function formatSmsProviderStatusLabel(providerStatus: string | null | undefined): string | null {
+export function formatSmsProviderStatusLabel(
+  providerStatus: string | null | undefined,
+): string | null {
   if (!providerStatus) return null;
   return PROVIDER_STATUS_LABELS[providerStatus] ?? providerStatus;
 }
@@ -48,6 +51,23 @@ export function formatSmsDeliveryOccurredAt(iso: string | null, timezone: string
   const dt = DateTime.fromISO(iso, { zone: timezone });
   if (!dt.isValid) return null;
   return dt.toFormat('EEE, MMM d · HH:mm');
+}
+
+/** Semantic status tone for `OpsStatusBadge`. */
+export function getSmsDeliveryStatusTone(status: SmsDeliveryStatus): OpsStatusTone {
+  switch (status) {
+    case 'delivered':
+      return 'success';
+    case 'sent':
+      return 'info';
+    case 'queued':
+      return 'muted';
+    case 'undelivered':
+    case 'failed':
+      return 'danger';
+    default:
+      return 'muted';
+  }
 }
 
 export function getSmsDeliveryStatusBadgeTone(status: SmsDeliveryStatus): {

@@ -30,6 +30,7 @@ function createReadBuilder(result: QueryResult) {
 function createBookingsBuilder(result: QueryResult) {
   const builder = {
     select: vi.fn(() => builder),
+    eq: vi.fn(() => builder),
     in: vi.fn(() => Promise.resolve(result)),
   };
   return builder;
@@ -173,6 +174,7 @@ describe('SMS delivery dashboard metrics regression', () => {
     });
 
     expect(result.attempts).toHaveLength(1);
+    expect(result.summary).toMatchObject({ total: 1, delivered: 1, fallbackCount: 1 });
     expect(result.attempts[0]).toMatchObject({
       currentStatus: 'delivered',
       fallbackForAttemptId: 'attempt-whatsapp',

@@ -61,6 +61,19 @@ describe('GET /api/ops/sms-delivery', () => {
       page: 1,
       pageSize: 50,
       hasNext: false,
+      summary: {
+        total: 1,
+        queued: 0,
+        sent: 0,
+        delivered: 1,
+        undelivered: 0,
+        failed: 0,
+        deliveredRate: 1,
+        failureRate: 0,
+        uniqueRecipients: 1,
+        uniqueBookings: 1,
+        stuckInFlight: 0,
+      },
       attempts: [
         {
           messageSid: 'SM123',
@@ -109,7 +122,9 @@ describe('GET /api/ops/sms-delivery', () => {
 
   it('sanitizes provider diagnostics from restaurant feed events', async () => {
     const response = await GET(
-      new NextRequest(`https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`),
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`,
+      ),
     );
     const payload = await response.json();
 
@@ -140,7 +155,9 @@ describe('GET /api/ops/sms-delivery', () => {
     );
 
     const response = await GET(
-      new NextRequest(`https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`),
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`,
+      ),
     );
     const payload = await response.json();
 
@@ -154,7 +171,7 @@ describe('GET /api/ops/sms-delivery', () => {
     expect(getSmsDeliveryAttemptsSummaryMock).not.toHaveBeenCalled();
   });
 
-  it('forwards channel=whatsapp to list and summary loaders', async () => {
+  it('uses one channel-filtered read for both the list and summary', async () => {
     const response = await GET(
       new NextRequest(
         `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}&channel=whatsapp`,
@@ -168,12 +185,8 @@ describe('GET /api/ops/sms-delivery', () => {
         channel: 'whatsapp',
       }),
     );
-    expect(getSmsDeliveryAttemptsSummaryMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        restaurantId,
-        channel: 'whatsapp',
-      }),
-    );
+    expect(getSmsDeliveryAttemptsSummaryMock).not.toHaveBeenCalled();
+    expect(await response.json()).toMatchObject({ summary: { total: 1, delivered: 1 } });
   });
 
   it('rejects an invalid channel filter', async () => {
@@ -189,9 +202,29 @@ describe('GET /api/ops/sms-delivery', () => {
     expect(listSmsDeliveryAttemptsForRestaurantMock).not.toHaveBeenCalled();
   });
 
+  it('validates and forwards stuck-only selection', async () => {
+    const response = await GET(
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}&stuckOnly=true`,
+      ),
+    );
+    expect(response.status).toBe(200);
+    expect(listSmsDeliveryAttemptsForRestaurantMock).toHaveBeenCalledWith(
+      expect.objectContaining({ stuckOnly: true }),
+    );
+    const invalid = await GET(
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}&stuckOnly=yes`,
+      ),
+    );
+    expect(invalid.status).toBe(400);
+  });
+
   it('defaults channel to all when omitted', async () => {
     const response = await GET(
-      new NextRequest(`https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`),
+      new NextRequest(
+        `https://app.nabatable.com/api/ops/sms-delivery?restaurantId=${restaurantId}`,
+      ),
     );
 
     expect(response.status).toBe(200);

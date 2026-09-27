@@ -1,6 +1,6 @@
 'use client';
 
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import { fetchJson } from '@/lib/http/fetchJson';
 import { queryKeys } from '@/lib/query/keys';
@@ -22,6 +22,9 @@ export function useOpsReviewGrowthSummary(params: {
     },
     enabled: Boolean(params.restaurantId),
     staleTime: 30_000,
-    placeholderData: keepPreviousData,
+    placeholderData: (previous, previousQuery) =>
+      params.restaurantId && previousQuery?.queryKey[2] === params.restaurantId
+        ? previous
+        : undefined,
   });
 }

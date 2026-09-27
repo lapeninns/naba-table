@@ -144,11 +144,11 @@ describe('CommunicationsDeliveryClient', () => {
     expect(await screen.findByText('Email delivered')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /open email delivery/i })).toHaveAttribute(
       'href',
-      '/app/communications-delivery/email',
+      '/app/communications-delivery/email?restaurantId=rest-1&range=7d',
     );
     expect(screen.getByRole('link', { name: /open message delivery/i })).toHaveAttribute(
       'href',
-      '/app/communications-delivery/messages',
+      '/app/communications-delivery/messages?restaurantId=rest-1&range=7d',
     );
   });
 });

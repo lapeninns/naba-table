@@ -1,23 +1,35 @@
 'use client';
 
-import { AlertCircle, MessageSquare } from 'lucide-react';
+import { AlertCircle, ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react';
 
+import { COMMS_CONTROL_HEIGHT_CLASS } from '@/components/features/communications-delivery/components/communicationsDeliveryClasses';
+import { CommunicationsDeliveryTableRegion } from '@/components/features/communications-delivery/components/CommunicationsDeliveryTableRegion';
 import {
   OPS_CARD_CLASS,
   OPS_CARD_CONTENT_CLASS,
   OPS_CARD_HEADER_CLASS,
 } from '@/components/features/ops-shell/patterns/opsDensityClasses';
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsStatusBadge } from '@/components/features/ops-shell/patterns/OpsStatusBadge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Text } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 import {
   formatSmsDeliveryOccurredAt,
   formatSmsProviderStatusLabel,
   formatSmsTypeLabel,
-  getSmsDeliveryStatusBadgeTone,
+  getSmsDeliveryStatusTone,
   isSmsProviderStatusMoreSpecific,
   SMS_DELIVERY_STATUS_LABELS,
 } from '@/src/lib/sms-delivery/presentation';
@@ -31,106 +43,138 @@ import type {
 } from '@/types/smsDelivery';
 
 function SmsStatusBadge({ status }: { status: SmsDeliveryStatus }) {
-  const tone = getSmsDeliveryStatusBadgeTone(status);
   return (
-    <Badge
-      variant={tone.variant}
-      className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}
-    >
-      {SMS_DELIVERY_STATUS_LABELS[status]}
+    <OpsStatusBadge
+      label={SMS_DELIVERY_STATUS_LABELS[status]}
+      tone={getSmsDeliveryStatusTone(status)}
+    />
+  );
+}
+
+type AttemptView = {
+  attempt: OpsSmsDeliveryAttemptDTO;
+  isStale: boolean;
+  stuckHint: string | null;
+  providerStatusLabel: string | null;
+  timeLabel: string;
+};
+
+function toAttemptView(attempt: OpsSmsDeliveryAttemptDTO, timezone: string): AttemptView {
+  const isStale = attempt.isStale === true;
+  return {
+    attempt,
+    isStale,
+    stuckHint: isStale ? formatSmsStuckForHint(attempt.stuckForMs) : null,
+    providerStatusLabel: isSmsProviderStatusMoreSpecific(
+      attempt.currentStatus,
+      attempt.currentProviderStatus,
+    )
+      ? formatSmsProviderStatusLabel(attempt.currentProviderStatus)
+      : null,
+    timeLabel: formatSmsDeliveryOccurredAt(attempt.currentOccurredAt, timezone) ?? 'Unknown time',
+  };
+}
+
+/** Status, raw provider status and the stuck flag — never colour alone. */
+function AttemptStatus({ view }: { view: AttemptView }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <SmsStatusBadge status={view.attempt.currentStatus} />
+      {view.providerStatusLabel ? (
+        <OpsStatusBadge
+          tone="muted"
+          label={
+            <span title="Raw provider status, more specific than the normalized status">
+              {view.providerStatusLabel}
+            </span>
+          }
+        />
+      ) : null}
+      {view.isStale ? (
+        <OpsStatusBadge
+          tone="warning"
+          label={
+            <span title="In flight for longer than the expected Twilio callback window">
+              Stuck{view.stuckHint ? ` · ${view.stuckHint}` : ''}
+            </span>
+          }
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** Channel is an attribute, not a status: an outline pill, with the fallback called out. */
+function AttemptChannel({ attempt }: { attempt: OpsSmsDeliveryAttemptDTO }) {
+  return (
+    <Badge variant="outline" className="whitespace-nowrap text-xs font-semibold uppercase">
+      {attempt.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'}
+      {attempt.fallbackForAttemptId ? ' fallback' : ''}
     </Badge>
   );
 }
 
-function SmsDeliveryAttemptRow({
+function AttemptTimeline({
   attempt,
   timezone,
 }: {
   attempt: OpsSmsDeliveryAttemptDTO;
   timezone: string;
 }) {
-  const isStale = attempt.isStale === true;
-  const stuckHint = isStale ? formatSmsStuckForHint(attempt.stuckForMs) : null;
-  const providerStatusLabel = isSmsProviderStatusMoreSpecific(
-    attempt.currentStatus,
-    attempt.currentProviderStatus,
-  )
-    ? formatSmsProviderStatusLabel(attempt.currentProviderStatus)
-    : null;
-
+  if (attempt.events.length === 0) {
+    return <span className="text-xs text-muted-foreground">No timeline events recorded.</span>;
+  }
   return (
-    <div
-      className={cn(
-        'rounded-lg border p-3',
-        isStale ? 'border-primary/30 bg-primary/10' : 'border-border',
-      )}
-      data-stale={isStale ? 'true' : undefined}
-    >
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <SmsStatusBadge status={attempt.currentStatus} />
-            {providerStatusLabel ? (
-              <Badge
-                variant="outline"
-                className="text-[10px] font-medium normal-case text-muted-foreground"
-                title="Raw provider status, more specific than the normalized status above"
-              >
-                {providerStatusLabel}
-              </Badge>
-            ) : null}
-            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-wide">
-              {attempt.channel === 'whatsapp' ? 'WhatsApp' : 'SMS'}
-              {attempt.fallbackForAttemptId ? ' fallback' : ''}
+    <ol className="flex flex-wrap items-center gap-1.5" aria-label="Status timeline">
+      {attempt.events.map((event) => {
+        const eventProviderLabel = isSmsProviderStatusMoreSpecific(
+          event.status,
+          event.providerStatus,
+        )
+          ? formatSmsProviderStatusLabel(event.providerStatus)
+          : null;
+        const eventTime = formatSmsDeliveryOccurredAt(event.occurredAt, timezone);
+        return (
+          <li key={event.id}>
+            <Badge variant="outline" className="text-xs font-normal" title={eventTime ?? undefined}>
+              {eventProviderLabel ?? SMS_DELIVERY_STATUS_LABELS[event.status]}
             </Badge>
-            {isStale ? (
-              <Badge
-                variant="outline"
-                className="border-primary/30 bg-primary/10 text-[10px] font-bold uppercase tracking-wide text-primary"
-                title="In flight for longer than the expected Twilio callback window"
-              >
-                Stuck{stuckHint ? ` · ${stuckHint}` : ''}
-              </Badge>
-            ) : null}
-            <Text as="span" variant="label">
-              {formatSmsTypeLabel(attempt.smsType)}
-            </Text>
-          </div>
-          <Text variant="caption">
-            {attempt.recipientPhone} ·{' '}
-            {attempt.booking?.reference ? `Ref ${attempt.booking.reference}` : 'No booking link'}
-          </Text>
-        </div>
-        <Text variant="caption">
-          {formatSmsDeliveryOccurredAt(attempt.currentOccurredAt, timezone) ?? 'Unknown time'}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function AttemptCard({ view, timezone }: { view: AttemptView; timezone: string }) {
+  const { attempt } = view;
+  return (
+    <article
+      className="flex flex-col gap-3 rounded-lg border border-border bg-background p-3"
+      data-stale={view.isStale ? 'true' : undefined}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <AttemptStatus view={view} />
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {view.timeLabel}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <AttemptChannel attempt={attempt} />
+        <Text as="span" variant="label">
+          {formatSmsTypeLabel(attempt.smsType)}
         </Text>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {attempt.events.length === 0 ? (
-          <span className="text-[11px] text-muted-foreground">No timeline events recorded.</span>
+      <Text variant="caption" className="break-words">
+        <span className="font-mono tabular-nums">{attempt.recipientPhone}</span> ·{' '}
+        {attempt.booking?.reference ? (
+          <span className="font-mono">Ref {attempt.booking.reference}</span>
         ) : (
-          attempt.events.map((event) => {
-            const eventProviderLabel = isSmsProviderStatusMoreSpecific(
-              event.status,
-              event.providerStatus,
-            )
-              ? formatSmsProviderStatusLabel(event.providerStatus)
-              : null;
-            const eventTime = formatSmsDeliveryOccurredAt(event.occurredAt, timezone);
-            return (
-              <Badge
-                key={event.id}
-                variant="outline"
-                className="text-[10px]"
-                title={eventTime ?? undefined}
-              >
-                {eventProviderLabel ?? SMS_DELIVERY_STATUS_LABELS[event.status]}
-              </Badge>
-            );
-          })
+          'No booking link'
         )}
-      </div>
-    </div>
+      </Text>
+      <AttemptTimeline attempt={attempt} timezone={timezone} />
+    </article>
   );
 }
 
@@ -155,10 +199,12 @@ export function OpsSmsDeliveryLog({
   onPreviousPage,
   onNextPage,
 }: OpsSmsDeliveryLogProps) {
+  const views = feed ? feed.attempts.map((attempt) => toAttemptView(attempt, timezone)) : [];
   return (
     <section>
       {unavailable ? (
-        <Alert className="border-border bg-muted/40">
+        <Alert variant="info">
+          <AlertCircle className="size-4" aria-hidden />
           <AlertTitle>Delivery tracking unavailable</AlertTitle>
           <AlertDescription>
             This environment is not currently recording or exposing message delivery events.
@@ -179,51 +225,118 @@ export function OpsSmsDeliveryLog({
       ) : feed ? (
         <Card className={OPS_CARD_CLASS}>
           <CardHeader className={OPS_CARD_HEADER_CLASS}>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <MessageSquare className="size-4" aria-hidden />
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <MessageSquare className="size-4 text-muted-foreground" aria-hidden />
               Message Delivery Log
             </CardTitle>
           </CardHeader>
-          <CardContent className={OPS_CARD_CONTENT_CLASS}>
+          <CardContent className={cn(OPS_CARD_CONTENT_CLASS, 'pb-[var(--pg-density-card-py)]')}>
             {feed.attempts.length === 0 ? (
-              <Text variant="caption">
-                No message attempts found for this range/filter.
-              </Text>
+              <OpsEmptyState
+                size="compact"
+                title="No message attempts found"
+                description="No message attempts found for this range/filter."
+              />
             ) : (
-              <div className="flex flex-col gap-3">
-                {feed.attempts.map((attempt) => (
-                  <SmsDeliveryAttemptRow
-                    key={`${attempt.messageSid}__${attempt.recipientPhone}`}
-                    attempt={attempt}
-                    timezone={timezone}
-                  />
-                ))}
-              </div>
+              <>
+                <ul className="flex flex-col gap-3 lg:hidden" aria-label="Message attempts">
+                  {views.map((view) => (
+                    <li key={`${view.attempt.messageSid}__${view.attempt.recipientPhone}`}>
+                      <AttemptCard view={view} timezone={timezone} />
+                    </li>
+                  ))}
+                </ul>
+                <CommunicationsDeliveryTableRegion
+                  label="Message attempts"
+                  hintBelow="none"
+                  className="hidden lg:flex"
+                >
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Channel</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Recipient</TableHead>
+                        <TableHead>Timeline</TableHead>
+                        <TableHead className="text-right">Latest update</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {views.map((view) => (
+                        <TableRow
+                          key={`${view.attempt.messageSid}__${view.attempt.recipientPhone}`}
+                          data-stale={view.isStale ? 'true' : undefined}
+                        >
+                          <TableCell className="align-top">
+                            <AttemptStatus view={view} />
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <AttemptChannel attempt={view.attempt} />
+                          </TableCell>
+                          <TableCell className="align-top text-sm">
+                            {formatSmsTypeLabel(view.attempt.smsType)}
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <div className="font-mono text-xs tabular-nums">
+                              {view.attempt.recipientPhone}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {view.attempt.booking?.reference ? (
+                                <span className="font-mono">
+                                  Ref {view.attempt.booking.reference}
+                                </span>
+                              ) : (
+                                'No booking link'
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <AttemptTimeline attempt={view.attempt} timezone={timezone} />
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-right align-top font-mono text-xs tabular-nums text-muted-foreground">
+                            {view.timeLabel}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CommunicationsDeliveryTableRegion>
+              </>
             )}
 
-            <div className="mt-4 flex items-center justify-between">
-              <Text variant="caption">Page {feed.pageInfo.page}</Text>
+            <nav
+              aria-label="Message attempts pagination"
+              className="mt-4 flex items-center justify-between gap-3"
+            >
+              <Text variant="caption" className="tabular-nums">
+                Page {feed.pageInfo.page}
+              </Text>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className={COMMS_CONTROL_HEIGHT_CLASS}
                   disabled={page <= 1}
                   onClick={onPreviousPage}
                 >
+                  <ChevronLeft data-icon="inline-start" aria-hidden />
                   Prev
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
+                  className={COMMS_CONTROL_HEIGHT_CLASS}
                   disabled={!feed.pageInfo.hasNext}
                   onClick={onNextPage}
                 >
                   Next
+                  <ChevronRight data-icon="inline-end" aria-hidden />
                 </Button>
               </div>
-            </div>
+            </nav>
           </CardContent>
         </Card>
       ) : null}

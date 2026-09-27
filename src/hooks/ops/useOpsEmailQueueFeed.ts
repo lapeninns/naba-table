@@ -75,7 +75,10 @@ export function useOpsEmailQueueFeed(
     staleTime: 30_000,
     refetchInterval,
     refetchIntervalInBackground: false,
-    placeholderData: (previous) => previous,
+    placeholderData: (previous, previousQuery) =>
+      params.restaurantId && previousQuery?.queryKey[2] === params.restaurantId
+        ? previous
+        : undefined,
   });
 
   const derived = useMemo<OpsEmailQueueFeedState>(() => {

@@ -109,7 +109,7 @@ describe('email delivery mutation hooks', () => {
     ]);
   });
 
-  it('refreshes only the feed when a resend conflicts, and nothing on a 5xx', async () => {
+  it('reconciles feed, summary and booking after conflicting or ambiguous resends', async () => {
     transport.retryEmailDelivery
       .mockRejectedValueOnce(new HttpError({ status: 409, code: 'ALREADY_RETRIED', message: 'x' }))
       .mockRejectedValueOnce(new HttpError({ status: 502, code: 'SEND_FAILED', message: 'x' }));
@@ -124,13 +124,18 @@ describe('email delivery mutation hooks', () => {
     await act(async () => {
       await result.current.mutateAsync(variables).catch(() => undefined);
     });
-    expect(invalidatedKeys(invalidateSpy)).toEqual([['ops', 'email-delivery', 'r1']]);
+    const expected = [
+      ['ops', 'email-delivery', 'r1'],
+      ['ops', 'email-delivery-summary', 'r1'],
+      ['ops', 'bookings', 'b1', 'email-delivery'],
+    ];
+    expect(invalidatedKeys(invalidateSpy)).toEqual(expected);
 
     invalidateSpy.mockClear();
     await act(async () => {
       await result.current.mutateAsync(variables).catch(() => undefined);
     });
-    expect(invalidateSpy).not.toHaveBeenCalled();
+    expect(invalidatedKeys(invalidateSpy)).toEqual(expected);
   });
 
   it('refreshes only the restaurant queue after a cancel or requeue', async () => {

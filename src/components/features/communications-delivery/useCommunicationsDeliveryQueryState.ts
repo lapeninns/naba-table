@@ -9,7 +9,10 @@ function parseRange(raw: string | null): OpsEmailDeliveryRange {
   return raw === '24h' || raw === '30d' ? raw : '7d';
 }
 
-export function useCommunicationsDeliveryQueryState(initialRestaurantId?: string | null) {
+export function useCommunicationsDeliveryQueryState(
+  initialRestaurantId?: string | null,
+  initialRange: OpsEmailDeliveryRange = '7d',
+) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -19,13 +22,16 @@ export function useCommunicationsDeliveryQueryState(initialRestaurantId?: string
     return value || initialRestaurantId || null;
   }, [initialRestaurantId, searchParams]);
 
-  const range = useMemo(() => parseRange(searchParams?.get('range') ?? null), [searchParams]);
+  const range = useMemo(
+    () => parseRange(searchParams?.get('range') ?? initialRange),
+    [initialRange, searchParams],
+  );
 
   const updateQuery = useCallback(
     (next: { restaurantId?: string | null; range?: OpsEmailDeliveryRange }) => {
       const current = new URLSearchParams(searchParams?.toString() ?? '');
       const nextRestaurantId =
-        next.restaurantId === undefined ? restaurantId : next.restaurantId ?? null;
+        next.restaurantId === undefined ? restaurantId : (next.restaurantId ?? null);
       const nextRange = next.range ?? range;
 
       if (nextRestaurantId) current.set('restaurantId', nextRestaurantId);

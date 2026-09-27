@@ -4,15 +4,23 @@ import { RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import {
+  COMMS_CONTROL_HEIGHT_CLASS,
+  CommunicationsDeliveryChannelTabs,
+} from '@/components/features/communications-delivery/components';
 import { OPS_PAGE_RHYTHM_CLASS } from '@/components/features/ops-shell/patterns/opsDensityClasses';
 import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
 import { OpsPageHeader } from '@/components/features/ops-shell/patterns/OpsPageHeader';
 import { OpsPageShell } from '@/components/features/ops-shell/patterns/OpsPageShell';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Text } from '@/components/ui/typography';
 import { useOpsServices } from '@/contexts/ops-services';
 import { useOpsSession } from '@/contexts/ops-session';
 import { useOpsRestaurantDetails } from '@/hooks/ops/useOpsRestaurantDetails';
@@ -32,7 +40,10 @@ import { formatRefreshLabel, isRefreshOption } from './opsEmailDeliveryDomain';
 import { useOpsEmailDeliveryDataState } from './useOpsEmailDeliveryDataState';
 import { useOpsEmailDeliveryQueryState } from './useOpsEmailDeliveryQueryState';
 
-import type { OpsEmailDeliveryClientProps, OpsEmailDeliveryRestaurantOption } from './opsEmailDeliveryTypes';
+import type {
+  OpsEmailDeliveryClientProps,
+  OpsEmailDeliveryRestaurantOption,
+} from './opsEmailDeliveryTypes';
 
 export type { OpsEmailDeliveryClientProps, EmailDeliveryTab } from './opsEmailDeliveryTypes';
 
@@ -44,9 +55,9 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
     [memberships],
   );
 
-  const [availableRestaurants, setAvailableRestaurants] = useState<OpsEmailDeliveryRestaurantOption[]>(
-    [],
-  );
+  const [availableRestaurants, setAvailableRestaurants] = useState<
+    OpsEmailDeliveryRestaurantOption[]
+  >([]);
 
   const effectiveRestaurantId = useMemo(() => {
     const fromUrl = props.initialRestaurantId;
@@ -164,74 +175,74 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           />
         }
         secondaryActions={
-          <Button asChild variant="outline" size="sm">
-            <Link href="/app/communications-delivery/messages" prefetch={false}>
-              Message Delivery
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="outline" size="sm" className={COMMS_CONTROL_HEIGHT_CLASS}>
+              <Link
+                href={`/app/communications-delivery/messages?${new URLSearchParams({ ...(restaurantId ? { restaurantId } : {}), range: queryState.range })}`}
+                prefetch={false}
+              >
+                Message Delivery
+              </Link>
+            </Button>
+            <Select
+              value={queryState.refresh}
+              onValueChange={(value) => {
+                if (!isRefreshOption(value)) return;
+                queryState.applyRefresh(value);
+              }}
+            >
+              <SelectTrigger
+                className={cn(
+                  COMMS_CONTROL_HEIGHT_CLASS,
+                  'w-full sm:w-auto sm:min-w-[168px] max-w-full',
+                )}
+                aria-label="Auto-refresh interval"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(['off', '30s', '1m', '5m'] as const).map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option === 'off'
+                      ? 'Auto-refresh off'
+                      : `Auto-refresh ${formatRefreshLabel(option)}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={COMMS_CONTROL_HEIGHT_CLASS}
+              onClick={dataState.handleManualRefresh}
+              disabled={dataState.isRefreshing}
+              aria-label="Refresh current tab"
+            >
+              <RefreshCw
+                data-icon="inline-start"
+                className={cn(dataState.isRefreshing && 'animate-spin motion-reduce:animate-none')}
+                aria-hidden
+              />
+              Refresh
+            </Button>
+          </>
         }
       />
 
-      <Tabs value={queryState.tab} onValueChange={queryState.handleTabChange} className="mt-6">
-        <div className="mb-4 rounded-xl border border-border bg-muted/40 p-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-col gap-2">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Auto-refresh
-              </div>
-              <ToggleGroup
-                type="single"
-                value={queryState.refresh}
-                onValueChange={(value) => {
-                  if (!isRefreshOption(value)) return;
-                  queryState.applyRefresh(value);
-                }}
-                className="justify-start rounded-full border border-border bg-background p-1"
-                aria-label="Auto-refresh interval"
-              >
-                {(['off', '30s', '1m', '5m'] as const).map((option) => (
-                  <ToggleGroupItem
-                    key={option}
-                    value={option}
-                    className="rounded-full px-4 text-xs font-semibold data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                    aria-label={`Refresh every ${formatRefreshLabel(option)}`}
-                  >
-                    {formatRefreshLabel(option)}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
-            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
-              {queryState.refresh !== 'off' ? (
-                <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
-                  Auto-refresh {formatRefreshLabel(queryState.refresh)}
-                </Badge>
-              ) : (
-                <Text as="span" variant="caption">Auto-refresh is off.</Text>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={dataState.handleManualRefresh}
-                disabled={dataState.isRefreshing}
-                aria-label="Refresh current tab"
-              >
-                <RefreshCw
-                  data-icon="inline-start"
-                  className={cn(dataState.isRefreshing && 'animate-spin')}
-                  aria-hidden
-                />
-                Refresh
-              </Button>
-            </div>
-          </div>
-        </div>
+      <CommunicationsDeliveryChannelTabs active="email" />
 
-        <TabsList>
-          <TabsTrigger value="delivery-log">Delivery Log</TabsTrigger>
-          <TabsTrigger value="queue">Queue</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+      <Tabs value={queryState.tab} onValueChange={queryState.handleTabChange} className="space-y-4">
+        <TabsList className="h-11 w-full justify-start sm:h-9 sm:w-auto">
+          <TabsTrigger value="delivery-log" className="h-full flex-1 sm:flex-none">
+            Delivery Log
+          </TabsTrigger>
+          <TabsTrigger value="queue" className="h-full flex-1 sm:flex-none">
+            Queue
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="h-full flex-1 sm:flex-none">
+            Analytics
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="delivery-log" className="space-y-4">
@@ -305,9 +316,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
               dataState.queueQuery.response?.ok && dataState.queueQuery.response.pageInfo.hasNext,
             )}
             total={
-              dataState.queueQuery.response?.ok
-                ? dataState.queueQuery.response.pageInfo.total
-                : 0
+              dataState.queueQuery.response?.ok ? dataState.queueQuery.response.pageInfo.total : 0
             }
             timestamp={
               dataState.queueQuery.response?.ok ? dataState.queueQuery.response.timestamp : null
@@ -331,9 +340,7 @@ export function OpsEmailDeliveryClient(props: OpsEmailDeliveryClientProps) {
           <OpsEmailDeliveryAnalytics
             summary={dataState.analyticsSummary}
             isLoading={dataState.analyticsQuery.isLoading}
-            isUpdating={
-              dataState.analyticsQuery.isFetching && !dataState.analyticsQuery.isLoading
-            }
+            isUpdating={dataState.analyticsQuery.isFetching && !dataState.analyticsQuery.isLoading}
             range={queryState.range}
             onRangeChange={queryState.applyRange}
             errorMessage={dataState.analyticsErrorMessage}

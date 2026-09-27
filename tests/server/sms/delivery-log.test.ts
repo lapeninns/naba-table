@@ -359,7 +359,7 @@ describe('listSmsDeliveryEventsForBooking', () => {
     });
   });
 
-  it('keeps SMS log events when the mobile ledger query fails', async () => {
+  it('reports unavailable rather than a partial SMS-only history when the mobile ledger fails', async () => {
     const { client } = createBookingDeliveryListClient({
       smsResult: {
         data: [SAMPLE_SMS_ROW],
@@ -372,10 +372,11 @@ describe('listSmsDeliveryEventsForBooking', () => {
     });
     getServiceSupabaseClientMock.mockReturnValue(client);
 
-    const events = await listSmsDeliveryEventsForBooking({ bookingId: 'booking-1' });
-
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ id: 'evt-1', channel: 'sms', messageSid: 'SM123' });
+    await expect(listSmsDeliveryEventsForBooking({ bookingId: 'booking-1' })).rejects.toMatchObject(
+      {
+        name: 'SmsDeliveryLogUnavailableError',
+      },
+    );
   });
 
   it('throws SmsDeliveryLogUnavailableError when the SMS delivery log is missing', async () => {
@@ -486,6 +487,7 @@ function createRestaurantFeedClient(params: {
   }) {
     const builder = {
       select: vi.fn(() => builder),
+      eq: vi.fn(() => builder),
       in: vi.fn(() => Promise.resolve(result)),
     };
     return builder;
@@ -493,9 +495,7 @@ function createRestaurantFeedClient(params: {
 
   const smsBuilder = createSmsBuilder(params.smsResult);
   const mobileBuilder = createMobileBuilder(params.mobileResult);
-  const bookingsBuilder = createBookingsBuilder(
-    params.bookingsResult ?? { data: [], error: null },
-  );
+  const bookingsBuilder = createBookingsBuilder(params.bookingsResult ?? { data: [], error: null });
   const from = vi.fn((table: string) => {
     if (table === 'sms_delivery_log') return smsBuilder;
     if (table === 'mobile_notification_attempts') return mobileBuilder;
@@ -507,6 +507,59 @@ function createRestaurantFeedClient(params: {
 }
 
 describe('listSmsDeliveryAttemptsForRestaurant + summary', () => {
+  it('filters stuck attempts before pagination and computes matching summary counts', async () => {
+    const { client } = createRestaurantFeedClient({
+      smsResult: {
+        data: [
+          { ...SAMPLE_SMS_ROW, id: 'delivered', message_sid: 'SM-delivered', status: 'delivered' },
+          { ...SAMPLE_SMS_ROW, id: 'recent', message_sid: 'SM-recent', status: 'sent' },
+          {
+            ...SAMPLE_SMS_ROW,
+            id: 'stuck',
+            message_sid: 'SM-stuck',
+            occurred_at: '2026-05-08T09:00:00.000Z',
+          },
+        ],
+        error: null,
+      },
+      mobileResult: { data: [], error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+    const result = await listSmsDeliveryAttemptsForRestaurant({
+      restaurantId: 'restaurant-1',
+      range: '7d',
+      pageSize: 1,
+      stuckOnly: true,
+    });
+    expect(result.attempts.map((attempt) => attempt.messageSid)).toEqual(['SM-stuck']);
+    expect(result.hasNext).toBe(false);
+    expect(result.summary).toMatchObject({ total: 1, stuckInFlight: 1, delivered: 0 });
+  });
+
+  it('rejects incomplete restaurant metrics when the mobile ledger is unavailable', async () => {
+    const { client } = createRestaurantFeedClient({
+      smsResult: { data: [SAMPLE_SMS_ROW], error: null },
+      mobileResult: { data: null, error: { code: '57014', message: 'query timed out' } },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+    await expect(
+      getSmsDeliveryAttemptsSummary({ restaurantId: 'restaurant-1', range: '7d' }),
+    ).rejects.toMatchObject({ name: 'SmsDeliveryLogUnavailableError' });
+    await expect(
+      listSmsDeliveryAttemptsForRestaurant({ restaurantId: 'restaurant-1', range: '7d' }),
+    ).rejects.toMatchObject({ name: 'SmsDeliveryLogUnavailableError' });
+  });
+
+  it('scopes booking enrichment to the same restaurant as the delivery feed', async () => {
+    const { client, spies } = createRestaurantFeedClient({
+      smsResult: { data: [SAMPLE_SMS_ROW], error: null },
+      mobileResult: { data: [], error: null },
+    });
+    getServiceSupabaseClientMock.mockReturnValue(client);
+    await listSmsDeliveryAttemptsForRestaurant({ restaurantId: 'restaurant-1', range: '7d' });
+    expect(spies.bookingsBuilder.eq).toHaveBeenCalledWith('restaurant_id', 'restaurant-1');
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-10T12:00:00.000Z'));

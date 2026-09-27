@@ -22,6 +22,7 @@ type UseOpsRestaurantSmsDeliveryFeedParams = {
   pageSize: number;
   statuses?: readonly SmsDeliveryStatus[];
   channel?: SmsDeliveryChannelFilter;
+  stuckOnly?: boolean;
 };
 
 export type OpsRestaurantSmsDeliveryFeedState = {
@@ -46,6 +47,7 @@ export function useOpsRestaurantSmsDeliveryFeed({
   pageSize,
   statuses,
   channel = 'all',
+  stuckOnly = false,
 }: UseOpsRestaurantSmsDeliveryFeedParams): UseQueryResult<OpsSmsDeliveryFeedResponse, HttpError> &
   OpsRestaurantSmsDeliveryFeedState {
   const bookingService = useBookingService();
@@ -61,6 +63,7 @@ export function useOpsRestaurantSmsDeliveryFeed({
       pageSize,
       statuses: normalizedStatuses,
       channel,
+      stuckOnly,
     }),
     queryFn: () =>
       bookingService.getRestaurantSmsDeliveryFeed({
@@ -70,6 +73,7 @@ export function useOpsRestaurantSmsDeliveryFeed({
         pageSize,
         status: normalizedStatuses.length > 0 ? normalizedStatuses : undefined,
         channel,
+        ...(stuckOnly ? { stuckOnly: true } : {}),
       }),
     enabled,
     staleTime: 30_000,

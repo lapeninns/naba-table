@@ -1,9 +1,20 @@
 'use client';
 
-import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, MailWarning, RotateCcw } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  MailWarning,
+  RotateCcw,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { COMMS_CONTROL_HEIGHT_CLASS } from '@/components/features/communications-delivery/components/communicationsDeliveryClasses';
+import { CommunicationsDeliveryTableRegion } from '@/components/features/communications-delivery/components/CommunicationsDeliveryTableRegion';
+import { OpsEmptyState } from '@/components/features/ops-shell/patterns/OpsEmptyState';
+import { OpsStatusBadge } from '@/components/features/ops-shell/patterns/OpsStatusBadge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -15,7 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CopyButton } from '@/components/ui/copy-button';
 import {
@@ -25,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -39,7 +50,7 @@ import { cn } from '@/lib/utils';
 import {
   EMAIL_DELIVERY_STATUS_LABELS,
   formatEmailDeliveryOccurredAt,
-  getEmailDeliveryStatusBadgeTone,
+  getEmailDeliveryStatusTone,
 } from '@/src/lib/email-delivery/presentation';
 
 import { OPS_EMAIL_DELIVERY_PAGE_SIZE_OPTIONS } from '../opsEmailDeliveryTypes';
@@ -48,14 +59,11 @@ import type { OpsEmailDeliveryTableRowViewModel } from '../opsEmailDeliveryTypes
 import type { EmailDeliveryStatus } from '@/types/emailDelivery';
 
 function StatusBadge({ status }: { status: EmailDeliveryStatus }) {
-  const tone = getEmailDeliveryStatusBadgeTone(status);
   return (
-    <Badge
-      variant={tone.variant}
-      className={cn('text-[10px] font-bold uppercase tracking-wide', tone.className)}
-    >
-      {EMAIL_DELIVERY_STATUS_LABELS[status] ?? status}
-    </Badge>
+    <OpsStatusBadge
+      label={EMAIL_DELIVERY_STATUS_LABELS[status] ?? status}
+      tone={getEmailDeliveryStatusTone(status)}
+    />
   );
 }
 
@@ -122,7 +130,7 @@ export function OpsEmailDeliveryLog({
   return (
     <section className="space-y-4">
       {unavailable ? (
-        <Alert className="border-border bg-muted/40">
+        <Alert variant="info">
           <MailWarning className="size-4" aria-hidden />
           <AlertTitle>Delivery tracking unavailable</AlertTitle>
           <AlertDescription>
@@ -139,7 +147,7 @@ export function OpsEmailDeliveryLog({
             <Button
               type="button"
               variant="link"
-              className="h-auto px-0 text-destructive underline-offset-4 hover:underline"
+              className="h-11 px-0 text-destructive underline-offset-4 hover:underline sm:h-9"
               onClick={onRefetch}
             >
               <RotateCcw data-icon="inline-start" aria-hidden />
@@ -149,96 +157,108 @@ export function OpsEmailDeliveryLog({
         </Alert>
       ) : isLoading && rows.length === 0 ? (
         <div
-          className="rounded-lg border border-border p-8 text-sm text-muted-foreground"
+          className="flex flex-col gap-2 rounded-lg border border-border p-3"
+          aria-busy="true"
           aria-label="Loading email delivery attempts"
         >
-          Loading delivery attempts…
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
+          ))}
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-lg border border-border bg-background p-8 text-center">
-          <p className="text-base font-semibold text-foreground">No email deliveries found</p>
-          <Text variant="caption" className="mt-2">
-            Adjust the filters or try a wider date range to see more results.
-          </Text>
-        </div>
+        <OpsEmptyState
+          size="compact"
+          title="No email deliveries found"
+          description="Adjust the filters or try a wider date range to see more results."
+        />
       ) : isBelowLg === undefined ? (
         <div
-          className="rounded-lg border border-border p-8 text-sm text-muted-foreground"
+          className="flex flex-col gap-2 rounded-lg border border-border p-3"
+          aria-busy="true"
           aria-label="Loading email delivery attempts"
         >
-          Loading delivery attempts…
+          {Array.from({ length: 4 }, (_, index) => (
+            <Skeleton key={index} className="h-10 w-full" />
+          ))}
         </div>
       ) : isBelowLg ? (
-        <div className="grid grid-cols-1 gap-3">
+        <ul className="grid grid-cols-1 gap-3" aria-label="Email delivery attempts">
           {rows.map((row) => {
             const isExpanded = expandedKey === row.attemptKey;
             return (
-              <article
-                key={row.attemptKey}
-                className="rounded-lg border border-border bg-background p-4"
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto w-full justify-between gap-3 px-0 py-0 text-left hover:bg-transparent"
-                  onClick={() =>
-                    setExpandedKey((current) =>
-                      current === row.attemptKey ? null : row.attemptKey,
-                    )
-                  }
-                >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={row.attempt.currentStatus} />
-                      <span className="truncate text-sm font-semibold">{row.subject}</span>
+              <li key={row.attemptKey}>
+                <article className="rounded-lg border border-border bg-background p-3">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-expanded={isExpanded}
+                    className="h-auto min-h-11 w-full justify-between gap-3 whitespace-normal px-0 py-0 text-left hover:bg-transparent"
+                    onClick={() =>
+                      setExpandedKey((current) =>
+                        current === row.attemptKey ? null : row.attemptKey,
+                      )
+                    }
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge status={row.attempt.currentStatus} />
+                        <span className="min-w-0 break-words text-sm font-semibold">
+                          {row.subject}
+                        </span>
+                      </div>
+                      <p className="break-all text-xs font-normal text-muted-foreground">
+                        {row.recipientEmail}
+                      </p>
+                      {row.sentAtLabel ? (
+                        <p className="font-mono text-xs font-normal tabular-nums text-muted-foreground">
+                          {row.sentAtLabel}
+                        </p>
+                      ) : null}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {row.recipientEmail}
-                      {row.sentAtLabel ? ` · ${row.sentAtLabel}` : ''}
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      'size-4 shrink-0 text-muted-foreground transition-transform',
-                      isExpanded && 'rotate-180',
-                    )}
-                    aria-hidden
-                  />
-                </Button>
-                {row.canRetry ? (
-                  <div className="mt-3 flex justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={retryingAttemptKeys.has(row.attemptKey)}
-                      aria-label={`Retry email for ${row.recipientEmail}`}
-                      onClick={() => onRetryAttempt(row.attemptKey)}
-                    >
-                      <RotateCcw data-icon="inline-start" aria-hidden />
-                      {retryingAttemptKeys.has(row.attemptKey) ? 'Sending…' : 'Retry'}
-                    </Button>
-                  </div>
-                ) : null}
-                {isExpanded ? (
-                  <AttemptDetail row={row} timezone={timezone} restaurantId={restaurantId} />
-                ) : null}
-              </article>
+                    <ChevronDown
+                      className={cn(
+                        'size-4 shrink-0 text-muted-foreground transition-transform',
+                        isExpanded && 'rotate-180',
+                      )}
+                      aria-hidden
+                    />
+                  </Button>
+                  {row.canRetry ? (
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className={cn(COMMS_CONTROL_HEIGHT_CLASS, 'w-full sm:w-auto')}
+                        disabled={retryingAttemptKeys.has(row.attemptKey)}
+                        aria-label={`Retry email for ${row.recipientEmail}`}
+                        onClick={() => onRetryAttempt(row.attemptKey)}
+                      >
+                        <RotateCcw data-icon="inline-start" aria-hidden />
+                        {retryingAttemptKeys.has(row.attemptKey) ? 'Sending…' : 'Retry'}
+                      </Button>
+                    </div>
+                  ) : null}
+                  {isExpanded ? (
+                    <AttemptDetail row={row} timezone={timezone} restaurantId={restaurantId} />
+                  ) : null}
+                </article>
+              </li>
             );
           })}
-        </div>
+        </ul>
       ) : (
-        <div className="rounded-lg border border-border bg-background">
+        <CommunicationsDeliveryTableRegion label="Email delivery attempts" hintBelow="none">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Status</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Recipient</TableHead>
-                <TableHead>Email Type</TableHead>
-                <TableHead>Booking Ref</TableHead>
+                <TableHead>Email type</TableHead>
+                <TableHead>Booking ref</TableHead>
                 <TableHead>Customer</TableHead>
-                <TableHead>Sent At</TableHead>
+                <TableHead>Sent at</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -278,7 +298,7 @@ export function OpsEmailDeliveryLog({
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="whitespace-nowrap text-xs text-muted-foreground">
+                        <span className="whitespace-nowrap font-mono text-xs tabular-nums text-muted-foreground">
                           {row.sentAtLabel ?? '—'}
                         </span>
                         <div className="flex items-center gap-1">
@@ -287,7 +307,7 @@ export function OpsEmailDeliveryLog({
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="h-7 px-2 text-xs"
+                              className="h-8 px-2 text-xs"
                               disabled={retryingAttemptKeys.has(row.attemptKey)}
                               aria-label={`Retry email for ${row.recipientEmail}`}
                               onClick={(event) => {
@@ -299,13 +319,27 @@ export function OpsEmailDeliveryLog({
                               {retryingAttemptKeys.has(row.attemptKey) ? 'Sending…' : 'Retry'}
                             </Button>
                           ) : null}
-                          <ChevronDown
-                            className={cn(
-                              'size-3 text-muted-foreground transition-transform',
-                              isExpanded && 'rotate-180',
-                            )}
-                            aria-hidden
-                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Hide' : 'Show'} details for ${row.recipientEmail}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setExpandedKey((current) =>
+                                current === row.attemptKey ? null : row.attemptKey,
+                              );
+                            }}
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'size-4 text-muted-foreground transition-transform motion-reduce:transition-none',
+                                isExpanded && 'rotate-180',
+                              )}
+                              aria-hidden
+                            />
+                          </Button>
                         </div>
                       </div>
                     </TableCell>
@@ -324,20 +358,25 @@ export function OpsEmailDeliveryLog({
               })}
             </TableBody>
           </Table>
-        </div>
+        </CommunicationsDeliveryTableRegion>
       )}
 
       {shouldShowPagination ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <nav
+          aria-label="Email delivery pagination"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-background px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div className="flex flex-col gap-1">
-            <Text variant="label">
+            <Text variant="label" className="tabular-nums">
               Showing {startResult}-{endResult} of {totalResults} results
             </Text>
             <Text variant="caption">Page {currentPage}</Text>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex items-center gap-2">
-              <Text as="span" variant="caption">Rows per page</Text>
+              <Text as="span" variant="caption">
+                Rows per page
+              </Text>
               <Select
                 value={String(currentPageSize)}
                 onValueChange={(value) => {
@@ -345,7 +384,10 @@ export function OpsEmailDeliveryLog({
                   if (Number.isFinite(next)) onPageSizeChange(next);
                 }}
               >
-                <SelectTrigger className="h-9 w-full sm:w-[88px]" aria-label="Rows per page">
+                <SelectTrigger
+                  className={cn(COMMS_CONTROL_HEIGHT_CLASS, 'w-full sm:w-auto sm:min-w-[88px] max-w-full')}
+                  aria-label="Rows per page"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -358,20 +400,32 @@ export function OpsEmailDeliveryLog({
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={onPrev} disabled={!hasPrevPage}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={COMMS_CONTROL_HEIGHT_CLASS}
+                onClick={onPrev}
+                disabled={!hasPrevPage}
+              >
                 <ChevronLeft data-icon="inline-start" aria-hidden />
                 Prev
               </Button>
               <Text as="span" variant="caption" className="min-w-16 text-center">
                 Page {currentPage}
               </Text>
-              <Button variant="outline" size="sm" onClick={onNext} disabled={!hasNextPage}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={COMMS_CONTROL_HEIGHT_CLASS}
+                onClick={onNext}
+                disabled={!hasNextPage}
+              >
                 Next
                 <ChevronRight data-icon="inline-end" aria-hidden />
               </Button>
             </div>
           </div>
-        </div>
+        </nav>
       ) : null}
 
       <AlertDialog open={isRetryDialogOpen} onOpenChange={onRetryDialogOpenChange}>
@@ -437,9 +491,7 @@ function AttemptDetail({
     <div className="flex flex-col gap-4 px-2 py-3">
       <div className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/10 px-3 py-2">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Message ID
-          </div>
+          <Text variant="eyebrow">Message ID</Text>
           <div
             className="max-w-full break-all font-mono text-xs text-muted-foreground"
             title={attempt.messageId}
@@ -452,7 +504,7 @@ function AttemptDetail({
 
       {attempt.bookingId ? (
         <div className="flex justify-end">
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className={COMMS_CONTROL_HEIGHT_CLASS}>
             <Link
               href={`/app/bookings?restaurantId=${restaurantId}&focus=${attempt.bookingId}`}
               prefetch={false}
@@ -466,22 +518,22 @@ function AttemptDetail({
 
       {errorEvent?.error ? (
         <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2">
-          <div className="text-[11px] font-semibold uppercase tracking-wide text-destructive">
+          <Text variant="eyebrow" className="text-destructive">
             Error
-          </div>
+          </Text>
           <div className="text-xs text-destructive">{errorEvent.error}</div>
         </div>
       ) : null}
 
       <div>
-        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Event Timeline
-        </div>
+        <Text variant="eyebrow" className="mb-2">
+          Event timeline
+        </Text>
         <div className="flex flex-col gap-1.5">
           {attempt.events.map((event) => (
-            <div key={event.id} className="flex items-center gap-2 text-xs">
+            <div key={event.id} className="flex flex-wrap items-center gap-2 text-xs">
               <StatusBadge status={event.status} />
-              <span className="text-muted-foreground">
+              <span className="font-mono tabular-nums text-muted-foreground">
                 {formatEmailDeliveryOccurredAt(event.occurredAt, timezone) ?? event.occurredAt}
               </span>
               {event.error ? (
