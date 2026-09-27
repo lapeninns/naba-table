@@ -41,20 +41,23 @@ export type GbpOverviewCardProps = {
 
 function Evidence({ items }: { items: ReadonlyArray<{ label: string; value: ReactNode }> }) {
   return (
-    <dl
-      aria-label="Evidence"
-      className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5 rounded-lg bg-muted px-3.5 py-2.5 text-xs"
-    >
-      <span className="font-semibold">Evidence</span>
-      {items.map((item) => (
-        <div key={item.label} className="flex min-w-0 max-w-full items-baseline gap-1.5">
-          <dt className="shrink-0 text-muted-foreground">{item.label}</dt>
-          <dd className="min-w-0 font-mono font-semibold tabular-nums [overflow-wrap:anywhere]">
-            {item.value}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <details>
+      <summary className="cursor-pointer text-xs text-muted-foreground">Connection details</summary>
+      <dl
+        aria-label="Evidence"
+        className="flex flex-wrap items-baseline gap-x-5 gap-y-1.5 rounded-lg bg-muted px-3.5 py-2.5 text-xs"
+      >
+        <span className="font-semibold">Evidence</span>
+        {items.map((item) => (
+          <div key={item.label} className="flex min-w-0 max-w-full items-baseline gap-1.5">
+            <dt className="shrink-0 text-muted-foreground">{item.label}</dt>
+            <dd className="min-w-0 font-mono font-semibold tabular-nums [overflow-wrap:anywhere]">
+              {item.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }
 
@@ -94,12 +97,6 @@ export function GbpOverviewCard({
         <span id="gbp-location" className="block scroll-mt-24 [overflow-wrap:anywhere]">
           <span className="block text-xs">Linked Google listing</span>
           {location.address}
-          {data.externalLocationName ? (
-            <>
-              {' · '}
-              <span className="font-mono text-xs">{data.externalLocationName}</span>
-            </>
-          ) : null}
         </span>
       }
       headerAction={
@@ -162,6 +159,7 @@ export function GbpOverviewCard({
       ) : operator ? (
         <Evidence
           items={[
+            { label: 'Listing', value: data.externalLocationName ?? 'Not linked' },
             { label: 'Connection', value: operator.connectionStatus },
             { label: 'Write state', value: operator.writeState },
             { label: 'Generation', value: operator.connectionGeneration },

@@ -12,6 +12,7 @@ import {
   type GbpScenario,
 } from './gbpFixtures';
 import { DEV_RESTAURANT_ID } from '../devIds';
+import { gbpImportPreview, gbpImportResponse } from './gbpImportFixtures';
 
 type MockResponse = { status?: number; body: unknown } | null;
 
@@ -141,18 +142,64 @@ export function installGbpFetchMock(scenario: GbpScenario): () => void {
         return { body: { restaurantId: DEV_RESTAURANT_ID, control: state.control } };
       case 'POST /dual-sync/publish/preview': {
         const decisions = Array.isArray(body.decisions) ? body.decisions : [];
-        const keys = decisions
-          .filter((decision): decision is { fieldKey: string; action: string } =>
-            Boolean(decision && typeof decision === 'object' && 'fieldKey' in decision),
-          )
+        const validDecisions = decisions.filter(
+          (decision): decision is { fieldKey: string; action: string } =>
+            Boolean(
+              decision &&
+              typeof decision === 'object' &&
+              'fieldKey' in decision &&
+              typeof decision.fieldKey === 'string' &&
+              'action' in decision &&
+              typeof decision.action === 'string',
+            ),
+        );
+        const keys = validDecisions
           .filter((decision) => decision.action === 'export_to_google')
           .map((decision) => decision.fieldKey);
+        if (keys.length === 0) {
+          return {
+            body: gbpImportPreview(
+              validDecisions
+                .filter((decision) => decision.action === 'import_from_google')
+                .map((decision) => decision.fieldKey),
+              state,
+            ),
+          };
+        }
         const preview = gbpExactPreview(keys);
         lastPreviewGroupIds = preview.groups.map((group) => group.groupId);
         return { body: preview };
       }
-      case 'POST /dual-sync/publish':
+      case 'POST /dual-sync/publish': {
+        if (Array.isArray(body.decisions)) {
+          const keys = body.decisions.flatMap((decision: unknown) =>
+            decision &&
+            typeof decision === 'object' &&
+            'fieldKey' in decision &&
+            typeof decision.fieldKey === 'string' &&
+            'action' in decision &&
+            decision.action === 'import_from_google'
+              ? [decision.fieldKey]
+              : [],
+          );
+          const plan = gbpImportPreview(keys, state);
+          state = {
+            ...state,
+            fields: state.fields.map((field) =>
+              keys.includes(field.fieldKey)
+                ? {
+                    ...field,
+                    coreValue: field.gbpValue,
+                    coreCanonicalHash: field.gbpCanonicalHash,
+                    state: 'in_sync',
+                  }
+                : field,
+            ),
+          };
+          return { body: gbpImportResponse(plan) };
+        }
         return { body: gbpPublishResponse(lastPreviewGroupIds) };
+      }
       default:
         if (path.startsWith(`${BASE}/dual-sync/`)) {
           return { body: { items: [], jobs: [], candidates: [], operations: [] } };

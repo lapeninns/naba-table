@@ -38,25 +38,37 @@ afterEach(() => {
 });
 
 describe('dual-sync runtime controls', () => {
-  it('defaults write controls to fail closed while retaining candidate discovery', () => {
+  it('allows supported management decisions without deployment opt-in', () => {
     for (const name of FLAG_NAMES) {
       delete process.env[name];
     }
 
     expect(isDualSyncAutoCandidatesEnabled()).toBe(true);
-    expect(isDualSyncScheduledRefreshEnabled()).toBe(false);
+    expect(isDualSyncScheduledRefreshEnabled()).toBe(true);
     expect(getDualSyncRuntimeControls()).toMatchObject({
-      importEnabled: false,
-      exportEnabled: false,
+      importEnabled: true,
+      exportEnabled: true,
       autoCandidatesEnabled: true,
-      highRiskExportsEnabled: false,
-      menuSyncEnabled: false,
-      attributesSyncEnabled: false,
-      scheduledRefreshEnabled: false,
+      highRiskExportsEnabled: true,
+      menuSyncEnabled: true,
+      attributesSyncEnabled: true,
+      scheduledRefreshEnabled: true,
       pubsubIngestEnabled: false,
-      writeRolloutMode: 'off',
+      writeRolloutMode: 'on',
       canaryRestaurantId: null,
     });
+    for (const sectionKey of ['profile', 'foodMenus', 'businessContext.attributes']) {
+      for (const action of ['import_from_google', 'export_to_google'] as const) {
+        expect(
+          getDualSyncDecisionDisabledReason({
+            action,
+            sectionKey,
+            riskLevel: 'high',
+            requiresManualReview: true,
+          }),
+        ).toBeNull();
+      }
+    }
   });
 
   it('supports granular rollback controls for risky decision families', () => {

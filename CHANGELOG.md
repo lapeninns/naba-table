@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Make supported Google Business Profile management actions and scheduled refresh available by default, automatically refresh missing or stale comparisons on entry, and keep connection diagnostics collapsed behind the normal review workspace. Exact-change approval and retention checks remain enforced.
+
 - Redesign Communications Delivery overview, email, messages and review growth with shared responsive navigation, metric cards, channel breakdowns, filters and explicit unavailable-data states. Preserve restaurant and date-range context across channels.
 
 - Align the design-token layer with the Radix Luma brand spec: fluid display/headline type with inverse tracking, 14px/600 buttons with tactile press and 30% focus rings, tinted (never filled) destructive buttons, shadow-free resting cards, pill badges and status pills, plus new spacing, hero-rhythm and layout tokens. Retire the dead `--guest-*` and dark-only legacy aliases, regenerate `docs/tokens.json` from the stylesheet, and rewrite the token reference.

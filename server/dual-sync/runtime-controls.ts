@@ -2,8 +2,8 @@
  * Runtime rollback controls for high-risk dual-sync flows.
  *
  * The dual-sync API and settings workspace are always available. These
- * controls only block specific write families before Core or Google data
- * can be mutated.
+ * Management features are enabled by default. Explicit emergency overrides
+ * can block specific write families before Core or Google data is mutated.
  */
 
 import { getEnv } from '@/lib/env';

@@ -412,10 +412,14 @@ Required incident note:
 
 ## Production Rollout, Canary, and Rollback Gate
 
-This procedure requires separate staging and production evidence. The source defaults are
-write-safe: `GBP_WRITE_ROLLOUT_MODE=off`, import/export/high-risk/menu/attributes/scheduled
-refresh/PubSub ingestion are false by default. `GBP_AUTO_CANDIDATES_ENABLED` is an exception
-and defaults true, so a rollback must set it explicitly false rather than relying on omission.
+This procedure requires separate staging and production evidence. Supported imports, exports,
+high-risk review, menus, attributes, scheduled refresh and candidate discovery are enabled by
+default. `GBP_WRITE_ROLLOUT_MODE` defaults to `on`; existing database containment settings are
+still authoritative. Venue administrators do not manage deployment switches. Exact-plan consent,
+retention readiness, provider capabilities and restaurant pause still apply to every operation.
+Pub/Sub ingestion requires separately configured authenticated delivery. During an incident set
+`GBP_WRITE_ROLLOUT_MODE=off` and each affected emergency control explicitly false; omission is
+not a rollback action.
 
 Before setting a canary, capture a count-only readback of the write-grant and rollout state.
 The proposed canary venue must be the only venue in the readback and must have no unresolved
