@@ -158,13 +158,18 @@ function describeThrowable(err: unknown): ThrowableLogMeta {
  */
 export const UPSTREAM_UNAVAILABLE_MESSAGE =
   'We couldn’t reach the server just now. Try again in a moment.';
+export const OUTCOME_UNKNOWN_MESSAGE =
+  'We couldn’t confirm this was saved. Refresh to check before trying again.';
 const UPSTREAM_RETRY_AFTER_SECONDS = 2;
 
 /** Network-level failures reaching Supabase/PostgREST (undici `fetch`), not database errors. */
 const UPSTREAM_NETWORK_FAILURE =
   /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|other side closed|UND_ERR_/i;
+/** Failures that happen before the request is sent, so nothing can have been written. */
+const FAILED_BEFORE_SEND = /ECONNREFUSED|ENOTFOUND|EAI_AGAIN|UND_ERR_CONNECT_TIMEOUT/i;
 /** A five-character SQLSTATE means the database answered, so it is not a network failure. */
 const SQLSTATE = /^[0-9A-Z]{5}$/;
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 function textOf(value: unknown): string {
   if (typeof value === 'string') return value;
@@ -179,9 +184,9 @@ function textOf(value: unknown): string {
 }
 
 /**
- * True when the request never reached the database (connection reset, DNS, timeout), as
- * supabase-js reports it: a PostgrestError whose message is "TypeError: fetch failed" and whose
- * code is empty. Such failures are transient, so callers get a retryable 503.
+ * True when the request never got a database answer (connection refused or reset, DNS, timeout),
+ * as supabase-js reports it: a PostgrestError whose message is "TypeError: fetch failed" and whose
+ * code is empty.
  */
 export function isUpstreamUnavailable(err: unknown): boolean {
   if (typeof err !== 'object' || err === null) return false;
@@ -190,13 +195,32 @@ export function isUpstreamUnavailable(err: unknown): boolean {
   return UPSTREAM_NETWORK_FAILURE.test(textOf(err));
 }
 
+/** HTTP method from `ctx.method` or a "POST /api/..." route label; unknown means a write. */
+function requestMethod(ctx: { route: string; method?: unknown }): string | null {
+  if (typeof ctx.method === 'string') return ctx.method.toUpperCase();
+  const match = /^(GET|HEAD|OPTIONS|POST|PUT|PATCH|DELETE)\s/i.exec(ctx.route);
+  return match?.[1]?.toUpperCase() ?? null;
+}
+
 export function internalError(
   err: unknown,
   ctx: { route: string; [key: string]: unknown },
   message: string = INTERNAL_ERROR_MESSAGE,
 ): NextResponse<ApiErrorBody> {
   if (isUpstreamUnavailable(err)) {
-    logger.warn('api.upstream_unavailable', { ...ctx, ...describeThrowable(err) });
+    const method = requestMethod(ctx);
+    // A write whose connection dropped mid-flight may already have committed. Replaying it
+    // could duplicate a non-idempotent change, so it is never advertised as retryable.
+    const safeToRetry =
+      FAILED_BEFORE_SEND.test(textOf(err)) || (method !== null && SAFE_METHODS.has(method));
+    logger.warn('api.upstream_unavailable', {
+      ...ctx,
+      ...describeThrowable(err),
+      outcome: safeToRetry ? 'not_sent' : 'unknown',
+    });
+    if (!safeToRetry) {
+      return apiError(503, 'OUTCOME_UNKNOWN', OUTCOME_UNKNOWN_MESSAGE);
+    }
     return apiError(503, 'UPSTREAM_UNAVAILABLE', UPSTREAM_UNAVAILABLE_MESSAGE, {
       retryable: true,
       retryAfter: UPSTREAM_RETRY_AFTER_SECONDS,

@@ -74,6 +74,16 @@ describe('toUserMessage (C2)', () => {
     );
   });
 
+  it('tells the operator to check before retrying when a save may have landed', () => {
+    const error = normalizeError({
+      status: 503,
+      body: { code: 'OUTCOME_UNKNOWN', message: 'raw' },
+    });
+    expect(toUserMessage(error)).toBe(
+      'We couldn’t confirm this was saved. Refresh to check before trying again.',
+    );
+  });
+
   it('still honours caller copy for 5xx codes', () => {
     const error = normalizeError({ status: 503, body: { code: 'PROVIDER_DOWN' } });
     expect(toUserMessage(error, { copy: { PROVIDER_DOWN: 'Google is unavailable.' } })).toBe(

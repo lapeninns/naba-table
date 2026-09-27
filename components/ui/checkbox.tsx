@@ -8,12 +8,10 @@ import { cn } from '@/lib/utils';
 
 /**
  * The global base rule gives every <button> (a Radix checkbox is one) min 44x44, which would turn
- * the 16px box into a 44px square. The box opts out; coarse pointers get an invisible, centred
- * 44px hit area instead, as the Switch does.
+ * the 16px box into a 44px square, so the box opts out. The touch target is the checkbox's label
+ * row: an invisible 44px hit area here would overlap neighbours in compact lists (for example
+ * the email delivery status filters) and toggle the wrong one.
  */
-const CHECKBOX_COARSE_HIT_AREA_CLASS =
-  "[@media(pointer:coarse)]:relative [@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:left-1/2 [@media(pointer:coarse)]:after:top-1/2 [@media(pointer:coarse)]:after:size-11 [@media(pointer:coarse)]:after:-translate-x-1/2 [@media(pointer:coarse)]:after:-translate-y-1/2 [@media(pointer:coarse)]:after:content-['']";
-
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
@@ -22,7 +20,6 @@ const Checkbox = React.forwardRef<
     ref={ref}
     className={cn(
       'peer size-4 min-h-0 min-w-0 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
-      CHECKBOX_COARSE_HIT_AREA_CLASS,
       className,
     )}
     {...props}

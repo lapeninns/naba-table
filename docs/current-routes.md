@@ -205,7 +205,7 @@ All ops APIs require restaurant staff authentication.
 
 ## Mutation API contracts (September 2026)
 
-Every route below returns C1 error bodies (`lib/api/errors.ts`): `{ error, code, message, fields?, retryable?, retryAfter?, details? }`. `error` repeats `message` for older readers. Messages are safe to show and never contain raw database or provider text. Every mutation is CSRF-protected (`withCsrfProtectedMutation`) unless the row says otherwise. A 429 is `RATE_LIMITED` with a `Retry-After` header and `retryable: true`. A 503 `UPSTREAM_UNAVAILABLE` (also with `Retry-After` and `retryable: true`) means the server could not reach the database (connection reset, DNS or timeout) and nothing was written; any route's generic 500 becomes this when the cause is a network failure rather than a database error.
+Every route below returns C1 error bodies (`lib/api/errors.ts`): `{ error, code, message, fields?, retryable?, retryAfter?, details? }`. `error` repeats `message` for older readers. Messages are safe to show and never contain raw database or provider text. Every mutation is CSRF-protected (`withCsrfProtectedMutation`) unless the row says otherwise. A 429 is `RATE_LIMITED` with a `Retry-After` header and `retryable: true`. When the server cannot reach the database (a network failure, not a database error) it returns 503: `UPSTREAM_UNAVAILABLE` with `Retry-After` and `retryable: true` when nothing can have been written (a read, or a write that failed before it was sent), or `OUTCOME_UNKNOWN` without a retry hint when a write lost its connection mid-flight and may already have landed, so the client should refresh before trying again.
 
 ### Guest booking access
 

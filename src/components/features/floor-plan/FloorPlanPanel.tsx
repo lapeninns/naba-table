@@ -548,11 +548,14 @@ function SelectedTableBody({
           for {fb.name} · {fb.partySize}. Joins stay within {zone?.name ?? 'the zone'}.
         </p>
       ) : null}
-      <Button asChild variant="link" size="sm" className="h-auto px-0">
-        <Link href={TABLES_SETTINGS_HREF}>
-          Edit table in settings <ExternalLink aria-hidden />
-        </Link>
-      </Button>
+      {/* Settings are admin-only; hosts and servers would be bounced to Bookings. */}
+      {fp.canArrange ? (
+        <Button asChild variant="link" size="sm" className="h-auto px-0">
+          <Link href={TABLES_SETTINGS_HREF}>
+            Edit table in settings <ExternalLink aria-hidden />
+          </Link>
+        </Button>
+      ) : null}
       <Separator />
       <NeedsList fp={fp} onDragStart={onDragStart} heading />
     </>

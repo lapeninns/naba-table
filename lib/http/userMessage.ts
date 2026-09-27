@@ -9,6 +9,7 @@ export const DEFAULT_ERROR_COPY = {
   server: 'Something went wrong on our side. Try again.',
   network: "Couldn't reach the server. Check your connection and try again.",
   upstreamUnavailable: 'We couldn’t reach the server just now. Try again in a moment.',
+  outcomeUnknown: 'We couldn’t confirm this was saved. Refresh to check before trying again.',
   fallback: 'Something went wrong. Try again.',
 } as const;
 
@@ -58,6 +59,8 @@ export function toUserMessage(error: unknown, opts: ToUserMessageOptions = {}): 
     if (override) return override;
     // The server could not reach its database; the request is safe to retry.
     if (error.code === 'UPSTREAM_UNAVAILABLE') return DEFAULT_ERROR_COPY.upstreamUnavailable;
+    // A write lost its connection mid-flight and may have landed: check before retrying.
+    if (error.code === 'OUTCOME_UNKNOWN') return DEFAULT_ERROR_COPY.outcomeUnknown;
     if (isPresentableServerMessage(error)) return error.message.trim();
     return statusCopy(error.status) ?? fallback;
   }

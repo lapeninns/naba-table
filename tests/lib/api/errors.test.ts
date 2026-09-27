@@ -225,40 +225,88 @@ describe('internalError when the database cannot be reached', () => {
     loggerWarnMock.mockReset();
   });
 
-  it.each([
+  const RETRY_COPY = 'We couldn’t reach the server just now. Try again in a moment.';
+  const UNKNOWN_COPY = 'We couldn’t confirm this was saved. Refresh to check before trying again.';
+
+  // The request never left the app: nothing can have been written, so any method may retry.
+  const beforeSend: Array<[string, unknown]> = [
+    ['DNS failure', { message: 'getaddrinfo ENOTFOUND example.supabase.co', code: '' }],
+    ['refused connection', { message: 'connect ECONNREFUSED 127.0.0.1:54321', code: '' }],
+    ['connect timeout', { message: 'Connect Timeout Error', code: 'UND_ERR_CONNECT_TIMEOUT' }],
+  ];
+  // The request may have reached the database before the connection dropped.
+  const midFlight: Array<[string, unknown]> = [
     [
       'supabase-js fetch failure',
       {
         message: 'TypeError: fetch failed',
         code: '',
-        details: 'TypeError: fetch failed\n    at node:internal',
+        details: 'TypeError: fetch failed',
         hint: '',
       },
     ],
     [
-      'undici socket reset',
+      'socket reset',
       Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNRESET' } }),
     ],
-    ['DNS failure', { message: 'getaddrinfo ENOTFOUND example.supabase.co', code: '' }],
-    ['connect timeout', { message: 'Connect Timeout Error', code: 'UND_ERR_CONNECT_TIMEOUT' }],
-  ])('returns a retryable 503 for a %s', async (_label, error) => {
-    const response = internalError(error, { route: 'ops/tables/[id]', method: 'PATCH' });
+    ['socket hang up', new Error('socket hang up')],
+  ];
+
+  it.each([...beforeSend, ...midFlight])(
+    'returns a retryable 503 for a read after a %s',
+    async (_label, error) => {
+      const response = internalError(error, { route: 'ops/tables', method: 'GET' });
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get('Retry-After')).toBe('2');
+      expect(await response.json()).toEqual({
+        error: RETRY_COPY,
+        code: 'UPSTREAM_UNAVAILABLE',
+        message: RETRY_COPY,
+        retryable: true,
+        retryAfter: 2,
+      });
+      // A transient network failure is a warning, not an internal error.
+      expect(loggerErrorMock).not.toHaveBeenCalled();
+      expect(loggerWarnMock).toHaveBeenCalledWith(
+        'api.upstream_unavailable',
+        expect.objectContaining({ route: 'ops/tables', method: 'GET', outcome: 'not_sent' }),
+      );
+    },
+  );
+
+  it.each(beforeSend)('lets a write retry after a %s', async (_label, error) => {
+    const response = internalError(error, { route: 'ops/zones', method: 'POST' });
 
     expect(response.status).toBe(503);
-    expect(response.headers.get('Retry-After')).toBe('2');
-    expect(await response.json()).toEqual({
-      error: 'We couldn’t reach the server just now. Try again in a moment.',
+    expect(await response.json()).toMatchObject({
       code: 'UPSTREAM_UNAVAILABLE',
-      message: 'We couldn’t reach the server just now. Try again in a moment.',
       retryable: true,
-      retryAfter: 2,
     });
-    // A transient network failure is a warning, not an internal error.
-    expect(loggerErrorMock).not.toHaveBeenCalled();
-    expect(loggerWarnMock).toHaveBeenCalledWith(
-      'api.upstream_unavailable',
-      expect.objectContaining({ route: 'ops/tables/[id]', method: 'PATCH' }),
-    );
+  });
+
+  it.each(midFlight)(
+    'never invites a write to retry after a %s, because it may have landed',
+    async (_label, error) => {
+      const response = internalError(error, { route: 'POST /api/ops/zones' });
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get('Retry-After')).toBeNull();
+      expect(await response.json()).toEqual({
+        error: UNKNOWN_COPY,
+        code: 'OUTCOME_UNKNOWN',
+        message: UNKNOWN_COPY,
+      });
+      expect(loggerWarnMock).toHaveBeenCalledWith(
+        'api.upstream_unavailable',
+        expect.objectContaining({ outcome: 'unknown' }),
+      );
+    },
+  );
+
+  it('treats a route without a known method as a write', async () => {
+    const response = internalError(new Error('socket hang up'), { route: 'profile.put' });
+    expect(await response.json()).toMatchObject({ code: 'OUTCOME_UNKNOWN' });
   });
 
   it('keeps real database errors as a 500 even when the message mentions fetch', async () => {

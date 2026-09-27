@@ -104,11 +104,18 @@ function ViewArea({ fp, phone }: { fp: FloorPlanController; phone: boolean }) {
         <OpsEmptyState
           icon={<LayoutGrid className="size-5" aria-hidden />}
           title="No tables yet"
-          description="The floor plan is drawn from your tables. Add tables and zones in Tables settings, then come back to see them here."
+          description={
+            fp.canArrange
+              ? 'The floor plan is drawn from your tables. Add tables and zones in Tables settings, then come back to see them here.'
+              : 'The floor plan is drawn from your tables. Ask a manager to add tables and zones in settings.'
+          }
           action={
-            <Button asChild>
-              <Link href={TABLES_SETTINGS_HREF}>Go to Tables settings</Link>
-            </Button>
+            // Settings are admin-only; hosts and servers would be bounced to Bookings.
+            fp.canArrange ? (
+              <Button asChild>
+                <Link href={TABLES_SETTINGS_HREF}>Go to Tables settings</Link>
+              </Button>
+            ) : undefined
           }
         />
       </CenteredState>
