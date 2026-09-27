@@ -159,9 +159,10 @@ export async function completeOAuthIdentityRecord(
   const existing = params.state.external_profile_row_id
     ? await getCredentialRow(params.state.external_profile_row_id, client)
     : null;
-  const existingRefreshToken = existing?.refresh_token_encrypted
-    ? decryptGoogleBusinessProfileSecret(existing.refresh_token_encrypted, targetProfileId)
-    : null;
+  const existingRefreshToken =
+    params.tokens.refreshToken === null && existing?.refresh_token_encrypted
+      ? decryptGoogleBusinessProfileSecret(existing.refresh_token_encrypted, targetProfileId)
+      : null;
   const refreshToken = resolveGoogleBusinessProfileRefreshToken({
     issuedRefreshToken: params.tokens.refreshToken,
     existingRefreshToken,

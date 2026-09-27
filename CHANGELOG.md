@@ -12,6 +12,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Allow Google Business Profile reconnects with a newly issued refresh token when the previous credential encryption key is unavailable; retain fail-closed decryption when the stored token is needed as a fallback.
+
 - Clear communication query placeholders at restaurant boundaries and refresh delivery/queue queries after ambiguous recovery actions. Fail visibly when the mobile delivery ledger is unavailable, scope booking enrichment by restaurant, and derive message summaries and stuck-only pagination from the same filtered attempts.
 
 - Skip impossible email-pattern matches when Worker evidence strings contain no ASCII `@`, preserving redaction behavior and the existing oversized-evidence size limit and test timeout.
