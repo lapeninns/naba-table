@@ -159,33 +159,40 @@
     cursor: pointer;
   }
 
+  /*
+   * Printing a page that holds #ops-print-root (the bookings run sheet) prints only that
+   * element. Everything outside it is removed from layout rather than hidden, so the app
+   * shell adds no blank pages; its ancestors are flattened so no scroll container clips
+   * the pages.
+   */
   @media print {
-    body * {
-      visibility: hidden;
+    html:has(#ops-print-root),
+    body:has(#ops-print-root) {
+      height: auto !important;
+      min-height: 0 !important;
+      overflow: visible !important;
+      background: #ffffff !important;
     }
 
-    #ops-print-root,
-    #ops-print-root * {
-      visibility: visible;
+    body:has(#ops-print-root) *:not(:has(#ops-print-root), #ops-print-root, #ops-print-root *) {
+      display: none !important;
     }
 
-    #ops-print-root {
-      position: absolute;
-      inset: 0;
-      padding: 0;
-    }
-
-    #ops-print-root thead {
-      display: table-header-group;
-    }
-
-    #ops-print-root tr {
-      break-inside: avoid;
-    }
-
-    #ops-print-root th,
-    #ops-print-root td {
-      color: #111111;
+    body:has(#ops-print-root) *:has(#ops-print-root) {
+      display: block !important;
+      position: static !important;
+      inset: auto !important;
+      width: auto !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      border: 0 !important;
+      overflow: visible !important;
+      transform: none !important;
+      box-shadow: none !important;
+      background: transparent !important;
     }
   }
 

@@ -1,75 +1,75 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { useOpsTodaySummaryMock, useOpsActiveMembershipMock } = vi.hoisted(() => ({
-  useOpsTodaySummaryMock: vi.fn(),
-  useOpsActiveMembershipMock: vi.fn(),
-}));
+const { useOpsDashboardDataMock, useOpsActiveMembershipMock, navigation } = vi.hoisted(() => {
+  const cache = new Map<string, URLSearchParams>();
+  const router = { replace: vi.fn() };
+  return {
+    useOpsDashboardDataMock: vi.fn(),
+    useOpsActiveMembershipMock: vi.fn(),
+    navigation: {
+      search: '',
+      router,
+      params(search: string) {
+        if (!cache.has(search)) cache.set(search, new URLSearchParams(search));
+        return cache.get(search)!;
+      },
+    },
+  };
+});
 
-vi.mock('@/hooks/ops/useOpsTodaySummary', () => ({
-  useOpsTodaySummary: useOpsTodaySummaryMock,
+vi.mock('@/hooks/ops/useOpsDashboardData', () => ({
+  useOpsDashboardData: useOpsDashboardDataMock,
 }));
 vi.mock('@/contexts/ops-session', () => ({
   useOpsActiveMembership: useOpsActiveMembershipMock,
 }));
+vi.mock('next/navigation', () => ({
+  usePathname: () => '/app/dashboard/print',
+  useRouter: () => navigation.router,
+  useSearchParams: () => navigation.params(navigation.search),
+}));
 
+import { OpsBookingsPrintView } from '@/components/features/dashboard/OpsBookingsPrintView';
 import {
-  PINNED_NOW_ISO,
-  attemptImport,
+  PINNED_DATE_KEY,
   makeBooking,
   makeSummary,
-  makeTotals,
 } from '@tests/components/features/dashboard/__fixtures__/dashboardFixtures';
 
 import type { OpsTodayBookingsSummary } from '@/types/ops';
 
-type PrintViewModule = typeof import('@/components/features/dashboard/OpsBookingsPrintView');
-
-// KNOWN-ISSUE (test-infra): OpsBookingsPrintView.tsx imports
-// '@/hooks/ops/useOpsTodaySummary', a src-only ops hook with no per-file alias in
-// vitest.config.ts, so the module cannot load here (same class of blocker as the
-// '@/hooks/use-minimum-delay' components; see attemptImport in the shared
-// fixtures). The behavioral suite below auto-activates once the alias exists.
-const { mod, error: loadError } = await attemptImport<PrintViewModule>(
-  '@/components/features/dashboard/OpsBookingsPrintView',
-);
-
-const OpsBookingsPrintView = (mod?.OpsBookingsPrintView ??
-  (() => null)) as PrintViewModule['OpsBookingsPrintView'];
-
 function mockSummaryQuery(overrides: {
-  data?: OpsTodayBookingsSummary | null;
+  summary?: OpsTodayBookingsSummary | null;
   isLoading?: boolean;
   isFetching?: boolean;
   isError?: boolean;
 }) {
-  useOpsTodaySummaryMock.mockReturnValue({
-    data: overrides.data ?? undefined,
+  const summary = overrides.summary ?? null;
+  useOpsDashboardDataMock.mockReturnValue({
+    data: summary ?? undefined,
+    summary,
+    dataUpdatedAt: summary ? Date.parse('2026-06-15T12:00:00Z') : 0,
     isLoading: overrides.isLoading ?? false,
     isFetching: overrides.isFetching ?? false,
     isError: overrides.isError ?? false,
+    refetch: vi.fn(),
   });
 }
 
-describe.runIf(mod === null)('OpsBookingsPrintView (module unloadable under vitest)', () => {
-  it('@contract KNOWN-ISSUE(test-infra): "@/hooks/ops/useOpsTodaySummary" is unresolvable by the vitest alias map, blocking the module', () => {
-    expect(String(loadError)).toMatch(/@\/hooks\/ops\/useOpsTodaySummary/);
-  });
-});
-
-describe.runIf(mod !== null)('OpsBookingsPrintView', () => {
+describe('OpsBookingsPrintView', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date(PINNED_NOW_ISO));
+    navigation.search = `date=${PINNED_DATE_KEY}`;
     useOpsActiveMembershipMock.mockReturnValue({
       restaurantId: 'restaurant-1',
       restaurantName: 'Old Crown',
     });
     window.print = vi.fn();
+    window.localStorage.clear();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.clearAllMocks();
   });
 
   it('@contract renders the no-access state without a restaurant membership', () => {
@@ -79,71 +79,87 @@ describe.runIf(mod !== null)('OpsBookingsPrintView', () => {
     render(<OpsBookingsPrintView params={{}} />);
 
     expect(screen.getByText('No restaurant access')).toBeInTheDocument();
-    expect(screen.getByText('Sign in with an account that has ops access.')).toBeInTheDocument();
   });
 
-  it('@contract renders the preparing state while the summary loads', () => {
-    mockSummaryQuery({ isLoading: true });
+  it('@contract shows a loading page and disables printing while the summary loads', () => {
+    mockSummaryQuery({ isLoading: true, isFetching: true });
 
-    render(<OpsBookingsPrintView params={{ date: '2026-06-15' }} />);
+    render(<OpsBookingsPrintView params={{ date: PINNED_DATE_KEY }} />);
 
-    expect(screen.getByText('Preparing print view…')).toBeInTheDocument();
-    expect(screen.getByText('Fetching bookings for 2026-06-15.')).toBeInTheDocument();
+    expect(screen.getByText('Preparing pages…')).toBeInTheDocument();
+    for (const button of screen.getAllByRole('button', { name: 'Print sheet' })) {
+      expect(button).toBeDisabled();
+    }
   });
 
-  it('@contract renders the error state when the summary query fails', () => {
-    mockSummaryQuery({ isError: true, data: null });
+  it('@contract offers a retry when the summary cannot load', () => {
+    mockSummaryQuery({ isError: true });
 
     render(<OpsBookingsPrintView params={{}} />);
 
-    expect(screen.getByText('Unable to load bookings')).toBeInTheDocument();
+    expect(screen.getByText('Couldn’t load bookings')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 
-  it('@contract renders header, filter chips, and one table row per booking', () => {
+  it('@contract renders the sheet header, criteria and one row per booking without auto-printing', () => {
     mockSummaryQuery({
-      data: makeSummary({
-        totals: makeTotals({ total: 2, covers: 6 }),
+      summary: makeSummary({
         bookings: [
-          makeBooking({ id: 'b1', customerName: 'Priya Patel', partySize: 2 }),
           makeBooking({
-            id: 'b2',
-            customerName: 'Alex Example',
-            partySize: 4,
-            startTime: '19:00',
+            id: 'b1',
+            customerName: 'Priya Patel',
+            partySize: 2,
+            allergies: ['Peanuts'],
           }),
+          makeBooking({ id: 'b2', customerName: 'Alex Example', partySize: 4, startTime: '19:00' }),
         ],
       }),
     });
 
-    render(<OpsBookingsPrintView params={{ filter: 'all', sortKey: 'time', sortDir: 'asc' }} />);
+    render(<OpsBookingsPrintView params={{ date: PINNED_DATE_KEY }} />);
 
-    expect(screen.getByRole('heading', { name: 'Bookings print list' })).toBeInTheDocument();
-    expect(screen.getByText(/Old Crown/)).toBeInTheDocument();
-    expect(screen.getByText(/Filter:/)).toBeInTheDocument();
-    expect(screen.getByText(/Sort:/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Print bookings' })).toBeInTheDocument();
-    expect(screen.getByText('Priya Patel')).toBeInTheDocument();
-    expect(screen.getByText('Alex Example')).toBeInTheDocument();
-    expect(screen.getAllByRole('row').length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByRole('heading', { name: 'Bookings run sheet' })).toBeInTheDocument();
+    const printRoot = document.getElementById('ops-print-root')!;
+    const page = within(printRoot).getAllByRole('article')[0]!;
+    expect(within(page).getByText('Old Crown')).toBeInTheDocument();
+    expect(within(page).getByText(/Sorted by time, earliest first/)).toBeInTheDocument();
+    expect(within(printRoot).getByText('Priya Patel')).toBeInTheDocument();
+    expect(within(printRoot).getByText('Alex Example')).toBeInTheDocument();
+    expect(within(printRoot).getByText('Allergy:')).toBeInTheDocument();
+    expect(window.print).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /^Print \d+ pages?$/ })[0]!);
+    expect(window.print).toHaveBeenCalledTimes(1);
   });
 
-  it('@contract renders the empty message when no booking matches the filters', () => {
-    mockSummaryQuery({ data: makeSummary({ bookings: [] }) });
+  it('@contract explains an empty day and an over-filtered sheet', () => {
+    mockSummaryQuery({ summary: makeSummary({ bookings: [] }) });
+    const { unmount } = render(<OpsBookingsPrintView params={{}} />);
+    expect(screen.getByRole('heading', { name: /^No bookings on / })).toBeInTheDocument();
+    unmount();
 
+    navigation.search = `date=${PINNED_DATE_KEY}&search=zebra`;
+    mockSummaryQuery({ summary: makeSummary({ bookings: [makeBooking({ id: 'b1' })] }) });
     render(<OpsBookingsPrintView params={{ search: 'zebra' }} />);
-
-    expect(screen.getByText('No bookings match the current filters.')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'No bookings match these filters' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all bookings' })).toBeInTheDocument();
   });
 
-  it('@contract auto-triggers the print dialog once the summary is ready', async () => {
+  it('@contract keeps the guest phone number off the sheet until it is switched on', () => {
     mockSummaryQuery({
-      data: makeSummary({ bookings: [makeBooking({ id: 'b1' })] }),
+      summary: makeSummary({
+        bookings: [makeBooking({ id: 'b1', customerPhone: '07700 900123' })],
+      }),
     });
 
     render(<OpsBookingsPrintView params={{}} />);
+    const printRoot = document.getElementById('ops-print-root')!;
+    expect(within(printRoot).queryByText('07700 900123')).toBeNull();
 
-    expect(window.print).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(300);
-    expect(window.print).toHaveBeenCalledTimes(1);
+    const options = screen.getByRole('complementary', { name: 'Sheet options' });
+    fireEvent.click(within(options).getByRole('checkbox', { name: /Guest phone number/ }));
+    expect(within(printRoot).getByText('07700 900123')).toBeInTheDocument();
   });
 });

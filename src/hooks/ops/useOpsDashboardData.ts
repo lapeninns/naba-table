@@ -35,6 +35,11 @@ export type UseOpsDashboardDataOptions = {
 };
 
 export type UseOpsDashboardDataResult = UseQueryResult<OpsDashboardData> & {
+  /**
+   * The summary for the requested restaurant and date, or null. `data` can still hold the
+   * previous date as placeholder data while the next one loads; `summary` never does.
+   */
+  summary: OpsDashboardData | null;
   realtimeHealthy: boolean;
   realtimeEnabled: boolean;
   isPolling: boolean;
@@ -315,6 +320,7 @@ export function useOpsDashboardData(
 
   return {
     ...query,
+    summary: activeSummary,
     realtimeHealthy,
     realtimeEnabled,
     isPolling: !realtimeEnabled || !realtimeHealthy,
