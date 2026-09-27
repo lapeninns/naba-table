@@ -202,7 +202,7 @@ export function ReviewGrowthClient(props: {
                     <span className="text-sm font-medium">{label}</span>
                     <Progress
                       value={summary.eligible ? (value / summary.eligible) * 100 : 0}
-                      aria-label={`${label.replace('*', '')}: ${percentage(value, summary.eligible)} of eligible`}
+                      aria-label={`${label.replaceAll('*', '')}: ${percentage(value, summary.eligible)} of eligible`}
                     />
                     <span className="text-sm tabular-nums text-muted-foreground md:text-right">
                       <span className="font-semibold text-foreground">
