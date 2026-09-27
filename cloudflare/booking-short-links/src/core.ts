@@ -173,6 +173,10 @@ export function isLinkActive(record: ShortLinkRecord, now: Date): boolean {
     return false;
   }
 
+  if (record.purpose === 'review') {
+    return true;
+  }
+
   const expiryMs = Date.parse(record.expiresAt);
   if (!Number.isFinite(expiryMs)) {
     return false;

@@ -78,7 +78,6 @@ type RestaurantRow = Database['public']['Tables']['restaurants']['Row'];
 // Prefer the public root host for guest-facing booking links.
 const bookingSiteUrl = getTrustedSiteOrigin().replace(/\/+$/, '');
 const bookingAppUrl = getTrustedAppOrigin().replace(/\/+$/, '');
-const REVIEW_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const LEGACY_PRE_VISIT_REVIEW_CUES = new Set([
   'If the meal turns into a favorite, feel free to snap a photo and add it to a quick review afterward.',
   'A quick photo and short review after your visit can help future guests choose with confidence.',
@@ -846,7 +845,6 @@ async function dispatchEmail(
             bookingId: booking.id,
             createdBy: 'guest_review_email',
             destinationUrl,
-            expiresAt: new Date(Date.now() + REVIEW_LINK_TTL_MS).toISOString(),
             restaurantId: booking.restaurant_id,
           })) ?? destinationUrl;
       }

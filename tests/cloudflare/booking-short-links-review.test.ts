@@ -132,6 +132,21 @@ describe('review short-link core', () => {
     expect(repository.touchLink).not.toHaveBeenCalled();
   });
 
+  it('resolves an old review link after its stored expiry @contract', async () => {
+    const record = reviewRecord({ expiresAt: '2026-09-13T13:10:41.455Z' });
+    const repository = repositoryFor(record);
+
+    const result = await resolveBookingShortLink({
+      repository,
+      token: record.token,
+      purpose: 'review',
+      now: new Date('2026-09-27T08:30:00.000Z'),
+    });
+
+    expect(result).toMatchObject({ status: 'redirect', record });
+    expect(repository.touchLink).toHaveBeenCalledWith(record.token, '2026-09-27T08:30:00.000Z');
+  });
+
   it.each([
     reviewRecord({ revokedAt: '2026-07-12T19:00:00.000Z' }),
     reviewRecord({ destinationUrl: 'https://search.google.com/search?q=demo' }),

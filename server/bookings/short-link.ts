@@ -25,6 +25,8 @@ type CreateShortLinkRequest = {
   createdBy: ShortLinkCreateSource;
 };
 
+const NON_EXPIRING_REVIEW_LINK_EXPIRES_AT = '9999-12-31T23:59:59.999Z';
+
 function isShortLinksConfigured(): boolean {
   return Boolean(
     env.cloudflare.bookingShortLinksInternalUrl &&
@@ -145,7 +147,6 @@ export async function createReviewShortUrl(params: {
   bookingId: string;
   restaurantId: string;
   destinationUrl: string;
-  expiresAt: string;
   fetchImpl?: typeof fetch;
   createdBy?: 'guest_review_whatsapp' | 'guest_review_email';
 }): Promise<string | null> {
@@ -164,7 +165,7 @@ export async function createReviewShortUrl(params: {
       destinationUrl,
       bookingId: params.bookingId,
       restaurantId: params.restaurantId,
-      expiresAt: params.expiresAt,
+      expiresAt: NON_EXPIRING_REVIEW_LINK_EXPIRES_AT,
       createdBy: params.createdBy ?? 'guest_review_whatsapp',
     },
     { fetchImpl: params.fetchImpl },
