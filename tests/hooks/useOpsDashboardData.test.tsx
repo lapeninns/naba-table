@@ -138,6 +138,27 @@ describe('useOpsDashboardData', () => {
     await waitFor(() => expect(result.current.summary?.date).toBe(nextDate));
   });
 
+  it('@contract hides placeholder data when the requested date resets to today', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    bookingService.getTodaySummary.mockImplementation(({ date }: { date?: string }) =>
+      date ? Promise.resolve(summary) : new Promise(() => undefined),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ date }: { date: string | null }) =>
+        useOpsDashboardData({ restaurantId, targetDate: date }),
+      { wrapper, initialProps: { date: targetDate as string | null } },
+    );
+    await waitFor(() => expect(result.current.summary?.date).toBe(targetDate));
+
+    rerender({ date: null });
+
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.data?.date).toBe(targetDate);
+    expect(result.current.summary).toBeNull();
+  });
+
   it('@contract @external-mock reports healthy realtime after a successful subscription', async () => {
     const { result } = setup({ restaurantId, targetDate });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

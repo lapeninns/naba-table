@@ -90,6 +90,27 @@ describe('paginateRunSheet', () => {
     ]);
   });
 
+  it('moves a first row that only fits on a roomier continuation page, with its heading', () => {
+    const pages = paginateRunSheet({
+      items: [group(0), row(0, 0, 50), row(0, 1)],
+      firstPageHeight: 40,
+      nextPageHeight: 100,
+      tableHeaderHeight: 10,
+    });
+    expect(describePages(pages)).toEqual([[], ['G0', 'R0.0', 'R0.1']]);
+  });
+
+  it('moves an oversized first ungrouped row to a continuation page when it fits there', () => {
+    const pages = paginateRunSheet({
+      items: [row(0, 0, 50)],
+      firstPageHeight: 40,
+      nextPageHeight: 100,
+      tableHeaderHeight: 10,
+      grouped: false,
+    });
+    expect(describePages(pages)).toEqual([[], ['R0.0']]);
+  });
+
   it('returns a single empty page for an empty sheet', () => {
     expect(
       paginateRunSheet({

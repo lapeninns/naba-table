@@ -127,12 +127,14 @@ export function useOpsDashboardData(
   });
   const { data, dataUpdatedAt, isFetching, refetch } = query;
 
+  const { isPlaceholderData } = query;
   const activeSummary = useMemo(() => {
-    if (!data) return null;
+    // Placeholder data belongs to the previous key, including when the date resets to today.
+    if (!data || isPlaceholderData) return null;
     if (data.restaurantId !== restaurantId) return null;
     if (targetDate && data.date !== targetDate) return null;
     return data;
-  }, [data, restaurantId, targetDate]);
+  }, [data, isPlaceholderData, restaurantId, targetDate]);
 
   const effectiveDate = activeSummary?.date ?? targetDate ?? null;
   const bookingIds = useMemo(

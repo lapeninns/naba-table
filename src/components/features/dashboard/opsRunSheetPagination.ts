@@ -65,16 +65,21 @@ export function paginateRunSheet({
       rowIndex: item.rowIndex,
     };
 
-    // A row that cannot fit even on a fresh page is placed anyway; moving it would loop.
+    // A row too tall even for a fresh continuation page is placed where it is; moving it
+    // would loop. A row that fits a fresh page moves there, even off an otherwise empty
+    // first page, so it is never clipped.
     const onlyHeadings = page.every((existing) => existing.kind === 'group');
-    if (used + item.height <= capacity || onlyHeadings) {
+    const headingHeight = groupHeadingHeights.get(item.groupIndex) ?? 0;
+    const fitsFreshPage =
+      tableHeaderHeight + (grouped ? headingHeight : 0) + item.height <= nextPageHeight;
+    if (used + item.height <= capacity || (onlyHeadings && !fitsFreshPage)) {
       page.push(entry);
       used += item.height;
       continue;
     }
 
     const last = page.at(-1);
-    const orphan = last?.kind === 'group' && page.length > 1 ? page.pop() : undefined;
+    const orphan = last?.kind === 'group' ? page.pop() : undefined;
     startPage();
 
     if (orphan) {
