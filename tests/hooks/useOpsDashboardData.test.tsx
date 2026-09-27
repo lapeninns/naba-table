@@ -105,6 +105,60 @@ describe('useOpsDashboardData', () => {
     });
   });
 
+  it('@contract exposes only the summary that matches the requested date', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    const nextDate = '2026-07-12';
+    let resolveNext: (value: unknown) => void = () => undefined;
+    bookingService.getTodaySummary.mockImplementation(({ date }: { date?: string }) =>
+      date === nextDate
+        ? new Promise((resolve) => {
+            resolveNext = resolve;
+          })
+        : Promise.resolve(summary),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ date }: { date: string }) => useOpsDashboardData({ restaurantId, targetDate: date }),
+      { wrapper, initialProps: { date: targetDate } },
+    );
+
+    await waitFor(() => expect(result.current.summary?.date).toBe(targetDate));
+
+    rerender({ date: nextDate });
+
+    // The previous day's data is kept as a placeholder, but it is not the summary for this date.
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.data?.date).toBe(targetDate);
+    expect(result.current.summary).toBeNull();
+
+    await act(async () => {
+      resolveNext({ ...summary, date: nextDate });
+    });
+    await waitFor(() => expect(result.current.summary?.date).toBe(nextDate));
+  });
+
+  it('@contract hides placeholder data when the requested date resets to today', async () => {
+    const queryClient = createTestQueryClient();
+    const wrapper = createQueryWrapper(queryClient);
+    bookingService.getTodaySummary.mockImplementation(({ date }: { date?: string }) =>
+      date ? Promise.resolve(summary) : new Promise(() => undefined),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ date }: { date: string | null }) =>
+        useOpsDashboardData({ restaurantId, targetDate: date }),
+      { wrapper, initialProps: { date: targetDate as string | null } },
+    );
+    await waitFor(() => expect(result.current.summary?.date).toBe(targetDate));
+
+    rerender({ date: null });
+
+    await waitFor(() => expect(result.current.isFetching).toBe(true));
+    expect(result.current.data?.date).toBe(targetDate);
+    expect(result.current.summary).toBeNull();
+  });
+
   it('@contract @external-mock reports healthy realtime after a successful subscription', async () => {
     const { result } = setup({ restaurantId, targetDate });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));

@@ -35,6 +35,11 @@ export type UseOpsDashboardDataOptions = {
 };
 
 export type UseOpsDashboardDataResult = UseQueryResult<OpsDashboardData> & {
+  /**
+   * The summary for the requested restaurant and date, or null. `data` can still hold the
+   * previous date as placeholder data while the next one loads; `summary` never does.
+   */
+  summary: OpsDashboardData | null;
   realtimeHealthy: boolean;
   realtimeEnabled: boolean;
   isPolling: boolean;
@@ -122,12 +127,14 @@ export function useOpsDashboardData(
   });
   const { data, dataUpdatedAt, isFetching, refetch } = query;
 
+  const { isPlaceholderData } = query;
   const activeSummary = useMemo(() => {
-    if (!data) return null;
+    // Placeholder data belongs to the previous key, including when the date resets to today.
+    if (!data || isPlaceholderData) return null;
     if (data.restaurantId !== restaurantId) return null;
     if (targetDate && data.date !== targetDate) return null;
     return data;
-  }, [data, restaurantId, targetDate]);
+  }, [data, isPlaceholderData, restaurantId, targetDate]);
 
   const effectiveDate = activeSummary?.date ?? targetDate ?? null;
   const bookingIds = useMemo(
@@ -315,6 +322,7 @@ export function useOpsDashboardData(
 
   return {
     ...query,
+    summary: activeSummary,
     realtimeHealthy,
     realtimeEnabled,
     isPolling: !realtimeEnabled || !realtimeHealthy,

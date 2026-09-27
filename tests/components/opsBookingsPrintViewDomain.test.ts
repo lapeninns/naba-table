@@ -2,46 +2,57 @@ import { DateTime } from 'luxon';
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildOpsBookingsPrintTableRow,
-  buildOpsBookingsPrintViewState,
+  DEFAULT_RUN_SHEET_PREFERENCES,
+  buildOpsRunSheet,
+  buildRunSheetRow,
   parseOpsBookingsPrintParams,
+  parseRunSheetPreferences,
+  planRunSheetColumns,
   shouldAllowPrintTableAssignments,
 } from '@/components/features/dashboard/opsBookingsPrintViewDomain';
 
 import type { OpsTodayBooking, OpsTodayBookingsSummary } from '@/types/ops';
 
+const DATE = '2026-05-20';
+const ZONE = 'Europe/London';
+
 function makeBooking(overrides: Partial<OpsTodayBooking> = {}): OpsTodayBooking {
   return {
-    id: overrides.id ?? 'booking-1',
-    status: overrides.status ?? 'confirmed',
-    startTime: overrides.startTime ?? '19:00',
-    endTime: overrides.endTime ?? '20:30',
-    partySize: overrides.partySize ?? 2,
-    customerName: overrides.customerName ?? 'Alex Guest',
-    customerEmail: overrides.customerEmail ?? 'alex@example.com',
-    customerPhone: overrides.customerPhone ?? null,
-    notes: overrides.notes ?? null,
-    reference: overrides.reference ?? 'REF-1',
-    details: overrides.details ?? null,
-    source: overrides.source ?? null,
-    tableAssignments: overrides.tableAssignments ?? [],
-    requiresTableAssignment: overrides.requiresTableAssignment ?? false,
-    checkedInAt: overrides.checkedInAt ?? null,
-    checkedOutAt: overrides.checkedOutAt ?? null,
+    id: 'booking-1',
+    status: 'confirmed',
+    bookingType: 'dinner',
+    startTime: '19:00:00',
+    endTime: '20:30:00',
+    partySize: 2,
+    customerName: 'Alex Guest',
+    customerEmail: 'alex@example.com',
+    customerPhone: null,
+    notes: null,
+    reference: 'REF-1',
+    details: null,
+    source: null,
+    tableAssignments: [],
+    requiresTableAssignment: true,
+    checkedInAt: null,
+    checkedOutAt: null,
     ...overrides,
   };
 }
 
-function makeSummary(bookings: OpsTodayBooking[] = []): OpsTodayBookingsSummary {
+function table(tableNumber: string, section: string | null = 'Main') {
   return {
-    date: '2026-05-20',
-    timezone: 'Europe/London',
+    groupId: null,
+    capacitySum: 2,
+    members: [{ tableId: `t-${tableNumber}`, tableNumber, capacity: 2, section }],
+  };
+}
+
+function makeSummary(bookings: OpsTodayBooking[] = [], date = DATE): OpsTodayBookingsSummary {
+  return {
+    date,
+    timezone: ZONE,
     restaurantId: 'restaurant-1',
-    meta: {
-      date: '2026-05-20',
-      timezone: 'Europe/London',
-      restaurantId: 'restaurant-1',
-    },
+    meta: { date, timezone: ZONE, restaurantId: 'restaurant-1' },
     totals: {
       total: bookings.length,
       confirmed: 0,
@@ -56,7 +67,26 @@ function makeSummary(bookings: OpsTodayBooking[] = []): OpsTodayBookingsSummary 
   };
 }
 
-describe('opsBookingsPrintViewDomain', () => {
+const at = (time: string, date = DATE) => DateTime.fromISO(`${date}T${time}`, { zone: ZONE });
+
+function sheet(
+  bookings: OpsTodayBooking[],
+  overrides: Partial<Parameters<typeof buildOpsRunSheet>[0]> = {},
+) {
+  return buildOpsRunSheet({
+    summary: makeSummary(bookings),
+    filter: 'all',
+    searchQuery: '',
+    sortKey: 'time',
+    sortDir: 'asc',
+    groupMode: 'service',
+    now: at('18:00'),
+    today: DATE,
+    ...overrides,
+  });
+}
+
+describe('parseOpsBookingsPrintParams', () => {
   it('parses print params with date sanitization and safe sort/filter fallbacks', () => {
     expect(
       parseOpsBookingsPrintParams({
@@ -82,98 +112,217 @@ describe('opsBookingsPrintViewDomain', () => {
         sortKey: 'unknown',
         sortDir: 'sideways',
       }),
-    ).toMatchObject({
-      filter: 'all',
-      parsedDate: null,
-      searchQuery: '',
-      sortDir: 'asc',
-      sortKey: 'time',
-      targetDate: null,
+    ).toMatchObject({ filter: 'all', parsedDate: null, sortDir: 'asc', sortKey: 'time' });
+  });
+});
+
+describe('parseRunSheetPreferences', () => {
+  it('returns defaults for missing or malformed stored values', () => {
+    expect(parseRunSheetPreferences(null)).toEqual(DEFAULT_RUN_SHEET_PREFERENCES);
+    expect(parseRunSheetPreferences('nonsense')).toEqual(DEFAULT_RUN_SHEET_PREFERENCES);
+    expect(parseRunSheetPreferences([1, 2])).toEqual(DEFAULT_RUN_SHEET_PREFERENCES);
+  });
+
+  it('keeps valid fields and drops invalid ones field by field', () => {
+    expect(
+      parseRunSheetPreferences({
+        groupMode: 'status',
+        paper: 'sideways',
+        density: 'compact',
+        view: 'list',
+        columns: { phone: true, notes: 'yes', unknown: true },
+      }),
+    ).toEqual({
+      ...DEFAULT_RUN_SHEET_PREFERENCES,
+      groupMode: 'status',
+      density: 'compact',
+      view: 'list',
+      columns: { ...DEFAULT_RUN_SHEET_PREFERENCES.columns, phone: true },
     });
   });
 
-  it('filters by search and keeps all-filter status grouping before time sort', () => {
-    const summary = makeSummary([
-      makeBooking({
-        id: 'completed',
-        status: 'completed',
-        startTime: '17:00',
-        customerName: 'Completed Guest',
-      }),
-      makeBooking({
-        id: 'upcoming',
-        status: 'confirmed',
-        startTime: '19:00',
-        customerName: 'Alex Arrival',
-      }),
-      makeBooking({
-        id: 'seated',
-        status: 'checked_in',
-        startTime: '21:00',
-        customerName: 'Seated Guest',
-      }),
-    ]);
-
-    const state = buildOpsBookingsPrintViewState({
-      allowTableAssignments: true,
-      filter: 'all',
-      now: DateTime.fromISO('2026-05-20T18:00:00', { zone: 'Europe/London' }),
-      searchQuery: '',
-      sortDir: 'asc',
-      sortKey: 'time',
-      summary,
-    });
-
-    expect(state.sortedBookings.map((booking) => booking.id)).toEqual([
-      'seated',
-      'upcoming',
-      'completed',
-    ]);
-
-    const searched = buildOpsBookingsPrintViewState({
-      allowTableAssignments: true,
-      filter: 'all',
-      now: DateTime.fromISO('2026-05-20T18:00:00', { zone: 'Europe/London' }),
-      searchQuery: 'arrival',
-      sortDir: 'asc',
-      sortKey: 'time',
-      summary,
-    });
-
-    expect(searched.sortedBookings.map((booking) => booking.id)).toEqual(['upcoming']);
+  it('keeps the guest phone column off by default', () => {
+    expect(DEFAULT_RUN_SHEET_PREFERENCES.columns.phone).toBe(false);
   });
+});
 
-  it('builds print table rows with fallback labels and de-duplicated table numbers', () => {
-    const row = buildOpsBookingsPrintTableRow(
+describe('buildRunSheetRow', () => {
+  it('builds labels, joined tables, sections and dietary flags', () => {
+    const row = buildRunSheetRow(
       makeBooking({
-        id: 'booking-table',
-        customerName: '   ',
+        customerName: '  ',
         notes: '  Window seat  ',
-        tableAssignments: [
-          {
-            groupId: 'group-1',
-            capacitySum: 4,
-            members: [
-              { tableId: 'table-1', tableNumber: '12', capacity: 2, section: 'Main' },
-              { tableId: 'table-2', tableNumber: '12', capacity: 2, section: 'Main' },
-              { tableId: 'table-3', tableNumber: '14', capacity: 2, section: 'Main' },
-            ],
-          },
-        ],
+        customerPhone: '07700 900111',
+        allergies: ['Peanuts', ' '],
+        dietaryRestrictions: ['Vegan'],
+        tableAssignments: [table('7', 'Restaurant'), table('8', 'Restaurant'), table('7')],
+        requiresTableAssignment: false,
       }),
-      'Europe/London',
+      { summary: makeSummary(), now: at('18:00'), isToday: true },
     );
 
     expect(row).toMatchObject({
-      id: 'booking-table',
-      nameLabel: 'Walk-in Guest',
-      notesLabel: 'Window seat',
-      partySize: 2,
-      tableLabel: '12, 14',
+      guestLabel: 'Walk-in guest',
+      notes: 'Window seat',
+      phone: '07700 900111',
+      startLabel: '19:00',
+      endLabel: '20:30',
+      tableNumbers: ['7', '8'],
+      tableSections: ['Restaurant', 'Main'],
+      allergies: ['Peanuts'],
+      dietary: ['Vegan'],
+      isUnassigned: false,
+      category: 'upcoming',
+      statusLabel: 'Confirmed',
+      statusTone: 'confirmed',
+      serviceKey: 'dinner',
+      lateMinutes: null,
     });
-    expect(row.timeLabel).toContain('19:00');
   });
 
+  it('flags late arrivals only on the live day and only after the grace period', () => {
+    const booking = makeBooking({ startTime: '18:00:00' });
+    const summary = makeSummary([booking]);
+
+    expect(
+      buildRunSheetRow(booking, { summary, now: at('18:10'), isToday: true }).lateMinutes,
+    ).toBeNull();
+    expect(
+      buildRunSheetRow(booking, { summary, now: at('18:25'), isToday: true }).lateMinutes,
+    ).toBe(25);
+    expect(
+      buildRunSheetRow(booking, { summary, now: at('18:25'), isToday: false }).lateMinutes,
+    ).toBeNull();
+    expect(
+      buildRunSheetRow(
+        { ...booking, status: 'checked_in' },
+        { summary, now: at('18:25'), isToday: true },
+      ).lateMinutes,
+    ).toBeNull();
+  });
+
+  it('never reports finished bookings as unassigned', () => {
+    const row = buildRunSheetRow(makeBooking({ status: 'cancelled' }), {
+      summary: makeSummary(),
+      now: at('18:00'),
+      isToday: true,
+    });
+    expect(row).toMatchObject({ isUnassigned: false, category: 'finished', statusTone: 'done' });
+  });
+});
+
+describe('buildOpsRunSheet', () => {
+  const lunch = makeBooking({
+    id: 'lunch',
+    bookingType: 'lunch',
+    startTime: '12:30:00',
+    endTime: '14:00:00',
+    partySize: 4,
+    status: 'completed',
+    tableAssignments: [table('2')],
+    requiresTableAssignment: false,
+  });
+  const seated = makeBooking({
+    id: 'seated',
+    startTime: '17:30:00',
+    endTime: '19:30:00',
+    partySize: 6,
+    status: 'checked_in',
+    allergies: ['Shellfish'],
+    tableAssignments: [table('5')],
+    requiresTableAssignment: false,
+  });
+  const upcoming = makeBooking({ id: 'upcoming', customerName: 'Zed Arrival', partySize: 3 });
+  const noShow = makeBooking({
+    id: 'no-show',
+    bookingType: 'lunch',
+    startTime: '13:00:00',
+    endTime: '14:30:00',
+    status: 'no_show',
+    partySize: 5,
+  });
+
+  it('groups by service with time spans and per-group active covers', () => {
+    const result = sheet([upcoming, noShow, seated, lunch]);
+
+    expect(result.groups.map((group) => [group.label, group.spanLabel, group.covers])).toEqual([
+      ['Lunch', '12:30–14:30', 4],
+      ['Dinner', '17:30–20:30', 9],
+    ]);
+    expect(result.groups[0]?.rows.map((row) => row.id)).toEqual(['lunch', 'no-show']);
+  });
+
+  it('groups by status in seated, upcoming, finished order', () => {
+    const result = sheet([lunch, upcoming, seated], { groupMode: 'status' });
+    expect(result.groups.map((group) => group.label)).toEqual(['Seated', 'Upcoming', 'Finished']);
+  });
+
+  it('returns one unlabelled group without grouping and honours sort direction', () => {
+    const result = sheet([lunch, upcoming, seated], {
+      groupMode: 'none',
+      sortKey: 'party',
+      sortDir: 'desc',
+    });
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0]?.label).toBeNull();
+    expect(result.groups[0]?.rows.map((row) => row.id)).toEqual(['seated', 'lunch', 'upcoming']);
+  });
+
+  it('computes stats that exclude cancelled and no-show covers', () => {
+    expect(sheet([lunch, seated, upcoming, noShow]).stats).toEqual({
+      bookings: 4,
+      covers: 13,
+      lunchCovers: 4,
+      dinnerCovers: 9,
+      allergyFlags: 1,
+      unassigned: 1,
+    });
+  });
+
+  it('applies search before filter counts so chip counts match the sheet', () => {
+    const result = sheet([lunch, seated, upcoming], { searchQuery: 'arrival' });
+    expect(result.counts).toMatchObject({ all: 1, upcoming: 1, seated: 0, finished: 0 });
+    expect(result.dayBookingCount).toBe(3);
+    expect(result.matchingCount).toBe(1);
+  });
+
+  it('filters rows with the dashboard filter semantics', () => {
+    const result = sheet([lunch, seated, upcoming, noShow], { filter: 'finished' });
+    expect(result.groups.flatMap((group) => group.rows.map((row) => row.id))).toEqual([
+      'lunch',
+      'no-show',
+    ]);
+    expect(result.criteria).toMatchObject({
+      filterLabel: 'Finished',
+      sortLabel: 'time',
+      sortDirLabel: 'earliest first',
+    });
+  });
+});
+
+describe('planRunSheetColumns', () => {
+  it('merges dietary and notes into one detail column on portrait paper', () => {
+    const keys = planRunSheetColumns(DEFAULT_RUN_SHEET_PREFERENCES).map((column) => column.key);
+    expect(keys).toEqual(['tick', 'time', 'guest', 'party', 'table', 'status', 'detail']);
+  });
+
+  it('splits dietary and notes on landscape paper and drops hidden columns', () => {
+    const keys = planRunSheetColumns({
+      ...DEFAULT_RUN_SHEET_PREFERENCES,
+      paper: 'landscape',
+      columns: { ...DEFAULT_RUN_SHEET_PREFERENCES.columns, tick: false, status: false },
+    }).map((column) => column.key);
+    expect(keys).toEqual(['time', 'guest', 'party', 'table', 'diet', 'notes']);
+  });
+
+  it('leaves the last column flexible', () => {
+    const columns = planRunSheetColumns(DEFAULT_RUN_SHEET_PREFERENCES);
+    expect(columns.at(-1)?.widthMm).toBeNull();
+    expect(columns.slice(0, -1).every((column) => typeof column.widthMm === 'number')).toBe(true);
+  });
+});
+
+describe('shouldAllowPrintTableAssignments', () => {
   it('allows table assignments only for ready summaries on today or future dates', () => {
     const futureSummary = { ...makeSummary(), date: '2999-01-01' };
     const pastSummary = { ...futureSummary, date: '2020-01-01' };

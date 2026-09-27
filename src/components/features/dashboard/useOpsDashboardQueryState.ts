@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 
 import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { sanitizeDateParam } from '@/utils/ops/dashboard';
@@ -44,6 +44,10 @@ export function useOpsDashboardQueryState({ initialDate }: { initialDate: string
   });
   const [searchQuery, setSearchQuery] = useState(() => searchParams?.get('search') ?? '');
   const deferredSearchQuery = useDebouncedValue(searchQuery, 250);
+  // The search value last written to (or read from) the URL. A URL change that still carries
+  // it is this hook's own echo (for example a filter change landing while the user types), so
+  // it must not overwrite the text in the search box.
+  const urlSearchRef = useRef(searchParams?.get('search') ?? '');
   const [selectedDate, setSelectedDate] = useState<string | null>(
     sanitizeDateParam(initialDate ?? undefined),
   );
@@ -103,7 +107,10 @@ export function useOpsDashboardQueryState({ initialDate }: { initialDate: string
     const nextDate = hasDateParam ? sanitizeDateParam(params.get('date') ?? undefined) : null;
 
     setFilter((current) => (current === nextFilter ? current : nextFilter));
-    setSearchQuery((current) => (current === nextSearch ? current : nextSearch));
+    if (nextSearch !== urlSearchRef.current) {
+      urlSearchRef.current = nextSearch;
+      setSearchQuery(nextSearch);
+    }
     setSortKeyState((current) => (current === nextSortKey ? current : nextSortKey));
     setSortDirState((current) => (current === nextSortDir ? current : nextSortDir));
     setSelectedDate((current) => {
@@ -138,6 +145,13 @@ export function useOpsDashboardQueryState({ initialDate }: { initialDate: string
     setSearchQuery(event.target.value);
   }, []);
 
+  const handleClearFilters = useCallback(() => {
+    setFilter(DEFAULT_FILTER);
+    setSearchQuery('');
+    urlSearchRef.current = '';
+    updateQueryParams({ filter: null, search: null });
+  }, [updateQueryParams]);
+
   const handleSortKeyChange = useCallback(
     (value: DashboardSortKey) => {
       setSortKeyState(value);
@@ -162,6 +176,7 @@ export function useOpsDashboardQueryState({ initialDate }: { initialDate: string
 
   useEffect(() => {
     const trimmed = deferredSearchQuery.trim();
+    urlSearchRef.current = trimmed;
     updateQueryParams({ search: trimmed ? trimmed : null });
   }, [deferredSearchQuery, updateQueryParams]);
 
@@ -177,6 +192,7 @@ export function useOpsDashboardQueryState({ initialDate }: { initialDate: string
     handleSelectFilter,
     handleSelectDate,
     handleSearchChange,
+    handleClearFilters,
     handleSortKeyChange,
     handleSortDirChange,
   };
