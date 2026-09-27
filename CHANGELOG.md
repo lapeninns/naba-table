@@ -16,6 +16,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Fixed
 
+- Use bounded, database-safe Google notification delivery keys so signed updates can be saved and duplicate deliveries remain idempotent.
+
 - Allow a live Google refresh to recover from a previous sync error without bypassing restaurant, connection-generation or consent checks. Disconnected and revoked connections still require reconnecting.
 
 - Verify linked Google Business Profile access on demand without saving Google content. Show live listing details separately from saved comparison status and explain when storage readiness blocks comparison refreshes, while preserving import and publishing controls.

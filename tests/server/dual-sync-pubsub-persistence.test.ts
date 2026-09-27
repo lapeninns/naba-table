@@ -5,6 +5,7 @@ import {
   persistGooglePubsubDelivery,
 } from '@/server/dual-sync/pubsub/persistence';
 
+import type { AtomicGooglePubsubReceiptPort } from '@/server/dual-sync/pubsub/persistence';
 import type { Database } from '@/types/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -30,6 +31,31 @@ const REVIEW_DELIVERY = {
 } as const;
 
 describe('atomic Pub/Sub persistence orchestration', () => {
+  it('keeps delivery keys bounded and stable while separating subscriptions and messages', async () => {
+    const recordAtomic = vi.fn<AtomicGooglePubsubReceiptPort['recordAtomic']>(async () => ({
+      processingResult: 'ignored' as const,
+      receiptInserted: true,
+      jobId: null,
+    }));
+    const first = { subscription: 'projects/p/subscriptions/s', delivery: DELIVERY };
+    for (const input of [
+      first,
+      first,
+      { ...first, subscription: 'projects/p/subscriptions/other' },
+      { ...first, delivery: { ...DELIVERY, messageId: 'other-message' } },
+      { ...first, delivery: { ...DELIVERY, messageId: 'm'.repeat(512) } },
+    ]) {
+      await persistGooglePubsubDelivery(input, { recordAtomic });
+    }
+    const keys = recordAtomic.mock.calls.map(([receipt]) => receipt.idempotencyKey);
+    expect(keys[0]).toBe(keys[1]);
+    expect(new Set(keys).size).toBe(4);
+    for (const key of keys) {
+      expect(key).toMatch(/^pubsub:[a-f0-9]{64}$/);
+      expect(key.length).toBeLessThanOrEqual(300);
+    }
+  });
+
   it('lets the database derive the exact current fence from account and location metadata', async () => {
     // Given
     const recordAtomic = vi.fn(async () => ({
@@ -55,7 +81,7 @@ describe('atomic Pub/Sub persistence orchestration', () => {
         processingResult: 'accepted',
         externalAccountId: 'account-1',
         externalLocationId: 'location-1',
-        idempotencyKey: 'pubsub:projects/p/subscriptions/s:message-1',
+        idempotencyKey: expect.stringMatching(/^pubsub:[a-f0-9]{64}$/),
         receivedAt: '2026-08-09T10:01:00.000Z',
       }),
     );
