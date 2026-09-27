@@ -506,10 +506,16 @@ path: classified-store matched/mutated totals, oldest outstanding age, retention
 whether more work is likely. The health cron performs a retention dry run; it is not permission
 to perform destructive cleanup.
 
-Record a separate external Supabase backup/PITR artifact that names the target project, backup
-status, PITR status/window, most recent successful backup timestamp, restore-test timestamp,
-and artifact digest. The checker treats this as an external gate because source and migrations
-cannot prove a remote backup policy or restore ability.
+Record an external Supabase retention artifact naming the target project, every backup
+retention window, PITR configuration (including disabled), latest successful backup,
+inspection timestamp and digest. New readiness records require `backup_retention_verified_at`
+and expire within 30 days of both retention and PITR inspection. Derive the live content TTL
+from the longest retained backup copy; do not infer a window from the number of visible backups.
+
+Disaster-recovery testing is a separate operational status. An untested restore is recorded
+as `backup_restore_verified_at = NULL` and does not block GBP availability. Never turn a
+backup inspection into a claimed restore-test timestamp. Existing append-only attestations
+retain their original hashes and expire normally; do not rewrite historical evidence.
 
 ## Replay Drill
 

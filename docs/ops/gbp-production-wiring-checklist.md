@@ -115,9 +115,15 @@ without a compatibility assessment.
   `conflicts=0`, timestamp, and digest. It must contain no tokens, envelopes, or key material.
 - Retention proof records counts from the classified-store readiness census and a request-log
   retention dry run; do not attach payload samples.
-- Backup/PITR proof is an external Supabase artifact recording project identity, backup/PITR
-  availability and window, latest backup, latest restore-test timestamp, and digest. It is not
-  satisfied by a source migration or a local test.
+- Backup retention proof is an external Supabase artifact recording project identity, all
+  backup retention windows, PITR configuration (including verified disabled state), latest
+  successful backup, inspection timestamp, and digest. A source migration or local test does
+  not establish this proof. New readiness attestations require `backup_retention_verified_at`
+  and cannot outlive either that inspection or the PITR inspection by more than 30 days.
+- Restore drills remain separate disaster-recovery evidence. Record
+  `backup_restore_verified_at = NULL` when unverified; GBP availability does not require a
+  paid restore clone. This does not establish recovery readiness or change the platform
+  recovery policy. Retention expiry, policy approvals and exact publish consent still apply.
 
 ## Staging Acceptance
 

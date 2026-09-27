@@ -6,6 +6,8 @@ All notable changes are recorded here by Release Please from Conventional Commit
 
 ### Changed
 
+- Separate Google Business Profile retention readiness from disaster-recovery drill status. Require fresh backup retention and PITR configuration evidence while preserving unverified restore dates, content expiry, immutable attestations and exact publish consent.
+
 - Make supported Google Business Profile management actions and scheduled refresh available by default, automatically refresh missing or stale comparisons on entry, and keep connection diagnostics collapsed behind the normal review workspace. Exact-change approval and retention checks remain enforced.
 
 - Redesign Communications Delivery overview, email, messages and review growth with shared responsive navigation, metric cards, channel breakdowns, filters and explicit unavailable-data states. Preserve restaurant and date-range context across channels.

@@ -51,7 +51,10 @@ describe('GBP operations document contract', () => {
       'dead-letter topic and subscription',
       'two exact remote grants',
       'staging dry-run',
-      'Backup/PITR proof',
+      'Backup retention proof',
+      'backup_retention_verified_at',
+      'backup_restore_verified_at = NULL',
+      'does not establish recovery readiness',
       'gbp-release-readiness.mjs',
     ];
 

@@ -5384,7 +5384,8 @@ export type Database = {
       };
       gbp_write_readiness_evidence_v1: {
         Row: {
-          backup_restore_verified_at: string;
+          backup_retention_verified_at: string | null;
+          backup_restore_verified_at: string | null;
           backup_window_days: number;
           evidence_hash: string;
           id: string;
@@ -5400,7 +5401,8 @@ export type Database = {
           valid_until: string;
         };
         Insert: {
-          backup_restore_verified_at: string;
+          backup_retention_verified_at?: string | null;
+          backup_restore_verified_at?: string | null;
           backup_window_days: number;
           evidence_hash?: string;
           id?: string;
