@@ -127,6 +127,7 @@ export function useFloorPlanController({
   /** The last layout save that did not fully land, for the settings save bar. */
   const [layoutSaveFailure, setLayoutSaveFailure] = useState<SettingsSaveFailure | null>(null);
   const flashTimer = useRef<number | null>(null);
+  const announceTimer = useRef<number | null>(null);
   const dragRef = useRef<{ bookingId: string; overTableId: string | null } | null>(null);
 
   const ctxBase = { nowMs, today, timezone };
@@ -191,7 +192,8 @@ export function useFloorPlanController({
   const announce = useCallback(
     (message: string) => {
       setAnnouncement('');
-      window.setTimeout(() => setAnnouncement(message), 30);
+      if (announceTimer.current) window.clearTimeout(announceTimer.current);
+      announceTimer.current = window.setTimeout(() => setAnnouncement(message), 30);
     },
     [setAnnouncement],
   );
@@ -204,8 +206,11 @@ export function useFloorPlanController({
     },
     [setFlashTableId],
   );
+
+  // Pending announce/flash timers must not set state after unmount.
   useEffect(
     () => () => {
+      if (announceTimer.current) window.clearTimeout(announceTimer.current);
       if (flashTimer.current) window.clearTimeout(flashTimer.current);
     },
     [],

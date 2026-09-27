@@ -123,17 +123,19 @@ export const SETTINGS_COMMAND_CENTER_RAIL_ITEM_INACTIVE_CLASS =
   'font-medium text-muted-foreground hover:border-border hover:bg-transparent hover:text-foreground';
 
 /**
- * Edge fade with a chevron, shown only while a sideways strip (section rail, underline tabs) hides
- * items on that side (RR2). Stops 1px short of the bottom so an underline border stays visible.
+ * Edge cue with a chevron, shown only while a sideways strip (section rail, underline tabs) hides
+ * items on that side (RR2). A solid background strip with a hairline divider rather than a
+ * gradient (custom gradients need a named Luma recipe). Stops 1px short of the bottom so an
+ * underline border stays visible.
  */
 export const SETTINGS_OVERFLOW_FADE_CLASS =
-  'pointer-events-none absolute top-0 bottom-px z-10 flex w-10 items-center text-muted-foreground';
+  'pointer-events-none absolute top-0 bottom-px z-10 flex w-7 items-center bg-background text-muted-foreground';
 
 export const SETTINGS_OVERFLOW_FADE_START_CLASS =
-  'left-0 justify-start bg-gradient-to-r from-background from-40% to-transparent ps-1';
+  'left-0 justify-start border-e border-border/60 ps-1';
 
 export const SETTINGS_OVERFLOW_FADE_END_CLASS =
-  'right-0 justify-end bg-gradient-to-l from-background from-40% to-transparent pe-1';
+  'right-0 justify-end border-s border-border/60 pe-1';
 
 /** @deprecated Use SETTINGS_OVERFLOW_FADE_CLASS (rendered by `SettingsOverflowFades`). */
 export const SETTINGS_COMMAND_CENTER_RAIL_FADE_CLASS = SETTINGS_OVERFLOW_FADE_CLASS;

@@ -186,4 +186,21 @@ describe('useFloorPlanController layout saving', () => {
     expect(result.current.dirtyIds).toEqual([]);
     expect(result.current.layoutSaveFailure).toBeNull();
   });
+
+  it('leaves no announce or flash timer running after unmount', () => {
+    vi.useFakeTimers();
+    try {
+      const hook = arrangeWithOneChange();
+      // Discarding announces after a short delay (so screen readers re-read the same text).
+      act(() => hook.result.current.actions.discardLayout());
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+      hook.unmount();
+
+      // A timer left behind would set state after unmount (and after test teardown in CI).
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

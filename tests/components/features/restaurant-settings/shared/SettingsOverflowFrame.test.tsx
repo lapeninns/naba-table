@@ -118,14 +118,14 @@ describe('SettingsOverflowFrame', () => {
 
     const endFade = container.querySelector('[data-edge="end"]');
     expect(endFade).toHaveAttribute('aria-hidden');
-    expect(endFade).toHaveClass('pointer-events-none', 'bg-gradient-to-l', 'from-background');
+    expect(endFade).toHaveClass('pointer-events-none', 'bg-background', 'border-s');
     expect(container.querySelector('[data-edge="start"]')).toBeNull();
 
     strip.scrollLeft = 280;
     act(() => {
       fireEvent.scroll(strip);
     });
-    expect(container.querySelector('[data-edge="start"]')).toHaveClass('bg-gradient-to-r');
+    expect(container.querySelector('[data-edge="start"]')).toHaveClass('bg-background', 'border-e');
     expect(container.querySelector('[data-edge="end"]')).toBeNull();
 
     // Decorative only: the fades never add names or tab stops.
